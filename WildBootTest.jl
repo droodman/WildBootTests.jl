@@ -19,7 +19,6 @@
 
 
 module Boottest
-export setdirty!  # for debugging
 export StrBoottest, setsqrt!, setptype!, setstattype!, setX₁!, setX₂!, sety₁!, setY₂!, setobswt!, setsc!, setML!, setLIML!, setARubin!, setFuller!, setκ!,
        setquietly!, setβ!, setA!, setsmall!, setscoreBS!, setB!, setnull!, setWald!, setRao!, setID!, setFEID!, setlevel!, setptol!,
        setwillplot!, setrobust!, setR₁!, setR!, setgrid!, setmadjust!, setauxwttype!, setMaxMatSize!, setrng!, getdist, getp, getb, getV, getv, getrepsFeas,
