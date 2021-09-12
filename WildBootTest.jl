@@ -18,8 +18,8 @@
 #     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-module Boottest
-export BoottestResult, WildBootTest, AuxWtType, PType, MAdjType
+module WildBootTest
+export BoottestResult, wildboottest, AuxWtType, PType, MAdjType, teststat, stattype, p, padj, reps, repsfeas, NBootClust, df, df_r, plotpoints, peak, CI, dist, statnumer, statvar, auxweights
 
 using LinearAlgebra, Random, Distributions, LoopVectorization, LazyArrays
 
@@ -181,13 +181,13 @@ mutable struct StrEstimator{T<:AbstractFloat, E<:Estimator}
   StrEstimator{T,E}(parent) where T<:AbstractFloat where E<:Estimator = new(parent, true, E==IVGMM, false, T(E==IVGMM ? 1 : 0), Matrix{T}(undef,0,0), I)
 end
 
-mutable struct StrBoottest{T<:AbstractFloat}
-	ARubin::Bool; LIML::Bool; Fuller::T; WRE::Bool; small::Bool; scorebs::Bool; auxtwtype::AuxWtType; ML::Bool; initialized::Bool; sqrt::Bool; ptype::PType; robust::Bool; NFE::Int64; FEboot::Bool; granular::Bool; NErrClustCombs::Int16; subcluster::Int8; B::Int64; BFeas::Int64; interpolating::Bool
+mutable struct StrBootTest{T<:AbstractFloat}
+	ARubin::Bool; LIML::Bool; Fuller::T; WRE::Bool; small::Bool; scorebs::Bool; auxtwtype::AuxWtType; ML::Bool; initialized::Bool;ptype::PType; robust::Bool; NFE::Int64; FEboot::Bool; granular::Bool; NErrClustCombs::Int16; subcluster::Int8; B::Int64; BFeas::Int64; interpolating::Bool
   twotailed::Bool; null::Bool; dirty::Bool; willplot::Bool; v_sd::T; bootstrapt::Bool; notplotted::Bool; FEdfadj::Bool
   level::T
   rtol::T
   confpeak::Vector{T}; maxmatsize::Float16
-  Y₂::VecOrMat{T}; X₂::VecOrMat{T}; X₁::VecOrMat{T}; y₁::Vector{T}; Sc::VecOrMat{T}; ID::VecOrMat{T}; R₁::Matrix{T}; R::Matrix{T}; wt::Union{Vector{T}, UniformScaling}
+  Y₂::VecOrMat{T}; X₂::VecOrMat{T}; X₁::VecOrMat{T}; y₁::Vector{T}; sc::VecOrMat{T}; ID::VecOrMat{T}; R₁::Matrix{T}; R::Matrix{T}; wt::Union{Vector{T}, UniformScaling}
   r₁::Vector{T}; r::Vector{T}
   IDBootData::Vector{Int64}; IDBootAll::Vector{Int64}
   κ::T
@@ -197,8 +197,8 @@ mutable struct StrBoottest{T<:AbstractFloat}
   rng::AbstractRNG
   peak::NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
 
-  Nobs::Int64; _Nobs::Int64; kZ::Int64; kY₂::Int64; kX₁::Int64; sumwt::T; NClustVar::Int8; haswt::Bool; REst::Bool; multiplier::T; smallsample::T
-		WREnonARubin::Bool; df::Int64; df_r::Int64; NumH0s::Int32; p::T; NBootClustVar::Int8; NErrClustVar::Int64; BootClust::Int8
+  sqrt::Bool; Nobs::Int64; _Nobs::Int64; kZ::Int64; kY₂::Int64; kX₁::Int64; sumwt::T; NClustVar::Int8; haswt::Bool; REst::Bool; multiplier::T; smallsample::T
+		WREnonARubin::Bool; df::Int64; df_r::Int64; NH0::Int32; p::T; NBootClustVar::Int8; NErrClustVar::Int64; BootClust::Int8
 		purerobust::Bool; Nstar::Int64; Nw::Int64; enumerate::Bool; q::Int16; interpolable::Bool; interpolate_u::Bool; kX₂::Int64; kX::Int64
   FEID::Vector{T}; _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; ustar::Matrix{T}; CT_WE::Matrix{T}
   infoBootData::Vector{UnitRange{Int64}}; infoBootAll::Vector{UnitRange{Int64}}; infoErrAll::Vector{UnitRange{Int64}}
@@ -218,7 +218,7 @@ mutable struct StrBoottest{T<:AbstractFloat}
 	FEs::Vector{StrFE{T}}
   T1L::Vector{Matrix{T}}; T1R::Vector{Matrix{T}}
 
-  StrBoottest{T}() where T<:Real = new(false, false, 0, false, false, false, rademacher, false, false, false, symmetric, false, 0, false, false, 0, false, 0, 0, false,
+  StrBootTest{T}() where T<:Real = new(false, false, 0, false, false, false, rademacher, false, false, symmetric, false, 0, false, false, 0, false, 0, 0, false,
                                        true, true, true, true, 1., true, true, true,
                                        T(.95),
                                        T(1e-6),
@@ -512,7 +512,7 @@ function InitTestDenoms!(o::StrEstimator)
 end
 
 # partial fixed effects out of a data matrix
-function partialFE!(o::StrBoottest, In::AbstractArray)
+function partialFE!(o::StrBootTest, In::AbstractArray)
 	if length(In)>0
     for f ∈ o.FEs
 			tmp = @view In[f.is,:]
@@ -520,7 +520,7 @@ function partialFE!(o::StrBoottest, In::AbstractArray)
 		end
 	end
 end
-function partialFE(o::StrBoottest, In::AbstractArray)
+function partialFE(o::StrBootTest, In::AbstractArray)
   Out = similar(In)
   if length(In)>0
     for f ∈ o.FEs
@@ -531,144 +531,12 @@ function partialFE(o::StrBoottest, In::AbstractArray)
   return Out
 end
 
-function setdirty!(o::StrBoottest, _dirty::Bool; noinitialize::Bool=false)
+function setdirty!(o::StrBootTest, _dirty::Bool; noinitialize::Bool=false)
 	o.dirty = _dirty
 	!noinitialize && (o.initialized = false)
 end
 
-function setsqrt!(o::StrBoottest, _sqrt::Bool)
-	if _sqrt < o.sqrt
-		if !o.dirty
-    	dist .^= 2
-      multiplier ^= 2
-    end
-	else
-		setdirty!(o, true)
-  end
-	o.sqrt = _sqrt
-end
-
-function setptype!(o::StrBoottest, ptype::PType)
-  o.ptype = ptype
-	o.twotailed = o.ptype==symmetric || o.ptype==equaltail
-end
-
-function setsbootstrapc!(o::StrBoottest, bootstrapc::Bool)
-  o.bootstrapt = !bootstrapc
-	setdirty!(o, true)
-end
-
-function setX₁!(o::StrBoottest{T}, X₁::AbstractVecOrMat) where T
-	o.X₁ = eltype(X₁)==T ? X₁ : T.(X₁); setdirty!(o, true)
-end
-function setX₂!(o::StrBoottest{T}, X₂::AbstractVecOrMat) where T
-	o.X₂ = eltype(X₂)==T ? X₂ : T.(X₂)
-  setdirty!(o, true)
-end
-function sety₁!(o::StrBoottest{T}, y₁::AbstractVector) where T
-	o.y₁ = eltype(y₁)==T ? y₁ : T.(y₁); setdirty!(o, true)
-end
-function setY₂!(o::StrBoottest{T}, Y₂::AbstractVecOrMat) where T
-	o.Y₂ = eltype(Y₂)==T ? Y₂ : T.(Y₂); setdirty!(o, true)
-end
-function setobswt!(o::StrBoottest{T}, wt::Union{AbstractVector,UniformScaling{Bool}}, fweights::Bool) where T
-	o.wt = isa(wt, UniformScaling) ? I : eltype(wt)==T ? wt : T.(wt)
-  o.fweights = fweights
-  setdirty!(o, true)
-end
-function setsc!(o::StrBoottest{T}, Sc::AbstractMatrix) where T
-	o.Sc = eltype(Sc)==T ? Sc : T.(Sc); setdirty!(o, true)
-end
-function setML!(o::StrBoottest; ML::Bool)
-	o.ML  = ML; setdirty!(o, true)
-	ML && setscoreBS(true)
-end
-function setLIML!(o::StrBoottest, LIML::Bool)
-	o.LIML = LIML; setdirty!(o, true)
-end
-function setARubin!(o::StrBoottest, ARubin::Bool)
-	o.ARubin = ARubin; setdirty!(o, true)
-end
-function setFuller!(o::StrBoottest, Fuller::Number)
-	o.Fuller = Fuller
-  if iszero(Fuller)
-    setdirty!(o, true)
-  else
-    setLIML!(o,true)
-  end
-end
-function setκ!(o::StrBoottest, κ::Number)  # κ as in k-class
-	o.κ = κ; setdirty!(o, true)
-end
-function setβ!(o::StrBoottest, β::AbstractVector)
-	o.β = β; setdirty!(o, true)
-end
-function setA!(o::StrBoottest, A::AbstractMatrix)
-	o.A = A; setdirty!(o, true)
-end
-function setsmall!(o::StrBoottest, small::Bool)
-	o.small = small; setdirty!(o, true)
-end
-function setscoreBS!(o::StrBoottest, scorebs::Bool)
-	o.scorebs = scorebs; setdirty!(o, true)
-end
-function setB!(o::StrBoottest, B::Integer)
-	o.B = B
-	iszero(B) && setscoreBS!(o, true)
-	setdirty!(o, true)
-end
-function setnull!(o::StrBoottest, null::Bool)
-	o.null = null; setdirty!(o, true)
-end
-function setWald!(o::StrBoottest) # set-up for classical Wald test
-	o.scorebs = true; o.B = 0; o.null = false; setdirty!(o, true)
-end
-function setRao!(o::StrBoottest) # set-up for classical Rao test
-	o.scorebs = true; o.B = 0; o.null = true; setdirty!(o, true)
-end
-function setID!(o::StrBoottest{T}, ID::AbstractVecOrMat; NBootClustVar::Integer=1, NErrClustVar::Integer=NBootClustVar) where T
-	o.ID = eltype(ID)==T ? ID : T.(ID); o.NBootClustVar = NBootClustVar; o.NErrClustVar = NErrClustVar; setdirty!(o, true)
-	length(ID)>0 && (o.robust = true)
-end
-function setFEID!(o::StrBoottest{T}, ID::AbstractVector; NFE::Integer=0, FEdfadj::Bool=true) where T
-	o.FEID = eltype(ID)==T ? ID : T.(ID); o.NFE = NFE; o.FEdfadj = FEdfadj; setdirty!(o, true)
-end
-
-setlevel!(o::StrBoottest, level::Number) = (o.level = level)
-setrtol!(o::StrBoottest, rtol::Number) = (o.rtol = rtol)  # called "ptol" in Mata
-setwillplot!(o::StrBoottest, willplot::Bool) = (o.willplot = willplot)
-
-function setrobust!(o::StrBoottest{T} where T, robust::Bool)
-	o.robust = robust
-	!o.robust && setID!(o, zeros(T,0,0), 1, 1)
-	setdirty!(o, true)
-end
-function setR₁!(o::StrBoottest{T}, R₁::AbstractMatrix, r₁::AbstractVector) where T
-	o.R₁ = eltype(R₁)==T ? R₁ : T.(R₁); o.r₁ = eltype(r₁)==T ? r₁ : T.(r₁); setdirty!(o, true)
-end
-function setR!(o::StrBoottest{T}, R::AbstractMatrix, r::AbstractVector) where T
-	o.R = eltype(R)==T ? R : T.(R); o.r = eltype(r)==T ? r : T.(r); ; o.q = rows(R); setdirty!(o, true)  # q can differ from df in ARubin test
-end
-function setgrid!(o::StrBoottest{T}, gridmin::Union{Vector{S},Vector{Union{S,Missing}}} where S, gridmax::Union{Vector{S},Vector{Union{S,Missing}}} where S, gridpoints::Union{Vector{S},Vector{Union{S,Missing}}} where S) where T
-	o.gridmin = map(x->ismissing(x) ? missing : T(x), gridmin)
-	o.gridmax = map(x->ismissing(x) ? missing : T(x), gridmax)
-  o.gridpoints = map(x->ismissing(x) ? missing : Int32(x), gridpoints)
-end
-function setmadjust!(o::StrBoottest, madjtype::MAdjType, NumH0s::Integer=1)
-	o.NumH0s = NumH0s
-  o.madjtype = madjtype
-end
-function setauxwttype!(o::StrBoottest, auxtwtype::AuxWtType)
-	o.auxtwtype = auxtwtype; setdirty!(o, true)
-end
-function setrng!(o::StrBoottest, rng::AbstractRNG)
-	o.rng = rng
-end
-function setmaxmatsize!(o::StrBoottest, maxmatsize::Number)
-	o.maxmatsize = maxmatsize; setdirty!(o, true)
-end
-setauxwttype!
-function getdist(o::StrBoottest; diststat::String="")
+function getdist(o::StrBootTest; diststat::String="")
 	o.dirty && boottest!(o)
 	if diststat == "numer"
 		_numer = isone(o.v_sd) ? o.numer : o.numer / o.v_sd
@@ -708,7 +576,7 @@ function sumlessabs(x, v)
 end
 
 # get p valuo. Robust to missing bootstrapped values interpreted as +infinity.
-function getp(o::StrBoottest{T}; classical::Bool=false) where T
+function getp(o::StrBootTest{T}; classical::Bool=false) where T
 	o.dirty && boottest!(o)
 	tmp = o.dist[1]
 	isnan(tmp) && return tmp
@@ -739,55 +607,55 @@ function getp(o::StrBoottest{T}; classical::Bool=false) where T
 end
 
 # numerator for full-sample test stat
-function getb(o::StrBoottest)
+function getb(o::StrBootTest)
 	o.dirty && boottest!(o)
 	@views isone(o.v_sd) ? o.numer[:,1] : o.numer[:,1] / o.v_sd
 end
 
 # denominator for full-sample test stat
-function getV(o::StrBoottest)
+function getV(o::StrBootTest)
 	o.dirty && boottest!(o)
 	o.statDenom / ((isone(o.v_sd) ? o.smallsample : o.v_sd^2 * o.smallsample) * (o.sqrt ? o.multiplier^2 : o.multiplier) * o.df)
 end
 
 # wild weights
-getv(o::StrBoottest) = @views isone(o.v_sd) ? o.v[:,2:end] : o.v[:,2:end] / o.v_sd
+getv(o::StrBootTest) = @views isone(o.v_sd) ? o.v[:,2:end] : o.v[:,2:end] / o.v_sd
 
 # Return number of bootstrap replications with feasible results
 # Returns 0 if getp() not yet accessed, or doing non-bootstrapping tests
-getrepsfeas(o::StrBoottest) = o.BFeas
-getNBootClust(o::StrBoottest) = o.Nstar
-getreps(o::StrBoottest) = o.B  # return number of replications, possibly reduced to 2^G
+getrepsfeas(o::StrBootTest) = o.BFeas
+getNBootClust(o::StrBootTest) = o.Nstar
+getreps(o::StrBootTest) = o.B  # return number of replications, possibly reduced to 2^G
 
-function getpadj(o::StrBoottest{T}; classical::Bool=false) where T
+function getpadj(o::StrBootTest{T}; classical::Bool=false) where T
 	_p = o.dirty || classical ? getp(o, classical=classical) : o.p
-	if o.madjtype==bonferroni min(one(T), o.NumH0s * _p)
-  elseif o.madjtype==sidak  one(T) - (one(T) - _p) ^ o.NumH0s
+	if o.madjtype==bonferroni min(one(T), o.NH0 * _p)
+  elseif o.madjtype==sidak  one(T) - (one(T) - _p) ^ o.NH0
   else _p
 	end
 end
 
-function getstat(o::StrBoottest)
+function getstat(o::StrBootTest)
 	o.dirty && boottest!(o)
 	o.multiplier * o.dist[1]
 end
-function getdf(o::StrBoottest)
+function getdf(o::StrBootTest)
 	o.dirty && boottest!(o)
 	o.df
 end
-function getdf_r(o::StrBoottest)
+function getdf_r(o::StrBootTest)
 	o.dirty && boottest!(o)
 	o.df_r
 end
-function getplot(o::StrBoottest)
+function getplot(o::StrBootTest)
 	o.notplotted && plot(o)
 	(X=o.plotX, p=o.plotY)
 end
-function getpeak(o::StrBoottest)  # x and y values of confidence curve peak (at least in OLS && ARubin)
+function getpeak(o::StrBootTest)  # x and y values of confidence curve peak (at least in OLS && ARubin)
   o.notplotted && plot(o)
 	o.peak
 end
-function getCI(o::StrBoottest)
+function getCI(o::StrBootTest)
 	o.notplotted && plot(o)
 	o.CI
 end
@@ -834,7 +702,7 @@ macro clustAccum!(X, c, Y)  # efficiently add a cluster combination-specific ter
   end
 end
 
-function Init!(o::StrBoottest{T}) where T  # for efficiency when varying r repeatedly to make CI, do stuff once that doesn't depend on r
+function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repeatedly to make CI, do stuff once that doesn't depend on r
   o.Nobs = rows(o.X₁)
   o.NClustVar = cols(o.ID)
   o.kX = (o.kX₁ = cols(o.X₁)) + (o.kX₂ = cols(o.X₂))
@@ -1177,7 +1045,7 @@ function Init!(o::StrBoottest{T}) where T  # for efficiency when varying r repea
 
   o.small && (o.df_r = o.NClustVar>0 ? minN - 1 : o._Nobs - o.kZ - o.NFE)
 
-  isone(o.df) && setsqrt!(o,true)  # work with t/z stats instead of F/chi2
+  o.sqrt = isone(o.df)  # work with t/z stats instead of F/chi2
 
   if o.small
     o.multiplier = (o.smallsample = (o._Nobs - o.kZ - Int(o.FEdfadj) * o.NFE) / (o._Nobs - Int(o.robust))) / o.df  # divide by # of constraints because F stat is so defined
@@ -1209,7 +1077,7 @@ function Init!(o::StrBoottest{T}) where T  # for efficiency when varying r repea
 end
 
 # main routine
-function boottest!(o::StrBoottest{T}) where T
+function boottest!(o::StrBootTest{T}) where T
 	if !o.initialized
     Init!(o)
   elseif !o.null
@@ -1233,12 +1101,12 @@ function boottest!(o::StrBoottest{T}) where T
 
   o.BFeas = isnan(o.dist[1]) ? 0 : sum(.!(isnan.(o.dist) .| isinf.(o.dist))) - 1
 	o.distCDR = zeros(T,0,0)
-	setdirty!(o, false, noinitialize=false)
+  o.dirty = false
 	o.initialized = true
 end
 
 # if not imposing null and we have returned to boottest!(), then df=1 or 2; we're plotting or finding CI, and only test stat, not distribution, changes with r
-function NoNullUpdate!(o::StrBoottest{T} where T)
+function NoNullUpdate!(o::StrBootTest{T} where T)
   if o.WREnonARubin
     o.numer[:,1] = o.R * o.DGP.Rpar * o.βs[1] - o.r
   elseif o.ARubin
@@ -1251,7 +1119,7 @@ function NoNullUpdate!(o::StrBoottest{T} where T)
 end
 
 # compute bootstrap-c denominator from all bootstrap numerators
-function UpdateBootstrapcDenom!(o::StrBoottest{T} where T, w::Integer)
+function UpdateBootstrapcDenom!(o::StrBootTest{T} where T, w::Integer)
   if isone(w)
 		tmp = o.numer[:,1]
     o.statDenom = o.numer * o.numer' - tmp * tmp'
@@ -1273,7 +1141,7 @@ end
 # draw wild weight matrix of width _B. If first=true, insert column of 1s at front. For non-Anderson-Rubin WRE, subtract 1 from all
 const ϕ = (1 + √5)/2
 
-function MakeWildWeights!(o::StrBoottest{T}, _B::Integer; first::Bool=true) where T
+function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) where T
 	if _B>0  # in scoretest or waldtest WRE, still make v a col of 1's
 		if o.enumerate
 			o.v = [ones(o.Nstar) count_binary(o.Nstar, -1-Int(o.WREnonARubin), 1-Int(o.WREnonARubin))]  # complete Rademacher set
@@ -1305,7 +1173,7 @@ end
 # For WRE, and with reference to Y = [y₁ Z], given 0-based columns indexes within it, ind1, ind2, return all bootstrap realizations of Y[:,ind1]'((1-κ)*M_Zperp-κ*M_Xpar)*Y[:,ind2] for κ constant across replications
 # ind1 can be a rowvector
 # (only really the Hessian when we narrow Y to Z)
-function HessianFixedκ(o::StrBoottest{T}, ind1::Vector{S} where S<:Integer, ind2::Integer, κ::Number, w::Integer) where T
+function HessianFixedκ(o::StrBootTest{T}, ind1::Vector{S} where S<:Integer, ind2::Integer, κ::Number, w::Integer) where T
   retval = Matrix{T}(undef, length(ind1), cols(o.v))
   for i ∈ eachindex(ind1, axes(retval,1))
     _HessianFixedκ!(o, view(retval,i:i,:), ind1[i], ind2, κ, w)
@@ -1313,7 +1181,7 @@ function HessianFixedκ(o::StrBoottest{T}, ind1::Vector{S} where S<:Integer, ind
   retval
 end
 
-function _HessianFixedκ!(o::StrBoottest, dest::AbstractMatrix, ind1::Integer, ind2::Integer, κ::Number, w::Integer)
+function _HessianFixedκ!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer, ind2::Integer, κ::Number, w::Integer)
   if !(o.Repl.Yendog[ind1+1] || o.Repl.Yendog[ind2+1])  # if both vars exog, result = order-0 term only, same for all draws
     !iszero(κ) && (@views coldot!(retval, o.Repl.XZ[:,ind1], o.Repl.invXXXZ[:,ind2]))
     if !isone(κ)
@@ -1370,7 +1238,7 @@ end
 # With reference to notional Y = [y₁ Z], given 0-based columns index within it, ind1, and a matrix βs of all the bootstrap estimates, return all bootstrap realizations of P_X * Y[:,ind1]_g ' u\hat_1g^*b
 # for all groups in the intersection of all error clusterings
 # return value has one row per cap cluster, one col per bootstrap replication
-function Filling(o::StrBoottest{T}, ind1::Integer, βs::AbstractMatrix) where T
+function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 	if o.granular
 		if o.Nw == 1  # create or avoid NxB matrix?
 			PXYstar = iszero(ind1) ? o.Repl.PXy₁ : o.Repl.PXZ[:,ind1]
@@ -1471,7 +1339,7 @@ function Filling(o::StrBoottest{T}, ind1::Integer, βs::AbstractMatrix) where T
 	retval
 end
 
-function PrepWRE!(o::StrBoottest)
+function PrepWRE!(o::StrBootTest)
 	Estimate!(o.DGP, o.null ? [o.r₁ ; o.r] : o.r₁)
   MakeResiduals!(o.DGP)
 	o.Ü₂par = o.DGP.Ü₂ * o.Repl.RparY  # XXX XB(o.DGP.Ü₂, o.Repl.RparY)
@@ -1518,7 +1386,7 @@ function PrepWRE!(o::StrBoottest)
 	end
 end
 
-function MakeWREStats!(o::StrBoottest{T}, w::Integer) where T
+function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 	if isone(o.Repl.kZ)  # optimized code for 1 coefficient in bootstrap regression
 		if o.LIML
       YY₁₁   = HessianFixedκ(o, [0], 0, zero(T), w)  # κ=0 => Y*MZperp*Y
@@ -1648,7 +1516,7 @@ end
 
 
 # Construct stuff that depends linearly or quadratically on r, possibly by interpolation
-function MakeInterpolables!(o::StrBoottest{T} where T)
+function MakeInterpolables!(o::StrBootTest{T} where T)
   if o.interpolable
     if iszero(length(o.anchor))  # first call? save current r as permanent anchor for interpolation
       o.anchor = o.r
@@ -1742,9 +1610,9 @@ function MakeInterpolables!(o::StrBoottest{T} where T)
 end
 
 # Construct stuff that depends linearly or quadratically on r and doesn't depend on v. No interpolation.
-function _MakeInterpolables!(o::StrBoottest{T}, thisr::AbstractVector) where T
+function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
   if o.ML
-		o.uXAR = o.Sc * (o.AR = o.A * o.R')
+		o.uXAR = o.sc * (o.AR = o.A * o.R')
 	else
     if o.ARubin
       Estimate!(o.DGP, thisr)
@@ -1818,7 +1686,7 @@ function _MakeInterpolables!(o::StrBoottest{T}, thisr::AbstractVector) where T
 end
 
 # compute stuff depending linearly on v, needed to prep for interpolation
-function MakeNumerAndJ!(o::StrBoottest{T}, w::Integer, r::AbstractVector=Vector{T}(undef,0)) where T  # called to *prepare* interpolation, or when w>1, in which case there is no interpolation
+function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{T}(undef,0)) where T  # called to *prepare* interpolation, or when w>1, in which case there is no interpolation
   o.numerw = o.scorebs ?
                (o.B>0 ?
                  o.SuwtXA'o.v :
@@ -1864,7 +1732,7 @@ function MakeNumerAndJ!(o::StrBoottest{T}, w::Integer, r::AbstractVector=Vector{
   end
 end
 
-function MakeNonWREStats!(o::StrBoottest{T}, w::Integer) where T
+function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
   w > 1 && MakeNumerAndJ!(o, w)
   !o.bootstrapt && return
 
@@ -2058,14 +1926,12 @@ end
 @inline panelsum(X₁::AbstractArray, X₂::AbstractArray, wt::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer) =
   iszero(length(X₁)) ? panelsum(X₂,wt,info) :
   iszero(length(X₂)) ? panelsum(X₁,wt,info) :
-#                       hcat(panelsum(X₁,wt,info), panelsum(X₂,wt,info))
                        ApplyArray(hcat, panelsum(X₁,wt,info), panelsum(X₂,wt,info))
 
 @inline panelsum(X₁::AbstractArray, X₂::AbstractArray, wt::UniformScaling, info::Vector{UnitRange{T}} where T<:Integer) =
   iszero(length(X₁)) ? panelsum(X₂,info) :
   iszero(length(X₂)) ? panelsum(X₁,info) :
-#                      hcat(panelsum(X₁,info), panelsum(X₂,info))
-                      ApplyArray(hcat, panelsum(X₁,info), panelsum(X₂,info))
+                       ApplyArray(hcat, panelsum(X₁,info), panelsum(X₂,info))
 
 # Return matrix that counts from 0 to 2^N-1 in binary, one column for each number, one row for each binary digit
 # except use provided lo and hi values for 0 and 1
@@ -2077,7 +1943,7 @@ count_binary(N::Integer, lo::Number, hi::Number) = N<=1 ? [lo  hi] :
 
 # cross-tab sum of a column vector w.r.t. given panel info and fixed-effect var
 # one row per FE, one col per other grouping
-function crosstabFE(o::StrBoottest{T}, v::AbstractVector, info::Vector{UnitRange{Int64}}) where T
+function crosstabFE(o::StrBootTest{T}, v::AbstractVector, info::Vector{UnitRange{Int64}}) where T
 	retval = zeros(T, o.NFE, rows(info))
   if length(info)>0
     for i ∈ 1:rows(info)
@@ -2099,7 +1965,7 @@ end
 # M should have one row for each all-cluster-var (including bootstrap cluster) intersection and one col for each bootstrap cluster
 # *** v needs to have been panelsum'd with infoAllData
 # XXX this should be reducible to a single line of the form M[inds] .-= v where inds is pre-computed
-function crosstabCapstarMinus!(o::StrBoottest, M::AbstractMatrix, v::AbstractVector)
+function crosstabCapstarMinus!(o::StrBootTest, M::AbstractMatrix, v::AbstractVector)
   isa(M, ApplyArray) && (M = M[:,:])  # can't edit lazy array
 	if o.subcluster>0  # crosstab c,c* is wide
 		for i ∈ eachindex(o.infoErrAll, axes(M,1))
@@ -2118,16 +1984,16 @@ end
 # given a pre-configured boottest linear model with one-degree null imposed, compute distance from target p value of boostrapped one associated with given value of r
 # used with optimize() to construct confidence intervals
 # performs no error checking
-function r_to_p(o::StrBoottest{T}, r::AbstractVector{T}) where T
+function r_to_p(o::StrBootTest{T}, r::AbstractVector{T}) where T
 	o.r = r
-	setdirty!(o, true, noinitialize=true) # set dirty = 1, but leave initialized=0, which we want when only changing r
+  o.dirty = true
 	return getpadj(o)
 end
 
 
 # Chandrupatla 1997, "A new hybrid quadratic-bisection algorithm for finding the zero of a nonlinear function without using derivatives"
 # x₁, x₂ must bracket the true value, with f₁=f(x₁) and f₂=f(x₂)
-function search(o::StrBoottest{T}, α::T, f₁::T, x₁::T, f₂::T, x₂::T) where T<:Real
+function search(o::StrBootTest{T}, α::T, f₁::T, x₁::T, f₂::T, x₂::T) where T<:Real
 	t = half = T(.5)
 	while true
 		x = x₁ + t * (x₂ - x₁)
@@ -2153,7 +2019,7 @@ function search(o::StrBoottest{T}, α::T, f₁::T, x₁::T, f₂::T, x₂::T) wh
 end
 
 # derive wild bootstrap-based CI, for case of linear model with one-degree null imposed.
-function plot(o::StrBoottest{T}) where T
+function plot(o::StrBootTest{T}) where T
 	_r = copy(o.r)
   α = one(T) - o.level
   o.gridpoints[ismissing.(o.gridpoints)] .= 25
@@ -2309,19 +2175,6 @@ function plot(o::StrBoottest{T}) where T
 	o.notplotted = false
 end
 
-# void boottest_stata(string scalar statname, string scalar dfname, string scalar dfrname, string scalar pname, string scalar padjname, string scalar ciname,
-# 	string scalar plotname, string scalar peakname, real scalar level, real scalar ptol, real scalar ML, real scalar LIML, real scalar Fuller,
-# 	real scalar kappa, real scalar ARubin, real scalar null, real scalar scorebs, string scalar auxweighttype, string scalar ptype, string scalar statistic, string scalar madjtype, real scalar NumH0s,
-# 	string scalar X1names, string scalar Y2names, string scalar Ynames, string scalar bname, string scalar Aname,
-# 	string scalar X2names, string scalar samplename, string scalar scnames, real scalar robust, string scalar IDnames, real scalar NBootClustVar, real scalar NErrClustVar,
-# 	string scalar FEname, real scalar NFE, real scalar FEdfadj, string scalar wtname, string scalar obswttype, string scalar R1name, string scalar r1name, string scalar Rname, string scalar rname, real scalar B, string scalar repsname, string scalar repsfeasname,
-# 	real scalar small, string scalar diststat, string scalar distname, string scalar gridmin, string scalar gridmax, string scalar gridpoints, real scalar maxmatsize,
-# 	string scalar b0name, string scalar V0name, string scalar vname, string scalar NBootClustname) {
-# 	real matrix X2, ID, FEID, sc, Y2, X1
-# 	real colvector wt, Y
-# 	class boottest scalar M
-# 	pragma unset ID; pragma unset wt; pragma unset Y2; pragma unset X1; pragma unset Y; pragma unset X2; pragma unset sc
-
 # Julia-level interface; no error checking yet
 struct BoottestResult{T}
   stat::T; stattype::String
@@ -2338,7 +2191,7 @@ struct BoottestResult{T}
   auxweights::Union{Nothing,Matrix{T}}
 end
 
-stat(o::BoottestResult) = o.stat
+teststat(o::BoottestResult) = o.stat
 stattype(o::BoottestResult) = o.stattype
 p(o::BoottestResult) = o.p
 padj(o::BoottestResult) = o.padj
@@ -2347,7 +2200,7 @@ repsfeas(o::BoottestResult) = o.repsfeas
 NBootClust(o::BoottestResult) = o.NBootClust
 df(o::BoottestResult) = o.df
 df_r(o::BoottestResult) = o.df_r
-plot(o::BoottestResult) = o.plot
+plotpoints(o::BoottestResult) = o.plot
 peak(o::BoottestResult) = o.peak
 CI(o::BoottestResult) = o.CI
 dist(o::BoottestResult) = o.dist
@@ -2356,23 +2209,23 @@ statvar(o::BoottestResult) = o.V
 auxweights(o::BoottestResult) = o.auxweights
 
 
-function WildBootTest(T::DataType,
+function wildboottest(T::DataType,
                       H₀::Tuple{AbstractMatrix, AbstractVector};
-                      H₁::Tuple{AbstractMatrix, AbstractVector}=(Matrix{Float32}(undef,0,0), Vector{Float32}(undef,0)),
+                      H₁::Tuple{AbstractMatrix, AbstractVector}=(zeros(T,0,0), zeros(T,0)),
                       resp::AbstractVector,
-                      predexog::AbstractVecOrMat=Matrix{Float32}(undef,0,0),
-                      predendog::AbstractVecOrMat=Matrix{Float32}(undef,0,0),
-                      inst::AbstractVecOrMat=Matrix{Float32}(undef,0,0),
-#                      scores::AbstractVecOrMat=Matrix{Float32}(undef,0,0),
-                      clustid::AbstractVecOrMat=Matrix{Float32}(undef,0,0),  # bootstrap-only clust vars, then boot&err clust vars, then err-only clust vars
+                      predexog::AbstractVecOrMat=zeros(T,0,0),
+                      predendog::AbstractVecOrMat=zeros(T,0,0),
+                      inst::AbstractVecOrMat=zeros(T,0,0),
+                      scores::AbstractVecOrMat=Matrix{Float32}(undef,0,0),
+                      clustid::AbstractVecOrMat=zeros(T,0,0),  # bootstrap-only clust vars, then boot&err clust vars, then err-only clust vars
                       nbootclustvar::Integer=1,
-                      nerrclustvar::Integer=1,
+                      nerrclustvar::Integer=nbootclustvar,
                       hetrobust::Bool=false,
                       feid::AbstractVector=Vector(undef,0),
+                      fedfadj::Bool=false,
                       obswt::Union{AbstractVector,UniformScaling{Bool}}=I,
                       fweights::Bool=false,
                       maxmatsize::Number=0,
-                      ML::Bool=false,
                       ptype::PType=symmetric,
                       bootstrapc::Bool=false,
                       LIML::Bool=false,
@@ -2389,6 +2242,9 @@ function WildBootTest(T::DataType,
                       rtol::Number=1e-6,
                       madjtype::MAdjType=none,
                       NH0::Integer=1,
+                      ML::Bool=false,
+                      β::AbstractVector=zeros(T,0),
+                      A::AbstractMatrix=zeros(T,0,0),
                       gridmin::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Number = [missing],
                       gridmax::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Number = [missing],
                       gridpoints::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Integer = [missing],
@@ -2396,48 +2252,60 @@ function WildBootTest(T::DataType,
                       getplot::Bool=getCI,
                       getauxweights::Bool=false)
 
-  #setβ!,  setA!, setML!, setsc! for ML
-
-  M = Boottest.StrBoottest{T}()
-  setR!(M,H₀...)
-  rows(H₁[1])>0 && setR₁!(M,H₁...)
-  setmaxmatsize!(M,maxmatsize)
-  sety₁!(M,resp)
-  setX₁!(M,predexog)
-  setX₂!(M,inst)
-  setY₂!(M,predendog)
-  setsbootstrapc!(M,bootstrapc)
-  setobswt!(M,obswt,fweights)
-  setLIML!(M,LIML)
-  if iszero(Fuller) setLIML!(M,LIML) else setFuller!(M,Fuller) end
-  setARubin!(M,ARubin)
-  setκ!(M,κ)
-  setsmall!(M,small)
-  setscoreBS!(M,scorebs)
-  setB!(M,reps)
-  setnull!(M,imposenull)
-  setauxwttype!(M,auxwttype)
-  setptype!(M,ptype)
-  setrng!(M,rng)
-  setmaxmatsize!(M,maxmatsize)
-  setID!(M, clustid, NBootClustVar=nbootclustvar, NErrClustVar=nerrclustvar)
-  setFEID!(M,feid)
-  setrtol!(M,rtol)
-  setlevel!(M,level)
-  setmadjust!(M,madjtype,NH0)
-  setwillplot!(M,getplot)
-  setrobust!(M, hetrobust || nerrclustvar>0)
-  if rows(H₀[1])==2
-    ismissing.(gridmin)==[true] && (gridmin = [missing; missing])
-    ismissing.(gridmax)==[true] && (gridmax = [missing; missing])
-    ismissing.(gridpoints)==[true] && (gridpoints = [missing; missing])
+  M = WildBootTest.StrBootTest{T}()
+  M.R, M.r = H₀
+  M.q = rows(M.R)
+  M.R₁, M.r₁ = H₁
+  M.maxmatsize = maxmatsize
+  M.y₁ = eltype(resp)==T ? resp : T.(resp)
+  M.X₁ = eltype(predexog)==T ? predexog : T.(predexog)
+  M.X₂ = eltype(inst)==T ? inst : T.(inst)
+  M.Y₂ = eltype(predendog)==T ? predendog : T.(predendog)
+  M.bootstrapt = !bootstrapc
+  M.wt = isa(obswt, UniformScaling) ? I : eltype(obswt)==T ? obswt : T.(obswt)
+  M.fweights = fweights
+  M.LIML = LIML || !iszero(Fuller)
+  M.Fuller = Fuller
+  M.ARubin = ARubin
+  M.κ = κ
+  M.small = small
+  M.B = reps
+  M.scorebs = scorebs || iszero(reps) || ML
+  M.null = imposenull
+  M.auxtwtype = auxwttype
+  M.ptype = ptype
+	M.twotailed = ptype==symmetric || ptype==equaltail
+  M.rng = rng
+  M.ID = eltype(clustid)==T ? clustid : T.(clustid)
+  M.NBootClustVar = nbootclustvar
+  M.NErrClustVar = nerrclustvar
+	M.FEID = eltype(feid)==T ? feid : T.(feid)
+  M.FEdfadj = fedfadj
+  M.rtol = rtol
+  M.level = level
+  M.NH0 = NH0
+  M.madjtype = madjtype
+  M.willplot = getplot
+	M.robust = hetrobust || nerrclustvar>0
+  M.β = β
+  M.A = A
+  M.ML = ML
+  M.sc = eltype(scores)==T ? scores : T.(scores)
+	if rows(H₀[1])==2
+    _gridmin    = ismissing.(gridmin)==[true] ? [missing; missing] : gridmin
+    _gridmax    = ismissing.(gridmax)==[true] ? [missing; missing] : gridmax
+    _gridpoints = ismissing.(gridpoints)==[true] ? [missing; missing] : gridpoints
+  else
+    _gridmin, _gridmax, _gridpoints = gridmin, gridmax, gridpoints
   end
-  setgrid!(M,gridmin,gridmax,gridpoints)
+	M.gridmin = map(x->ismissing(x) ? missing : T(x), _gridmin)
+	M.gridmax = map(x->ismissing(x) ? missing : T(x), _gridmax)
+  M.gridpoints = map(x->ismissing(x) ? missing : Int32(x), _gridpoints)
 
   if getplot || (level<1 && getCI)
-		plot = getplot ? Boottest.getplot(M) : nothing
-		peak = Boottest.getpeak(M)
-		CI = level<1 & getCI ? Boottest.getCI(M) : nothing
+		plot = getplot ? WildBootTest.getplot(M) : nothing
+		peak = WildBootTest.getpeak(M)
+		CI = level<1 & getCI ? WildBootTest.getCI(M) : nothing
   else
 		CI = plot = peak = nothing
   end
@@ -2445,296 +2313,11 @@ function WildBootTest(T::DataType,
   BoottestResult{T}(getstat(M),
                     isone(rows(H₀[1])) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
                     getp(M), getpadj(M), getreps(M), getrepsfeas(M), getNBootClust(M), getdf(M), getdf_r(M), plot, peak, CI,
-                    Boottest.getdist(M),
+                    WildBootTest.getdist(M),
                     getb(M), getV(M),
-                    getauxweights && reps>0 ? Boottest.getauxweights(M) : nothing)
+                    getauxweights && reps>0 ? WildBootTest.getauxweights(M) : nothing)
 end
 
-WildBootTest(H₀::Tuple{AbstractMatrix, AbstractVector}; args...) = WildBootTest(Float32, H₀; args...)
+wildboottest(H₀::Tuple{AbstractMatrix, AbstractVector}; args...) = wildboottest(Float32, H₀; args...)
+
 end # module
-
-
-using StatFiles, StatsModels, DataFrames, DataFramesMeta, BenchmarkTools, Plots, CategoricalArrays, Random
-
-df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Macros\collapsed.dta"))
-dropmissing!(df)
-f = @formula(hasinsurance ~ 1 + selfemployed + post + post_self)
-f = apply_schema(f, schema(f, df, Dict(:hasinsurance => ContinuousTerm)))
-resp, predexog = modelcols(f, df)
-
-println("\nboottest post_self=.04, weight(webb)")
-test = Boottest.WildBootTest(([0 0 0 1.], [.04]); resp, predexog, clustid=df.year, auxwttype=Boottest.webb)
-println("t=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-histogram(Boottest.dist(test))
-
-println("\nboottest post_self=.04, weight(webb) reps(9999999) noci")
-test = Boottest.WildBootTest(([0 0 0 1.], [.04]); resp, predexog, clustid=df.year, reps=9999999, auxwttype=Boottest.webb, getCI=false)
-println("t=$(Boottest.stat(test)) p=$(Boottest.p(test))")
-
-
-println("\nregress hasinsurance selfemployed post post_self, cluster(year)")
-println("boottest (post_self=.05) (post=-.02), reps(9999) weight(webb)")
-test = Boottest.WildBootTest(([0 0 0 1.; 0 0 1. 0], [0.05; -0.02]); resp, predexog, clustid=df.year, reps=9999, auxwttype=Boottest.webb)
-println("F=$(Boottest.stat(test)) p=$(Boottest.p(test))")
-gr()
-x, p = Boottest.plot(test)
-plot(contour(x[25:25:625,1], x[1:25,2], reshape(p,25,25), fill=true))
-
-
-df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Macros\nlsw88.dta"))[:,[:wage; :tenure; :ttl_exp; :collgrad; :industry]]
-dropmissing!(df)
-desc = describe(df, :eltype)
-for i in axes(desc, 1)  # needed only for lm()
-  if desc[i,:eltype] == Float32
-    sym = desc[i,:variable]
-    @transform!(df, @byrow $sym=Float64($sym))
-  end
-end
-sort!(df, :industry)
-f = @formula(wage ~ 1 + tenure + ttl_exp + collgrad)
-f = apply_schema(f, schema(f, df))
-resp, predexog = modelcols(f, df)
-
-println("\nconstraint 1 ttl_exp = .2")
-println("cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(industry)")
-println("boottest tenure")
-test = Boottest.WildBootTest(([0 1. 0 0], [.0]); H₁=([0 0 1. 0], [.2]), resp, predexog, clustid=df.industry)
-println("t=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-
-println("\nivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)")
-println("boottest tenure, ptype(equaltail)")
-df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Macros\nlsw88.dta"))
-df = df[:, [:wage; :tenure; :ttl_exp; :collgrad; :industry; :union]]
-dropmissing!(df)
-sort!(df, :industry)
-f = @formula(wage ~ 1 + ttl_exp + collgrad)
-f = apply_schema(f, schema(f, df))
-resp, predexog = modelcols(f, df)
-ivf = @formula(tenure ~ union)
-ivf = apply_schema(ivf, schema(ivf, df))
-predendog, inst = modelcols(ivf, df)
-test = Boottest.WildBootTest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, ptype=Boottest.equaltail)
-println("t=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-plot(Boottest.plot(test)...)
-
-println("\nboottest tenure, ptype(equaltail) reps(99999) weight(webb) stat(c)")
-test = Boottest.WildBootTest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9, auxwttype=Boottest.webb, bootstrapc=true, ptype=Boottest.equaltail)
-println("z=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-plot(Boottest.plot(test)...)
-
-println("\nboottest, ar")
-test = Boottest.WildBootTest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, ARubin=true, reps=9999)
-println("z=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-plot(Boottest.plot(test)...)
-
-
-println("\nscoretest tenure")
-test = Boottest.WildBootTest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, scorebs=true)
-println("z=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-plot(Boottest.plot(test)...)
-
-
-println("\nwaldtest tenure")
-test = Boottest.WildBootTest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, imposenull=false, scorebs=true)
-println("z=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-plot(Boottest.plot(test)...)
-
-println("\nivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)")
-println("boottest tenure")
-df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Macros\nlsw88.dta"))
-df = df[:, [:wage, :tenure, :ttl_exp, :collgrad, :industry]]
-dropmissing!(df)
-sort!(df, :industry)
-f = @formula(wage ~ 1)
-f = apply_schema(f, schema(f, df))
-resp, predexog = modelcols(f, df)
-ivf = @formula(tenure ~ collgrad + ttl_exp)
-ivf = apply_schema(ivf, schema(ivf, df))
-predendog, inst = modelcols(ivf, df)
-test = Boottest.WildBootTest(([0 1.], [.0]); resp, predexog, predendog, inst, LIML=true, clustid=df.industry, small=false, reps=9)
-println("z=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-plot(Boottest.plot(test)...)
-
-println("\nivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)")
-println("boottest tenure, nograph weight(webb)")
-df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Macros\nlsw88.dta"))
-df = df[:, [:wage, :tenure, :ttl_exp, :collgrad, :smsa, :race, :age, :union, :married, :industry]]
-dropmissing!(df)
-sort!(df, :industry)
-f = @formula(wage ~ 1 + collgrad + smsa + race + age)
-f = apply_schema(f, schema(f, df))
-resp, predexog = modelcols(f, df)
-ivf = @formula(tenure ~ union + married)
-ivf = apply_schema(ivf, schema(ivf, df))
-predendog, inst = modelcols(ivf, df)
-test = Boottest.WildBootTest(([0 0 0 0 0 1.], [0.]); resp, predexog, predendog, inst, Fuller=1, clustid=df.industry, small=false, auxwttype=Boottest.webb)
-println("z=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-
-println("\nareg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)")
-println("boottest tenure, cluster(age occupation) bootcluster(occupation)")
-df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Macros\nlsw88.dta"))
-df = df[:, [:wage, :ttl_exp, :collgrad, :tenure, :age, :industry, :occupation, :hours]]
-dropmissing!(df)
-sort!(df, [:occupation, :age])
-f = @formula(wage ~ ttl_exp + collgrad + tenure)  # constant unneeded in FE model
-f = apply_schema(f, schema(f, df))
-resp, predexog = modelcols(f, df)
-test = Boottest.WildBootTest(([0 0 1.], [0.]); resp, predexog, clustid=Matrix(df[:, [:occupation, :age]]), nbootclustvar=1, nerrclustvar=2, obswt=df.hours, feid=df.industry)
-println("t=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-plot(Boottest.plot(test)...)
-
-println("\nglobal pix lnkm pixpetro pixdia pixwaterd pixcapdist pixmal pixsead pixsuit pixelev pixbdist")
-println("global geo lnwaterkm lnkm2split mean_elev mean_suit malariasuit petroleum diamondd")
-println("global poly capdistance1 seadist1 borderdist1")
-println("encode pixwbcode, gen(ccode)  // make numerical country identifier")
-println("qui areg lnl0708s centr_tribe lnpd0 \$pix \$geo \$poly, absorb(ccode)")
-println("boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode)")
-println("boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(pixcluster)")
-println("boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode pixcluster)")
-df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Work\Econometrics\Wild cluster\pixel-level-baseline-final.dta"))
-@time begin
-  pix  = [:lnkm, :pixpetro, :pixdia, :pixwaterd, :pixcapdist, :pixmal, :pixsead, :pixsuit, :pixelev, :pixbdist]
-  geo  = [:lnwaterkm, :lnkm2split, :mean_elev, :mean_suit, :malariasuit, :petroleum, :diamondd]
-  poly = [:capdistance1, :seadist1, :borderdist1]
-  df = df[:,[pix; geo; poly; :lnl0708s; :centr_tribe; :lnpd0; :pixwbcode; :pixcluster]]
-  dropmissing!(df)
-  df.ccode = levelcode.(categorical(df.pixwbcode, compress=true))
-  df.pixcode = levelcode.(categorical(df.pixcluster, compress=true))
-  f = Term(:lnl0708s) ~ sum(term.([:centr_tribe; :lnpd0; pix; geo; poly]))
-  f = apply_schema(f, schema(f, df))
-
-  sort!(df, [:ccode, :pixcode])
-  resp, predexog = modelcols(f, df)
-  test = Boottest.WildBootTest(([1 zeros(1,size(predexog,2)-1)], [0.]); resp, predexog, clustid=Matrix(df[:, [:ccode, :pixcode]]), nbootclustvar=1, nerrclustvar=2, feid=df.ccode, reps=9999)
-  println("t=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-
-  sort!(df, [:pixcode, :ccode])
-  resp, predexog = modelcols(f, df)
-  test = Boottest.WildBootTest(([1 zeros(1,size(predexog,2)-1)], [0.]); resp, predexog, clustid=Matrix(df[:, [:pixcode, :ccode]]), nbootclustvar=1, nerrclustvar=2, feid=df.ccode, reps=9999)
-  println("t=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-
-  test = Boottest.WildBootTest(([1 zeros(1,size(predexog,2)-1)], [0.]); resp, predexog, clustid=Matrix(df[:, [:pixcode, :ccode]]), nbootclustvar=2, nerrclustvar=2, feid=df.ccode, reps=9999)
-  println("t=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-end
-
-println("\ninfile coll merit male black asian year state chst using regm.raw, clear")
-println("qui regress coll merit male black asian i.year i.state if !inlist(state,34,57,59,61,64,71,72,85,88), cluster(state)	")
-println("generate individual = _n  // unique ID for each observation")
-println("boottest merit, nogr reps(9999) gridpoints(10)  // defaults to bootcluster(state)")
-println("boottest merit, nogr reps(9999) gridpoints(10) nonull")
-println("boottest merit, nogr reps(9999) gridpoints(10) bootcluster(state year)")
-println("boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(state year)")
-println("boottest merit, nogr reps(9999) gridpoints(10) bootcluster(individual)")
-println("boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual)")
-df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Work\Econometrics\Wild cluster\regm.dta"))
-df = DataFrame(coll=Bool.(df.coll), merit=Bool.(df.merit), male=Bool.(df.male), black=Bool.(df.black), asian=Bool.(df.asian), state=categorical(Int8.(df.state)), year=categorical(Int16.(df.year)))
-@time begin
-  dropmissing!(df)
-  df = df[df.state .∉ Ref([34,57,59,61,64,71,72,85,88]),:]
-  f = @formula(coll ~ 1 + merit + male + black + asian + year + state)
-  f = apply_schema(f, schema(f, df))
-  sort!(df, [:state])
-  resp, predexog = modelcols(f, df)
-  test = Boottest.WildBootTest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid=levelcode.(df.state), gridpoints=[10], rng=MersenneTwister(0), reps=9999)
-  println("t=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-
-  test = Boottest.WildBootTest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid=levelcode.(df.state), reps=9999, imposenull=false)
-  println("t=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-
-  sort!(df, [:year, :state])
-  resp, predexog = modelcols(f, df)
-  test = Boottest.WildBootTest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid=[levelcode.(df.year) levelcode.(df.state)], nbootclustvar=2, nerrclustvar=1, reps=9999)
-  println("t=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-
-  test = Boottest.WildBootTest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid=[levelcode.(df.year) levelcode.(df.state)], nbootclustvar=2, nerrclustvar=1, reps=9999, imposenull=false)
-  println("t=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-
-  sort!(df, :state)
-  resp, predexog = modelcols(f, df)
-  test = Boottest.WildBootTest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid= [collect(1:nrow(df)) levelcode.(df.state)], nbootclustvar=1, nerrclustvar=1, reps=9999)
-  println("t=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-
-  test = Boottest.WildBootTest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid= [collect(1:nrow(df)) levelcode.(df.state)], nbootclustvar=1, nerrclustvar=1, reps=9999, imposenull=false)
-  println("t=$(Boottest.stat(test)) p=$(Boottest.p(test)) CI=$(Boottest.CI(test))")
-end
-
-# # println("ivregress 2sls D.lViolentpop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year i.state, robust")
-# # println("boottest DL.lpris_totpop, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) gridmin(-2) gridmax(2) nogr")
-# # println("ivregress 2sls D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year i.state, robust")
-# # println("boottest DL.lpris_totpop, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) gridmin(-2) gridmax(2) nogr")
-
-using Profile
-df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Macros\nlsw88.dta"))
-df = df[:, [:wage; :tenure; :ttl_exp; :collgrad; :industry; :union]]
-dropmissing!(df)
-sort!(df, :industry)
-Profile.clear()
-@profile begin
-# # @profview begin
-	for i in 1:100
-		f = @formula(wage ~ 1 + ttl_exp + collgrad)
-		f = apply_schema(f, schema(f, df))
-		resp, predexog = modelcols(f, df)
-		ivf = @formula(tenure ~ union)
-		ivf = apply_schema(ivf, schema(ivf, df))
-		predendog, inst = modelcols(ivf, df)
-		test = Boottest.WildBootTest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, ptype=Boottest.equaltail)
-		test = Boottest.WildBootTest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=99999, auxwttype=Boottest.webb, bootstrapc=true, ptype=Boottest.equaltail)
-		test = Boottest.WildBootTest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, ARubin=true, reps=9999)
-		test = Boottest.WildBootTest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, scorebs=true)
-		test = Boottest.WildBootTest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, imposenull=false, scorebs=true)
-		df = df[:, [:wage, :tenure, :ttl_exp, :collgrad, :industry]]
-		dropmissing!(df)
-		f = @formula(wage ~ 1)
-		f = apply_schema(f, schema(f, df))
-		resp, predexog = modelcols(f, df)
-		ivf = @formula(tenure ~ collgrad + ttl_exp)
-		ivf = apply_schema(ivf, schema(ivf, df))
-		predendog, inst = modelcols(ivf, df)
-		test = Boottest.WildBootTest(([0 1.], [.0]); resp, predexog, predendog, inst, LIML=true, clustid=df.industry, small=false, reps=9999)
-		df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Macros\nlsw88.dta"))
-		df = df[:, [:wage, :tenure, :ttl_exp, :collgrad, :smsa, :race, :age, :union, :married, :industry]]
-		dropmissing!(df)
-		sort!(df, :industry)
-		f = @formula(wage ~ 1 + collgrad + smsa + race + age)
-		f = apply_schema(f, schema(f, df))
-		resp, predexog = modelcols(f, df)
-		ivf = @formula(tenure ~ union + married)
-		ivf = apply_schema(ivf, schema(ivf, df))
-		predendog, inst = modelcols(ivf, df)
-		test = Boottest.WildBootTest(([0 0 0 0 0 1.], [0.]); resp, predexog, predendog, inst, Fuller=1, clustid=df.industry, small=false, auxwttype=Boottest.webb)
-	end
-end
-Juno.profiler()
-
-using Profile
-Profile.clear()
-@profile begin
-# # @profview begin
-	for i in 1:10
-		df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Work\Econometrics\Wild cluster\regm.dta"))
-		df = DataFrame(coll=Bool.(df.coll), merit=Bool.(df.merit), male=Bool.(df.male), black=Bool.(df.black), asian=Bool.(df.asian), state=categorical(Int8.(df.state)), year=categorical(Int16.(df.year)))
-		dropmissing!(df)
-	    df = df[df.state .∉ Ref([34,57,59,61,64,71,72,85,88]),:]
-	    f = @formula(coll ~ 1 + merit + male + black + asian + year + state)
-	    f = apply_schema(f, schema(f, df))
-	    sort!(df, [:state])
-	    resp, predexog = modelcols(f, df)
-	    test = Boottest.WildBootTest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid=levelcode.(df.state), gridpoints=[10], rng=MersenneTwister(0), reps=9999)
-
-	    test = Boottest.WildBootTest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid=levelcode.(df.state), reps=9999, imposenull=false)
-
-	    sort!(df, [:year, :state])
-	    resp, predexog = modelcols(f, df)
-	    test = Boottest.WildBootTest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid=[levelcode.(df.year) levelcode.(df.state)], nbootclustvar=2, nerrclustvar=1, reps=9999)
-
-	    test = Boottest.WildBootTest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid=[levelcode.(df.year) levelcode.(df.state)], nbootclustvar=2, nerrclustvar=1, reps=9999, imposenull=false)
-
-	    sort!(df, :state)
-	    resp, predexog = modelcols(f, df)
-	    test = Boottest.WildBootTest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid= [collect(1:nrow(df)) levelcode.(df.state)], nbootclustvar=1, nerrclustvar=1, reps=9999)
-
-	    test = Boottest.WildBootTest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid= [collect(1:nrow(df)) levelcode.(df.state)], nbootclustvar=1, nerrclustvar=1, reps=9999, imposenull=false)
-		end
-end
-Juno.profiler()
