@@ -195,5 +195,5 @@ resp, predexog = modelcols(f, df)
 test = wildboottest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid= [collect(1:nrow(df)) levelcode.(df.state)], nbootclustvar=1, nerrclustvar=1, reps=9999, rng)
 println("t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
-test = wildboottest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid= [collect(1:nrow(df)) levelcode.(df.state)], nbootclustvar=1, nerrclustvar=1, reps=9999, imposenull=false, rng)
+test = wildboottest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid= [collect(1:nrow(df)) levelcode.(df.state)], nbootclustvar=1, nerrclustvar=1, reps=999, imposenull=false, rng)
 println("t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
