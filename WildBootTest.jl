@@ -56,20 +56,20 @@ end
 @inline eigensym(X) = eigen(Symmetric(X))  # does eigen recognize symmetric matrices?
 @inline symcross(X::AbstractVecOrMat, wt::Union{UniformScaling,AbstractVector}) = Symmetric(cross(X,wt,X))  # maybe bad name since it means cross product in Julia
 @inline function cross(X::AbstractVecOrMat{T}, wt::AbstractVector{T}, Y::AbstractVecOrMat{T}) where T
-  retval = Matrix{T}(undef, cols(X), cols(Y))
-  mul!(retval, X', wt.*Y)
+  dest = Matrix{T}(undef, cols(X), cols(Y))
+  mul!(dest, X', wt.*Y)
 end
 @inline function cross(X::AbstractVecOrMat{T}, wt::UniformScaling, Y::AbstractVecOrMat{T}) where T
-  retval = Matrix{T}(undef, cols(X), cols(Y))
-  mul!(retval, X', Y)
+  dest = Matrix{T}(undef, cols(X), cols(Y))
+  mul!(dest, X', Y)
 end
 @inline function crossvec(X::AbstractMatrix{T}, wt::AbstractVector{T}, Y::AbstractVector{T}) where T
-  retval = Vector{T}(undef, cols(X))
-  mul!(retval, X', wt.*Y)
+  dest = Vector{T}(undef, cols(X))
+  mul!(dest, X', wt.*Y)
 end
 @inline function crossvec(X::AbstractMatrix{T}, wt::UniformScaling, Y::AbstractVector{T}) where T
-  retval = Vector{T}(undef, cols(X))
-  mul!(retval, X', Y)
+  dest = Vector{T}(undef, cols(X))
+  mul!(dest, X', Y)
 end
 @inline vHadw(v::AbstractArray, w::AbstractVector) = v .* w
 @inline vHadw(v::AbstractArray, w::UniformScaling) = v
@@ -83,54 +83,54 @@ end
 @inline X₁₂B(X₁::AbstractArray, X₂::AbstractArray, B::AbstractMatrix) = @views X₁*B[1:size(X₁,2),:] + X₂*B[size(X₁,2)+1:end,:]
 @inline X₁₂B(X₁::AbstractArray, X₂::AbstractArray, B::AbstractVector) = @views X₁*B[1:size(X₁,2)  ] + X₂*B[size(X₁,2)+1:end  ]
 
-function coldot!(retval::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)  # colsum(A .* B)
+function coldot!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)  # colsum(A .* B)
   @turbo for i ∈ axes(A,2)
-    retval[i] = A[1,i] * B[1,i]
+    dest[i] = A[1,i] * B[1,i]
   end
   @turbo for i ∈ axes(A,2), j ∈ 2:size(A,1)
-    retval[i] += A[j,i] * B[j,i]
+    dest[i] += A[j,i] * B[j,i]
   end
 end
-function coldotplus!(retval::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)  # colsum(A .* B)
+function coldotplus!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)  # colsum(A .* B)
   @turbo for i ∈ axes(A,2), j ∈ axes(A,1)
-    retval[i] += A[j,i] * B[j,i]
+    dest[i] += A[j,i] * B[j,i]
   end
 end
 function coldot(A::AbstractMatrix, B::AbstractMatrix)  # colsum(A .* B)
-  retval = Matrix{promote_type(eltype(A), eltype(B))}(undef, 1, size(A,2))
-  coldot!(retval, A, B)
-  retval
+  dest = Matrix{promote_type(eltype(A), eltype(B))}(undef, 1, size(A,2))
+  coldot!(dest, A, B)
+  dest
 end
 function coldot(A::AbstractMatrix)  # colsum(A .* A)
-  retval = Matrix{eltype(A)}(undef, 1, size(A,2))
+  dest = Matrix{eltype(A)}(undef, 1, size(A,2))
   @turbo for i ∈ axes(A,2)
-    retval[i] = A[1,i] ^ 2
+    dest[i] = A[1,i] ^ 2
   end
   @turbo for i ∈ axes(A,2), j ∈ 2:size(A,1)
-    retval[i] += A[j,i] ^ 2
+    dest[i] += A[j,i] ^ 2
   end
-  retval
+  dest
 end
 function coldot(A::AbstractVector, B::AbstractMatrix)  # colsum(A .* B)
-  retval = Matrix{promote_type(eltype(A), eltype(B))}(undef, 1, size(B,2))
+  dest = Matrix{promote_type(eltype(A), eltype(B))}(undef, 1, size(B,2))
   @turbo for i ∈ axes(B,2)
-    retval[i] = A[1] * B[1,i]
+    dest[i] = A[1] * B[1,i]
   end
   @turbo for i ∈ axes(B,2), j ∈ 2:size(B,1)
-    retval[i] += A[j] * B[j,i]
+    dest[i] += A[j] * B[j,i]
   end
-  retval
+  dest
 end
 coldot(A::AbstractMatrix, B::AbstractVector) = coldot(B,A)
 coldot(A::AbstractVector, B::AbstractVector) = [dot(A,B)]
 
 # compute the norm of each col of A using quadratic form Q
 function colquadform(Q::AbstractMatrix, A::AbstractMatrix) :: AbstractVector
-  retval = zeros(promote_type(eltype(Q), eltype(A)), size(A,2))
+  dest = zeros(promote_type(eltype(Q), eltype(A)), size(A,2))
   @turbo for i ∈ axes(A,2), j ∈ axes(A,1), k ∈ axes(A,1)
-    retval[i] += A[j,i] * Q[k,j] * A[k,i]
+    dest[i] += A[j,i] * Q[k,j] * A[k,i]
   end
-  retval
+  dest
 end
 
  # From given row of given matrix, substract inner products of corresponding cols of A & B with quadratic form Q
@@ -237,7 +237,7 @@ end
 function perp(A::AbstractMatrix)
 	F = eigensym(A*invsym(A'A)*A')
 	F.vectors[:, abs.(F.values) .< 1000eps(eltype(A))]
-  # checkI!(retval)
+  # checkI!(dest)
 end
 
 # R₁ is constraints. R is attack surface for null; only needed when using FWL for WRE
@@ -554,25 +554,25 @@ function getdist(o::StrBootTest; diststat::String="")
 end
 
 function sumgreater(x, v)
-  retval = zero(Int64)
+  dest = zero(Int64)
   @inbounds @simd for i in v
-    x > i && (retval += 1)
+    x > i && (dest += 1)
   end
-  retval
+  dest
 end
 function sumless(x, v)
-  retval = zero(Int64)
+  dest = zero(Int64)
   @inbounds @simd for i in v
-    x < i && (retval += 1)
+    x < i && (dest += 1)
   end
-  retval
+  dest
 end
 function sumlessabs(x, v)
-  retval = zero(Int64)
+  dest = zero(Int64)
   @inbounds @simd for i in v
-    x < abs(i) && (retval += 1)
+    x < abs(i) && (dest += 1)
   end
-  retval
+  dest
 end
 
 # get p valuo. Robust to missing bootstrapped values interpreted as +infinity.
@@ -1174,24 +1174,24 @@ end
 # ind1 can be a rowvector
 # (only really the Hessian when we narrow Y to Z)
 function HessianFixedκ(o::StrBootTest{T}, ind1::Vector{S} where S<:Integer, ind2::Integer, κ::Number, w::Integer) where T
-  retval = Matrix{T}(undef, length(ind1), cols(o.v))
-  for i ∈ eachindex(ind1, axes(retval,1))
-    _HessianFixedκ!(o, view(retval,i:i,:), ind1[i], ind2, κ, w)
+  dest = Matrix{T}(undef, length(ind1), cols(o.v))
+  for i ∈ eachindex(ind1, axes(dest,1))
+    _HessianFixedκ!(o, view(dest,i:i,:), ind1[i], ind2, κ, w)
   end
-  retval
+  dest
 end
 
 function _HessianFixedκ!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer, ind2::Integer, κ::Number, w::Integer)
   if !(o.Repl.Yendog[ind1+1] || o.Repl.Yendog[ind2+1])  # if both vars exog, result = order-0 term only, same for all draws
-    !iszero(κ) && (@views coldot!(retval, o.Repl.XZ[:,ind1], o.Repl.invXXXZ[:,ind2]))
+    !iszero(κ) && (@views coldot!(dest, o.Repl.XZ[:,ind1], o.Repl.invXXXZ[:,ind2]))
     if !isone(κ)
       if iszero(κ)
-        retval = o.Repl.YY[ind1+1,ind2+1]
+        dest = o.Repl.YY[ind1+1,ind2+1]
       else
-        retval .= κ .* retval .+ (1 - κ) .* o.Repl.YY[ind1+1,ind2+1]
+        dest .= κ .* dest .+ (1 - κ) .* o.Repl.YY[ind1+1,ind2+1]
       end
     end
-    dest .= retval
+    dest .= dest
   else
     if !iszero(κ)
       _T1L = iszero(ind1) ? o.Repl.Xy₁par : @view o.Repl.XZ[:,ind1]
@@ -1244,15 +1244,15 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 			PXYstar = iszero(ind1) ? o.Repl.PXy₁ : o.Repl.PXZ[:,ind1]
 			o.Repl.Yendog[ind1+1] && (PXYstar .+= o.SstarUPX[ind1+1] * o.v)
 
-			retval = panelsum(PXYstar .* (o.Repl.y₁ .- o.SstarUMZperp[1] * o.v), o.wt, o.infoCapData)
+			dest = panelsum(PXYstar .* (o.Repl.y₁ .- o.SstarUMZperp[1] * o.v), o.wt, o.infoCapData)
 
 			for ind2 ∈ 1:o.Repl.kZ
 				_β = βs[ind2,:]'
-				retval .-= panelsum(PXYstar .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[:,ind2] * _β .- o.SstarUMZperp[ind2+1] * (o.v .* _β) :
+				dest .-= panelsum(PXYstar .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[:,ind2] * _β .- o.SstarUMZperp[ind2+1] * (o.v .* _β) :
 				                                                        o.Repl.Z[:,ind2] * _β                                       ), o.wt, infoCapData)
 			end
 		else  # create pieces of each N x B matrix one at a time rather than whole thing at once
-			retval = Matrix{T}(undef, o.clust[1].N, cols(o.v))  # XXX preallocate this & turn Filling into Filling! ?
+			dest = Matrix{T}(undef, o.clust[1].N, cols(o.v))  # XXX preallocate this & turn Filling into Filling! ?
 			for ind2 ∈ 0:o.Repl.kZ
 				ind2>0 && (βv = o.v .* (_β = βs[ind2,:]'))
 
@@ -1262,9 +1262,9 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
             o.Repl.Yendog[ind1+1] && (PXYstar .+= o.SstarUPX[ind1+1][i,:]'o.v)
 
             if iszero(ind2)
-              retval[i,:]   = wtsum(o.wt, PXYstar .* (o.Repl.y₁[i] .- o.SstarUMZperp[1][i,:])'o.v)
+              dest[i,:]   = wtsum(o.wt, PXYstar .* (o.Repl.y₁[i] .- o.SstarUMZperp[1][i,:])'o.v)
             else
-              retval[i,:] .-= wtsum(o.wt, PXYstar .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[i,ind2] * _β .- o.SstarUMZperp[ind2+1][i,:]'βv :
+              dest[i,:] .-= wtsum(o.wt, PXYstar .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[i,ind2] * _β .- o.SstarUMZperp[ind2+1][i,:]'βv :
                                                       o.Repl.Z[i,ind2] * _β))
             end
           end
@@ -1275,9 +1275,9 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
             o.Repl.Yendog[ind1+1] && (PXYstar .+= o.SstarUPX[ind1+1][S,:] * o.v)
 
             if iszero(ind2)
-              retval[i,:]   = wtsum(o.wt, PXYstar .* (o.Repl.y₁[S] .- o.SstarUMZperp[1][S,:] * o.v))
+              dest[i,:]   = wtsum(o.wt, PXYstar .* (o.Repl.y₁[S] .- o.SstarUMZperp[1][S,:] * o.v))
             else
-              retval[i,:] .-= wtsum(o.wt, PXYstar .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[S,ind2] * _β .- o.SstarUMZperp[ind2+1][S,:] * βv :
+              dest[i,:] .-= wtsum(o.wt, PXYstar .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[S,ind2] * _β .- o.SstarUMZperp[ind2+1][S,:] * βv :
                                                                               o.Repl.Z[S,ind2] * _β                                       ))
             end
           end
@@ -1311,32 +1311,32 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 
 			if ind2>0  # order-0 and -1 terms
         if iszero(cols(T₁))  # - x*β components
-          retval .+= o.Repl.FillingT₀[ind1+1,ind2+1] * _β
+          dest .+= o.Repl.FillingT₀[ind1+1,ind2+1] * _β
         elseif isone(cols(T₁))
-          retval .+= o.Repl.FillingT₀[ind1+1,ind2+1] * _β .+ T₁ .* βv
+          dest .+= o.Repl.FillingT₀[ind1+1,ind2+1] * _β .+ T₁ .* βv
         else
-          retval .+= o.Repl.FillingT₀[ind1+1,ind2+1] * _β
-          matmulplus!(retval, T₁, βv)
+          dest .+= o.Repl.FillingT₀[ind1+1,ind2+1] * _β
+          matmulplus!(dest, T₁, βv)
         end
       else  # y component
         if iszero(cols(T₁))
-          retval = o.Repl.FillingT₀[ind1+1,1]
+          dest = o.Repl.FillingT₀[ind1+1,1]
         elseif isone(cols(T₁))
-          retval = o.Repl.FillingT₀[ind1+1,1] .+ T₁ .* βv
+          dest = o.Repl.FillingT₀[ind1+1,1] .+ T₁ .* βv
         else
-          retval = T₁ * o.v; retval .+= o.Repl.FillingT₀[ind1+1,1]
+          dest = T₁ * o.v; dest .+= o.Repl.FillingT₀[ind1+1,1]
         end
       end
 
 			if o.Repl.Yendog[ind1+1] && o.Repl.Yendog[ind2+1]
 				for i ∈ 1:o.clust[1].N
 					S = o.infoCapData[i]
-					colquadformminus!(retval, i, cross(o.SstarUPX[ind1+1][S,:], o.haswt ? o.wt[S] : I, o.SstarUMZperp[ind2+1][S,:]), o.v, βv)
+					colquadformminus!(dest, i, cross(o.SstarUPX[ind1+1][S,:], o.haswt ? o.wt[S] : I, o.SstarUMZperp[ind2+1][S,:]), o.v, βv)
 				end
       end
 		end
 	end
-	retval
+	dest
 end
 
 function PrepWRE!(o::StrBootTest)
@@ -1713,13 +1713,13 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
         o.ustar -= X₁₂B(o.X₁, o.X₂, o.βdev)  # XXX make X₁₂Bminus
       else  # clusters small but not all singletons
         if o.NFE>0 && !o.FEboot
-          o.ustar = o.ü .* o.v[o.IDBootData,:]
+          o.ustar = o.ü .* view(o.v, o.IDBootData, :)
           partialFE!(o, o.ustar)
           for d ∈ 1:o.df
             o.Jcd[1,d] = panelsum(o.ustar, o.M.WXAR[:,d], o.infoCapData)                            - panelsum(o.X₁, o.X₂, o.M.WXAR[:,d], o.infoCapData) * o.βdev
           end
         else
-          _v = o.v[o.IDBootAll,:]
+          _v = view(o.v, o.IDBootAll, :)
           for d ∈ 1:o.df
             o.Jcd[1,d] = panelsum( panelsum(o.ü, o.M.WXAR[:,d], o.infoAllData) .* _v, o.infoErrAll) - panelsum(o.X₁, o.X₂, o.M.WXAR[:,d], o.infoCapData) * o.βdev
           end
@@ -1869,96 +1869,105 @@ function panelsum(X::AbstractMatrix, info::Vector{UnitRange{T}} where T<:Integer
   iszero(cols(X)) && return X[1:rows(info),:]
   (iszero(length(info)) || rows(info)==rows(X)) && return X
 
-  retval = zeros(promote_type(Float32, eltype(X)), size(info,1), size(X,2))
+  dest = zeros(promote_type(Float32, eltype(X)), size(info,1), size(X,2))
   for g in eachindex(info)
     f, l = first(info[g]), last(info[g])
     @turbo for j ∈ axes(X,2)
       for i ∈ f:l
-        retval[g,j] += X[i,j]
+        dest[g,j] += X[i,j]
       end
     end
   end
-  retval
+  dest
 end
 function panelsum(X::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer)
   (iszero(length(info)) || rows(info)==length(X)) && return X
 
-  retval = zeros(promote_type(Float32, eltype(X)), size(info,1))
-  for g in eachindex(info, retval)
+  dest = zeros(promote_type(Float32, eltype(X)), size(info,1))
+  for g in eachindex(info, dest)
     f, l = first(info[g]), last(info[g])
-    _retval = zero(eltype(retval))
+    _retval = zero(eltype(dest))
     @turbo for i ∈ f:l
       _retval += X[i]
     end
-    retval[g] = _retval
+    dest[g] = _retval
   end
-  retval
+  dest
 end
 
 @inline panelsum(X::AbstractArray, wt::UniformScaling, info::Vector{UnitRange{T}} where T<:Integer) = panelsum(X, info)
 
-function panelsum(X::AbstractArray, wt::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer)
-  iszero(cols(X)) && return X[1:rows(info),:]
-  (iszero(length(info)) || rows(info)==rows(X)) && return X .* wt
+function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer)
+  iszero(cols(X)) && return
+  if iszero(length(info)) || rows(info)==rows(X)
+    dest .= X .* wt
+    return
+  end
 
-  if ndims(X)==1  # X maybe a 1D view, which is not a subtype of Vector and so cannot be trapped by such a function signature
-    retval = zeros(promote_type(Float32, eltype(X)), size(info,1))
+  if ndims(X)==1
     for g in eachindex(info)
-      f, l = first(info[g]), last(info[g])
-      @inbounds for i ∈ f:l  # @turbo doesn't seem to work with views
-        retval[g] += X[i] * wt[i]
+      i = first(info[g])
+      dest[g] = X[i] * wt[i]
+      f, l = first(info[g])+1, last(info[g])
+      @inbounds for i ∈ f:l
+        dest[g] += X[i] * wt[i]
       end
     end
   else
-    retval = zeros(eltype(X), size(info,1), size(X,2))
     for g in eachindex(info)
-      f, l = first(info[g]), last(info[g])
-      @turbo for j ∈ axes(X,2)
-        for i ∈ f:l
-          retval[g,j] += X[i,j] * wt[i]
-        end
+      i = first(info[g])
+      dest[g,:] .= X[i,:] .* wt[i]
+      f, l = first(info[g])+1, last(info[g])
+      @turbo for j ∈ axes(X,2), i ∈ f:l
+        dest[g,j] += X[i,j] * wt[i]
       end
     end
   end
-  retval
+end
+function panelsum(X::AbstractArray, wt::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer)
+  dest = isone(ndims(X)) ? similar(X, size(info,1)) : similar(X, size(info,1), size(X,2))
+  panelsum!(dest, X, wt, info)
+  dest
 end
 
-@inline panelsum(X₁::AbstractArray, X₂::AbstractArray, wt::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer) =
-  iszero(length(X₁)) ? panelsum(X₂,wt,info) :
-  iszero(length(X₂)) ? panelsum(X₁,wt,info) :
-                       ApplyArray(hcat, panelsum(X₁,wt,info), panelsum(X₂,wt,info))
-
-@inline panelsum(X₁::AbstractArray, X₂::AbstractArray, wt::UniformScaling, info::Vector{UnitRange{T}} where T<:Integer) =
-  iszero(length(X₁)) ? panelsum(X₂,info) :
-  iszero(length(X₂)) ? panelsum(X₁,info) :
-                       ApplyArray(hcat, panelsum(X₁,info), panelsum(X₂,info))
+function panelsum(X₁::AbstractArray, X₂::AbstractArray, wt::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer)
+  if iszero(length(X₁))
+    panelsum(X₂,wt,info)
+  elseif iszero(length(X₂))
+    panelsum(X₁,wt,info)
+  else
+    dest = similar(X₁, length(info), cols(X₁)+cols(X₂))
+    panelsum!(view(dest, :,          1:cols(X₁)         ), X₁, wt, info)
+    panelsum!(view(dest, :, cols(X₁)+1:cols(X₁)+cols(X₂)), X₂, wt, info)
+    dest
+  end
+end
 
 # Return matrix that counts from 0 to 2^N-1 in binary, one column for each number, one row for each binary digit
 # except use provided lo and hi values for 0 and 1
 count_binary(N::Integer, lo::Number, hi::Number) = N<=1 ? [lo  hi] :
                                                           (tmp = count_binary(N-1, lo, hi);
                                                            [fill(lo, 1, cols(tmp)) fill(hi, 1, cols(tmp)) ;
-                                                                             tmp                    tmp     ]
-                                                          )
+                                                                             tmp                    tmp     ])
 
 # cross-tab sum of a column vector w.r.t. given panel info and fixed-effect var
 # one row per FE, one col per other grouping
 function crosstabFE(o::StrBootTest{T}, v::AbstractVector, info::Vector{UnitRange{Int64}}) where T
-	retval = zeros(T, o.NFE, rows(info))
+	dest = zeros(T, o.NFE, rows(info))
   if length(info)>0
     for i ∈ 1:rows(info)
       FEIDi = @view o._FEID[info[i],:]
       vi    = @view       v[info[i],:]
       @inbounds for j in eachindex(vi, FEIDi)
-        retval[FEIDi[j],i] += vi[j]
+        dest[FEIDi[j],i] += vi[j]
       end
     end
   else  # "robust" case, no clustering
     @inbounds for i in eachindex(v,o._FEID)
-      retval[o._FEID[i],i] = v[i]
+      dest[o._FEID[i],i] = v[i]
     end
   end
-	return retval
+	return dest
 end
 
 # subtract crosstab of v wrt bootstrapping cluster and all-cluster-var intersections from M
