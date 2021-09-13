@@ -64,8 +64,8 @@ boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(state year)
 boottest merit, nogr reps(9999) gridpoints(10) bootcluster(individual)
 boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual)
 t=6.7126637 p=0.48874888 CI=Float32[-2.8057806 1.302062]
-t=6.7125325 p=0.0 CI=Float32[0.049100023 0.095232055]
+t=6.7125325 p=0.0 CI=Float32[0.04891675 0.09541534]
 t=6.712665 p=0.30073008 CI=Float32[-5.2918653 4.4003115]
 t=6.712534 p=0.096109614 CI=Float32[-0.012015777 0.15634787]
 t=6.712663 p=0.37213722 CI=Float32[-0.09692469 0.24238224]
-t=6.7125344 p=0.4154154 CI=Float32[-0.09569127 0.24002334]
+t=6.7125344 p=0.38213822 CI=Float32[-0.09546879 0.23980087]
