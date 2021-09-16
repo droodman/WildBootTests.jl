@@ -41,9 +41,9 @@ end
 # right-multiply a data matrix by a matrix, with efficient handling of special cases like latter is identity
 # pointer (real matrix) scalar XB(real matrix X, real matrix M) {
 # 	scalar r
-#   r = rows(M)
-# 	return (all(colsum(M) .== 1) && all(colsum(!M) .== r-1)?  # is M 0's but for one 1 in each col, so it's just copying/reordering cols?
-#              (all(diagonal(M)) && rows(M)==cols(M)?  # is M just the identity matrix?
+#   r = nrows(M)
+# 	return (all(colsum(M) .== 1) && all(colsum(!M) .== r-1)?  # is M 0's but for one 1 in each col, so it's just copying/reordering ncols?
+#              (all(diagonal(M)) && nrows(M)==ncols(M)?  # is M just the identity matrix?
 #                 &X            :
 #                 &X[:,colsum(M.*(1::r))]) :  # reorder X
 #              &(X * M))
@@ -56,26 +56,26 @@ end
 @inline eigensym(X) = eigen(Symmetric(X))  # does eigen recognize symmetric matrices?
 @inline symcross(X::AbstractVecOrMat, wt::Union{UniformScaling,AbstractVector}) = Symmetric(cross(X,wt,X))  # maybe bad name since it means cross product in Julia
 @inline function cross(X::AbstractVecOrMat{T}, wt::AbstractVector{T}, Y::AbstractVecOrMat{T}) where T
-  dest = Matrix{T}(undef, cols(X), cols(Y))
+  dest = Matrix{T}(undef, ncols(X), ncols(Y))
   mul!(dest, X', wt.*Y)
 end
 @inline function cross(X::AbstractVecOrMat{T}, wt::UniformScaling, Y::AbstractVecOrMat{T}) where T
-  dest = Matrix{T}(undef, cols(X), cols(Y))
+  dest = Matrix{T}(undef, ncols(X), ncols(Y))
   mul!(dest, X', Y)
 end
 @inline function crossvec(X::AbstractMatrix{T}, wt::AbstractVector{T}, Y::AbstractVector{T}) where T
-  dest = Vector{T}(undef, cols(X))
+  dest = Vector{T}(undef, ncols(X))
   mul!(dest, X', wt.*Y)
 end
 @inline function crossvec(X::AbstractMatrix{T}, wt::UniformScaling, Y::AbstractVector{T}) where T
-  dest = Vector{T}(undef, cols(X))
+  dest = Vector{T}(undef, ncols(X))
   mul!(dest, X', Y)
 end
 @inline vHadw(v::AbstractArray, w::AbstractVector) = v .* w
 @inline vHadw(v::AbstractArray, w::UniformScaling) = v
-@inline rows(X::AbstractArray) = size(X,1)
-@inline cols(X::AbstractArray) = size(X,2)
-@inline colsum(X::AbstractArray) = iszero(cols(X)) ? Matrix{eltype(X)}(undef,1,0) : isone(cols(X)) ? hcat(sum(X)) : sum(X, dims=1)
+@inline nrows(X::AbstractArray) = size(X,1)
+@inline ncols(X::AbstractArray) = size(X,2)
+@inline colsum(X::AbstractArray) = iszero(ncols(X)) ? Matrix{eltype(X)}(undef,1,0) : isone(ncols(X)) ? hcat(sum(X)) : sum(X, dims=1)
 @inline rowsum(X::AbstractArray) = vec(sum(X, dims=2))
 @inline wtsum(wt::AbstractArray, X::AbstractArray) = wt'X
 @inline wtsum(wt::UniformScaling, X::AbstractArray) = sum(X,dims=1)
@@ -133,7 +133,7 @@ function colquadform(Q::AbstractMatrix, A::AbstractMatrix) :: AbstractVector
   dest
 end
 
- # From given row of given matrix, substract inner products of corresponding cols of A & B with quadratic form Q
+ # From given row of given matrix, substract inner products of corresponding ncols of A & B with quadratic form Q
 function colquadformminus!(X::AbstractMatrix, row::Integer, Q::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)
   	@turbo for i ∈ axes(A,2), j ∈ axes(A,1), k ∈ axes(A,1)
   	  X[row,i] -= A[j,i] * Q[k,j] * B[k,i]
@@ -165,7 +165,7 @@ mutable struct StrEstimator{T<:AbstractFloat, E<:Estimator}
 	y₁par::Vector{T}; Xy₁par::Vector{T}
 	A::Matrix{T}; Z::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
 	FillingT₀::Matrix{Vector{T}}
-	WXAR::Matrix{T}; ScapPXYZperp::Vector{Matrix{T}}; ScapYX::Vector{Matrix{T}}; CT_XAR::Vector{Matrix{T}}; CT_FEcapPY::Vector{Matrix{T}}
+	WXAR::Matrix{T}; ScapPXYZperp::Vector{Matrix{T}}; ScapYX::Vector{Matrix{T}}; CT_XAR::Array{T,3}; CT_FEcapPY::Vector{Matrix{T}}
 
 	# IV/GMM only
   ZZ::Matrix{T}; XY₂::Matrix{T}; XX::Matrix{T}; H_2SLS::Matrix{T}; V::Matrix{T}; ZY₂::Matrix{T}; X₂Y₂::Matrix{T}; X₁Y₂::Matrix{T}; ZR₁ZR₁::Matrix{T}; X₂ZR₁::Matrix{T}; ZR₁Y₂::Matrix{T}; X₁ZR₁::Matrix{T}
@@ -181,34 +181,43 @@ mutable struct StrEstimator{T<:AbstractFloat, E<:Estimator}
   StrEstimator{T,E}(parent) where T<:AbstractFloat where E<:Estimator = new(parent, true, E==IVGMM, false, T(E==IVGMM ? 1 : 0), Matrix{T}(undef,0,0), I)
 end
 
+matconvert(T::DataType, X) = !isa(X, AbstractArray) || eltype(X)==T ? X : T.(X)
+
 mutable struct StrBootTest{T<:AbstractFloat}
-	ARubin::Bool; LIML::Bool; Fuller::T; WRE::Bool; small::Bool; scorebs::Bool; auxtwtype::AuxWtType; ML::Bool; initialized::Bool;ptype::PType; robust::Bool; NFE::Int64; FEboot::Bool; granular::Bool; NErrClustCombs::Int16; subcluster::Int8; B::Int64; BFeas::Int64; interpolating::Bool
-  twotailed::Bool; null::Bool; dirty::Bool; willplot::Bool; v_sd::T; bootstrapt::Bool; notplotted::Bool; FEdfadj::Bool
-  level::T
-  rtol::T
-  confpeak::Vector{T}; maxmatsize::Float16
-  Y₂::VecOrMat{T}; X₂::VecOrMat{T}; X₁::VecOrMat{T}; y₁::Vector{T}; sc::VecOrMat{T}; ID::VecOrMat{T}; R₁::Matrix{T}; R::Matrix{T}; wt::Union{Vector{T}, UniformScaling}
-  r₁::Vector{T}; r::Vector{T}
+	R::Matrix{T}; r::Vector{T}; R₁::Matrix{T};r₁::Vector{T}
+  y₁::Vector{T}; X₁::VecOrMat{T}; Y₂::VecOrMat{T}; X₂::VecOrMat{T}
+  wt::Union{Vector{T}, UniformScaling}; fweights::Bool
+  LIML::Bool; Fuller::T; κ::T; ARubin::Bool
+  B::Int64; auxtwtype::AuxWtType; rng::AbstractRNG; maxmatsize::Float16
+  ptype::PType; null::Bool; bootstrapt::Bool
+  ID::VecOrMat{Int64}; nbootclustvar::Int8; nerrclustvar::Int64; small::Bool
+  FEID::Vector{T}; FEdfadj::Bool
+  level::T; rtol::T
+  madjtype::MAdjType; NH0::Int16
+  ML::Bool; β::Vector{T}; A::Matrix{T}; sc::VecOrMat{T}
+  willplot::Bool; gridmin::Vector{Union{T,Missing}}; gridmax::Vector{Union{T,Missing}}; gridpoints::Vector{Union{Int32,Missing}}
+
+  q::Int16; twotailed::Bool; scorebs::Bool; robust::Bool
+
+  WRE::Bool; initialized::Bool; NFE::Int64; FEboot::Bool; granular::Bool; NErrClustCombs::Int16; subcluster::Int8; BFeas::Int64; interpolating::Bool
+  dirty::Bool; v_sd::T; notplotted::Bool
+  confpeak::Vector{T}
   IDBootData::Vector{Int64}; IDBootAll::Vector{Int64}
-  κ::T
   anchor::Vector{T}; poles::Vector{T}; numer::Matrix{T}; dist::Vector{T}
   CI::Matrix{T}
-  madjtype::MAdjType
-  rng::AbstractRNG
   peak::NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
 
   sqrt::Bool; Nobs::Int64; _Nobs::Int64; kZ::Int64; kY₂::Int64; kX₁::Int64; sumwt::T; NClustVar::Int8; haswt::Bool; REst::Bool; multiplier::T; smallsample::T
-		WREnonARubin::Bool; df::Int64; df_r::Int64; NH0::Int32; p::T; NBootClustVar::Int8; NErrClustVar::Int64; BootClust::Int8
-		purerobust::Bool; Nstar::Int64; Nw::Int64; enumerate::Bool; q::Int16; interpolable::Bool; interpolate_u::Bool; kX₂::Int64; kX::Int64
-  FEID::Vector{T}; _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; ustar::Matrix{T}; CT_WE::Matrix{T}
+		WREnonARubin::Bool; df::Int64; df_r::Int64; p::T; BootClust::Int8
+		purerobust::Bool; Nstar::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX₂::Int64; kX::Int64
+  _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; ustar::Matrix{T}; CT_WE::Matrix{T}
   infoBootData::Vector{UnitRange{Int64}}; infoBootAll::Vector{UnitRange{Int64}}; infoErrAll::Vector{UnitRange{Int64}}
   JNcapNstar::Matrix{T}; statDenom::Matrix{T}; uXAR::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; βdev::Matrix{T}; δdenom_b::Matrix{T}; _Jcap::Matrix{T}; YYstar_b::Matrix{T}; YPXYstar_b::Matrix{T}; numerw::Matrix{T}
-	distCDR::Matrix{T}; plotX::Matrix{T}; plotY::Vector{T}; β::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
-  gridmin::Vector{Union{T,Missing}}; gridmax::Vector{Union{T,Missing}}; gridpoints::Vector{Union{Int32,Missing}}; numersum::Vector{T}; ü₀::Vector{T}; invFEwt::Vector{T}
+	distCDR::Matrix{T}; plotX::Matrix{T}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
+  numersum::Vector{T}; ü₀::Vector{T}; invFEwt::Vector{T}
 	βs::Matrix{T}; As::Matrix{T}
-	fweights::Bool
 	infoAllData::Vector{UnitRange{Int64}}; infoCapData::Vector{UnitRange{Int64}}; IDAll::Matrix{T}; Ü₂par::Matrix{T}
-	A::Matrix{T}; ü::Vector{T}
+	ü::Vector{T}
 	DGP::StrEstimator{T,E} where E; Repl::StrEstimator{T,E} where E; M::StrEstimator{T,E} where E
 	clust::Vector{StrClust{T}}
 	denom::Matrix{Matrix{T}}; Kcd::Matrix{Matrix{T}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; SCTcapuXinvXX::Matrix{Matrix{T}}; SstarUU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
@@ -218,20 +227,19 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	FEs::Vector{StrFE{T}}
   T1L::Vector{Matrix{T}}; T1R::Vector{Matrix{T}}
 
-  StrBootTest{T}() where T<:Real = new(false, false, 0, false, false, false, rademacher, false, false, symmetric, false, 0, false, false, 0, false, 0, 0, false,
-                                       true, true, true, true, 1., true, true, true,
-                                       T(.95),
-                                       T(1e-6),
-                                       [T(0)], 0,
-                                       Matrix{T}(undef,0,0), Matrix{T}(undef,0,0), Matrix{T}(undef,0,0), Vector{T}(undef,0), Matrix{T}(undef,0,0), Matrix{T}(undef,0,0), Matrix{T}(undef,0,0), Matrix{T}(undef,0,0), I,
-                                       Vector{T}(undef,0), Vector{T}(undef,0),
-                                       Vector{T}(undef,0), Vector{T}(undef,0),
-                                       T(NaN),
-                                       Vector{T}(undef,0), Vector{T}(undef,0), Matrix{T}(undef,0,0), Vector{T}(undef,0),
-                                       Matrix{T}(undef,0,0),
-                                       none,
-                                       MersenneTwister(),
-                                       (X = Vector{T}(undef,0), p = T(NaN)))
+  StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH0, ML, β, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real = 
+      new(matconvert(T,R), matconvert(T,r), matconvert(T,R₁), matconvert(T,r₁), matconvert(T,y₁), matconvert(T,X₁), matconvert(T,Y₂), matconvert(T,X₂), matconvert(T,wt), fweights, LIML || !iszero(Fuller), Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, matconvert(Int64,ID), nbootclustvar, nerrclustvar, small, FEID, FEdfadj, level, rtol, madjtype, NH0, ML, matconvert(T,β), matconvert(T,A), matconvert(T,sc), willplot, gridmin, gridmax, gridpoints,
+          nrows(R),
+          ptype==symmetric || ptype==equaltail,
+          scorebs || iszero(B) || ML,
+          robust || nerrclustvar>0, 
+          false, false, 0, false, false, 0, 0, 0, false,
+          true, one(T), true,
+          [T(0)],
+          Vector{Int64}(undef,0), Vector{Int64}(undef,0),
+          Vector{T}(undef,0), Vector{T}(undef,0), Matrix{T}(undef,0,0), Vector{T}(undef,0),
+          Matrix{T}(undef,0,0),
+          (X = Vector{T}(undef,0), p = T(NaN)))
 end
 
 function perp(A::AbstractMatrix)
@@ -241,7 +249,7 @@ function perp(A::AbstractMatrix)
 end
 
 # R₁ is constraints. R is attack surface for null; only needed when using FWL for WRE
-# for DGP regression, R₁ is maintained constraints + null if imposed while R should have 0 rows
+# for DGP regression, R₁ is maintained constraints + null if imposed while R should have 0 nrows
 # for replication regressions R₁ is maintained constraints, R is null
 function setR!(o::StrEstimator{T,E}, R₁::AbstractMatrix{T}, R::Union{UniformScaling{Bool},AbstractMatrix{T}}=Matrix{T}(undef,0,0)) where {T,E}
 	if length(R₁) > 0
@@ -255,7 +263,7 @@ function setR!(o::StrEstimator{T,E}, R₁::AbstractMatrix{T}, R::Union{UniformSc
   end
 
   if !iszero(o.κ)
-		RR₁perp = Matrix([R ; zeros(T, o.parent.kY₂, o.parent.kX₁) I])  # rows to prevent partialling out of endogenous regressors; convert sparse matrix produced by constructor to dense
+		RR₁perp = Matrix([R ; zeros(T, o.parent.kY₂, o.parent.kX₁) I])  # nrows to prevent partialling out of endogenous regressors; convert sparse matrix produced by constructor to dense
 
 		length(R₁)>0 && (RR₁perp *= o.R₁perp)
 
@@ -283,7 +291,7 @@ function InitVars!(o::StrEstimator{T,OLS}, Rperp::AbstractMatrix{T}) where T # R
   o.invH = inv(H)
 
   R₁AR₁ = iszero(length(o.R₁perp)) ? o.invH : Symmetric(o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')  # for DGP regression
-  o.β₀ = Vector{T}(undef, rows(R₁AR₁)); mul!(o.β₀, R₁AR₁, crossvec(o.parent.X₁, o.parent.wt, o.y₁par))
+  o.β₀ = Vector{T}(undef, nrows(R₁AR₁)); mul!(o.β₀, R₁AR₁, crossvec(o.parent.X₁, o.parent.wt, o.y₁par))
   o.∂β∂r = R₁AR₁ * H * o.R₁invR₁R₁ - o.R₁invR₁R₁
 
 	o.A = iszero(length(Rperp)) ? o.invH : Rperp * invsym(Rperp'H*Rperp) * Rperp'   # for replication regression
@@ -314,7 +322,7 @@ function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where 
   o.X₂ = o.parent.X₂ - o.ZperpinvZperpZperp * cross(o.Zperp, o.parent.wt, o.parent.X₂)                # FWL-process X₂
   X₂X₁ = cross(o.X₂, o.parent.wt, o.X₁)
   o.XX = Symmetric([symcross(o.X₁, o.parent.wt) X₂X₁' ; X₂X₁ symcross(o.X₂, o.parent.wt)])
-  o.kX = cols(o.XX)
+  o.kX = ncols(o.XX)
   o.invXX = invsym(o.XX)
 
   o.Z   = X₁₂B(o.parent.X₁, o.parent.Y₂, o.Rpar     )  # Zpar
@@ -365,7 +373,7 @@ function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where 
   if o.isDGP
     !o.LIML && MakeH!(o, !isempty(Rperp)) # DGP is LIML except possibly when getting confidence peak for A-R plot; but LIML=0 when exactly id'd, for then κ=1 always and Hessian doesn't depend on r₁ and can be computed now
   else
-    o.kZ = cols(o.Rpar)
+    o.kZ = ncols(o.Rpar)
     o.ScapYX       = Vector{Matrix{T}}(undef, o.kZ+1)
     o.ScapPXYZperp = Vector{Matrix{T}}(undef, o.kZ+1)
     o.XinvXX = X₁₂B(o.X₁, o.X₂, o.invXX)
@@ -380,9 +388,9 @@ function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where 
         o.parent.NFE>0 &&
           (o.CT_FEcapPY = Vector{Matrix{T}}(undef, o.kZ+1))
         for i ∈ 1:o.kZ
-          uwt = vHadw(o.PXZ[:,i], o.parent.wt)
+          uwt = vHadw(view(o.PXZ,:,i), o.parent.wt)
           o.parent.NFE>0 &&
-            (o.CT_FEcapPY[i+1] = crosstabFE(o.parent, uwt, o.parent.infoCapData) .* o.parent.invFEwt)
+            (o.CT_FEcapPY[i+1] = crosstabFEt(o.parent, uwt, o.parent.infoCapData) .* o.parent.invFEwt)
           tmp = panelsum(o.Z, uwt, o.parent.infoCapData)
           for j ∈ 1:o.kZ
             o.FillingT₀[i+1,j+1] = tmp[:,j]  # XXX make this a view or make FillingT₀ 4D array or vector{3D array}
@@ -390,9 +398,9 @@ function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where 
         end
 
         for i ∈ 1:o.kZ  # precompute various clusterwise sums
-          o.ScapPXYZperp[i+1] = panelsum(o.Zperp, vHadw(o.PXZ[:,i], o.parent.wt), o.parent.infoCapData)  # Scap(P_(MZperpX) * Z .* Zperp)
+          o.ScapPXYZperp[i+1] = panelsum(o.Zperp, vHadw(view(o.PXZ,:,i), o.parent.wt), o.parent.infoCapData)  # Scap(P_(MZperpX) * Z .* Zperp)
           !o.parent.granular &&
-            (o.ScapYX[i+1] = panelsum(o.X₁, o.X₂, vHadw(o.Z[:,i], o.parent.wt), o.parent.infoCapData))  # Scap(M_Zperp[Z or y₁] .* P_(MZperpX)])
+            (o.ScapYX[i+1] = panelsum(o.X₁, o.X₂, vHadw(view(o.Z,:,i), o.parent.wt), o.parent.infoCapData))  # Scap(M_Zperp[Z or y₁] .* P_(MZperpX)])
         end
       end
     end
@@ -462,7 +470,7 @@ function Estimate!(o::StrEstimator{T,IVGMM} where T, r₁::AbstractVector)
       o.ScapPXYZperp[1] = panelsum(o.Zperp, uwt, o.parent.infoCapData)  # Scap(P_(MZperpX) * y₁ .* Zperp)
 
       o.parent.NFE>0 &&
-        (o.CT_FEcapPY[1] = crosstabFE(o.parent, uwt, o.parent.infoCapData) .* o.parent.invFEwt)
+        (o.CT_FEcapPY[1] = crosstabFEt(o.parent, uwt, o.parent.infoCapData) .* o.parent.invFEwt)
 
       uwt = vHadw(o.y₁par, o.parent.wt)
       tmp = panelsum(o.PXZ, uwt, o.parent.infoCapData)
@@ -506,7 +514,7 @@ function InitTestDenoms!(o::StrEstimator)
 
     if o.parent.robust && o.parent.NFE>0 && !(o.parent.FEboot || o.parent.scorebs) && Int(o.parent.granular) < o.parent.NErrClustCombs  # make first factor of second term of (64) for c=cap (c=1)
       !isdefined(o, :WXAR) && (o.WXAR = vHadw(o.XAR, o.parent.wt))
-      o.CT_XAR = [crosstabFE(o.parent, view(o.WXAR,:,d), o.parent.infoCapData) for d ∈ axes(o.WXAR,2)]
+      o.CT_XAR = crosstabFEt(o.parent, o.WXAR, o.parent.infoCapData)
     end
 	end
 end
@@ -703,11 +711,11 @@ macro clustAccum!(X, c, Y)  # efficiently add a cluster combination-specific ter
 end
 
 function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repeatedly to make CI, do stuff once that doesn't depend on r
-  o.Nobs = rows(o.X₁)
-  o.NClustVar = cols(o.ID)
-  o.kX = (o.kX₁ = cols(o.X₁)) + (o.kX₂ = cols(o.X₂))
+  o.Nobs = nrows(o.X₁)
+  o.NClustVar = ncols(o.ID)
+  o.kX = (o.kX₁ = ncols(o.X₁)) + (o.kX₂ = ncols(o.X₂))
   o.kX₂==0 && (o.X₂ = zeros(T,o.Nobs,0))
-  o.kY₂ = cols(o.Y₂)
+  o.kY₂ = ncols(o.Y₂)
   iszero(o.kY₂) && (o.Y₂ = zeros(T,o.Nobs,0))
   o.kZ = o.kX₁ + o.kY₂
 	if o.LIML && o.kX₂==o.kY₂  # exactly identified LIML = 2SLS
@@ -733,27 +741,27 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
   if o.WREnonARubin
     if o.NClustVar>0
-      o.infoBootData, o.IDBootData = panelsetupID(o.ID, collect(1:o.NBootClustVar))
+      o.infoBootData, o.IDBootData = panelsetupID(o.ID, collect(1:o.nbootclustvar))
     else
       o.infoCapData = o.infoBootData = Vector{UnitRange{Int64}}(undef, o.Nobs, 0)  # no clustering, so no collapsing by cluster
     end
   elseif o.NClustVar>0
-    o.infoBootData = panelsetup(o.ID, collect(1:min(o.NClustVar,o.NBootClustVar)))  # bootstrap cluster grouping defs rel to original data
+    o.infoBootData = panelsetup(o.ID, collect(1:min(o.NClustVar,o.nbootclustvar)))  # bootstrap cluster grouping defs rel to original data
   else
     infoCapData = infoAllData = infoBootData = Vector{UnitRange{Int64}}(undef, o.Nobs, 0)  # causes no collapsing of data in panelsum() calls, only multiplying by weights if any
   end
-  o.Nstar = rows(o.infoBootData)
+  o.Nstar = nrows(o.infoBootData)
 
   if o.bootstrapt
     if !iszero(o.NClustVar)
       minN = Inf; sumN = 0
 
-      combs = [x & 2^y > 0 for x in 2^o.NErrClustVar-1:-1:1, y in o.NErrClustVar-1:-1:0]  # represent all error clustering combinations. First is intersection of all error clustering vars
-      o.clust = Vector{StrClust{T}}(undef, rows(combs))  # leave out no-cluster combination
+      combs = [x & 2^y > 0 for x in 2^o.nerrclustvar-1:-1:1, y in o.nerrclustvar-1:-1:0]  # represent all error clustering combinations. First is intersection of all error clustering vars
+      o.clust = Vector{StrClust{T}}(undef, nrows(combs))  # leave out no-cluster combination
       o.NErrClustCombs = length(o.clust)
-      o.subcluster = o.NClustVar - o.NErrClustVar
+      o.subcluster = o.NClustVar - o.nerrclustvar
 
-      if o.NClustVar > o.NBootClustVar  # info for grouping by intersections of all bootstrap && clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusters
+      if o.NClustVar > o.nbootclustvar  # info for grouping by intersections of all bootstrap && clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusters
         if o.WREnonARubin && !o.granular
           o.infoAllData, IDAllData = panelsetupID(o.ID, collect(1:o.NClustVar))
         else
@@ -764,21 +772,21 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
         o.WREnonARubin && !o.granular && (IDAllData = o.IDBootData)
       end
 
-      if o.NClustVar > o.NErrClustVar  # info for intersections of error clustering wrt data
+      if o.NClustVar > o.nerrclustvar  # info for intersections of error clustering wrt data
         if o.WREnonARubin && !o.granular
           o.infoCapData, IDCapData = panelsetupID(o.ID, collect(o.subcluster+1:o.NClustVar))
         else
           o.infoCapData            = panelsetup(o.ID, collect(o.subcluster+1:o.NClustVar))
         end
-        IDCap = rows(o.infoCapData)==o.Nobs ? o.ID : @views o.ID[first.(o.infoCapData),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
-        o.IDAll = rows(o.infoAllData)==o.Nobs ? o.ID : @views o.ID[first.(o.infoAllData),:]  # version of ID matrix with one row for each all-bootstrap && error cluster-var intersection instead of 1 row for each obs
+        IDCap = nrows(o.infoCapData)==o.Nobs ? o.ID : @views o.ID[first.(o.infoCapData),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
+        o.IDAll = nrows(o.infoAllData)==o.Nobs ? o.ID : @views o.ID[first.(o.infoAllData),:]  # version of ID matrix with one row for each all-bootstrap && error cluster-var intersection instead of 1 row for each obs
       else
         o.infoCapData = o.infoAllData  # info for intersections of error clustering wrt data
         o.WREnonARubin && !o.granular && (IDCapData = IDAllData)
-        o.IDAll = IDCap = rows(o.infoCapData)==o.Nobs ? o.ID : @views o.ID[first.(o.infoCapData),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
+        o.IDAll = IDCap = nrows(o.infoCapData)==o.Nobs ? o.ID : @views o.ID[first.(o.infoCapData),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
       end
 
-      o.BootClust = 2^(o.NClustVar - o.NBootClustVar)  # location of bootstrap clustering within list of cluster combinations
+      o.BootClust = 2^(o.NClustVar - o.nbootclustvar)  # location of bootstrap clustering within list of cluster combinations
 
 			for c ∈ 1:o.NErrClustCombs  # for each error clustering combination
         ClustCols = o.subcluster .+ findall(@view combs[c,:])
@@ -787,7 +795,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
         if isone(c)
           if iszero(o.subcluster)
             order = Vector{Int64}(undef,0)
-            info  = Vector{UnitRange{Int64}}(undef, rows(o.infoAllData))  # causes no collapsing of data in panelsum() calls
+            info  = Vector{UnitRange{Int64}}(undef, nrows(o.infoAllData))  # causes no collapsing of data in panelsum() calls
           else
             order = sortperm(collect(eachrow(@view IDCap[:,ClustCols])))  # XXX slow?
             IDCap = IDCap[order, :]
@@ -803,7 +811,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
           info = panelsetup(IDCap, ClustCols)
         end
 
-        N = rows(info)
+        N = nrows(info)
         sumN += N
 
         if o.small
@@ -851,7 +859,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
       end
     end
   else
-    minN = rows(o.infoBootData)
+    minN = nrows(o.infoBootData)
   end
 
   if isdefined(o, :FEID)  && length(o.FEID)>0
@@ -871,14 +879,14 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
           wt = fill(1/sumFEwt, j-i)
         end
         o.FEs[i_FE] = StrFE{T}(is, wt)
-        if (o.B>0 && o.robust && Int(o.granular) < o.NErrClustVar) || (o.WREnonARubin && o.robust && o.granular && o.bootstrapt)
+        if (o.B>0 && o.robust && Int(o.granular) < o.nerrclustvar) || (o.WREnonARubin && o.robust && o.granular && o.bootstrapt)
           o.invFEwt[i_FE] = 1 / sumFEwt
         end
 
         j = i
 
         if o.FEboot  # are all of this FE's obs in same bootstrapping cluster? (But no need to check if B=0 for then CT_WE in 2nd term of (62) orthogonal to v = col of 1's)
-          tmp = o.ID[is, 1:o.NBootClustVar]
+          tmp = o.ID[is, 1:o.nbootclustvar]
           o.FEboot = all(tmp .== view(tmp, 1,:)')
         end
         i_FE += 1
@@ -894,18 +902,18 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
       wt = fill(1/sumFEwt, j)
     end
     o.FEs[i_FE] = StrFE{T}(is, wt)
-    o.robust && ((o.B>0 && Int(o.granular) < o.NErrClustVar) || (o.WREnonARubin && o.granular && o.bootstrapt)) &&
+    o.robust && ((o.B>0 && Int(o.granular) < o.nerrclustvar) || (o.WREnonARubin && o.granular && o.bootstrapt)) &&
       (o.invFEwt[i_FE] = 1 / sumFEwt)
     o.NFE = i_FE
     resize!(o.invFEwt, o.NFE)
     resize!(o.FEs, o.NFE)
     if o.FEboot  # are all of this FE's obs in same bootstrapping cluster?
-      tmp = o.ID[is, 1:o.NBootClustVar]
+      tmp = o.ID[is, 1:o.nbootclustvar]
       o.FEboot = all(tmp .== @view tmp[1,:])
     end
 
-    if o.robust && o.B>0 && o.bootstrapt && !o.FEboot && Int(o.granular) < o.NErrClustVar
-      o.infoBootAll = panelsetup(o.IDAll, collect(1:o.NBootClustVar))  # info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping && error clusters
+    if o.robust && o.B>0 && o.bootstrapt && !o.FEboot && Int(o.granular) < o.nerrclustvar
+      o.infoBootAll = panelsetup(o.IDAll, collect(1:o.nbootclustvar))  # info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping && error clusters
     end
 
 		partialFE(o, o.X₁)
@@ -916,20 +924,20 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
   if o.B>0 && o.robust && o.granular && !o.purerobust && o.bootstrapt && !o.WREnonARubin
     if o.NFE>0 && !o.FEboot
-      _, o.IDBootData = panelsetupID(o.ID   , collect(1:o.NBootClustVar))
+      _, o.IDBootData = panelsetupID(o.ID   , collect(1:o.nbootclustvar))
     else
-      _, o.IDBootAll  = panelsetupID(o.IDAll, collect(1:o.NBootClustVar))
+      _, o.IDBootAll  = panelsetupID(o.IDAll, collect(1:o.nbootclustvar))
     end
   end
 
   o.enumerate = o.B>0 && o.auxtwtype==rademacher && o.Nstar*log(2) < log(o.B)+1e-6  # generate full Rademacher set?
   o.enumerate && (o.maxmatsize = 0)
 
-  o.Nw = iszero(o.maxmatsize) ? 1 : ceil((o.B+1) * Float64(max(rows(o.IDBootData), length(o.IDBootAll), o.Nstar) * sizeof(T)) / o.maxmatsize / 1073741824) # 1073741824 = giga(byte)
+  o.Nw = iszero(o.maxmatsize) ? 1 : ceil((o.B+1) * Float64(max(nrows(o.IDBootData), length(o.IDBootAll), o.Nstar) * sizeof(T)) / o.maxmatsize / 1073741824) # 1073741824 = giga(byte)
   if isone(o.Nw)
     MakeWildWeights!(o, o.B, first=true)  # make all wild weights, once
-    o.enumerate && (o.B = cols(o.v) - 1)  # replications reduced to 2^G
-    o.WeightGrp = [1:cols(o.v)]
+    o.enumerate && (o.B = ncols(o.v) - 1)  # replications reduced to 2^G
+    o.WeightGrp = [1:ncols(o.v)]
   else
     _B = ceil(Int64, (o.B+1) / o.Nw)
     o.Nw = ceil(Int64, (o.B+1) / _B)
@@ -938,13 +946,13 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   end
 
   if o.ML
-    o.df = rows(o.R)
+    o.df = nrows(o.R)
   else
     if o.ARubin
       o.R = ApplyArray(hcat, zeros(o.kX₂,o.kX₁), I(o.kX₂))  # attack surface is all endog vars
-      o.R₁ = o.kX₁>0 && rows(o.R₁)>0 ? ApplyArray(hcat, o.R₁[:,1:kX₁], zeros(rows(o.R₁),o.kX₂)) : zeros(0, o.kX)  # and convert model constraints from referring to X₁, Y₂ to X₁, X₂
+      o.R₁ = o.kX₁>0 && nrows(o.R₁)>0 ? ApplyArray(hcat, o.R₁[:,1:kX₁], zeros(nrows(o.R₁),o.kX₂)) : zeros(0, o.kX)  # and convert model constraints from referring to X₁, Y₂ to X₁, X₂
     end
-    o.df = rows(o.R)
+    o.df = nrows(o.R)
 
     if !o.WRE && iszero(o.κ)  # regular OLS
       o.DGP = StrEstimator{T,OLS}(o)
@@ -997,7 +1005,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
       o.SstarUXinvXX             = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
       o.SstarUX                  = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
       o.SstarUU                  = Matrix{Matrix{T}}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
-	    o.T1L = isone(o.Nw) ? [Matrix{T}(undef, o.Repl.kX, cols(o.v))] :
+	    o.T1L = isone(o.Nw) ? [Matrix{T}(undef, o.Repl.kX, ncols(o.v))] :
 	                          [Matrix{T}(undef, o.Repl.kX, length(o.WeightGrp[1])), Matrix{T}(undef, o.Repl.kX, length(o.WeightGrp[end]))]
 	    o.T1R = deepcopy(o.T1L)
 
@@ -1165,7 +1173,7 @@ function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) wher
 
 		first && !(o.enumerate && isone(o.v_sd)) && (o.v[:,1] .= o.WREnonARubin ? zero(T) : o.v_sd)  # keep original residuals in first entry to compute base model stat
 	else
-		o.v = Matrix{T}(undef,0,1)  # in places, cols(v) indicates B -- 1 for classical tests
+		o.v = Matrix{T}(undef,0,1)  # in places, ncols(v) indicates B -- 1 for classical tests
   end
 end
 
@@ -1174,7 +1182,7 @@ end
 # ind1 can be a rowvector
 # (only really the Hessian when we narrow Y to Z)
 function HessianFixedκ(o::StrBootTest{T}, ind1::Vector{S} where S<:Integer, ind2::Integer, κ::Number, w::Integer) where T
-  dest = Matrix{T}(undef, length(ind1), cols(o.v))
+  dest = Matrix{T}(undef, length(ind1), ncols(o.v))
   for i ∈ eachindex(ind1, axes(dest,1))
     _HessianFixedκ!(o, view(dest,i:i,:), ind1[i], ind2, κ, w)
   end
@@ -1252,7 +1260,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 				                                                        o.Repl.Z[:,ind2] * _β                                       ), o.wt, infoCapData)
 			end
 		else  # create pieces of each N x B matrix one at a time rather than whole thing at once
-			dest = Matrix{T}(undef, o.clust[1].N, cols(o.v))  # XXX preallocate this & turn Filling into Filling! ?
+			dest = Matrix{T}(undef, o.clust[1].N, ncols(o.v))  # XXX preallocate this & turn Filling into Filling! ?
 			for ind2 ∈ 0:o.Repl.kZ
 				ind2>0 && (βv = o.v .* (_β = βs[ind2,:]'))
 
@@ -1292,7 +1300,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 			T₁ = o.Repl.Yendog[ind1+1] ? o.Repl.ScapYX[ind2+1] * o.SstarUXinvXX[ind1+1] : Matrix{T}(undef,0,0)  #  S_∩ (Y_(∥j):*X_∥ ) (X_∥^' X_∥ )^(-1) [S_* (U ̈_(∥i):*X_∥ )]^'
 
 			if o.Repl.Yendog[ind2+1]  # add CT_(cap,*) (P_(X_par ) Y_(pari).*U ̈_(parj) )
-				if o.NClustVar == o.NBootClustVar && iszero(o.subcluster)  # simple case of one clustering: full crosstab is diagonal
+				if o.NClustVar == o.nbootclustvar && iszero(o.subcluster)  # simple case of one clustering: full crosstab is diagonal
 					tmp = ind1>0 ? o.Repl.XZ[:,ind1] : o.Repl.Xy₁par
           if length(T₁)>0
             T₁[diagind(T₁)] .+= o.SstarUXinvXX[ind2+1]'tmp
@@ -1306,22 +1314,22 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
           end
 				end
 				length(o.Repl.Zperp) > 0 && (T₁ = T₁ .- o.Repl.ScapPXYZperp[ind1+1] * o.SstarUZperpinvZperpZperp[ind2+1])  # subtract S_∩ (P_(X_∥ ) Y_(∥i):*Z_⊥ ) (Z_⊥^' Z_⊥ )^(-1) [S_* (U ̈_(∥j):*Z_⊥ )]^'
-        o.NFE                > 0 && (T₁ = T₁ .- o.Repl.CT_FEcapPY[ind1+1]'o.CTFEU[ind2+1])
+        o.NFE                > 0 && (T₁ = T₁ .- o.Repl.CT_FEcapPY[ind1+1] * o.CTFEU[ind2+1])
 			end
 
 			if ind2>0  # order-0 and -1 terms
-        if iszero(cols(T₁))  # - x*β components
+        if iszero(ncols(T₁))  # - x*β components
           dest .+= o.Repl.FillingT₀[ind1+1,ind2+1] * _β
-        elseif isone(cols(T₁))
+        elseif isone(ncols(T₁))
           dest .+= o.Repl.FillingT₀[ind1+1,ind2+1] * _β .+ T₁ .* βv
         else
           dest .+= o.Repl.FillingT₀[ind1+1,ind2+1] * _β
           matmulplus!(dest, T₁, βv)
         end
       else  # y component
-        if iszero(cols(T₁))
+        if iszero(ncols(T₁))
           dest = o.Repl.FillingT₀[ind1+1,1]
-        elseif isone(cols(T₁))
+        elseif isone(ncols(T₁))
           dest = o.Repl.FillingT₀[ind1+1,1] .+ T₁ .* βv
         else
           dest = T₁ * o.v; dest .+= o.Repl.FillingT₀[ind1+1,1]
@@ -1434,14 +1442,14 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 
 	else  # WRE bootstrap for more than 1 coefficeint in bootstrap regression
 
-		βs = zeros(T, o.Repl.kZ, cols(o.v))
-		A = Vector{Matrix{T}}(undef, cols(o.v))
+		βs = zeros(T, o.Repl.kZ, ncols(o.v))
+		A = Vector{Matrix{T}}(undef, ncols(o.v))
 
 		if o.LIML
       o.YYstar   = [HessianFixedκ(o, collect(0:i), i, zero(T), w) for i ∈ 0:o.Repl.kZ] # κ=0 => Y*MZperp*Y
       o.YPXYstar = [HessianFixedκ(o, collect(0:i), i,  one(T), w) for i ∈ 0:o.Repl.kZ] # κ=1 => Y*PXpar*Y
 
-			for b ∈ 1:cols(o.v)
+			for b ∈ 1:ncols(o.v)
 				for i ∈ 0:o.Repl.kZ
 					o.YYstar_b[1:i+1,i+1]   = o.YYstar[i+1][:,b]  # fill uppper triangles, which is all that invsym() looks at
 					o.YPXYstar_b[1:i+1,i+1] = o.YPXYstar[i+1][:,b]
@@ -1476,8 +1484,8 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
       end
     end
 
-		numer_b = Vector{T}(undef,rows(o.Repl.RRpar))  # XXX move to Init()
-    for b ∈ cols(o.v):-1:1
+		numer_b = Vector{T}(undef,nrows(o.Repl.RRpar))  # XXX move to Init()
+    for b ∈ ncols(o.v):-1:1
 			if o.null || w==1 && b==1
         numer_b .= o.Repl.RRpar * βs[:,b] + o.Repl.Rt₁ - o.r
       else
@@ -1654,10 +1662,12 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 
       o.NFE>0 && !o.FEboot && (o.CT_WE = crosstabFE(o, vHadw(o.ü, o.wt), o.infoBootData))
 
+      o.NFE>0 && !o.FEboot &&
+        (tmp = reshape(reshape(o.M.CT_XAR, :, length(o.invFEwt)) * (o.invFEwt .* o.CT_WE), size(o.M.CT_XAR,1), size(o.M.CT_XAR,2), ncols(o.CT_WE)))
 			for d ∈ 1:o.df  # subtract crosstab of u.*XAR wrt bootstrapping cluster combo and all-cluster-var intersections
 				crosstabCapstarMinus!(o, Kd[d], ustarXAR[:,d])
         if o.NFE>0 && !o.FEboot
-          Kd[d] .+= o.M.CT_XAR[d]' * (o.invFEwt .* o.CT_WE)  # middle term of (64)
+          Kd[d] .+= tmp[:,d,:]  # middle term of (64)
         end
         o.scorebs && (Kd[d] .-= o.ClustShare * colsum(Kd[d])) # recenter
 			end
@@ -1759,7 +1769,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
         (o.statDenom = [o.denom[1,1][1] o.denom[2,1][1] ; o.denom[2,1][1] o.denom[2,2][1]])  # original-sample denominator
     else  # build each replication's denominator from vectors that hold values for each position in denominator, all replications
 			tmp = Matrix{T}(undef, o.df, o.df)
-			for k ∈ 1:cols(o.v)  # XXX probably can simplify
+			for k ∈ 1:ncols(o.v)  # XXX probably can simplify
 				for i ∈ 1:o.df, j ∈ 1:i
 					tmp[j,i] = o.denom[i,j][k]  # fill upper triangle, which is all invsym() looks at
         end
@@ -1795,14 +1805,14 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 		else
 			o.denom[1,1] = o.R * AR
 			if o.ML
-				for k ∈ 1:cols(o.v)
+				for k ∈ 1:ncols(o.v)
 					numer_l = o.numerw[:,k]
 					o.dist[k+first(o.WeightGrp[w])-1] = numer_l'invsym(o.denom[1,1])*numer_l
 				end
 				isone(w) && (o.statDenom = o.denom[1,1])  # original-sample denominator
 			else
         invdenom = invsym(o.denom[1,1])
-				for k ∈ 1:cols(o.v)
+				for k ∈ 1:ncols(o.v)
 					numer_l = o.numerw[:,k]
 					o.dist[k+first(o.WeightGrp[w])-1] = o.numer_l'invdenom*numer_l
           o.ustar = o.B>0 ? o.v[:,k] .* o.ü : o.ü
@@ -1826,7 +1836,7 @@ end
 
 # like Mata panelsetup() but can group on multiple columns, like sort(), and faster. But doesn't take minobs, maxobs arguments.
 function panelsetup(X::AbstractArray{S} where S, colinds::Vector{T} where T<:Integer)
-	N = rows(X)
+	N = nrows(X)
 	info = Vector{UnitRange{Int64}}(undef, N)
 	lo = p = 1
 	id = view(X,1,colinds)
@@ -1844,7 +1854,7 @@ function panelsetup(X::AbstractArray{S} where S, colinds::Vector{T} where T<:Int
 end
 # Like above but also return standardized ID variable, starting from 1
 function panelsetupID(X::AbstractArray{S} where S, colinds::Vector{T} where T<:Integer)
-	N = rows(X)
+	N = nrows(X)
 	info = Vector{UnitRange{Int64}}(undef, N)
   ID = ones(Int64, N)
 	lo = p = 1
@@ -1866,8 +1876,8 @@ end
 # Do panelsum() except that a single missing value in X doesn't make all results missing and
 # efficiently handles case when all groups have one row.
 function panelsum(X::AbstractMatrix, info::Vector{UnitRange{T}} where T<:Integer)
-  iszero(cols(X)) && return X[1:rows(info),:]
-  (iszero(length(info)) || rows(info)==rows(X)) && return X
+  iszero(ncols(X)) && return X[1:nrows(info),:]
+  (iszero(length(info)) || nrows(info)==nrows(X)) && return X
 
   dest = zeros(promote_type(Float32, eltype(X)), size(info,1), size(X,2))
   for g in eachindex(info)
@@ -1881,7 +1891,7 @@ function panelsum(X::AbstractMatrix, info::Vector{UnitRange{T}} where T<:Integer
   dest
 end
 function panelsum(X::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer)
-  (iszero(length(info)) || rows(info)==length(X)) && return X
+  (iszero(length(info)) || nrows(info)==length(X)) && return X
 
   dest = zeros(promote_type(Float32, eltype(X)), size(info,1))
   for g in eachindex(info, dest)
@@ -1898,8 +1908,8 @@ end
 @inline panelsum(X::AbstractArray, wt::UniformScaling, info::Vector{UnitRange{T}} where T<:Integer) = panelsum(X, info)
 
 function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer)
-  iszero(cols(X)) && return
-  if iszero(length(info)) || rows(info)==rows(X)
+  iszero(ncols(X)) && return
+  if iszero(length(info)) || nrows(info)==nrows(X)
     dest .= X .* wt
     return
   end
@@ -1936,9 +1946,9 @@ function panelsum(X₁::AbstractArray, X₂::AbstractArray, wt::AbstractVector, 
   elseif iszero(length(X₂))
     panelsum(X₁,wt,info)
   else
-    dest = similar(X₁, length(info), cols(X₁)+cols(X₂))
-    panelsum!(view(dest, :,          1:cols(X₁)         ), X₁, wt, info)
-    panelsum!(view(dest, :, cols(X₁)+1:cols(X₁)+cols(X₂)), X₂, wt, info)
+    dest = similar(X₁, length(info), ncols(X₁)+ncols(X₂))
+    panelsum!(view(dest, :,          1:ncols(X₁)         ), X₁, wt, info)
+    panelsum!(view(dest, :, ncols(X₁)+1:ncols(X₁)+ncols(X₂)), X₂, wt, info)
     dest
   end
 end
@@ -1947,24 +1957,62 @@ end
 # except use provided lo and hi values for 0 and 1
 count_binary(N::Integer, lo::Number, hi::Number) = N<=1 ? [lo  hi] :
                                                           (tmp = count_binary(N-1, lo, hi);
-                                                           [fill(lo, 1, cols(tmp)) fill(hi, 1, cols(tmp)) ;
+                                                           [fill(lo, 1, ncols(tmp)) fill(hi, 1, ncols(tmp)) ;
                                                                              tmp                    tmp     ])
 
 # cross-tab sum of a column vector w.r.t. given panel info and fixed-effect var
 # one row per FE, one col per other grouping
 function crosstabFE(o::StrBootTest{T}, v::AbstractVector, info::Vector{UnitRange{Int64}}) where T
-	dest = zeros(T, o.NFE, rows(info))
+	dest = zeros(T, o.NFE, nrows(info))
   if length(info)>0
-    for i ∈ 1:rows(info)
-      FEIDi = @view o._FEID[info[i],:]
-      vi    = @view       v[info[i],:]
-      @inbounds for j in eachindex(vi, FEIDi)
+    for i ∈ 1:nrows(info)
+      FEIDi = @view o._FEID[info[i]]
+      vi    = @view       v[info[i]]
+      @inbounds @simd for j in eachindex(vi, FEIDi)
         dest[FEIDi[j],i] += vi[j]
       end
     end
-  else  # "robust" case, no clustering
-    @inbounds for i in eachindex(v,o._FEID)
+  else  # "robust" case, no clusteringA
+    @inbounds @simd for i in eachindex(v,o._FEID)
       dest[o._FEID[i],i] = v[i]
+    end
+  end
+	return dest
+end
+# same, transposed
+function crosstabFEt(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitRange{Int64}}) where T
+	dest = zeros(T, nrows(info), o.NFE)
+  if length(info)>0
+    for i ∈ 1:nrows(info)
+      FEIDi = @view o._FEID[info[i]]
+      vi    = @view       v[info[i]]
+      @inbounds @simd for j ∈ eachindex(vi, FEIDi)
+        dest[i,FEIDi[j]] += vi[j]
+      end
+    end
+  else  # "robust" case, no clustering
+    @inbounds @simd for i ∈ eachindex(v,o._FEID)
+      dest[i,o._FEID[i]] = v[i]
+    end
+  end
+	return dest
+end
+# same, but handles multiple columns in v
+# *2nd* dimension of resulting 3-D array corresponds to cols of v; 
+# this facilitates reshape() to 2-D array in which results for each col of v are stacked vertically
+function crosstabFEt(o::StrBootTest{T}, v::AbstractMatrix{T}, info::Vector{UnitRange{Int64}}) where T
+	dest = zeros(T, nrows(info), ncols(v), o.NFE)
+  if length(info)>0
+    for i ∈ 1:nrows(info)
+      FEIDi = @view o._FEID[info[i]]
+      vi    = @view       v[info[i],:]
+      @inbounds @simd for j ∈ 1:length(FEIDi)
+        dest[i,:,FEIDi[j]] += vi[j,:]
+      end
+    end
+  else  # "robust" case, no clustering
+    @inbounds @simd for i ∈ 1:length(FEIDi)
+      dest[i,:,o._FEID[i]] = v[i,:]
     end
   end
 	return dest
@@ -1980,7 +2028,7 @@ function crosstabCapstarMinus!(o::StrBootTest, M::AbstractMatrix, v::AbstractVec
 		for i ∈ eachindex(o.infoErrAll, axes(M,1))
 			M[i, o.infoErrAll[i]] .-= v[o.infoErrAll[i]]
 		end
-	elseif o.NClustVar == o.NBootClustVar  # crosstab c,c* is square
+	elseif o.NClustVar == o.nbootclustvar  # crosstab c,c* is square
 		M[diagind(M)] .-= v
 	else  # crosstab c,c* is tall
 		for i ∈ eachindex(o.clust[o.BootClust].info, axes(M,2))
@@ -2044,7 +2092,7 @@ function plot(o::StrBootTest{T}) where T
 	if isone(o.q)  # 1D plot
     α<=0 && (α = T(.05))  # if level=100, no CI constructed, but we need a reasonable α to choose graphing bounds
 
-    if α > 0 && cols(o.v)-1 <= 1/α-1e6
+    if α > 0 && ncols(o.v)-1 <= 1/α-1e6
       throw(ErrorException("need at least $(ceil(1/α)) replications to resolve a $(o.level)% two-sided confidence interval."))
     end
 
@@ -2134,7 +2182,7 @@ function plot(o::StrBootTest{T}) where T
       # end
     end
     o.plotX = [repeat(range(lo[1], hi[1], length=o.gridpoints[1]), inner=o.gridpoints[2]) repeat(range(lo[2], hi[2], length=o.gridpoints[2]), outer=o.gridpoints[1])]
-    o.plotY = fill(T(NaN), rows(o.plotX))
+    o.plotY = fill(T(NaN), nrows(o.plotX))
   end
 
   isnan(o.plotY[1]) && (o.plotY[1] = r_to_p(o, o.plotX[1,:]))  # do in this order for widest interpolation
@@ -2145,7 +2193,7 @@ function plot(o::StrBootTest{T}) where T
   if any(isnan.(o.plotY))
     o.CI = [T(-Inf) T(Inf)]
   elseif isone(o.q) && o.level<100 # find CI bounds
-    _CI = Vector{T}(undef, rows(o.plotY))
+    _CI = Vector{T}(undef, nrows(o.plotY))
     for i in eachindex(_CI)  # map() version hampers type inference in Julia 1.6.2
       _CI[i] = isnan(o.plotY[i]) ? o.plotY[i] : T(o.plotY[i] > α)
     end
@@ -2176,7 +2224,7 @@ function plot(o::StrBootTest{T}) where T
 
   if @isdefined c  # now that it's done helping graph look good, remove peak point from returned grid for evenness, for Bayesian sampling purposes
     o.peak = (X = o.plotX[c,:], p = o.plotY[c])
-    o.plotX = o.plotX[[1:c-1; c+1:rows(o.plotX)],:]
+    o.plotX = o.plotX[[1:c-1; c+1:nrows(o.plotX)],:]
     deleteat!(o.plotY, c)
   end
 
@@ -2198,6 +2246,7 @@ struct BoottestResult{T}
   b::Vector{T}
   V::Matrix{T}
   auxweights::Union{Nothing,Matrix{T}}
+  M::WildBootTest.StrBootTest
 end
 
 teststat(o::BoottestResult) = o.stat
@@ -2261,55 +2310,19 @@ function wildboottest(T::DataType,
                       getplot::Bool=getCI,
                       getauxweights::Bool=false)
 
-  M = WildBootTest.StrBootTest{T}()
-  M.R, M.r = H₀
-  M.q = rows(M.R)
-  M.R₁, M.r₁ = H₁
-  M.maxmatsize = maxmatsize
-  M.y₁ = eltype(resp)==T ? resp : T.(resp)
-  M.X₁ = eltype(predexog)==T ? predexog : T.(predexog)
-  M.X₂ = eltype(inst)==T ? inst : T.(inst)
-  M.Y₂ = eltype(predendog)==T ? predendog : T.(predendog)
-  M.bootstrapt = !bootstrapc
-  M.wt = isa(obswt, UniformScaling) ? I : eltype(obswt)==T ? obswt : T.(obswt)
-  M.fweights = fweights
-  M.LIML = LIML || !iszero(Fuller)
-  M.Fuller = Fuller
-  M.ARubin = ARubin
-  M.κ = κ
-  M.small = small
-  M.B = reps
-  M.scorebs = scorebs || iszero(reps) || ML
-  M.null = imposenull
-  M.auxtwtype = auxwttype
-  M.ptype = ptype
-	M.twotailed = ptype==symmetric || ptype==equaltail
-  M.rng = rng
-  M.ID = eltype(clustid)==T ? clustid : T.(clustid)
-  M.NBootClustVar = nbootclustvar
-  M.NErrClustVar = nerrclustvar
-	M.FEID = eltype(feid)==T ? feid : T.(feid)
-  M.FEdfadj = fedfadj
-  M.rtol = rtol
-  M.level = level
-  M.NH0 = NH0
-  M.madjtype = madjtype
-  M.willplot = getplot
-	M.robust = hetrobust || nerrclustvar>0
-  M.β = β
-  M.A = A
-  M.ML = ML
-  M.sc = eltype(scores)==T ? scores : T.(scores)
-	if rows(H₀[1])==2
+  if nrows(H₀[1])==2
     _gridmin    = ismissing.(gridmin)==[true] ? [missing; missing] : gridmin
     _gridmax    = ismissing.(gridmax)==[true] ? [missing; missing] : gridmax
     _gridpoints = ismissing.(gridpoints)==[true] ? [missing; missing] : gridpoints
   else
     _gridmin, _gridmax, _gridpoints = gridmin, gridmax, gridpoints
   end
-	M.gridmin = map(x->ismissing(x) ? missing : T(x), _gridmin)
-	M.gridmax = map(x->ismissing(x) ? missing : T(x), _gridmax)
-  M.gridpoints = map(x->ismissing(x) ? missing : Int32(x), _gridpoints)
+  M = WildBootTest.StrBootTest{T}(H₀[1], H₀[2], H₁[1], H₁[2], resp, predexog, predendog, inst, obswt, fweights, LIML, Fuller, κ, ARubin,
+    reps, auxwttype, rng, maxmatsize, ptype, imposenull, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, hetrobust, small,
+    feid, fedfadj, level, rtol, madjtype, NH0, ML, β, A, scores, getplot,
+    map(x->ismissing(x) ? missing : T(x), _gridmin),
+    map(x->ismissing(x) ? missing : T(x), _gridmax),
+    map(x->ismissing(x) ? missing : Int32(x), _gridpoints))
 
   if getplot || (level<1 && getCI)
 		plot = getplot ? WildBootTest.getplot(M) : nothing
@@ -2320,11 +2333,11 @@ function wildboottest(T::DataType,
   end
 
   BoottestResult{T}(getstat(M),
-                    isone(rows(H₀[1])) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
+                    isone(nrows(H₀[1])) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
                     getp(M), getpadj(M), getreps(M), getrepsfeas(M), getNBootClust(M), getdf(M), getdf_r(M), plot, peak, CI,
                     WildBootTest.getdist(M),
                     getb(M), getV(M),
-                    getauxweights && reps>0 ? WildBootTest.getauxweights(M) : nothing)
+                    getauxweights && reps>0 ? WildBootTest.getauxweights(M) : nothing, M)
 end
 
 wildboottest(H₀::Tuple{AbstractMatrix, AbstractVector}; args...) = wildboottest(Float32, H₀; args...)

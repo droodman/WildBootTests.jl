@@ -36,10 +36,10 @@ df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Macros\nlsw88.dta"))[:
 dropmissing!(df)
 desc = describe(df, :eltype)
 for i in axes(desc, 1)  # needed only for lm()
-  if desc[i,:eltype] == Float32
-    sym = desc[i,:variable]
-    @transform!(df, @byrow $sym=Float64($sym))
-  end
+if desc[i,:eltype] == Float32
+  sym = desc[i,:variable]
+  @transform!(df, @byrow $sym=Float64($sym))
+end
 end
 sort!(df, :industry)
 f = @formula(wage ~ 1 + tenure + ttl_exp + collgrad)
