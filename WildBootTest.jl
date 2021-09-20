@@ -84,20 +84,18 @@ end
 @inline X₁₂B(X₁::AbstractArray, X₂::AbstractArray, B::AbstractVector) = @views X₁*B[1:size(X₁,2)  ] + X₂*B[size(X₁,2)+1:end  ]
 
 function coldot!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)  # colsum(A .* B)
-  @turbo for i ∈ axes(A,2)
+  s1, s2 = axes(A)
+  @turbo for i ∈ s2
     dest[i] = A[1,i] * B[1,i]
   end
-  @turbo for i ∈ axes(A,2), j ∈ 2:size(A,1)
-    dest[i] += A[j,i] * B[j,i]
+  if size(A,1)>1
+    @turbo for i ∈ s2, j ∈ 2:size(A,1)
+      dest[i] += A[j,i] * B[j,i]
+    end
   end
 end
-function coldotplus!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)  # colsum(A .* B)
-  @turbo for i ∈ axes(A,2), j ∈ axes(A,1)
-    dest[i] += A[j,i] * B[j,i]
-  end
-end
-function coldot(A::AbstractMatrix, B::AbstractMatrix)  # colsum(A .* B)
-  dest = Matrix{promote_type(eltype(A), eltype(B))}(undef, 1, size(A,2))
+function coldot(A::AbstractVecOrMat, B::AbstractMatrix)  # colsum(A .* B)
+  dest = Matrix{promote_type(eltype(A), eltype(B))}(undef, 1, size(B,2))
   coldot!(dest, A, B)
   dest
 end
@@ -106,23 +104,20 @@ function coldot(A::AbstractMatrix)  # colsum(A .* A)
   @turbo for i ∈ axes(A,2)
     dest[i] = A[1,i] ^ 2
   end
-  @turbo for i ∈ axes(A,2), j ∈ 2:size(A,1)
-    dest[i] += A[j,i] ^ 2
-  end
-  dest
-end
-function coldot(A::AbstractVector, B::AbstractMatrix)  # colsum(A .* B)
-  dest = Matrix{promote_type(eltype(A), eltype(B))}(undef, 1, size(B,2))
-  @turbo for i ∈ axes(B,2)
-    dest[i] = A[1] * B[1,i]
-  end
-  @turbo for i ∈ axes(B,2), j ∈ 2:size(B,1)
-    dest[i] += A[j] * B[j,i]
+  if size(A,1)>1
+    @turbo for i ∈ axes(A,2), j ∈ 2:size(A,1)
+      dest[i] += A[j,i] ^ 2
+    end
   end
   dest
 end
 coldot(A::AbstractMatrix, B::AbstractVector) = coldot(B,A)
 coldot(A::AbstractVector, B::AbstractVector) = [dot(A,B)]
+function coldotplus!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)  # colsum(A .* B)
+  @turbo for i ∈ axes(A,2), j ∈ axes(A,1)
+    dest[i] += A[j,i] * B[j,i]
+  end
+end
 
 # compute the norm of each col of A using quadratic form Q
 function colquadform(Q::AbstractMatrix, A::AbstractMatrix) :: AbstractVector
@@ -227,12 +222,12 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	FEs::Vector{StrFE{T}}
   T1L::Vector{Matrix{T}}; T1R::Vector{Matrix{T}}
 
-  StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH0, ML, β, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real = 
+  StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH0, ML, β, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real =
       new(matconvert(T,R), matconvert(T,r), matconvert(T,R₁), matconvert(T,r₁), matconvert(T,y₁), matconvert(T,X₁), matconvert(T,Y₂), matconvert(T,X₂), matconvert(T,wt), fweights, LIML || !iszero(Fuller), Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, matconvert(Int64,ID), nbootclustvar, nerrclustvar, small, FEID, FEdfadj, level, rtol, madjtype, NH0, ML, matconvert(T,β), matconvert(T,A), matconvert(T,sc), willplot, gridmin, gridmax, gridpoints,
           nrows(R),
           ptype==symmetric || ptype==equaltail,
           scorebs || iszero(B) || ML,
-          robust || nerrclustvar>0, 
+          robust || nerrclustvar>0,
           false, false, 0, false, false, 0, 0, 0, false,
           true, one(T), true,
           [T(0)],
@@ -544,7 +539,7 @@ function setdirty!(o::StrBootTest, _dirty::Bool; noinitialize::Bool=false)
 	!noinitialize && (o.initialized = false)
 end
 
-function getdist(o::StrBootTest; diststat::String="")
+function getdist(o::StrBootTest, diststat::String="")
 	o.dirty && boottest!(o)
 	if diststat == "numer"
 		_numer = isone(o.v_sd) ? o.numer : o.numer / o.v_sd
@@ -645,7 +640,7 @@ end
 
 function getstat(o::StrBootTest)
 	o.dirty && boottest!(o)
-	o.multiplier * o.dist[1]
+  o.multiplier * o.dist[1]
 end
 function getdf(o::StrBootTest)
 	o.dirty && boottest!(o)
@@ -916,10 +911,10 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
       o.infoBootAll = panelsetup(o.IDAll, collect(1:o.nbootclustvar))  # info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping && error clusters
     end
 
-		partialFE(o, o.X₁)
-		partialFE(o, o.X₂)
-		partialFE(o, o.y₁)
-		partialFE(o, o.Y₂)
+		o.X₁ = partialFE(o, o.X₁)  # don't overwrite caller's data
+		o.X₂ = partialFE(o, o.X₂)
+		o.y₁ = partialFE(o, o.y₁)
+		o.Y₂ = partialFE(o, o.Y₂)
 	end
 
   if o.B>0 && o.robust && o.granular && !o.purerobust && o.bootstrapt && !o.WREnonARubin
@@ -1152,7 +1147,8 @@ const ϕ = (1 + √5)/2
 function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) where T
 	if _B>0  # in scoretest or waldtest WRE, still make v a col of 1's
 		if o.enumerate
-			o.v = [ones(o.Nstar) count_binary(o.Nstar, -1-Int(o.WREnonARubin), 1-Int(o.WREnonARubin))]  # complete Rademacher set
+			o.v = o.WREnonARubin ? [zeros(o.Nstar) count_binary(o.Nstar, -2, 0)] :  # complete Rademacher set
+                             [ones( o.Nstar) count_binary(o.Nstar, -1, 1)]
 		elseif o.auxtwtype==normal
       o.v = randn(o.rng, T, o.Nstar, _B+first)
       o.WREnonARubin && o.v .-= one(T)
@@ -1250,14 +1246,14 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 	if o.granular
 		if o.Nw == 1  # create or avoid NxB matrix?
 			PXYstar = iszero(ind1) ? o.Repl.PXy₁ : o.Repl.PXZ[:,ind1]
-			o.Repl.Yendog[ind1+1] && (PXYstar .+= o.SstarUPX[ind1+1] * o.v)
+			o.Repl.Yendog[ind1+1] && (PXYstar = PXYstar .+ o.SstarUPX[ind1+1] * o.v)
 
 			dest = panelsum(PXYstar .* (o.Repl.y₁ .- o.SstarUMZperp[1] * o.v), o.wt, o.infoCapData)
 
 			for ind2 ∈ 1:o.Repl.kZ
 				_β = βs[ind2,:]'
 				dest .-= panelsum(PXYstar .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[:,ind2] * _β .- o.SstarUMZperp[ind2+1] * (o.v .* _β) :
-				                                                        o.Repl.Z[:,ind2] * _β                                       ), o.wt, infoCapData)
+				                                                      o.Repl.Z[:,ind2] * _β                                       ), o.wt, o.infoCapData)
 			end
 		else  # create pieces of each N x B matrix one at a time rather than whole thing at once
 			dest = Matrix{T}(undef, o.clust[1].N, ncols(o.v))  # XXX preallocate this & turn Filling into Filling! ?
@@ -1267,20 +1263,20 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
         if o.purerobust
           for i ∈ 1:o.clust[1].N
             PXYstar = hcat(iszero(ind1) ? o.Repl.PXy₁[i] : o.Repl.PXZ[i,ind1])
-            o.Repl.Yendog[ind1+1] && (PXYstar .+= o.SstarUPX[ind1+1][i,:]'o.v)
+            o.Repl.Yendog[ind1+1] && (PXYstar = PXYstar .+ o.SstarUPX[ind1+1][i,:]'o.v)
 
             if iszero(ind2)
               dest[i,:]   = wtsum(o.wt, PXYstar .* (o.Repl.y₁[i] .- o.SstarUMZperp[1][i,:])'o.v)
             else
               dest[i,:] .-= wtsum(o.wt, PXYstar .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[i,ind2] * _β .- o.SstarUMZperp[ind2+1][i,:]'βv :
-                                                      o.Repl.Z[i,ind2] * _β))
+                                                                            o.Repl.Z[i,ind2] * _β))
             end
           end
         else
           for i ∈ 1:o.clust[1].N
             S = o.infoCapData[i]
             PXYstar = ind1 ? o.Repl.PXZ[S,ind1] : o.Repl.PXy₁[S]
-            o.Repl.Yendog[ind1+1] && (PXYstar .+= o.SstarUPX[ind1+1][S,:] * o.v)
+            o.Repl.Yendog[ind1+1] && (PXYstar = PXYstar .+ o.SstarUPX[ind1+1][S,:] * o.v)
 
             if iszero(ind2)
               dest[i,:]   = wtsum(o.wt, PXYstar .* (o.Repl.y₁[S] .- o.SstarUMZperp[1][S,:] * o.v))
@@ -1649,34 +1645,35 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
   if o.robust && o.bootstrapt && Int(o.granular) < o.NErrClustCombs
     ustarXAR = panelsum(o.uXAR, o.wt, o.infoAllData)  # collapse data to all-boot && error-cluster-var intersections. If no collapsing needed, panelsum() will still fold in any weights
     if o.B>0
-      Kd = Vector{Matrix{T}}(undef, o.df)
       if o.scorebs
-        for d ∈ 1:o.df
-          Kd[d] = copy(JNcapNstar)  # inefficient, but not optimizing for the score bootstrap
-        end
+        Kd = zeros(T, o.clust[1].N, o.df, o.Nstar)  # inefficient, but not optimizing for the score bootstrap
+        # for d ∈ 1:o.df
+        #   Kd[d] = copy(JNcapNstar)
+        # end
       else
-        for d ∈ 1:o.df
-          Kd[d] = panelsum(o.X₁, o.X₂, vHadw(o.DGP.XAR[:,d], o.wt), o.infoCapData) * o.SuwtXA  # final term in (64), for c=intersection of all error clusters
-        end
+        Kd = reshape(reshape(panelsum(o.X₁, o.X₂, vHadw(o.DGP.XAR, o.wt), o.infoCapData), :, nrows(o.SuwtXA)) * o.SuwtXA, nrows(o.infoCapData), ncols(o.DGP.XAR), ncols(o.SuwtXA))
+        # for d ∈ 1:o.df
+        #   Kd[d] = panelsum(o.X₁, o.X₂, vHadw(o.DGP.XAR[:,d], o.wt), o.infoCapData) * o.SuwtXA  # final term in (64), for c=intersection of all error clusters
+        # end
       end
 
       o.NFE>0 && !o.FEboot && (o.CT_WE = crosstabFE(o, vHadw(o.ü, o.wt), o.infoBootData))
 
       o.NFE>0 && !o.FEboot &&
-        (tmp = reshape(reshape(o.M.CT_XAR, :, length(o.invFEwt)) * (o.invFEwt .* o.CT_WE), size(o.M.CT_XAR,1), size(o.M.CT_XAR,2), ncols(o.CT_WE)))
-			for d ∈ 1:o.df  # subtract crosstab of u.*XAR wrt bootstrapping cluster combo and all-cluster-var intersections
-				crosstabCapstarMinus!(o, Kd[d], ustarXAR[:,d])
-        if o.NFE>0 && !o.FEboot
-          Kd[d] .+= tmp[:,d,:]  # middle term of (64)
-        end
-        o.scorebs && (Kd[d] .-= o.ClustShare * colsum(Kd[d])) # recenter
+        (Kd .+= reshape(reshape(o.M.CT_XAR, :, length(o.invFEwt)) * (o.invFEwt .* o.CT_WE), size(o.M.CT_XAR,1), size(o.M.CT_XAR,2), ncols(o.CT_WE)))
+      for d ∈ 1:o.df  # subtract crosstab of u.*XAR wrt bootstrapping cluster combo and all-cluster-var intersections
+        crosstabCapstarMinus!(o, view(Kd,:,d,:), view(ustarXAR,:,d))
+                # if o.NFE>0 && !o.FEboot
+        #   Kd[d] .+= tmp[:,d,:]  # middle term of (64)
+        # end
+        o.scorebs && (Kd[:,d,:] .-= o.ClustShare * colsum(view(Kd,:,d,:))) # recenter
 			end
 
       for c ∈ 1+Int(o.granular):o.NErrClustCombs  # XXX pre-compute common iterators
         length(o.clust[c].order)>0 &&
-          (Kd = [view(Kd[d], o.clust[c].order,:) for d ∈ 1:o.df])  # XXX replace with 3-D array?
-        for d ∈ 1:o.df
-          o.Kcd[c,d] = panelsum(Kd[d], o.clust[c].info)
+          (Kd = view(Kd, o.clust[c].order,:,:))
+          for d ∈ 1:o.df
+          o.Kcd[c,d] = panelsum(view(Kd,:,d,:), o.clust[c].info)
         end
       end
     else  # B = 0. In this case, only 1st term of (64) is non-zero after multiplying by v* (= all 1's), and it is then a one-way sum by c
@@ -1879,12 +1876,17 @@ function panelsum(X::AbstractMatrix, info::Vector{UnitRange{T}} where T<:Integer
   iszero(ncols(X)) && return X[1:nrows(info),:]
   (iszero(length(info)) || nrows(info)==nrows(X)) && return X
 
-  dest = zeros(promote_type(Float32, eltype(X)), size(info,1), size(X,2))
+  dest = Matrix{promote_type(Float32, eltype(X))}(undef, size(info,1), size(X,2))
   for g in eachindex(info)
     f, l = first(info[g]), last(info[g])
     @turbo for j ∈ axes(X,2)
-      for i ∈ f:l
-        dest[g,j] += X[i,j]
+      dest[g,j] = X[f,j]
+    end
+    if f<l
+      @turbo for j ∈ axes(X,2)
+        for i ∈ f+1:l
+          dest[g,j] += X[i,j]
+        end
       end
     end
   end
@@ -1896,9 +1898,11 @@ function panelsum(X::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer
   dest = zeros(promote_type(Float32, eltype(X)), size(info,1))
   for g in eachindex(info, dest)
     f, l = first(info[g]), last(info[g])
-    _retval = zero(eltype(dest))
-    @turbo for i ∈ f:l
-      _retval += X[i]
+    _retval = X[f]  # _retval needed to prevent @turbo crash
+    if f<l
+      @turbo for i ∈ f+1:l
+        _retval += X[i]
+      end
     end
     dest[g] = _retval
   end
@@ -1916,26 +1920,60 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractVector, in
 
   if ndims(X)==1
     for g in eachindex(info)
-      i = first(info[g])
-      dest[g] = X[i] * wt[i]
-      f, l = first(info[g])+1, last(info[g])
-      @inbounds for i ∈ f:l
-        dest[g] += X[i] * wt[i]
+      f, l = first(info[g]), last(info[g])
+      _retval = X[f] * wt[f]  # needed for @turbo
+      if f<l
+        @turbo for i ∈ f+1:l
+          _retval += X[i] * wt[i]
+        end
       end
+      dest[g] = _retval
     end
   else
     for g in eachindex(info)
-      i = first(info[g])
-      dest[g,:] .= X[i,:] .* wt[i]
-      f, l = first(info[g])+1, last(info[g])
-      @turbo for j ∈ axes(X,2), i ∈ f:l
-        dest[g,j] += X[i,j] * wt[i]
+      f, l = first(info[g]), last(info[g])
+      @turbo for j ∈ axes(X,2)
+        dest[g,j] = X[f,j] * wt[f]
+      end
+      if f<l
+        @turbo for j ∈ axes(X,2)
+          for i ∈ f+1:l
+            dest[g,j] += X[i,j] * wt[i]
+          end
+        end
       end
     end
   end
 end
 function panelsum(X::AbstractArray, wt::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer)
   dest = isone(ndims(X)) ? similar(X, size(info,1)) : similar(X, size(info,1), size(X,2))
+  panelsum!(dest, X, wt, info)
+  dest
+end
+# same, but handles multiple columns in wt
+# *2nd* dimension of resulting 3-D array corresponds to cols of v;
+# this facilitates reshape() to 2-D array in which results for each col of v are stacked vertically
+function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractMatrix, info::Vector{UnitRange{T}} where T<:Integer)
+  iszero(ncols(X)) && return
+  if iszero(length(info)) || nrows(info)==nrows(X)
+    dest .= X .* wt
+    return
+  end
+
+  @inbounds for g in eachindex(info, axes(dest,1))
+    f, l = first(info[g]), last(info[g])
+    @turbo for j ∈ axes(X,2), k ∈ axes(wt,2)
+      dest[g,k,j] = X[f,j] * wt[f,k]
+    end
+    if f<l
+      @turbo for j ∈ axes(X,2), k ∈ axes(wt,2), i ∈ f+1:l
+        dest[g,k,j] += X[i,j] * wt[i,k]
+      end
+    end
+  end
+end
+function panelsum(X::AbstractArray, wt::AbstractMatrix, info::Vector{UnitRange{T}} where T<:Integer)
+  dest = isone(ndims(X)) ? similar(X, size(info,1), ncols(wt)) : similar(X, size(info,1), ncols(wt), size(X,2))
   panelsum!(dest, X, wt, info)
   dest
 end
@@ -1947,8 +1985,20 @@ function panelsum(X₁::AbstractArray, X₂::AbstractArray, wt::AbstractVector, 
     panelsum(X₁,wt,info)
   else
     dest = similar(X₁, length(info), ncols(X₁)+ncols(X₂))
-    panelsum!(view(dest, :,          1:ncols(X₁)         ), X₁, wt, info)
+    panelsum!(view(dest, :,           1:ncols(X₁)          ), X₁, wt, info)
     panelsum!(view(dest, :, ncols(X₁)+1:ncols(X₁)+ncols(X₂)), X₂, wt, info)
+    dest
+  end
+end
+function panelsum(X₁::AbstractArray, X₂::AbstractArray, wt::AbstractMatrix, info::Vector{UnitRange{T}} where T<:Integer)
+  if iszero(length(X₁))
+    panelsum(X₂,wt,info)
+  elseif iszero(length(X₂))
+    panelsum(X₁,wt,info)
+  else
+    dest = similar(X₁, length(info), ncols(wt), ncols(X₁)+ncols(X₂))
+    panelsum!(view(dest, :, :,           1:ncols(X₁)          ), X₁, wt, info)
+    panelsum!(view(dest, :, :, ncols(X₁)+1:ncols(X₁)+ncols(X₂)), X₂, wt, info)
     dest
   end
 end
@@ -1958,7 +2008,7 @@ end
 count_binary(N::Integer, lo::Number, hi::Number) = N<=1 ? [lo  hi] :
                                                           (tmp = count_binary(N-1, lo, hi);
                                                            [fill(lo, 1, ncols(tmp)) fill(hi, 1, ncols(tmp)) ;
-                                                                             tmp                    tmp     ])
+                                                                              tmp                     tmp     ])
 
 # cross-tab sum of a column vector w.r.t. given panel info and fixed-effect var
 # one row per FE, one col per other grouping
@@ -1998,7 +2048,7 @@ function crosstabFEt(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitR
 	return dest
 end
 # same, but handles multiple columns in v
-# *2nd* dimension of resulting 3-D array corresponds to cols of v; 
+# *2nd* dimension of resulting 3-D array corresponds to cols of v;
 # this facilitates reshape() to 2-D array in which results for each col of v are stacked vertically
 function crosstabFEt(o::StrBootTest{T}, v::AbstractMatrix{T}, info::Vector{UnitRange{Int64}}) where T
 	dest = zeros(T, nrows(info), ncols(v), o.NFE)
@@ -2170,16 +2220,6 @@ function plot(o::StrBootTest{T}) where T
     for d ∈ 1:o.df
       lo[d] = ismissing(o.gridmin[d]) ? o.confpeak[d] - halfwidth[d] : o.gridmin[d]
       hi[d] = ismissing(o.gridmax[d]) ? o.confpeak[d] + halfwidth[d] : o.gridmax[d]
-
-      # stata("_natscale " + strofreal(lo[d]) + " " + strofreal(hi[d]) + " 4")  # using Stata logic for setting graph bounds ensures good-looking contour plot
-      # if (o.gridmin[d]==.)
-      #   stata("local min = r(min)")  # for some reason st_global("r(min)") doesn't work
-      #   lo[d] = strtoreal(st_local("min"))
-      # end
-      # if (o.gridmax[d]==.)
-      #   stata("local max = r(max)")
-      #   hi[d] = strtoreal(st_local("max"))
-      # end
     end
     o.plotX = [repeat(range(lo[1], hi[1], length=o.gridpoints[1]), inner=o.gridpoints[2]) repeat(range(lo[2], hi[2], length=o.gridpoints[2]), outer=o.gridpoints[1])]
     o.plotY = fill(T(NaN), nrows(o.plotX))
@@ -2280,7 +2320,7 @@ function wildboottest(T::DataType,
                       nerrclustvar::Integer=nbootclustvar,
                       hetrobust::Bool=false,
                       feid::AbstractVector=Vector(undef,0),
-                      fedfadj::Bool=false,
+                      fedfadj::Bool=true,
                       obswt::Union{AbstractVector,UniformScaling{Bool}}=I,
                       fweights::Bool=false,
                       maxmatsize::Number=0,
@@ -2306,6 +2346,7 @@ function wildboottest(T::DataType,
                       gridmin::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Number = [missing],
                       gridmax::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Number = [missing],
                       gridpoints::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Integer = [missing],
+                      diststat::String="",
                       getCI::Bool=true,
                       getplot::Bool=getCI,
                       getauxweights::Bool=false)
@@ -2335,7 +2376,7 @@ function wildboottest(T::DataType,
   BoottestResult{T}(getstat(M),
                     isone(nrows(H₀[1])) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
                     getp(M), getpadj(M), getreps(M), getrepsfeas(M), getNBootClust(M), getdf(M), getdf_r(M), plot, peak, CI,
-                    WildBootTest.getdist(M),
+                    WildBootTest.getdist(M,diststat),
                     getb(M), getV(M),
                     getauxweights && reps>0 ? WildBootTest.getauxweights(M) : nothing, M)
 end
@@ -2343,3 +2384,26 @@ end
 wildboottest(H₀::Tuple{AbstractMatrix, AbstractVector}; args...) = wildboottest(Float32, H₀; args...)
 
 end # module
+
+# using StatFiles, StatsModels, DataFrames, DataFramesMeta, BenchmarkTools, Plots, CategoricalArrays, Random, StableRNGs, Profile
+
+# df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Work\Econometrics\Wild cluster\regm.dta"))
+# df = DataFrame(coll=Bool.(df.coll), merit=Bool.(df.merit), male=Bool.(df.male), black=Bool.(df.black), asian=Bool.(df.asian), state=categorical(Int8.(df.state)), year=categorical(Int16.(df.year)))
+# dropmissing!(df)
+# df = df[df.state .∉ Ref([34,57,59,61,64,71,72,85,88]),:]
+# f = @formula(coll ~ 1 + merit + male + black + asian + year + state)
+# f = apply_schema(f, schema(f, df))
+# sort!(df, :state)
+# resp, predexog = modelcols(f, df)
+
+# @time test = WildBootTest.wildboottest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid= [collect(1:nrow(df)) levelcode.(df.state)], nbootclustvar=1, nerrclustvar=1, reps=9999);
+
+
+# Random.seed!(1231)
+# Profile.clear()
+# @profile begin
+# 	for i in 1:10
+# 		test = WildBootTest.wildboottest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid= [collect(1:nrow(df)) levelcode.(df.state)], nbootclustvar=1, nerrclustvar=1, reps=9999)
+# 	end
+# end;
+# Juno.profiler()
