@@ -16,7 +16,6 @@ resp, predexog = modelcols(f, df)
 println(log, "\nboottest post_self=.04, weight(webb)")
 test = wildboottest(([0 0 0 1.], [.04]); resp, predexog, clustid=df.year, auxwttype=WildBootTest.webb, rng)
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
-# histogram(dist(test))
 
 println(log, "\nboottest post_self=.04, weight(webb) reps(9999999) noci")
 test = wildboottest(([0 0 0 1.], [.04]); resp, predexog, clustid=df.year, reps=9999999, auxwttype=WildBootTest.webb, getCI=false, rng)
@@ -27,10 +26,6 @@ println(log, "\nregress hasinsurance selfemployed post post_self, cluster(year)"
 println(log, "boottest (post_self=.05) (post=-.02), reps(9999) weight(webb)")
 test = wildboottest(([0 0 0 1.; 0 0 1. 0], [0.05; -0.02]); resp, predexog, clustid=df.year, reps=9999, auxwttype=WildBootTest.webb, rng)
 println(log, "F=$(teststat(test)) p=$(p(test))")
-gr()
-# x, y = plotpoints(test)
-# plot(contour(x[25:25:625,1], x[1:25,2], reshape(y,25,25), fill=true))
-
 
 df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Macros\nlsw88.dta"))[:,[:wage; :tenure; :ttl_exp; :collgrad; :industry]]
 dropmissing!(df)
@@ -77,13 +72,13 @@ test = wildboottest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid
 println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 # plot(plotpoints(test)...)
 
-println(log, "\nscoretest tenure")
-test = wildboottest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, scorebs=true, rng)
-println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
+# println(log, "\nscoretest tenure")
+# test = wildboottest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, scorebs=true, rng)
+# println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
-println(log, "\nwaldtest tenure")
-test = wildboottest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, imposenull=false, scorebs=true, rng)
-println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
+# println(log, "\nwaldtest tenure")
+# test = wildboottest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, imposenull=false, scorebs=true, rng)
+# println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
 println(log, "\nivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)")
 println(log, "boottest tenure")
