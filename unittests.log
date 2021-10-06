@@ -52,7 +52,7 @@ boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(pixclu
 boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode pixcluster)
 t=3.5211487 p=0.00230023 CI=Float32[0.055666734 0.25014108]
 t=3.5211337 p=0.00340034 CI=Float32[0.044399366 0.26356786]
-t=3.5211322 p=0.0046009202 CI=Float32[0.055315126 0.24788444]
+t=3.5211325 p=0.0046009202 CI=Float32[0.055315133 0.24788441]
 
 infile coll merit male black asian year state chst using regm.raw, clear
 qui regress coll merit male black asian i.year i.state if !inlist(state,34,57,59,61,64,71,72,85,88), cluster(state)	
@@ -64,7 +64,7 @@ boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(state year)
 boottest merit, nogr reps(9999) gridpoints(10) bootcluster(individual)
 boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual)
 t=6.7126546 p=0.5027503 CI=Float32[-2.8290389 1.2799209]
-t=6.7124834 p=0.0 CI=Float32[0.048807822 0.09552426]
+t=6.7124834 p=0.0 CI=Float32[0.049099807 0.09523227]
 t=6.7126656 p=0.28852886 CI=Float32[-5.3434873 4.389378]
 t=6.7125316 p=0.08950895 CI=Float32[-0.012278568 0.15661064]
 t=6.712664 p=0.37623763 CI=Float32[-0.0971351 0.24302378]

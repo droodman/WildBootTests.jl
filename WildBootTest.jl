@@ -324,7 +324,7 @@ mutable struct StrEstimator{T<:AbstractFloat, E<:Estimator}
 	y₁par::Vector{T}; Xy₁par::Vector{T}
 	A::Matrix{T}; Z::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
 	FillingT₀::Matrix{Vector{T}}
-	WXAR::Matrix{T}; ScapPXYZperp::Vector{Matrix{T}}; ScapYX::Vector{Matrix{T}}; CT_XAR::Array{T,3}; CT_FEcapPY::Vector{Matrix{T}}
+	WXAR::Matrix{T}; ScapPXYZperp::Vector{Matrix{T}}; ScapYX::Vector{Matrix{T}}; CT_XAR::Vector{Matrix{T}}; CT_FEcapPY::Vector{Matrix{T}}
 
 	# IV/GMM only
   ZZ::Matrix{T}; XY₂::Matrix{T}; XX::Matrix{T}; H_2SLS::Matrix{T}; V::Matrix{T}; ZY₂::Matrix{T}; X₂Y₂::Matrix{T}; X₁Y₂::Matrix{T}; ZR₁ZR₁::Matrix{T}; X₂ZR₁::Matrix{T}; ZR₁Y₂::Matrix{T}; X₁ZR₁::Matrix{T}
@@ -379,9 +379,9 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	ü::Vector{T}
 	DGP::StrEstimator{T,E} where E; Repl::StrEstimator{T,E} where E; M::StrEstimator{T,E} where E
 	clust::Vector{StrClust{T}}
-	denom::Matrix{Matrix{T}}; Kcd::Vector{Array{T,3}}; Jcd::Vector{Array{T,3}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Vector{Array{T,3}}; SCTcapuXinvXX::Matrix{Matrix{T}}; SstarUU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
+	denom::Matrix{Matrix{T}}; Kcd::Matrix{Matrix{T}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; SCTcapuXinvXX::Matrix{Matrix{T}}; SstarUU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
 	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; IDCTCapstar::Vector{Vector{Int64}}; infoCTCapstar::Vector{Vector{UnitRange{Int64}}}; SstarUX::Vector{Matrix{T}}; SstarUXinvXX::Vector{Matrix{T}}; SstarUZperpinvZperpZperp::Vector{Matrix{T}}; δdenom::Vector{Matrix{T}}; SstaruY::Vector{Matrix{T}}; SstarUMZperp::Vector{Matrix{T}}; SstarUPX::Vector{Matrix{T}}; SstarUZperp::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
-  ∂denom∂r::Vector{Matrix{Matrix{T}}}; ∂Jcd∂r::Vector{Vector{Array{T,3}}}
+  ∂denom∂r::Vector{Matrix{Matrix{T}}}; ∂Jcd∂r::Vector{Matrix{Matrix{T}}}
   ∂²denom∂r²::Matrix{Matrix{Matrix{T}}}
 	FEs::Vector{StrFE{T}}
   T1L::Vector{Matrix{T}}; T1R::Vector{Matrix{T}}
@@ -552,7 +552,7 @@ function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where 
             (o.CT_FEcapPY[i+1] = crosstabFEt(o.parent, uwt, o.parent.infoCapData) .* o.parent.invFEwt)
           tmp = @panelsum(o.Z, uwt, o.parent.infoCapData)
           for j ∈ 1:o.kZ
-            o.FillingT₀[i+1,j+1] = tmp[:,j]  # XXX make this a view or make FillingT₀ 4D array or vector{3D array}
+            o.FillingT₀[i+1,j+1] = view(tmp,:,j)
           end
         end
 
@@ -673,7 +673,7 @@ function InitTestDenoms!(o::StrEstimator)
 
     if o.parent.robust && o.parent.NFE>0 && !(o.parent.FEboot || o.parent.scorebs) && Int(o.parent.granular) < o.parent.NErrClustCombs  # make first factor of second term of (64) for c=cap (c=1)
       !isdefined(o, :WXAR) && (o.WXAR = vHadw(o.XAR, o.parent.wt))
-      o.CT_XAR = crosstabFEt(o.parent, o.WXAR, o.parent.infoCapData)
+      o.CT_XAR = [crosstabFE(o.parent, view(o.WXAR,:,d), o.parent.infoCapData) for d ∈ axes(o.WXAR,2)]
     end
 	end
 end
@@ -1205,8 +1205,8 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   if !o.WREnonARubin && o.bootstrapt
     o.denom = [Matrix{T}(undef,0,0) for _ in 1:o.dof, _ in 1:o.dof]
     if o.robust
-      o.Kcd = Vector{Array{T,3}}(undef, o.NErrClustCombs)
-      o.Jcd = iszero(o.B) ? o.Kcd : Vector{Array{T,3}}(undef, o.NErrClustCombs)  # if B = 0, Kcd will be multiplied by v, which is all 1's, and will constitute Jcd
+      o.Kcd =                       Matrix{Matrix{T}}(undef, o.NErrClustCombs, o.dof)
+      o.Jcd = iszero(o.B) ? o.Kcd : Matrix{Matrix{T}}(undef, o.NErrClustCombs, o.dof)  # if B = 0, Kcd will be multiplied by v, which is all 1's, and will constitute Jcd
     end
   end
 
@@ -1237,7 +1237,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
       if o.robust
         o.∂denom∂r   = [Matrix{Matrix{T}}(undef, o.dof, o.dof) for _ in 1:o.q]
         o.∂²denom∂r² = [Matrix{Matrix{T}}(undef, o.dof, o.dof) for _ in 1:o.q, _ in 1:o.q]
-        o.∂Jcd∂r     = [Vector{Array{T,3}}(undef, o.NErrClustCombs) for _ in 1:o.q]
+        o.∂Jcd∂r     = [Matrix{Matrix{T}}(undef, o.NErrClustCombs, o.dof) for _ in 1:o.q]
       end
     end
   end
@@ -1636,7 +1636,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
       if o.robust
         Zyg = Vector{Matrix{T}}(undef, o.Repl.kZ)
         for i ∈ 1:o.Repl.kZ
-          Zyg[i] = Filling(o, i, βs)  # XXX concatenate into 3-d array?
+          Zyg[i] = Filling(o, i, βs)
         end
       else
         o.YYstar = [HessianFixedκ(o, collect(i:o.Repl.kZ), i, zero(T), w) for i ∈ 0:o.Repl.kZ] # κ=0 => Y*MZperp*Y
@@ -1653,7 +1653,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 
 			if o.bootstrapt
 				if o.robust  # Compute denominator for this WRE test stat
-          for i ∈ 1:o.Repl.kZ  # XXX replace with 3-D array
+          for i ∈ 1:o.Repl.kZ
             o._Jcap[:,i] = Zyg[i][:,b]
           end
           Jcap = o._Jcap * (A[b] * o.Repl.RRpar')
@@ -1712,12 +1712,14 @@ function MakeInterpolables!(o::StrBootTest)
           o.∂numer∂r[h₁] = (o.numer - o.numer₀) / o.poles[h₁]
           o.interpolate_u && (o.∂u∂r[h₁] = (o.ü - o.ü₀) / o.poles[h₁])
           if o.robust  # dof > 1 for an ARubin test with >1 instruments.
-            o.∂Jcd∂r[h₁] = (o.Jcd - o.Jcd₀) / o.poles[h₁]
             for d₁ ∈ 1:o.dof
-              for c ∈ 1:o.NErrClustCombs, d₂ ∈ 1:d₁
-                tmp = coldot(view(o.Jcd₀[c],:,d₁,:), view(o.∂Jcd∂r[h₁][c],:,d₂,:))
-                d₁ ≠ d₂ && (coldotplus!(tmp, view(o.Jcd₀[c],:,d₂,:), view(o.∂Jcd∂r[h₁][c],:,d₁,:)))  # for diagonal items, faster to just double after the c loop
-                @clustAccum!(o.∂denom∂r[h₁][d₁,d₂], c, tmp)
+              for c ∈ 1:o.NErrClustCombs
+                o.∂Jcd∂r[h₁][c,d₁] = (o.Jcd[c,d₁] - o.Jcd₀[c,d₁]) / o.poles[h₁]
+                for d₂ ∈ 1:d₁
+                  tmp = coldot(o.Jcd₀[c,d₁], o.∂Jcd∂r[h₁][c,d₂])
+                  d₁ ≠ d₂ && (coldotplus!(tmp, o.Jcd₀[c,d₂], o.∂Jcd∂r[h₁][c,d₁]))  # for diagonal items, faster to just double after the c loop
+                  @clustAccum!(o.∂denom∂r[h₁][d₁,d₂], c, tmp)
+                end
               end
               o.∂denom∂r[h₁][d₁,d₁] .*= 2  # double diagonal terms
             end
@@ -1728,7 +1730,7 @@ function MakeInterpolables!(o::StrBootTest)
         for h₁ ∈ 1:o.q, h₂ ∈ 1:h₁
           if newPole[h₁] || newPole[h₂]
             for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁, c ∈ 1:o.NErrClustCombs
-              @clustAccum!(o.∂²denom∂r²[h₁,h₂][d₁,d₂], c, coldot(view(o.∂Jcd∂r[h₁][c],:,d₁,:), view(o.∂Jcd∂r[h₂][c],:,d₂,:)))
+              @clustAccum!(o.∂²denom∂r²[h₁,h₂][d₁,d₂], c, coldot(o.∂Jcd∂r[h₁][c,d₁], o.∂Jcd∂r[h₂][c,d₂]))
             end
           end
         end
@@ -1806,34 +1808,33 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
   if o.robust && o.bootstrapt && Int(o.granular) < o.NErrClustCombs
     ustarXAR = @panelsum(o.uXAR, o.wt, o.infoAllData)  # collapse data to all-boot && error-cluster-var intersections. If no collapsing needed, panelsum() will still fold in any weights
     if o.B>0
+      Kd = Vector{Matrix{T}}(undef, o.dof)
       if o.scorebs
-        Kd = zeros(T, o.clust[1].N, o.dof, o.Nstar)  # inefficient, but not optimizing for the score bootstrap
-        # for d ∈ 1:o.dof
-        #   Kd[d] = copy(JNcapNstar)
-        # end
+        for d ∈ 1:o.dof
+          Kd[d] = copy(o.JNcapNstar)
+        end
       else
-        Kd = reshape(reshape(@panelsum2(o.X₁, o.X₂, vHadw(o.DGP.XAR, o.wt), o.infoCapData), :, nrows(o.SuwtXA)) * o.SuwtXA, nrows(o.infoCapData), ncols(o.DGP.XAR), ncols(o.SuwtXA))
-        # for d ∈ 1:o.dof
-        #   Kd[d] = panelsum(o.X₁, o.X₂, vHadw(o.DGP.XAR[:,d], o.wt), o.infoCapData) * o.SuwtXA  # final term in (64), for c=intersection of all error clusters
-        # end
+        for d ∈ 1:o.dof
+          Kd[d] = @panelsum2(o.X₁, o.X₂, vHadw(o.DGP.XAR[:,d], o.wt), o.infoCapData) * o.SuwtXA  # final term in (64), for c=intersection of all error clusters
+        end
       end
 
       o.NFE>0 && !o.FEboot && (o.CT_WE = crosstabFE(o, vHadw(o.ü, o.wt), o.infoBootData))
 
-      o.NFE>0 && !o.FEboot &&
-        (Kd .+= reshape(reshape(o.M.CT_XAR, :, length(o.invFEwt)) * (o.invFEwt .* o.CT_WE), size(o.M.CT_XAR,1), size(o.M.CT_XAR,2), ncols(o.CT_WE)))
       for d ∈ 1:o.dof  # subtract crosstab of u.*XAR wrt bootstrapping cluster combo and all-cluster-var intersections
-        crosstabCapstarMinus!(o, view(Kd,:,d,:), view(ustarXAR,:,d))
-                # if o.NFE>0 && !o.FEboot
-        #   Kd[d] .+= tmp[:,d,:]  # middle term of (64)
-        # end
-        o.scorebs && (Kd[:,d,:] .-= o.ClustShare * colsum(view(Kd,:,d,:))) # recenter
-			end
+				crosstabCapstarMinus!(o, Kd[d], view(ustarXAR,:,d))
+        if o.NFE>0 && !o.FEboot
+          Kd[d] .+= o.M.CT_XAR[d]' * (o.invFEwt .* o.CT_WE)  # middle term of (64)
+        end
+        o.scorebs && (Kd[d] .-= o.ClustShare * colsum(Kd[d])) # recenter
+      end
 
       for c ∈ 1+Int(o.granular):o.NErrClustCombs  # XXX pre-compute common iterators
         length(o.clust[c].order)>0 &&
-          (Kd = view(Kd, o.clust[c].order,:,:))
-        o.Kcd[c] = @panelsum(Kd, o.clust[c].info)
+          (Kd = [view(Kd[d], o.clust[c].order, :) for d ∈ 1:o.dof])
+        for d ∈ 1:o.dof
+          o.Kcd[c,d] = @panelsum(Kd[d], o.clust[c].info)
+        end
       end
     else  # B = 0. In this case, only 1st term of (64) is non-zero after multiplying by v* (= all 1's), and it is then a one-way sum by c
       o.scorebs &&
@@ -1842,7 +1843,9 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
         length(o.clust[c].order)>0 &&
           (ustarXAR = ustarXAR[o.clust[c].order,:])
         tmp = @panelsum(ustarXAR, o.clust[c].info)
-        o.Kcd[c] = reshape(@panelsum(ustarXAR, o.clust[c].info), size(tmp)..., 1)
+        for d ∈ 1:o.dof
+          o.Kcd[c,d] = reshape(view(tmp,:,d), o.clust[c].N, 1)
+        end
       end
     end
   end
@@ -1879,15 +1882,19 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
         if o.NFE>0 && !o.FEboot
           o.ustar = o.ü .* view(o.v, o.IDBootData, :)
           partialFE!(o, o.ustar)
-          o.Jcd[1] = @panelsum(o.ustar, o.M.WXAR, o.infoCapData)                            - @panelsum2(o.X₁, o.X₂, o.M.WXAR, o.infoCapData) * o.βdev
+          for d ∈ 1:o.dof
+            o.Jcd[1,d] = @panelsum(o.ustar, view(o.M.WXAR,:,d), o.infoCapData)                             - @panelsum2(o.X₁, o.X₂, view(o.M.WXAR,:,d), o.infoCapData) * o.βdev
+          end
         else
           _v = view(o.v, o.IDBootAll, :)
-          o.Jcd[1] = @panelsum( @panelsum(o.ü, o.M.WXAR, o.infoAllData) .* _v, o.infoErrAll) - @panelsum2(o.X₁, o.X₂, o.M.WXAR, o.infoCapData) * o.βdev
+          for d ∈ 1:o.dof
+            o.Jcd[1,d] = @panelsum( @panelsum(o.ü, view(o.M.WXAR,:,d), o.infoAllData) .* _v, o.infoErrAll) - @panelsum2(o.X₁, o.X₂, view(o.M.WXAR,:,d), o.infoCapData) * o.βdev
+          end
         end
       end
     end
-	  for c ∈ Int(o.granular)+1:o.NErrClustCombs
-      o.Jcd[c] = reshape(reshape(o.Kcd[c], size(o.Kcd[c],1)*size(o.Kcd[c],2), size(o.Kcd[c],3)) * o.v, size(o.Kcd[c],1), size(o.Kcd[c],2), size(o.v, 2))
+	  for c ∈ Int(o.granular)+1:o.NErrClustCombs, d ∈ axes(o.Jcd, 2)
+      o.Jcd[c,d] = o.Kcd[c,d] * o.v
     end
   end
 end
@@ -1903,8 +1910,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
         o.purerobust &&
           (o.denom[i,j] = cross(view(o.M.WXAR,:,i), view(o.M.WXAR,:,j), ustar2) * (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier))
         for c ∈ Int(o.purerobust)+1:o.NErrClustCombs
-          tmp = j==i ? coldot(view(o.Jcd[c],:,i,:)) : coldot(view(o.Jcd[c],:,i,:), view(o.Jcd[c],:,j,:))
-          @clustAccum!(o.denom[i,j], c, tmp)
+          @clustAccum!(o.denom[i,j], c, j==i ? coldot(o.Jcd[c,i]) : coldot(o.Jcd[c,i], o.Jcd[c,j]))
         end
       end
     end
