@@ -72,13 +72,13 @@ test = wildboottest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid
 println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 # plot(plotpoints(test)...)
 
-# println(log, "\nscoretest tenure")
-# test = wildboottest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, scorebs=true, rng)
-# println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
+println(log, "\nscoretest tenure")
+test = wildboottest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, scorebs=true, rng)
+println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
-# println(log, "\nwaldtest tenure")
-# test = wildboottest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, imposenull=false, scorebs=true, rng)
-# println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
+println(log, "\nwaldtest tenure")
+test = wildboottest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, imposenull=false, scorebs=true, rng)
+println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
 println(log, "\nivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)")
 println(log, "boottest tenure")

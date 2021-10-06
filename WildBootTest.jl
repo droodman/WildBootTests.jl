@@ -1,4 +1,4 @@
-# WildBootTest.jl 0.1 3 September 2021
+# jl 0.1 3 September 2021
 
 # MIT License
 #
@@ -19,7 +19,7 @@
 
 
 module WildBootTest
-export BoottestResult, wildboottest, AuxWtType, PType, MAdjType, teststat, stattype, p, padj, reps, repsfeas, NBootClust, df, df_r, plotpoints, peak, CI, dist, statnumer, statvar, auxweights
+export BoottestResult, wildboottest, AuxWtType, PType, MAdjType, teststat, stattype, p, padj, reps, repsfeas, NBootClust, dof, dof_r, plotpoints, peak, CI, dist, statnumer, statvar, auxweights
 
 using LinearAlgebra, Random, Distributions, LoopVectorization, LazyArrays
 
@@ -84,7 +84,7 @@ end
 @inline X₁₂B(X₁::AbstractArray, X₂::AbstractArray, B::AbstractVector) = @views X₁*B[1:size(X₁,2)  ] + X₂*B[size(X₁,2)+1:end  ]
 
 function coldot!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)  # colsum(A .* B)
-  s1, s2 = axes(A)
+  s2 = axes(A,2)
   @turbo for i ∈ s2
     dest[i] = A[1,i] * B[1,i]
   end
@@ -94,24 +94,47 @@ function coldot!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)  # 
     end
   end
 end
-function coldot(A::AbstractVecOrMat, B::AbstractMatrix)  # colsum(A .* B)
-  dest = Matrix{promote_type(eltype(A), eltype(B))}(undef, 1, size(B,2))
-  coldot!(dest, A, B)
-  dest
-end
-function coldot(A::AbstractMatrix)  # colsum(A .* A)
-  dest = Matrix{eltype(A)}(undef, 1, size(A,2))
-  @turbo for i ∈ axes(A,2)
+function coldot!(dest::AbstractMatrix, A::AbstractMatrix)  # colsum(A .* A)
+  s2 = axes(A,2)
+  @turbo for i ∈ s2
     dest[i] = A[1,i] ^ 2
   end
   if size(A,1)>1
-    @turbo for i ∈ axes(A,2), j ∈ 2:size(A,1)
+    @turbo for i ∈ s2, j ∈ 2:size(A,1)
       dest[i] += A[j,i] ^ 2
     end
   end
+end
+function coldot!(dest::AbstractArray, A::AbstractArray, B::AbstractArray)
+  J = CartesianIndices(axes(A)[2:end])
+  eachindexJ = eachindex(J)
+  @turbo for j ∈ eachindexJ
+    dest[1,J[j]] = A[1,J[j]] * B[1,J[j]]
+  end
+  if size(A,1) > 1
+    @turbo for j ∈ eachindexJ, i ∈ 2:size(A,1)
+      dest[1,J[j]] += A[i,J[j]] * B[i,J[j]]
+    end
+  end
+end
+function coldot!(dest::AbstractArray, A::AbstractArray)
+  J = CartesianIndices(axes(A)[2:end])
+  eachindexJ = eachindex(J)
+  @turbo for j ∈ eachindexJ
+    dest[1,J[j]] = A[1,J[j]] ^ 2
+  end
+  if size(A,1) > 1
+    @turbo for j ∈ eachindexJ, i ∈ 2:size(A,1)
+      dest[1,J[j]] += A[i,J[j]] ^ 2
+    end
+  end
+end
+function coldot(args...)
+  dest = Array{promote_type(eltype.(args)...)}(undef, 1, size(args[1])[2:end]...)
+  coldot!(dest, args...)
   dest
 end
-coldot(A::AbstractMatrix, B::AbstractVector) = coldot(B,A)
+# coldot(A::AbstractMatrix, B::AbstractVector) = coldot(B,A)
 coldot(A::AbstractVector, B::AbstractVector) = [dot(A,B)]
 function coldotplus!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)  # colsum(A .* B)
   @turbo for i ∈ axes(A,2), j ∈ axes(A,1)
@@ -130,9 +153,9 @@ end
 
  # From given row of given matrix, substract inner products of corresponding ncols of A & B with quadratic form Q
 function colquadformminus!(X::AbstractMatrix, row::Integer, Q::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)
-  	@turbo for i ∈ axes(A,2), j ∈ axes(A,1), k ∈ axes(A,1)
-  	  X[row,i] -= A[j,i] * Q[k,j] * B[k,i]
-     end
+  @turbo for i ∈ axes(A,2), j ∈ axes(A,1), k ∈ axes(A,1)
+    X[row,i] -= A[j,i] * Q[k,j] * B[k,i]
+  end
  	X
 end
 colquadformminus!(X::AbstractMatrix, Q::AbstractMatrix, A::AbstractMatrix) = colquadformminus!(X, 1, Q, A, A)
@@ -189,11 +212,11 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, info::Vector{UnitRange
   eachindexJ = eachindex(J)
   @inbounds for g in eachindex(info)
     f, l = first(info[g]), last(info[g])
-      @turbo for j ∈ eachindexJ
-        dest[g,J[j]] = X[f,J[j]]
+    @turbo for j ∈ eachindexJ
+      dest[g,J[j]] = X[f,J[j]]
     end
     if f<l
-     @turbo for j ∈ eachindexJ, i ∈ f+1:l
+      @turbo for j ∈ eachindexJ, i ∈ f+1:l
         dest[g,J[j]] += X[i,J[j]]
       end
     end
@@ -344,7 +367,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   peak::NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
 
   sqrt::Bool; Nobs::Int64; _Nobs::Int64; kZ::Int64; kY₂::Int64; kX₁::Int64; sumwt::T; NClustVar::Int8; haswt::Bool; REst::Bool; multiplier::T; smallsample::T
-		WREnonARubin::Bool; df::Int64; df_r::Int64; p::T; BootClust::Int8
+		WREnonARubin::Bool; dof::Int64; dof_r::Int64; p::T; BootClust::Int8
 		purerobust::Bool; Nstar::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX₂::Int64; kX::Int64
   _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; ustar::Matrix{T}; CT_WE::Matrix{T}
   infoBootData::Vector{UnitRange{Int64}}; infoBootAll::Vector{UnitRange{Int64}}; infoErrAll::Vector{UnitRange{Int64}}
@@ -356,9 +379,9 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	ü::Vector{T}
 	DGP::StrEstimator{T,E} where E; Repl::StrEstimator{T,E} where E; M::StrEstimator{T,E} where E
 	clust::Vector{StrClust{T}}
-	denom::Matrix{Matrix{T}}; Kcd::Vector{Array{T,3}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; SCTcapuXinvXX::Matrix{Matrix{T}}; SstarUU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
+	denom::Matrix{Matrix{T}}; Kcd::Vector{Array{T,3}}; Jcd::Vector{Array{T,3}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Vector{Array{T,3}}; SCTcapuXinvXX::Matrix{Matrix{T}}; SstarUU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
 	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; IDCTCapstar::Vector{Vector{Int64}}; infoCTCapstar::Vector{Vector{UnitRange{Int64}}}; SstarUX::Vector{Matrix{T}}; SstarUXinvXX::Vector{Matrix{T}}; SstarUZperpinvZperpZperp::Vector{Matrix{T}}; δdenom::Vector{Matrix{T}}; SstaruY::Vector{Matrix{T}}; SstarUMZperp::Vector{Matrix{T}}; SstarUPX::Vector{Matrix{T}}; SstarUZperp::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
-  ∂denom∂r::Vector{Matrix{Matrix{T}}}; ∂Jcd∂r::Vector{Matrix{Matrix{T}}}
+  ∂denom∂r::Vector{Matrix{Matrix{T}}}; ∂Jcd∂r::Vector{Vector{Array{T,3}}}
   ∂²denom∂r²::Matrix{Matrix{Matrix{T}}}
 	FEs::Vector{StrFE{T}}
   T1L::Vector{Matrix{T}}; T1R::Vector{Matrix{T}}
@@ -739,7 +762,7 @@ function getp(o::StrBootTest{T}; classical::Bool=false) where T
     o.p = n / o.BFeas |> T
 	else
 		tmp *= o.multiplier
-    _p = ccdf(o.small ? FDist(o.df, o.df_r) : Chisq(o.df), Float64(o.sqrt ? tmp^2 : tmp))  |> T
+    _p = ccdf(o.small ? FDist(o.dof, o.dof_r) : Chisq(o.dof), Float64(o.sqrt ? tmp^2 : tmp))  |> T
 		if o.sqrt && !o.twotailed
 			_p /= 2
 			(ptype==upper) == (tmp<0) && (_p = 1 - _p)
@@ -759,7 +782,7 @@ end
 # denominator for full-sample test stat
 function getV(o::StrBootTest)
 	o.dirty && boottest!(o)
-	o.statDenom / ((isone(o.v_sd) ? o.smallsample : o.v_sd^2 * o.smallsample) * (o.sqrt ? o.multiplier^2 : o.multiplier) * o.df)
+	o.statDenom / ((isone(o.v_sd) ? o.smallsample : o.v_sd^2 * o.smallsample) * (o.sqrt ? o.multiplier^2 : o.multiplier) * o.dof)
 end
 
 # wild weights
@@ -785,13 +808,13 @@ function getstat(o::StrBootTest)
 end
 function getdf(o::StrBootTest)
 	o.dirty && boottest!(o)
-	o.df
+	o.dof
 end
 function getdf_r(o::StrBootTest)
 	o.dirty && boottest!(o)
-	o.df_r
+	o.dof_r
 end
-function getplot(o::StrBootTest)
+function _getplot(o::StrBootTest)
 	o.notplotted && plot(o)
 	(X=o.plotX, p=o.plotY)
 end
@@ -799,7 +822,7 @@ function getpeak(o::StrBootTest)  # x and y values of confidence curve peak (at 
   o.notplotted && plot(o)
 	o.peak
 end
-function getCI(o::StrBootTest)
+function _getCI(o::StrBootTest)
 	o.notplotted && plot(o)
 	o.CI
 end
@@ -1082,13 +1105,13 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   end
 
   if o.ML
-    o.df = nrows(o.R)
+    o.dof = nrows(o.R)
   else
     if o.ARubin
       o.R = ApplyArray(hcat, zeros(o.kX₂,o.kX₁), I(o.kX₂))  # attack surface is all endog vars
       o.R₁ = o.kX₁>0 && nrows(o.R₁)>0 ? ApplyArray(hcat, o.R₁[:,1:kX₁], zeros(nrows(o.R₁),o.kX₂)) : zeros(0, o.kX)  # and convert model constraints from referring to X₁, Y₂ to X₁, X₂
     end
-    o.df = nrows(o.R)
+    o.dof = nrows(o.R)
 
     if !o.WRE && iszero(o.κ)  # regular OLS
       o.DGP = StrEstimator{T,OLS}(o)
@@ -1180,20 +1203,19 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   end
 
   if !o.WREnonARubin && o.bootstrapt
-    o.denom = [Matrix{T}(undef,0,0) for _ in 1:o.df, _ in 1:o.df]
+    o.denom = [Matrix{T}(undef,0,0) for _ in 1:o.dof, _ in 1:o.dof]
     if o.robust
       o.Kcd = Vector{Array{T,3}}(undef, o.NErrClustCombs)
-#      o.Jcd = iszero(o.B) ? [o.Kcd[c][:,d,:] for c in 1:o.NErrClustCombs, d in 1:o.df] : Matrix{Matrix{T}}(undef, o.NErrClustCombs, o.df)  # if B = 0, Kcd will be multiplied by v, which is all 1's, and will constitute Jcd
-      o.Jcd = Matrix{Matrix{T}}(undef, o.NErrClustCombs, o.df)  # if B = 0, Kcd will be multiplied by v, which is all 1's, and will constitute Jcd
+      o.Jcd = iszero(o.B) ? o.Kcd : Vector{Array{T,3}}(undef, o.NErrClustCombs)  # if B = 0, Kcd will be multiplied by v, which is all 1's, and will constitute Jcd
     end
   end
 
-  o.small && (o.df_r = o.NClustVar>0 ? minN - 1 : o._Nobs - o.kZ - o.NFE)
+  o.small && (o.dof_r = o.NClustVar>0 ? minN - 1 : o._Nobs - o.kZ - o.NFE)
 
-  o.sqrt = isone(o.df)  # work with t/z stats instead of F/chi2
+  o.sqrt = isone(o.dof)  # work with t/z stats instead of F/chi2
 
   if o.small
-    o.multiplier = (o.smallsample = (o._Nobs - o.kZ - Int(o.FEdfadj) * o.NFE) / (o._Nobs - Int(o.robust))) / o.df  # divide by # of constraints because F stat is so defined
+    o.multiplier = (o.smallsample = (o._Nobs - o.kZ - Int(o.FEdfadj) * o.NFE) / (o._Nobs - Int(o.robust))) / o.dof  # divide by # of constraints because F stat is so defined
   else
     o.multiplier = o.smallsample = 1
   end
@@ -1201,9 +1223,9 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   !(o.robust || o.ML) && (o.multiplier *= o._Nobs)  # will turn sum of squared errors in denom of t/z into mean
   o.sqrt && (o.multiplier = √o.multiplier)
 
-  ((!o.bootstrapt && o.df==1) || o.bootstrapt && (o.WREnonARubin || o.df>2 || !isnan(o.maxmatsize))) && # unless nonWRE or df=1 or splitting weight matrix, code will create dist element-by-element, so pre-allocate vector now
+  ((!o.bootstrapt && o.dof==1) || o.bootstrapt && (o.WREnonARubin || o.dof>2 || !isnan(o.maxmatsize))) && # unless nonWRE or dof=1 or splitting weight matrix, code will create dist element-by-element, so pre-allocate vector now
     (o.dist = fill(T(NaN), o.B+1))
-  (o.Nw>1 || o.WREnonARubin || (!o.null && o.df<=2)) && (o.numer = fill(T(NaN), o.df, o.B+1))
+  (o.Nw>1 || o.WREnonARubin || (!o.null && o.dof<=2)) && (o.numer = fill(T(NaN), o.dof, o.B+1))
 
   if !o.WREnonARubin
     poles = anchor = zeros(T,0,0)
@@ -1213,9 +1235,9 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
       o.interpolate_u = !(o.robust || o.ML)
       o.interpolate_u && (o.∂u∂r = Vector{Matrix{T}}(undef, o.q))
       if o.robust
-        o.∂denom∂r   = [Matrix{Matrix{T}}(undef, o.df, o.df) for _ in 1:o.q]
-        o.∂²denom∂r² = [Matrix{Matrix{T}}(undef, o.df, o.df) for _ in 1:o.q, _ in 1:o.q]
-        o.∂Jcd∂r     = [Matrix{Matrix{T}}(undef, o.NErrClustCombs, o.df) for _ in 1:o.q]
+        o.∂denom∂r   = [Matrix{Matrix{T}}(undef, o.dof, o.dof) for _ in 1:o.q]
+        o.∂²denom∂r² = [Matrix{Matrix{T}}(undef, o.dof, o.dof) for _ in 1:o.q, _ in 1:o.q]
+        o.∂Jcd∂r     = [Vector{Array{T,3}}(undef, o.NErrClustCombs) for _ in 1:o.q]
       end
     end
   end
@@ -1250,7 +1272,7 @@ function boottest!(o::StrBootTest{T}) where T
 	o.initialized = true
 end
 
-# if not imposing null and we have returned to boottest!(), then df=1 or 2; we're plotting or finding CI, and only test stat, not distribution, changes with r
+# if not imposing null and we have returned to boottest!(), then dof=1 or 2; we're plotting or finding CI, and only test stat, not distribution, changes with r
 function NoNullUpdate!(o::StrBootTest)
   if o.WREnonARubin
     o.numer[:,1] = o.R * o.DGP.Rpar * o.βs[1] - o.r
@@ -1260,7 +1282,7 @@ function NoNullUpdate!(o::StrBootTest)
   else
     o.numer[:,1] = o.v_sd * (o.R * (o.ML ? o.β : o.M.Rpar * o.M.β) - o.r) # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
   end
-  o.dist[1] = isone(o.df) ? o.numer[1] / sqrt(o.statDenom[1]) : o.numer[:,1]'invsym(o.statDenom)*o.numer[:,1]
+  o.dist[1] = isone(o.dof) ? o.numer[1] / sqrt(o.statDenom[1]) : o.numer[:,1]'invsym(o.statDenom)*o.numer[:,1]
 end
 
 # compute bootstrap-c denominator from all bootstrap numerators
@@ -1305,7 +1327,7 @@ function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) wher
     elseif o.WREnonARubin  # Rademacher
       o.v = -2rand(o.rng, Bool, o.Nstar, _B+first)
     else
-      o.v = rand(o.rng, Bool, o.Nstar, _B+first) .- T(.5)
+      o.v = rand(o.rng, Bool, o.Nstar, _B+first); o.v .-= T(.5)
       o.v_sd = .5
     end
 
@@ -1689,15 +1711,13 @@ function MakeInterpolables!(o::StrBootTest)
 
           o.∂numer∂r[h₁] = (o.numer - o.numer₀) / o.poles[h₁]
           o.interpolate_u && (o.∂u∂r[h₁] = (o.ü - o.ü₀) / o.poles[h₁])
-          if o.robust  # df > 1 for an ARubin test with >1 instruments.
-            for d₁ ∈ 1:o.df
-              for c ∈ 1:o.NErrClustCombs
-                o.∂Jcd∂r[h₁][c,d₁] = (o.Jcd[c,d₁] - o.Jcd₀[c,d₁]) / o.poles[h₁]
-                for d₂ ∈ 1:d₁
-                  tmp = coldot(o.Jcd₀[c,d₁], o.∂Jcd∂r[h₁][c,d₂])
-                  d₁ ≠ d₂ && (coldotplus!(tmp, o.Jcd₀[c,d₂], o.∂Jcd∂r[h₁][c,d₁]))  # for diagonal items, faster to just double after the c loop
-                  @clustAccum!(o.∂denom∂r[h₁][d₁,d₂], c, tmp)
-                end
+          if o.robust  # dof > 1 for an ARubin test with >1 instruments.
+            o.∂Jcd∂r[h₁] = (o.Jcd - o.Jcd₀) / o.poles[h₁]
+            for d₁ ∈ 1:o.dof
+              for c ∈ 1:o.NErrClustCombs, d₂ ∈ 1:d₁
+                tmp = coldot(view(o.Jcd₀[c],:,d₁,:), view(o.∂Jcd∂r[h₁][c],:,d₂,:))
+                d₁ ≠ d₂ && (coldotplus!(tmp, view(o.Jcd₀[c],:,d₂,:), view(o.∂Jcd∂r[h₁][c],:,d₁,:)))  # for diagonal items, faster to just double after the c loop
+                @clustAccum!(o.∂denom∂r[h₁][d₁,d₂], c, tmp)
               end
               o.∂denom∂r[h₁][d₁,d₁] .*= 2  # double diagonal terms
             end
@@ -1707,8 +1727,8 @@ function MakeInterpolables!(o::StrBootTest)
       if o.robust  # quadratic interaction terms
         for h₁ ∈ 1:o.q, h₂ ∈ 1:h₁
           if newPole[h₁] || newPole[h₂]
-            for d₁ ∈ 1:o.df, d₂ ∈ 1:d₁, c ∈ 1:o.NErrClustCombs
-              @clustAccum!(o.∂²denom∂r²[h₁,h₂][d₁,d₂], c, coldot(o.∂Jcd∂r[h₁][c,d₁], o.∂Jcd∂r[h₂][c,d₂]))
+            for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁, c ∈ 1:o.NErrClustCombs
+              @clustAccum!(o.∂²denom∂r²[h₁,h₂][d₁,d₂], c, coldot(view(o.∂Jcd∂r[h₁][c],:,d₁,:), view(o.∂Jcd∂r[h₂][c],:,d₂,:)))
             end
           end
         end
@@ -1735,11 +1755,11 @@ function MakeInterpolables!(o::StrBootTest)
 
     if o.robust  # even if an anchor was just moved, and linear components just computed from scratch, do the quadratic interpolation now, from the updated linear factors
       if isone(o.q)
-        for d₁ ∈ 1:o.df, d₂ ∈ 1:d₁
+        for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁
           o.denom[d₁,d₂] = o.denom₀[d₁,d₂] .+ o.∂denom∂r[d₁,d₂][1,1] .* Δ .+ o.∂²denom∂r²[d₁,d₂][1,1] .* Δ.^2
         end
       else  # q==2
-        for d₁ ∈ 1:o.df, d₂ ∈ 1:d₁
+        for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁
           o.denom[d₁,d₂] = o.denom₀[d₁,d₂] +
                             o.∂denom∂r[1][d₁,d₂] * Δ[1] +
                             o.∂denom∂r[2][d₁,d₂] * Δ[2] +
@@ -1787,13 +1807,13 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
     ustarXAR = @panelsum(o.uXAR, o.wt, o.infoAllData)  # collapse data to all-boot && error-cluster-var intersections. If no collapsing needed, panelsum() will still fold in any weights
     if o.B>0
       if o.scorebs
-        Kd = zeros(T, o.clust[1].N, o.df, o.Nstar)  # inefficient, but not optimizing for the score bootstrap
-        # for d ∈ 1:o.df
+        Kd = zeros(T, o.clust[1].N, o.dof, o.Nstar)  # inefficient, but not optimizing for the score bootstrap
+        # for d ∈ 1:o.dof
         #   Kd[d] = copy(JNcapNstar)
         # end
       else
         Kd = reshape(reshape(@panelsum2(o.X₁, o.X₂, vHadw(o.DGP.XAR, o.wt), o.infoCapData), :, nrows(o.SuwtXA)) * o.SuwtXA, nrows(o.infoCapData), ncols(o.DGP.XAR), ncols(o.SuwtXA))
-        # for d ∈ 1:o.df
+        # for d ∈ 1:o.dof
         #   Kd[d] = panelsum(o.X₁, o.X₂, vHadw(o.DGP.XAR[:,d], o.wt), o.infoCapData) * o.SuwtXA  # final term in (64), for c=intersection of all error clusters
         # end
       end
@@ -1802,7 +1822,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 
       o.NFE>0 && !o.FEboot &&
         (Kd .+= reshape(reshape(o.M.CT_XAR, :, length(o.invFEwt)) * (o.invFEwt .* o.CT_WE), size(o.M.CT_XAR,1), size(o.M.CT_XAR,2), ncols(o.CT_WE)))
-      for d ∈ 1:o.df  # subtract crosstab of u.*XAR wrt bootstrapping cluster combo and all-cluster-var intersections
+      for d ∈ 1:o.dof  # subtract crosstab of u.*XAR wrt bootstrapping cluster combo and all-cluster-var intersections
         crosstabCapstarMinus!(o, view(Kd,:,d,:), view(ustarXAR,:,d))
                 # if o.NFE>0 && !o.FEboot
         #   Kd[d] .+= tmp[:,d,:]  # middle term of (64)
@@ -1821,7 +1841,8 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
       for c ∈ 1:o.NErrClustCombs
         length(o.clust[c].order)>0 &&
           (ustarXAR = ustarXAR[o.clust[c].order,:])
-        o.Kcd[c] = @panelsum(ustarXAR, o.clust[c].info)
+        tmp = @panelsum(ustarXAR, o.clust[c].info)
+        o.Kcd[c] = reshape(@panelsum(ustarXAR, o.clust[c].info), size(tmp)..., 1)
       end
     end
   end
@@ -1858,19 +1879,15 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
         if o.NFE>0 && !o.FEboot
           o.ustar = o.ü .* view(o.v, o.IDBootData, :)
           partialFE!(o, o.ustar)
-          for d ∈ 1:o.df
-            o.Jcd[1,d] = @panelsum(o.ustar, o.M.WXAR[:,d], o.infoCapData)                            - @panelsum2(o.X₁, o.X₂, o.M.WXAR[:,d], o.infoCapData) * o.βdev
-          end
+          o.Jcd[1] = @panelsum(o.ustar, o.M.WXAR, o.infoCapData)                            - @panelsum2(o.X₁, o.X₂, o.M.WXAR, o.infoCapData) * o.βdev
         else
           _v = view(o.v, o.IDBootAll, :)
-          for d ∈ 1:o.df
-            o.Jcd[1,d] = @panelsum( @panelsum(o.ü, o.M.WXAR[:,d], o.infoAllData) .* _v, o.infoErrAll) - @panelsum2(o.X₁, o.X₂, o.M.WXAR[:,d], o.infoCapData) * o.βdev
-          end
+          o.Jcd[1] = @panelsum( @panelsum(o.ü, o.M.WXAR, o.infoAllData) .* _v, o.infoErrAll) - @panelsum2(o.X₁, o.X₂, o.M.WXAR, o.infoCapData) * o.βdev
         end
       end
     end
-	  for c ∈ Int(o.granular)+1:o.NErrClustCombs, d ∈ axes(o.Jcd, 2)
-      o.Jcd[c,d] = o.Kcd[c][:,d,:] * o.v
+	  for c ∈ Int(o.granular)+1:o.NErrClustCombs
+      o.Jcd[c] = reshape(reshape(o.Kcd[c], size(o.Kcd[c],1)*size(o.Kcd[c],2), size(o.Kcd[c],3)) * o.v, size(o.Kcd[c],1), size(o.Kcd[c],2), size(o.v, 2))
     end
   end
 end
@@ -1882,38 +1899,39 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 	if o.robust
     if !o.interpolating  # these quadratic computation needed to *prepare* for interpolation but are superseded by interpolation once it is going
       o.purerobust && (ustar2 = o.ustar .^ 2)
-      for i ∈ 1:o.df, j ∈ 1:i
+      for i ∈ 1:o.dof, j ∈ 1:i
         o.purerobust &&
-          (o.denom[i,j] = cross(o.M.WXAR[:,i], o.M.WXAR[:,j], ustar2) * (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier))
+          (o.denom[i,j] = cross(view(o.M.WXAR,:,i), view(o.M.WXAR,:,j), ustar2) * (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier))
         for c ∈ Int(o.purerobust)+1:o.NErrClustCombs
-          @clustAccum!(o.denom[i,j], c, j==i ? coldot(o.Jcd[c,i]) : coldot(o.Jcd[c,i],o.Jcd[c,j]))
+          tmp = j==i ? coldot(view(o.Jcd[c],:,i,:)) : coldot(view(o.Jcd[c],:,i,:), view(o.Jcd[c],:,j,:))
+          @clustAccum!(o.denom[i,j], c, tmp)
         end
       end
     end
 
-    if isone(o.df)
+    if isone(o.dof)
     	@storeWtGrpResults!(o.dist, vec(o.numerw ./ sqrtNaN.(o.denom[1,1])))
       isone(w) &&
         (o.statDenom = hcat(o.denom[1,1][1]))  # original-sample denominator
-		elseif o.df==2  # hand-code 2D numer'inv(denom)*numer
+		elseif o.dof==2  # hand-code 2D numer'inv(denom)*numer
     	t1 = o.numerw[1,:]'; t2 = o.numerw[2,:]'; t12 = t1.*t2
 			@storeWtGrpResults!(o.dist, vec((t1.^2 .* o.denom[2,2] .- 2 .* t12 .* o.denom[2,1] .+ t2.^2 .* o.denom[1,1]) ./ (o.denom[1,1].*o.denom[2,2] .- o.denom[2,1].^2)))
       isone(w) &&
         (o.statDenom = [o.denom[1,1][1] o.denom[2,1][1] ; o.denom[2,1][1] o.denom[2,2][1]])  # original-sample denominator
     else  # build each replication's denominator from vectors that hold values for each position in denominator, all replications
-			tmp = Matrix{T}(undef, o.df, o.df)
+			tmp = Matrix{T}(undef, o.dof, o.dof)
 			for k ∈ 1:ncols(o.v)  # XXX probably can simplify
-				for i ∈ 1:o.df, j ∈ 1:i
+				for i ∈ 1:o.dof, j ∈ 1:i
 					tmp[j,i] = o.denom[i,j][k]  # fill upper triangle, which is all invsym() looks at
         end
-				numer_l = o.numerw[:,k]
+				numer_l = view(o.numerw,:,k)
 				o.dist[k+first(o.WeightGrp[w])-1] = numer_l'invsym(tmp)*numer_l  # in degenerate cases, cross() would turn cross(.,.) into 0
 			end
 			isone(w) && (o.statDenom = tmp)  # original-sample denominator
 		end
 	else  # non-robust
 		AR = o.ML ? o.AR : o.M.AR
-		if isone(o.df)  # optimize for one null constraint
+		if isone(o.dof)  # optimize for one null constraint
 			o.denom[1,1] = o.R * AR
 			if !o.ML
         o.ustar = o.B>0 ? o.v .* o.ü : o.ü
@@ -1939,16 +1957,16 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 			o.denom[1,1] = o.R * AR
 			if o.ML
 				for k ∈ 1:ncols(o.v)
-					numer_l = o.numerw[:,k]
+					numer_l = view(o.numerw,:,k)
 					o.dist[k+first(o.WeightGrp[w])-1] = numer_l'invsym(o.denom[1,1])*numer_l
 				end
 				isone(w) && (o.statDenom = o.denom[1,1])  # original-sample denominator
 			else
         invdenom = invsym(o.denom[1,1])
 				for k ∈ 1:ncols(o.v)
-					numer_l = o.numerw[:,k]
+					numer_l = view(o.numerw,:,k)
 					o.dist[k+first(o.WeightGrp[w])-1] = o.numer_l'invdenom*numer_l
-          o.ustar = o.B>0 ? o.v[:,k] .* o.ü : o.ü
+          o.ustar = o.B>0 ? view(o.v,:,k) .* o.ü : o.ü
 					if o.scorebs
             if o.haswt  # Center variance if interpolated
               o.ustar .-= o.wt'o.ustar * o.ClustShare
@@ -1956,7 +1974,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
               o.ustar .-= colsum(o.ustar) * o.ClustShare  # Center variance if interpolated
             end
 					else
-            o.ustar .-= X₁₂B(o.X₁, o.X₂, o.βdev[:,k])  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
+            o.ustar .-= X₁₂B(o.X₁, o.X₂, view(o.βdev,:,k))  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
           end
 					o.dist[k+first(o.WeightGrp[w])-1] ./= (tmp = symcross(o.ustar, o.wt))
 				end
@@ -2116,7 +2134,7 @@ function plot(o::StrBootTest{T}) where T
         lo = Vector{T}(ismissing(o.gridmin[1]) ? o.confpeak - halfwidth : o.gridmin)  # signal compiler that lo and hi cannot be missing now
         hi = Vector{T}(ismissing(o.gridmax[1]) ? o.confpeak + halfwidth : o.gridmax)
       else
-        tmp = vec(sqrtNaN.(o.statDenom)) * cquantile(o.small ? TDist(o.df_r) : Normal(), α/2)
+        tmp = vec(sqrtNaN.(o.statDenom)) * cquantile(o.small ? TDist(o.dof_r) : Normal(), α/2)
         lo = Vector{T}(ismissing(o.gridmin[1]) ? o.confpeak - tmp : o.gridmin)
         hi = Vector{T}(ismissing(o.gridmax[1]) ? o.confpeak + tmp : o.gridmax)
         if o.scorebs && !o.null && !o.willplot  # if doing simple Wald test with no graph, we're done
@@ -2181,7 +2199,7 @@ function plot(o::StrBootTest{T}) where T
   else  # 2D plot
     lo = Vector{T}(undef, 2)
     hi = Vector{T}(undef, 2)
-    for d ∈ 1:o.df
+    for d ∈ 1:o.dof
       lo[d] = ismissing(o.gridmin[d]) ? o.confpeak[d] - halfwidth[d] : o.gridmin[d]
       hi[d] = ismissing(o.gridmax[d]) ? o.confpeak[d] + halfwidth[d] : o.gridmax[d]
     end
@@ -2242,7 +2260,7 @@ struct BoottestResult{T}
   p::T; padj::T
   reps::Int64; repsfeas::Int64
   NBootClust::Int64
-  df::Int64; df_r::Int64
+  dof::Int64; dof_r::Int64
   plot::Union{Nothing, NamedTuple{(:X, :p), Tuple{Matrix{T},Vector{T}}}}
   peak::Union{Nothing, NamedTuple{(:X, :p), Tuple{Vector{T}, T}}}
   CI::Union{Nothing, Matrix{T}}
@@ -2250,7 +2268,7 @@ struct BoottestResult{T}
   b::Vector{T}
   V::Matrix{T}
   auxweights::Union{Nothing,Matrix{T}}
-  M::WildBootTest.StrBootTest
+  M::StrBootTest
 end
 
 teststat(o::BoottestResult) = o.stat
@@ -2260,8 +2278,8 @@ padj(o::BoottestResult) = o.padj
 reps(o::BoottestResult) = o.reps
 repsfeas(o::BoottestResult) = o.repsfeas
 NBootClust(o::BoottestResult) = o.NBootClust
-df(o::BoottestResult) = o.df
-df_r(o::BoottestResult) = o.df_r
+dof(o::BoottestResult) = o.dof
+dof_r(o::BoottestResult) = o.dof_r
 plotpoints(o::BoottestResult) = o.plot
 peak(o::BoottestResult) = o.peak
 CI(o::BoottestResult) = o.CI
@@ -2322,7 +2340,7 @@ function wildboottest(T::DataType,
   else
     _gridmin, _gridmax, _gridpoints = gridmin, gridmax, gridpoints
   end
-  M = WildBootTest.StrBootTest{T}(H₀[1], H₀[2], H₁[1], H₁[2], resp, predexog, predendog, inst, obswt, fweights, LIML, Fuller, κ, ARubin,
+  M = StrBootTest{T}(H₀[1], H₀[2], H₁[1], H₁[2], resp, predexog, predendog, inst, obswt, fweights, LIML, Fuller, κ, ARubin,
     reps, auxwttype, rng, maxmatsize, ptype, imposenull, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, hetrobust, small,
     feid, fedfadj, level, rtol, madjtype, NH0, ML, β, A, scores, getplot,
     map(x->ismissing(x) ? missing : T(x), _gridmin),
@@ -2330,9 +2348,9 @@ function wildboottest(T::DataType,
     map(x->ismissing(x) ? missing : Int32(x), _gridpoints))
 
   if getplot || (level<1 && getCI)
-		plot = getplot ? WildBootTest.getplot(M) : nothing
-		peak = WildBootTest.getpeak(M)
-		CI = level<1 & getCI ? WildBootTest.getCI(M) : nothing
+		plot = getplot ? _getplot(M) : nothing
+		peak = getpeak(M)
+		CI = level<1 & getCI ? _getCI(M) : nothing
   else
 		CI = plot = peak = nothing
   end
@@ -2340,9 +2358,9 @@ function wildboottest(T::DataType,
   BoottestResult{T}(getstat(M),
                     isone(nrows(H₀[1])) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
                     getp(M), getpadj(M), getreps(M), getrepsfeas(M), getNBootClust(M), getdf(M), getdf_r(M), plot, peak, CI,
-                    WildBootTest.getdist(M,diststat),
+                    getdist(M,diststat),
                     getb(M), getV(M),
-                    getauxweights && reps>0 ? WildBootTest.getauxweights(M) : nothing, M)
+                    getauxweights && reps>0 ? getauxweights(M) : nothing, M)
 end
 
 wildboottest(H₀::Tuple{AbstractMatrix, AbstractVector}; args...) = wildboottest(Float32, H₀; args...)
@@ -2352,14 +2370,14 @@ end # module
 # using StatFiles, StatsModels, DataFrames, DataFramesMeta, BenchmarkTools, Plots, CategoricalArrays, Random, StableRNGs
 
 # rng = StableRNG(1231)
-# df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Macros\nlsw88.dta"))
-# df = df[:, [:wage; :tenure; :ttl_exp; :collgrad; :industry; :union]]
-# dropmissing!(df)
-# sort!(df, :industry)
+# dof = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Macros\nlsw88.dta"))
+# dof = dof[:, [:wage; :tenure; :ttl_exp; :collgrad; :industry; :union]]
+# dropmissing!(dof)
+# sort!(dof, :industry)
 # f = @formula(wage ~ 1 + ttl_exp + collgrad)
-# f = apply_schema(f, schema(f, df))
-# resp, predexog = modelcols(f, df)
+# f = apply_schema(f, schema(f, dof))
+# resp, predexog = modelcols(f, dof)
 # ivf = @formula(tenure ~ union)
-# ivf = apply_schema(ivf, schema(ivf, df))
-# predendog, inst = modelcols(ivf, df)
-# test = WildBootTest.wildboottest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, ARubin=true, reps=9999, rng)
+# ivf = apply_schema(ivf, schema(ivf, dof))
+# predendog, inst = modelcols(ivf, dof)
+# test = wildboottest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=dof.industry, small=false, ARubin=true, reps=9999, rng)
