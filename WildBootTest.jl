@@ -23,8 +23,13 @@ export BoottestResult, wildboottest, AuxWtType, PType, MAdjType, teststat, statt
 
 using LinearAlgebra, Random, Distributions, LoopVectorization, LazyArrays
 
+"Auxilliary weight types: rademacher, mammen, webb, normal, gamma"
 @enum AuxWtType rademacher mammen webb normal gamma
+
+"p value types: symmetric, equaltail, lower, upper"
 @enum PType symmetric equaltail lower upper
+
+"Multiple hypothesis adjustment types: none, bonferroni, sidak"
 @enum MAdjType none bonferroni sidak
 
 struct StrClust{T<:Real}
@@ -271,7 +276,7 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, info::Vector{UnitRange
   macro panelsum2(X₁, X₂, wt, info)
     :( panelsum2($(esc(X₁)), $(esc(X₂)), $(esc(wt)), $(esc(info))) )
   end
-  
+
 abstract type Estimator end
 struct OLS<:Estimator end
 struct ARubin<:Estimator end
@@ -315,7 +320,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   B::Int64; auxtwtype::AuxWtType; rng::AbstractRNG; maxmatsize::Float16
   ptype::PType; null::Bool; bootstrapt::Bool
   ID::VecOrMat{Int64}; nbootclustvar::Int8; nerrclustvar::Int64; small::Bool
-  FEID::Vector{T}; FEdfadj::Bool
+  FEID::Vector{Int64}; FEdfadj::Bool
   level::T; rtol::T
   madjtype::MAdjType; NH0::Int16
   ML::Bool; β::Vector{T}; A::Matrix{T}; sc::VecOrMat{T}
@@ -345,7 +350,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	DGP::StrEstimator{T,E} where E; Repl::StrEstimator{T,E} where E; M::StrEstimator{T,E} where E
 	clust::Vector{StrClust{T}}
 	denom::Matrix{Matrix{T}}; Kcd::Matrix{Matrix{T}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; SCTcapuXinvXX::Matrix{Matrix{T}}; SstarUU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
-	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; IDCTCapstar::Vector{Vector{Int64}}; infoCTCapstar::Vector{Vector{UnitRange{Int64}}}; SstarUX::Vector{Matrix{T}}; SstarUXinvXX::Vector{Matrix{T}}; SstarUZperpinvZperpZperp::Vector{Matrix{T}}; δdenom::Vector{Matrix{T}}; SstaruY::Vector{Matrix{T}}; SstarUMZperp::Vector{Matrix{T}}; SstarUPX::Vector{Matrix{T}}; SstarUZperp::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
+	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; IDCTCapstar::Vector{Vector{Int64}}; infoCTCapstar::Vector{Vector{UnitRange{Int64}}}; SstarUX::Vector{Matrix{T}}; SstarUXinvXX::Vector{Matrix{T}}; SstarUZperpinvZperpZperp::Vector{Matrix{T}}; SstaruY::Vector{Matrix{T}}; SstarUMZperp::Vector{Matrix{T}}; SstarUPX::Vector{Matrix{T}}; SstarUZperp::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
   ∂denom∂r::Vector{Matrix{Matrix{T}}}; ∂Jcd∂r::Vector{Matrix{Matrix{T}}}
   ∂²denom∂r²::Matrix{Matrix{Matrix{T}}}
 	FEs::Vector{StrFE{T}}
@@ -389,18 +394,18 @@ function setR!(o::StrEstimator{T,E}, R₁::AbstractMatrix{T}, R::Union{UniformSc
 
   if !iszero(o.κ)
 	  RR₁perp = Matrix([R ; zeros(T, o.parent.kY₂, o.parent.kX₁) I])  # nrows to prevent partialling out of endogenous regressors; convert sparse matrix produced by constructor to dense
-  
+
 	  length(R₁)>0 && (RR₁perp *= o.R₁perp)
-  
+
 	  F = eigensym(RR₁perp'pinv(RR₁perp * RR₁perp')*RR₁perp); val = abs.(F.values) .> 1000*eps(T)
 	  o.Rpar   = F.vectors[:,   val]  # perp and par of RR₁perp
     o.RperpX = F.vectors[:, .!val]
-  
+
 	  if length(R₁) > 0  # fold model constraint factors into Rpar, RperpX
 	    o.Rpar   = o.R₁perp * o.Rpar
 	    o.RperpX = o.R₁perp * o.RperpX
 	  end
-  
+
 	  o.RRpar = R * o.Rpar
 	  o.RperpX = o.RperpX[1:o.parent.kX₁,:]  # Zperp=Z*RperpX; though formally a multiplier on Z, it will only extract exogenous components, in X₁, since all endogenous ones will be retained
 	  o.RparY = o.Rpar[o.parent.kX₁+1:end,:]  # part of Rpar that refers to Y₂
@@ -502,13 +507,13 @@ function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where 
 	  o.ScapYX       = Vector{Matrix{T}}(undef, o.kZ+1)
 	  o.ScapPXYZperp = Vector{Matrix{T}}(undef, o.kZ+1)
 	  o.XinvXX = X₁₂B(o.X₁, o.X₂, o.invXX)
-  
+
 	  o.Yendog = [true; vec(colsum(o.RparY.≠0)).>0]  # columns of Y = [y₁par Zpar] that are endogenous (normally all)
-  
+
 	  if o.parent.robust  # for WRE replication regression, prepare for CRVE
 	    if o.parent.bootstrapt
 	  	  o.PXZ = X₁₂B(o.X₁, o.X₂, o.invXXXZ)
-    
+
 	  	  o.FillingT₀ = Matrix{Matrix{T}}(undef, o.kZ+1, o.kZ+1)  # fixed component of groupwise term in sandwich filling
 	  	  o.parent.NFE>0 &&
 	  	    (o.CT_FEcapPY = Vector{Matrix{T}}(undef, o.kZ+1))
@@ -521,7 +526,7 @@ function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where 
 	  	  	  o.FillingT₀[i+1,j+1] = view(tmp,:,j)
 	  	    end
 	  	  end
-  
+
 	  	  for i ∈ 1:o.kZ  # precompute various clusterwise sums
 	  	    o.ScapPXYZperp[i+1] = @panelsum(o.Zperp, vHadw(view(o.PXZ,:,i), o.parent.wt), o.parent.infoCapData)  # Scap(P_(MZperpX) * Z .* Zperp)
 	  	    !o.parent.granular &&
@@ -583,20 +588,20 @@ function Estimate!(o::StrEstimator{T,IVGMM} where T, r₁::AbstractVector)
 	  o.t₁Y = o.R₁invR₁R₁Y * r₁
   elseif o.parent.WREnonARubin  # if not score bootstrap of IV/GMM
 	  o.Rt₁ = o.RR₁invR₁R₁ * r₁
-  
+
 	  if o.parent.robust && o.parent.bootstrapt  # prepare WRE replication regressions
 	    o.PXy₁ = X₁₂B(o.X₁, o.X₂, o.invXXXy₁par)
-  
+
 	    uwt = vHadw(o.PXy₁, o.parent.wt)
 	    tmp = @panelsum(o.Z, uwt, o.parent.infoCapData)
 	    for i ∈ 1:o.kZ
 	  	  o.FillingT₀[1,i+1] = view(tmp,:,i)
 	    end
 	    o.ScapPXYZperp[1] = @panelsum(o.Zperp, uwt, o.parent.infoCapData)  # Scap(P_(MZperpX) * y₁ .* Zperp)
-  
+
 	    o.parent.NFE>0 &&
 	  	(o.CT_FEcapPY[1] = crosstabFEt(o.parent, uwt, o.parent.infoCapData) .* o.parent.invFEwt)
-  
+
 	    uwt = vHadw(o.y₁par, o.parent.wt)
 	    tmp = @panelsum(o.PXZ, uwt, o.parent.infoCapData)
 	    for i ∈ 1:o.kZ
@@ -620,11 +625,11 @@ function MakeResiduals!(o::StrEstimator{T,IVGMM} where T)
   if !o.parent.scorebs
 	  _β = [1 ; -o.β]
 	  uu = _β'o.YY * _β
-  
+
 	  Xu = o.Xy₁par - o.XZ * o.β  # after DGP regression, compute Y₂ residuals by regressing Y₂ on X while controlling for y₁ residuals, done through FWL
 	  negXuinvuu = Xu / -uu
 	  o.Ü₂ = o.Y₂ - X₁₂B(o.X₁, o.X₂, invsym(o.XX + negXuinvuu * Xu') * (negXuinvuu * (o.Y₂y₁par - o.ZY₂'o.β)' + o.XY₂))  # large expression is Pihat
-  
+
 	  o.u⃛₁ = o.ü₁ + o.Ü₂ * (o.t₁Y + o.RparY * o.β)
   end
 end
@@ -636,8 +641,8 @@ end
 function InitTestDenoms!(o::StrEstimator)
   if o.parent.bootstrapt && (o.parent.scorebs || o.parent.robust)
 	  (o.parent.granular || o.parent.purerobust) && (o.WXAR = vHadw(o.XAR, o.parent.wt))
-  
-	  if o.parent.robust && o.parent.NFE>0 && !(o.parent.FEboot || o.parent.scorebs) && Int(o.parent.granular) < o.parent.NErrClustCombs  # make first factor of second term of (64) for c=cap (c=1)
+
+	  if o.parent.robust && o.parent.NFE>0 && !(o.parent.FEboot || o.parent.scorebs) && o.parent.granular < o.parent.NErrClustCombs  # make first factor of second term of (64) for c=cap (c=1)
 	    !isdefined(o, :WXAR) && (o.WXAR = vHadw(o.XAR, o.parent.wt))
 	    o.CT_XAR = crosstabFEt(o.parent, o.WXAR, o.parent.infoCapData)
 	  end
@@ -677,7 +682,7 @@ function getdist(o::StrBootTest, diststat::String="")
 	  sort!(o.distCDR)  # need to specify horizontal sort??
   elseif length(o.distCDR)==0
     if length(o.dist) > 1
-	    o.distCDR = (@views o.dist[2:end])[:,:] * o.multiplier
+	    o.distCDR = reshape((@view o.dist[2:end]), :, 1) * o.multiplier
 	    sort!(o.distCDR, dims=1)  # need to specify horizontal sort??
 	  else
 	    o.distCDR = zeros(0,1)
@@ -795,13 +800,13 @@ end
 
 macro storeWtGrpResults!(dest, content)  # poor hygiene in referencing caller's o and w
   if dest == :(o.dist)
-	  return quote
-	    if isone($(esc(:o)).Nw)
-	  	  $(esc(dest)) = $(esc(content))
-	    else
-	  	  $(esc(dest))[$(esc(:o)).WeightGrp[$(esc(:w))]] = $(esc(content))
-	    end
+	return quote
+	  if isone($(esc(:o)).Nw)
+		$(esc(dest)) = $(esc(content))
+	  else
+		$(esc(dest))[$(esc(:o)).WeightGrp[$(esc(:w))]] = $(esc(content))
 	  end
+	end
   else
 	  return quote
 	    if isone($(esc(:o)).Nw)
@@ -880,12 +885,12 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   if o.bootstrapt
     if !iszero(o.NClustVar)
 	    minN = Inf; sumN = 0
-  
+
 	    combs = [x & 2^y > 0 for x in 2^o.nerrclustvar-1:-1:1, y in o.nerrclustvar-1:-1:0]  # represent all error clustering combinations. First is intersection of all error clustering vars
 	    o.clust = Vector{StrClust{T}}(undef, nrows(combs))  # leave out no-cluster combination
 	    o.NErrClustCombs = length(o.clust)
 	    o.subcluster = o.NClustVar - o.nerrclustvar
-  
+
 	    if o.NClustVar > o.nbootclustvar  # info for grouping by intersections of all bootstrap && clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusters
 		    if o.WREnonARubin && !o.granular
 		      o.infoAllData, IDAllData = panelsetupID(o.ID, collect(1:o.NClustVar))
@@ -896,9 +901,9 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		    o.infoAllData = o.infoBootData  # info for grouping by intersections of all bootstrap && clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusters
 		    o.WREnonARubin && !o.granular && (IDAllData = o.IDBootData)
 	    end
-  
+
 			Nall = length(o.infoAllData)
-			
+
 	    if o.NClustVar > o.nerrclustvar  # info for intersections of error clustering wrt data
 		    if o.WREnonARubin && !o.granular
 		      o.infoCapData, IDCapData = panelsetupID(o.ID, collect(o.subcluster+1:o.NClustVar))
@@ -906,55 +911,55 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		      o.infoCapData            = panelsetup(o.ID, collect(o.subcluster+1:o.NClustVar))
 		    end
 		    IDCap = length(o.infoCapData)==o.Nobs ? o.ID : @views o.ID[first.(o.infoCapData),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
-		    o.IDAll = Nall==o.Nobs ? o.ID : @views o.ID[first.(o.infoAllData),:]  # version of ID matrix with one row for each all-bootstrap && error cluster-var intersection instead of 1 row for each obs
+		    o.IDAll = Nall==o.Nobs ? o.ID : @view o.ID[first.(o.infoAllData),:]  # version of ID matrix with one row for each all-bootstrap && error cluster-var intersection instead of 1 row for each obs
 	    else
 		    o.infoCapData = o.infoAllData  # info for intersections of error clustering wrt data
 		    o.WREnonARubin && !o.granular && (IDCapData = IDAllData)
 		    o.IDAll = IDCap = nrows(o.infoCapData)==o.Nobs ? o.ID : @views o.ID[first.(o.infoCapData),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
 	    end
-  
+
 	    o.BootClust = 2^(o.NClustVar - o.nbootclustvar)  # location of bootstrap clustering within list of cluster combinations
-  
+
 	    for c ∈ 1:o.NErrClustCombs  # for each error clustering combination
 		    ClustCols = o.subcluster .+ findall(@view combs[c,:])
 		    even = isodd(length(ClustCols))  # not a typo
-    
+
 		    if isone(c)
 		      if iszero(o.subcluster)
 		    	  order = Vector{Int64}(undef,0)
 		    	  info  = Vector{UnitRange{Int64}}(undef, Nall)  # causes no collapsing of data in panelsum() calls
 		      else
 		    	  order = sortperm(collect(eachrow(@view IDCap[:,ClustCols])))  # XXX slow?
-		    	  IDCap = IDCap[order, :]
+		    	  IDCap = @view IDCap[order, :]
 		    	  info  = panelsetup(IDCap, ClustCols)
 		      end
 		    else
-		      if any(combs[c, min(findall(combs[c,:] .≠ combs[c-1,:])...):end])  # if this sort ordering same as last to some point and missing thereafter, no need to re-sort
+		      if any(combs[c, min(findall(view(combs,c,:) .≠ view(combs,c-1,:))...):end])  # if this sort ordering same as last to some point and missing thereafter, no need to re-sort
 		    	  order = sortperm(collect(eachrow(@view IDCap[:,ClustCols])))  # XXX slow?
-		    	  IDCap = IDCap[order,:]
+		    	  IDCap = @view IDCap[order,:]
 		      else
 		    	  order = Vector{Int64}(undef,0)
 		      end
 		      info = panelsetup(IDCap, ClustCols)
 		    end
-    
+
 		    N = nrows(info)
 		    sumN += N
 
-			  if o.small
+			if o.small
 			  	multiplier = T(N / (N-1))
 			  	N < minN && (minN = N)
-			  else
+			else
 			  	multiplier = one(T)
-			  end
-			  o.clust[c] = StrClust{T}(N, multiplier, even, order, info)
+			end
+			o.clust[c] = StrClust{T}(N, multiplier, even, order, info)
 	    end
 
 	    (o.scorebs || !o.WREnonARubin) &&
 		  	(o.ClustShare = o.haswt ? @panelsum(o.wt, o.infoCapData)/o.sumwt : length.(o.infoCapData)./o.Nobs) # share of observations by group
 
     else  # if no clustering, cast "robust" as clustering by observation
-      clust = StrClust{T}(Nobs, small ? _Nobs / (_Nobs - 1) : 1, true, Vector{Int64}(undef,0), Vector{UnitRange{Int64}}(undef,0))
+      o.clust = StrClust{T}(Nobs, small ? _Nobs / (_Nobs - 1) : 1, true, Vector{Int64}(undef,0), Vector{UnitRange{Int64}}(undef,0))
       sumN = o.Nobs
       o.NErrClustCombs = 1
       (o.scorebs || !o.WREnonARubin) &&
@@ -967,15 +972,15 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
 		if o.robust && !o.purerobust
 			(o.subcluster>0 || o.granular) &&
-				(o.infoErrAll = panelsetup(o.IDAll, collect(Int(o.subcluster)+1:o.NClustVar)))  # info for error clusters wrt data collapsed to intersections of all bootstrapping && error clusters; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusterings
+				(o.infoErrAll = panelsetup(o.IDAll, collect(o.subcluster+1:o.NClustVar)))  # info for error clusters wrt data collapsed to intersections of all bootstrapping && error clusters; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusterings
 			((o.scorebs && o.B>0) || (o.WREnonARubin && !o.granular && o.bootstrapt)) &&
 				(o.JNcapNstar = zeros(T, o.clust[1].N, o.Nstar))
 		end
 
 		if o.WREnonARubin && o.robust && o.bootstrapt && !o.granular
 			if iszero(length(IDAllData))
-				_, IDAllData = panelsetupID(o.ID, collect(                  1:o.NClustVar))
-				_, IDCapData = panelsetupID(o.ID, collect(Int(o.subcluster)+1:o.NClustVar))
+				_, IDAllData = panelsetupID(o.ID, collect(             1:o.NClustVar))
+				_, IDCapData = panelsetupID(o.ID, collect(o.subcluster+1:o.NClustVar))
 			end
 			o.IDCTCapstar   = Vector{Vector{Int64}}(undef, o.Nstar)
 			o.infoCTCapstar = Vector{Vector{UnitRange{Int64}}}(undef, o.Nstar)
@@ -1006,7 +1011,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 					wt = fill(1/sumFEwt, j-i)
 				end
 				o.FEs[i_FE] = StrFE{T}(is, wt)
-				if (o.B>0 && o.robust && Int(o.granular) < o.nerrclustvar) || (o.WREnonARubin && o.robust && o.granular && o.bootstrapt)
+				if (o.B>0 && o.robust && o.granular < o.nerrclustvar) || (o.WREnonARubin && o.robust && o.granular && o.bootstrapt)
 					o.invFEwt[i_FE] = 1 / sumFEwt
 				end
 
@@ -1029,7 +1034,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			wt = fill(1/sumFEwt, j)
 		end
 		o.FEs[i_FE] = StrFE{T}(is, wt)
-		o.robust && ((o.B>0 && Int(o.granular) < o.nerrclustvar) || (o.WREnonARubin && o.granular && o.bootstrapt)) &&
+		o.robust && ((o.B>0 && o.granular < o.nerrclustvar) || (o.WREnonARubin && o.granular && o.bootstrapt)) &&
 			(o.invFEwt[i_FE] = 1 / sumFEwt)
 		o.NFE = i_FE
 		resize!(o.invFEwt, o.NFE)
@@ -1039,7 +1044,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			o.FEboot = all(tmp .== @view tmp[1,:])
 		end
 
-		if o.robust && o.B>0 && o.bootstrapt && !o.FEboot && Int(o.granular) < o.nerrclustvar
+		if o.robust && o.B>0 && o.bootstrapt && !o.FEboot && o.granular < o.nerrclustvar
 			o.infoBootAll = panelsetup(o.IDAll, collect(1:o.nbootclustvar))  # info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping && error clusters
 		end
 
@@ -1140,7 +1145,6 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 				o.δdenom_b = zeros(o.Repl.kZ, o.Repl.kZ)
 				o.SstarUMZperp = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
 				o.SstarUPX     = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
-				o.δdenom   = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
 				o._Jcap = zeros(o.clust[1].N, o.Repl.kZ)
 				!o.granular && (o.SCTcapuXinvXX = Matrix{Matrix{T}}(undef, o.Repl.kZ+1, o.Nstar))
 				if o.LIML || !o.robust
@@ -1177,7 +1181,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			o.Jcd = iszero(o.B) ? o.Kcd : Matrix{Matrix{T}}(undef, o.NErrClustCombs, o.dof)  # if B = 0, Kcd will be multiplied by v, which is all 1's, and will constitute Jcd
 		end
 
-		if o.robust && Int(o.granular) < o.NErrClustCombs && o.B>0
+		if o.robust && o.granular < o.NErrClustCombs && o.B>0
 			if o.subcluster>0  # crosstab c,c* is wide
 				o.crosstabCapstarind = Vector{Int64}(undef, Nall)
 				for i ∈ axes(o.infoErrAll, 1)
@@ -1200,7 +1204,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   o.sqrt = isone(o.dof)  # work with t/z stats instead of F/chi2
 
   if o.small
-		o.multiplier = (o.smallsample = (o._Nobs - o.kZ - Int(o.FEdfadj) * o.NFE) / (o._Nobs - Int(o.robust))) / o.dof  # divide by # of constraints because F stat is so defined
+		o.multiplier = (o.smallsample = (o._Nobs - o.kZ - o.FEdfadj * o.NFE) / (o._Nobs - o.robust)) / o.dof  # divide by # of constraints because F stat is so defined
   else
 		o.multiplier = o.smallsample = 1
   end
@@ -1208,7 +1212,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   !(o.robust || o.ML) && (o.multiplier *= o._Nobs)  # will turn sum of squared errors in denom of t/z into mean
   o.sqrt && (o.multiplier = √o.multiplier)
 
-  ((!o.bootstrapt && o.dof==1) || o.bootstrapt && (o.WREnonARubin || o.dof>2 || !isnan(o.maxmatsize))) && # unless nonWRE or dof=1 or splitting weight matrix, code will create dist element-by-element, so pre-allocate vector now
+  ((!o.bootstrapt && o.dof==1) || o.bootstrapt && (o.WREnonARubin || o.dof>1+o.robust || !isnan(o.maxmatsize))) &&  # unless nonWRE or dof=1 or splitting weight matrix, code will create dist element-by-element, so pre-allocate vector now
 	(o.dist = fill(T(NaN), o.B+1))
   (o.Nw>1 || o.WREnonARubin || (!o.null && o.dof<=2)) && (o.numer = fill(T(NaN), o.dof, o.B+1))
 
@@ -1312,7 +1316,7 @@ function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) wher
 		elseif o.WREnonARubin  # Rademacher
 			o.v = -2rand(o.rng, Bool, o.Nstar, _B+first)
 		else
-			o.v = rand(o.rng, Bool, o.Nstar, _B+first); o.v .-= T(.5)  # rand(o.rng, Bool, o.Nstar, _B+first) .- T(.5)
+			o.v = rand(o.rng, Bool, o.Nstar, _B+first) .- T(.5)  # rand(o.rng, Bool, o.Nstar, _B+first) .- T(.5)
 			o.v_sd = .5
 		end
 
@@ -1392,59 +1396,59 @@ end
 # for all groups in the intersection of all error clusterings
 # return value has one row per cap cluster, one col per bootstrap replication
 function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
-  if o.granular
-    if o.Nw == 1  # create or avoid NxB matrix?
+  	if o.granular
+    	if o.Nw == 1  # create or avoid NxB matrix?
 			PXYstar = iszero(ind1) ? o.Repl.PXy₁ : o.Repl.PXZ[:,ind1]
 			o.Repl.Yendog[ind1+1] && (PXYstar = PXYstar .+ o.SstarUPX[ind1+1] * o.v)
 
 			dest = @panelsum(PXYstar .* (o.Repl.y₁ .- o.SstarUMZperp[1] * o.v), o.wt, o.infoCapData)
 
 			for ind2 ∈ 1:o.Repl.kZ
-				_β = βs[ind2,:]'
+				_β = view(βs,ind2,:)'
 				dest .-= @panelsum(PXYstar .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[:,ind2] * _β .- o.SstarUMZperp[ind2+1] * (o.v .* _β) :
-																                              o.Repl.Z[:,ind2] * _β                                            ), o.wt, o.infoCapData)
+															           o.Repl.Z[:,ind2] * _β                                            ), o.wt, o.infoCapData)
 			end
 		else  # create pieces of each N x B matrix one at a time rather than whole thing at once
 			dest = Matrix{T}(undef, o.clust[1].N, ncols(o.v))  # XXX preallocate this & turn Filling into Filling! ?
 			for ind2 ∈ 0:o.Repl.kZ
-				ind2>0 && (βv = o.v .* (_β = βs[ind2,:]'))
+				ind2>0 && (βv = o.v .* (_β = view(βs,ind2,:)'))
 
 				if o.purerobust
 					for i ∈ 1:o.clust[1].N
 						PXYstar = hcat(iszero(ind1) ? o.Repl.PXy₁[i] : o.Repl.PXZ[i,ind1])
-						o.Repl.Yendog[ind1+1] && (PXYstar = PXYstar .+ o.SstarUPX[ind1+1][i,:]'o.v)
+						o.Repl.Yendog[ind1+1] && (PXYstar = PXYstar .+ view(o.SstarUPX[ind1+1],i,:)'o.v)
 
 						if iszero(ind2)
-							dest[i,:]   = wtsum(o.wt, PXYstar .* (o.Repl.y₁[i] .- o.SstarUMZperp[1][i,:])'o.v)
+							dest[i,:]   = wtsum(o.wt, PXYstar .* (o.Repl.y₁[i] .- view(o.SstarUMZperp[1],i,:))'o.v)
 						else
-							dest[i,:] .-= wtsum(o.wt, PXYstar .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[i,ind2] * _β .- o.SstarUMZperp[ind2+1][i,:]'βv :
-																						o.Repl.Z[i,ind2] * _β))
+							dest[i,:] .-= wtsum(o.wt, PXYstar .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[i,ind2] * _β .- view(o.SstarUMZperp[ind2+1],i,:)'βv :
+																						  o.Repl.Z[i,ind2] * _β))
 						end
 					end
 				else
 					for i ∈ 1:o.clust[1].N
 						S = o.infoCapData[i]
 						PXYstar = ind1 ? o.Repl.PXZ[S,ind1] : o.Repl.PXy₁[S]
-						o.Repl.Yendog[ind1+1] && (PXYstar = PXYstar .+ o.SstarUPX[ind1+1][S,:] * o.v)
+						o.Repl.Yendog[ind1+1] && (PXYstar = PXYstar .+ view(o.SstarUPX[ind1+1],S,:) * o.v)
 
 						if iszero(ind2)
-							dest[i,:]   = wtsum(o.wt, PXYstar .* (o.Repl.y₁[S] .- o.SstarUMZperp[1][S,:] * o.v))
+							dest[i,:]   = wtsum(o.wt, PXYstar .* (o.Repl.y₁[S] .- view(o.SstarUMZperp[1],S,:) * o.v))
 						else
-							dest[i,:] .-= wtsum(o.wt, PXYstar .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[S,ind2] * _β .- o.SstarUMZperp[ind2+1][S,:] * βv :
-																							o.Repl.Z[S,ind2] * _β                                       ))
+							dest[i,:] .-= wtsum(o.wt, PXYstar .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[S,ind2] * _β .- view(o.SstarUMZperp[ind2+1],S,:) * βv :
+																						  o.Repl.Z[S,ind2] * _β                                       ))
 						end
 					end
 				end
 			end
-    end
-  else  # coarse error clustering
+    	end
+  	else  # coarse error clustering
 		for ind2 ∈ 0:o.Repl.kZ
-      βv = iszero(ind2) ? o.v : o.v .* (_β = -view(βs,ind2,:)')
+			βv = iszero(ind2) ? o.v : o.v .* (_β = -view(βs,ind2,:)')
 
 			# T1 * o.v will be 1st-order terms
 			T₁ = o.Repl.Yendog[ind1+1] ? o.Repl.ScapYX[ind2+1] * o.SstarUXinvXX[ind1+1] : Matrix{T}(undef,0,0)  #  S_∩ (Y_(∥j):*X_∥ ) (X_∥^' X_∥ )^(-1) [S_* (U ̈_(∥i):*X_∥ )]^'
 
-      if o.Repl.Yendog[ind2+1]  # add CT_(cap,*) (P_(X_par ) Y_(pari).*U ̈_(parj) )
+			if o.Repl.Yendog[ind2+1]  # add CT_(cap,*) (P_(X_par ) Y_(pari).*U ̈_(parj) )
 				if o.NClustVar == o.nbootclustvar && iszero(o.subcluster)  # simple case of one clustering: full crosstab is diagonal
 					tmp = ind1>0 ? o.Repl.XZ[:,ind1] : o.Repl.Xy₁par
 					if length(T₁)>0
@@ -1484,7 +1488,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 			if o.Repl.Yendog[ind1+1] && o.Repl.Yendog[ind2+1]
 				for i ∈ 1:o.clust[1].N
 					S = o.infoCapData[i]
-					colquadformminus!(dest, i, cross(o.SstarUPX[ind1+1][S,:], o.haswt ? o.wt[S] : I, o.SstarUMZperp[ind2+1][S,:]), o.v, βv)
+					colquadformminus!(dest, i, cross(view(o.SstarUPX[ind1+1],S,:), o.haswt ? o.wt[S] : I, view(o.SstarUMZperp[ind2+1],S,:)), o.v, βv)
 				end
 			end
 		end
@@ -1534,13 +1538,13 @@ function PrepWRE!(o::StrBootTest)
 				end
 			end
 			o.NFE>0 &&
-				(o.SstarUMZperp[i+1] .+= (o.invFEwt .* o.CTFEU[i+1])[o._FEID,:])  # CT_(*,FE) (U ̈_(parj) ) (S_FE S_FE^' )^(-1) S_FE
+				(o.SstarUMZperp[i+1] .+= (o.invFEwt .* view(o.CTFEU[i+1]),o._FEID,:))  # CT_(*,FE) (U ̈_(parj) ) (S_FE S_FE^' )^(-1) S_FE
 		end
   end
 end
 
 function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
-  if isone(o.Repl.kZ)  # optimized code for 1 coefficient in bootstrap regression
+    if isone(o.Repl.kZ)  # optimized code for 1 coefficient in bootstrap regression
 		if o.LIML
 			YY₁₁   = HessianFixedκ(o, [0], 0, zero(T), w)  # κ=0 => Y*MZperp*Y
 			YY₁₂   = HessianFixedκ(o, [0], 1, zero(T), w)
@@ -1575,7 +1579,8 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			if o.robust
 				Jcaps = Filling(o, 1, βs) ./ o.As
 				for c ∈ 1:o.NErrClustCombs  # sum sandwich over error clusterings
-					length(o.clust[c].order)>0 && (Jcaps = Jcaps[o.clust[c].order,:])
+					length(o.clust[c].order)>0 && 
+						(Jcaps = view(Jcaps,o.clust[c].order,:))
 					@clustAccum!(denom, c, coldot(@panelsum(Jcaps, o.clust[c].info)))
 				end
 			else
@@ -1594,7 +1599,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			o.YYstar   = [HessianFixedκ(o, collect(0:i), i, zero(T), w) for i ∈ 0:o.Repl.kZ] # κ=0 => Y*MZperp*Y
 			o.YPXYstar = [HessianFixedκ(o, collect(0:i), i,  one(T), w) for i ∈ 0:o.Repl.kZ] # κ=1 => Y*PXpar*Y
 
-			for b ∈ 1:ncols(o.v)
+			for b ∈ axes(o.v,2)
 				for i ∈ 0:o.Repl.kZ
 					o.YYstar_b[1:i+1,i+1]   = o.YYstar[i+1][:,b]  # fill uppper triangles, which is all that invsym() looks at
 					o.YPXYstar_b[1:i+1,i+1] = o.YPXYstar[i+1][:,b]
@@ -1605,32 +1610,26 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			end
 		else
 			δnumer = HessianFixedκ(o, collect(1:o.Repl.kZ), 0, o.κ, w)
-
-			for i ∈ 1:o.Repl.kZ
-				o.δdenom[i] = HessianFixedκ(o, collect(1:i), i, o.κ, w)
-			end
-
+			δdenom = [HessianFixedκ(o, collect(1:i), i, o.κ, w) for i ∈ 1:o.Repl.kZ]
+			
 			for b ∈ axes(o.v,2)
 				for i ∈ 1:o.Repl.kZ
-					o.δdenom_b[1:i,i] = o.δdenom[i][:,b] # fill uppper triangle, which is all that invsym() looks at
+					o.δdenom_b[1:i,i] = view(δdenom[i],:,b)  # fill uppper triangle, which is all that invsym() looks at
 				end
-				βs[:,b]  = (A[b] = invsym(o.δdenom_b)) * δnumer[:,b]
+				βs[:,b] = (A[b] = invsym(o.δdenom_b)) * view(δnumer,:,b)
 			end
 		end
 
 		if o.bootstrapt
 			if o.robust
-				Zyg = Vector{Matrix{T}}(undef, o.Repl.kZ)
-				for i ∈ 1:o.Repl.kZ
-					Zyg[i] = Filling(o, i, βs)  # XXX concatenate into 3-d array?
-				end
+				Zyg = [Filling(o, i, βs) for i ∈ 1:o.Repl.kZ]  # XXX concatenate into 3-d array?
 			else
-				o.YYstar = [HessianFixedκ(o, collect(i:o.Repl.kZ), i, zero(T), w) for i ∈ 0:o.Repl.kZ] # κ=0 => Y*MZperp*Y
+				o.YYstar = [HessianFixedκ(o, collect(i:o.Repl.kZ), i, zero(T), w) for i ∈ 0:o.Repl.kZ]  # κ=0 => Y*MZperp*Y
 			end
 		end
 
 		numer_b = Vector{T}(undef,nrows(o.Repl.RRpar))  # XXX move to Init()
-		for b ∈ ncols(o.v):-1:1
+		for b ∈ reverse(axes(o.v,2))
 			if o.null || w==1 && b==1
 				numer_b .= o.Repl.RRpar * βs[:,b] + o.Repl.Rt₁ - o.r
 			else
@@ -1645,13 +1644,13 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 					Jcap = o._Jcap * (A[b] * o.Repl.RRpar')
 
 					for c ∈ 1:o.NErrClustCombs
-						(!isone(o.NClustVar) && length(o.clust[c].order)>0) && (Jcap = Jcap[o.clust[c].order,:])
+						(!isone(o.NClustVar) && length(o.clust[c].order)>0) && (Jcap = view(Jcap,o.clust[c].order,:))
 						J_b = @panelsum(Jcap, o.clust[c].info)
 						@clustAccum!(denom, c, J_b'J_b)
 					end
 				else  # non-robust
 					for i ∈ 0:o.Repl.kZ
-						YYstar_b[i+1,i+1:o.Repl.kZ+1] = YYstar[i+1][b,:]  # fill upper triangle
+						YYstar_b[i+1,i+1:o.Repl.kZ+1] = view(YYstar[i+1],b,:)  # fill upper triangle
 					end
 					denom = (o.Repl.RRpar * A[b] * o.Repl.RRpar') * [-one(T) ; βs[:,b]]'Symmetric(YYstar_b) * [-one(T) ; βs[:,b]] / o._Nobs  # 2nd half is sig2 of errors
 				end
@@ -1663,14 +1662,14 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			end
 			o.numer[:,b+first(o.WeightGrp[w])-1] = numer_b  # slight inefficiency: in usual bootstrap-t case, only need to save numerators in numer if getdist("numer") is coming because of svmat(numer)
 		end
-  end
-  w==1 && o.bootstrapt && (o.statDenom = denom)  # original-sample denominator
+	end
+	w==1 && o.bootstrapt && (o.statDenom = denom)  # original-sample denominator
 end
 
 
 # Construct stuff that depends linearly or quadratically on r, possibly by interpolation
 function MakeInterpolables!(o::StrBootTest{T} where T)
-  if o.interpolable
+	if o.interpolable
 		if iszero(length(o.anchor))  # first call? save current r as permanent anchor for interpolation
 			o.anchor = o.r
 			_MakeInterpolables!(o, o.anchor)
@@ -1749,24 +1748,24 @@ function MakeInterpolables!(o::StrBootTest{T} where T)
 			else  # q==2
 				for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁
 					o.denom[d₁,d₂] = o.denom₀[d₁,d₂] +
-									o.∂denom∂r[1][d₁,d₂] * Δ[1] +
-									o.∂denom∂r[2][d₁,d₂] * Δ[2] +
-									o.∂²denom∂r²[1,1][d₁,d₂] * (Δ[1] ^ 2) +
-									o.∂²denom∂r²[2,1][d₁,d₂] * (Δ[1] * Δ[2]) +
-									o.∂²denom∂r²[2,2][d₁,d₂] * (Δ[2] ^ 2)
+									 o.∂denom∂r[1][d₁,d₂] * Δ[1] +
+									 o.∂denom∂r[2][d₁,d₂] * Δ[2] +
+									 o.∂²denom∂r²[1,1][d₁,d₂] * (Δ[1] ^ 2) +
+									 o.∂²denom∂r²[2,1][d₁,d₂] * (Δ[1] * Δ[2]) +
+									 o.∂²denom∂r²[2,2][d₁,d₂] * (Δ[2] ^ 2)
 				end
 			end
 		end
-  else  # non-interpolable cases
+	else  # non-interpolable cases
 		_MakeInterpolables!(o, o.r)
-  end
+	end
 end
 
 # Construct stuff that depends linearly or quadratically on r and doesn't depend on v. No interpolation.
 function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
-  if o.ML
+	if o.ML
 		o.uXAR = o.sc * (o.AR = o.A * o.R')
-  else
+	else
 		if o.ARubin
 			Estimate!(o.DGP, thisr)
 		elseif iszero(o.κ)  # regular OLS
@@ -1779,11 +1778,11 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 		MakeResiduals!(o.DGP)
 		o.ü = o.DGP.ü₁
 
-		(o.scorebs || (o.robust && Int(o.granular) < o.NErrClustCombs)) &&
+		(o.scorebs || (o.robust && o.granular < o.NErrClustCombs)) &&
 			(o.uXAR = o.DGP.ü₁ .* o.M.XAR)
-  end
+	end
 
-  o.SuwtXA = o.scorebs ?
+	o.SuwtXA = o.scorebs ?
 				 o.B>0 ?
 					 o.NClustVar ?
 				          @panelsum(o.uXAR, o.wt, o.infoBootData) :
@@ -1791,7 +1790,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 				        wtsum(o.wt, o.uXAR)                      :
 			  o.DGP.A * @panelsum2(o.X₁, o.X₂, vHadw(o.ü, o.wt), o.infoBootData)'  # same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined; X₂ empty except in Anderson-Rubin
 
-  if o.robust && o.bootstrapt && Int(o.granular) < o.NErrClustCombs
+	if o.robust && o.bootstrapt && o.granular < o.NErrClustCombs
 		ustarXAR = @panelsum(o.uXAR, o.wt, o.infoAllData)  # collapse data to all-boot && error-cluster-var intersections. If no collapsing needed, panelsum() will still fold in any weights
 		if o.B>0
 			if o.scorebs
@@ -1807,7 +1806,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 			Kd[o.crosstabCapstarind] .-= reshape(ustarXAR,:)  # subtract crosstab of ustarXAR wrt bootstrapping cluster and all-cluster-var intersections from M
 			o.scorebs && (Kd .-= o.ClustShare * colsum(Kd))  # recenter
 
-			for c ∈ 1+Int(o.granular):o.NErrClustCombs  # XXX pre-compute common iterators
+			for c ∈ 1+o.granular:o.NErrClustCombs  # XXX pre-compute common iterators
 				length(o.clust[c].order)>0 &&
 					(Kd = view(Kd, o.clust[c].order,:,:))
 				for d ∈ 1:o.dof
@@ -1826,13 +1825,13 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 				end
 			end
 		end
-  end
-  MakeNumerAndJ!(o, 1, thisr)  # compute J = κ * v; if Nw > 1, then this is for 1st group; if interpolating, it is only group, and may be needed now to prep interpolation
+	end
+	MakeNumerAndJ!(o, 1, thisr)  # compute J = κ * v; if Nw > 1, then this is for 1st group; if interpolating, it is only group, and may be needed now to prep interpolation
 end
 
 # compute stuff depending linearly on v, needed to prep for interpolation
 function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{T}(undef,0)) where T  # called to *prepare* interpolation, or when w>1, in which case there is no interpolation
-  o.numerw = o.scorebs ?
+	o.numerw = o.scorebs ?
 			   (o.B>0 ?
 				 o.SuwtXA'o.v :
 				 o.SuwtXA * o.v_sd    ) :
@@ -1840,15 +1839,15 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 				  o.R * (o.βdev = o.SuwtXA * o.v) :
 				 (o.R * o.SuwtXA) * o.v)
 
-  if isone(w)
-  	if o.ARubin
+	if isone(w)
+		if o.ARubin
 			o.numerw[:,1] = o.v_sd * o.DGP.Rpar * o.DGP.β[o.kX₁+1:end]  # coefficients on excluded instruments in ARubin OLS
 		elseif !o.null
 			o.numerw[:,1] = o.v_sd * (o.R * (o.ML ? o.β : o.M.Rpar * o.M.β) - r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this.
 		end
-  end
+	end
 
-  @storeWtGrpResults!(o.numer, o.numerw)
+	@storeWtGrpResults!(o.numer, o.numerw)
 
 	@views if o.B>0 && o.robust && o.bootstrapt
 		if o.granular || o.purerobust  # optimized treatment when bootstrapping by many/small groups
@@ -1864,41 +1863,41 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 						o.Jcd[1,d] = @panelsum(o.ustar, o.M.WXAR[:,d], o.infoCapData)                           - @panelsum2(o.X₁, o.X₂, o.M.WXAR[:,d], o.infoCapData) * o.βdev
 					end
 				else
-					_v = o.v[o.IDBootAll,:]
+					_v = view(o.v,o.IDBootAll,:)
 					for d ∈ 1:o.dof
 						o.Jcd[1,d] = panelsum( panelsum(o.ü, o.M.WXAR[:,d], o.infoAllData) .* _v, o.infoErrAll) - @panelsum2(o.X₁, o.X₂, o.M.WXAR[:,d], o.infoCapData) * o.βdev
 					end
 				end
 			end
 		end
-		for c ∈ Int(o.granular)+1:o.NErrClustCombs, d ∈ eachindex(axes(o.Jcd, 2), axes(o.Kcd, 2))
+		for c ∈ o.granular+1:o.NErrClustCombs, d ∈ eachindex(axes(o.Jcd, 2), axes(o.Kcd, 2))
 			o.Jcd[c,d] = o.Kcd[c,d] * o.v
 		end
 	end
 end
 
 function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
-  w > 1 && MakeNumerAndJ!(o, w)
-  !o.bootstrapt && return
+	w > 1 && MakeNumerAndJ!(o, w)
+	!o.bootstrapt && return
 
-  if o.robust
-    if !o.interpolating  # these quadratic computation needed to *prepare* for interpolation but are superseded by interpolation once it is going
-      o.purerobust && (ustar2 = o.ustar .^ 2)
-      for i ∈ 1:o.dof, j ∈ 1:i
-    		o.purerobust &&
-  	      (o.denom[i,j] = cross(view(o.M.WXAR,:,i), view(o.M.WXAR,:,j), ustar2) * (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier))
-  	    for c ∈ Int(o.purerobust)+1:o.NErrClustCombs
-  		  	@clustAccum!(o.denom[i,j], c, j==i ? coldot(o.Jcd[c,i]) : coldot(o.Jcd[c,i],o.Jcd[c,j]))
-  	    end
-  	  end
-    end
+	if o.robust
+    	if !o.interpolating  # these quadratic computation needed to *prepare* for interpolation but are superseded by interpolation once it is going
+      		o.purerobust && (ustar2 = o.ustar .^ 2)
+      		for i ∈ 1:o.dof, j ∈ 1:i
+    			o.purerobust &&
+  	      			(o.denom[i,j] = cross(view(o.M.WXAR,:,i), view(o.M.WXAR,:,j), ustar2) * (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier))
+				for c ∈ o.purerobust+1:o.NErrClustCombs
+					@clustAccum!(o.denom[i,j], c, j==i ? coldot(o.Jcd[c,i]) : coldot(o.Jcd[c,i],o.Jcd[c,j]))
+				end
+  	 		 end
+   		end
 
 		if isone(o.dof)
 			@storeWtGrpResults!(o.dist, vec(o.numerw ./ sqrtNaN.(o.denom[1,1])))
 			isone(w) &&
 				(o.statDenom = hcat(o.denom[1,1][1]))  # original-sample denominator
 		elseif o.dof==2  # hand-code 2D numer'inv(denom)*numer
-			t1 = o.numerw[1,:]'; t2 = o.numerw[2,:]'; t12 = t1.*t2
+			t1 = view(o.numerw,1,:)'; t2 = view(o.numerw,2,:)'; t12 = t1.*t2
 			@storeWtGrpResults!(o.dist, vec((t1.^2 .* o.denom[2,2] .- 2 .* t12 .* o.denom[2,1] .+ t2.^2 .* o.denom[1,1]) ./ (o.denom[1,1].*o.denom[2,2] .- o.denom[2,1].^2)))
 			isone(w) &&
 				(o.statDenom = [o.denom[1,1][1] o.denom[2,1][1] ; o.denom[2,1][1] o.denom[2,2][1]])  # original-sample denominator
@@ -1965,7 +1964,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 				isone(w) && (o.statDenom = o.denom[1,1] * tmp)  # original-sample denominator
 			end
 		end
-  end
+	end
 end
 
 
@@ -2063,12 +2062,12 @@ function crosstabFEt(o::StrBootTest{T}, v::AbstractMatrix{T}, info::Vector{UnitR
 	    FEIDi = @view o._FEID[info[i]]
 	    vi    = @view       v[info[i],:]
 	    @inbounds @simd for j ∈ 1:length(FEIDi)
-	  	  dest[i,:,FEIDi[j]] += vi[j,:]
+	  	  dest[i,:,FEIDi[j]] += @view vi[j,:]
 	    end
 	  end
   else  # "robust" case, no clustering
 	  @inbounds @simd for i ∈ 1:length(FEIDi)
-	    dest[i,:,o._FEID[i]] = v[i,:]
+	    dest[i,:,o._FEID[i]] = @view v[i,:]
 	  end
   end
   dest
@@ -2100,7 +2099,7 @@ function search(o::StrBootTest{T}, α::T, f₁::T, x₁::T, f₂::T, x₂::T) wh
 			x₃, x₂, x₁, f₃, f₂, f₁ = x₂, x₁, x, f₂, f₁, fx
 		end
 
-		((o.B>0 && abs(fx - α) < (1+Int(o.ptype==equaltail)) / o.BFeas * 1.000001) || ≈(x₂, x₁, rtol=o.rtol)) &&
+		((o.B>0 && abs(fx - α) < (1+(o.ptype==equaltail)) / o.BFeas * 1.000001) || ≈(x₂, x₁, rtol=o.rtol)) &&
 			return abs(f₁ - α) < abs(f₂ - α) ? x₁ : x₂
 
 		ϕ₁ = (f₁ - f₂) / (f₃ - f₂)
@@ -2192,14 +2191,14 @@ function plot(o::StrBootTest{T}) where T
 			hi = [o.gridmax[1]]
 		end
 
-		o.plotX = range(lo[1], hi[1], length=o.gridpoints[1])[:,:]
+		o.plotX = reshape(range(lo[1], hi[1], length=o.gridpoints[1]),:,1)
 		o.plotY = fill(T(NaN), length(o.plotX))
 		o.plotY[1  ] = p_lo
 		o.plotY[end] = p_hi
 		p_confpeak = o.WREnonARubin ? T(NaN) : o.twotailed ? one(T) : T(.5)
 
 		c = clamp((floor(Int, (o.confpeak[1] - lo[1]) / (hi[1] - lo[1]) * (o.gridpoints[1] - 1)) + 2), 1, o.gridpoints[1]+1)  # insert original point estimate into grid
-		o.plotX = [o.plotX[1:c-1,:] ; o.confpeak ; o.plotX[c:end,:]]
+		o.plotX = [@view o.plotX[1:c-1,:] ; o.confpeak ; @view o.plotX[c:end,:]]
 		insert!(o.plotY, c, p_confpeak)
 	else  # 2D plot
 		lo = Vector{T}(undef, 2)
@@ -2212,9 +2211,9 @@ function plot(o::StrBootTest{T}) where T
 		o.plotY = fill(T(NaN), nrows(o.plotX))
 	end
 
-	isnan(o.plotY[1]) && (o.plotY[1] = r_to_p(o, o.plotX[1,:]))  # do in this order for widest interpolation
+	isnan(o.plotY[1]) && (o.plotY[1] = r_to_p(o, view(o.plotX,1,:)))  # do in this order for widest interpolation
 	@views for i ∈ length(o.plotY):-1:2
-		isnan(o.plotY[i]) && (o.plotY[i] = r_to_p(o, o.plotX[i,:]))
+		isnan(o.plotY[i]) && (o.plotY[i] = r_to_p(o, view(o.plotX,i,:)))
 	end
 
 	if any(isnan.(o.plotY))
@@ -2250,8 +2249,8 @@ function plot(o::StrBootTest{T}) where T
 	end
 
   if @isdefined c  # now that it's done helping graph look good, remove peak point from returned grid for evenness, for Bayesian sampling purposes
-		o.peak = (X = o.plotX[c,:], p = o.plotY[c])
-		o.plotX = o.plotX[[1:c-1; c+1:nrows(o.plotX)],:]
+		o.peak = (X = view(o.plotX,c,:), p = o.plotY[c])
+		o.plotX = view(o.plotX,[1:c-1; c+1:nrows(o.plotX)],:)
 		deleteat!(o.plotY, c)
   end
 
@@ -2259,7 +2258,7 @@ function plot(o::StrBootTest{T}) where T
 	o.notplotted = false
 end
 
-# Julia-level interface; no error checking yet
+"Structure to store wild bootstrap test results"
 struct BoottestResult{T}
   stat::T; stattype::String
   p::T; padj::T
@@ -2276,33 +2275,130 @@ struct BoottestResult{T}
   M::StrBootTest
 end
 
+"Return test statistic subject to wild bootstrap test"
 teststat(o::BoottestResult) = o.stat
-stattype(o::BoottestResult) = o.stattype
-p(o::BoottestResult) = o.p
-padj(o::BoottestResult) = o.padj
-reps(o::BoottestResult) = o.reps
-repsfeas(o::BoottestResult) = o.repsfeas
-NBootClust(o::BoottestResult) = o.NBootClust
-dof(o::BoottestResult) = o.dof
-dof_r(o::BoottestResult) = o.dof_r
-plotpoints(o::BoottestResult) = o.plot
-peak(o::BoottestResult) = o.peak
-CI(o::BoottestResult) = o.CI
-dist(o::BoottestResult) = o.dist
+
+"Return numerator of test statistic in wild bootstrap test"
 statnumer(o::BoottestResult) = o.b
+
+"Return denominator of test statistic in wild bootstrap test"
 statvar(o::BoottestResult) = o.V
+
+"""Return type of test statistic subject to wild bootstrap test: "t", "z", "F", or "χ²" """
+stattype(o::BoottestResult) = o.stattype
+
+"Return p value from wild bootstrap test"
+p(o::BoottestResult) = o.p
+
+"Returnp p value from wild bootstrap test after multiple-hypothesis adjustment, if any"
+padj(o::BoottestResult) = o.padj
+
+"Return requested number of replications in wild bootstrap test"
+reps(o::BoottestResult) = o.reps
+
+"Return actual  number of replications in wild bootstrap test, subject to enumeration of Rademacher draws"
+repsfeas(o::BoottestResult) = o.repsfeas
+
+"Return number of bootstrapping clusters in wild bootstrap test"
+NBootClust(o::BoottestResult) = o.NBootClust
+
+"Return degrees of freedom wild bootstrap test"
+dof(o::BoottestResult) = o.dof
+
+"Return residual degrees of freedom wild bootstrap test"
+dof_r(o::BoottestResult) = o.dof_r
+
+"Return data for confidence plot of wild bootstrap test"
+plotpoints(o::BoottestResult) = o.plot
+
+"Return parameter value with peak p value in wild bootstrap test"
+peak(o::BoottestResult) = o.peak
+
+"Return confidence interval matrix from wild bootstrap test, one row per disjoint piece"
+CI(o::BoottestResult) = o.CI
+
+"Return bootstrap distribution of statistic or statistic numerator in wild bootstrap test"
+dist(o::BoottestResult) = o.dist
+
+"Return auxilliary weight matrix for wild bootstrap test"
 auxweights(o::BoottestResult) = o.auxweights
 
 
+"""
+wildboottest([T=Float32], H₀::Tuple{AbstractMatrix, AbstractVector}; resp, <optional keyword arguments>) <: WildBootTest.BoottestResult
+
+Function to perform wild-bootstrap-based hypothesis test
+
+# Positional arguments
+* `T::DataType`: data type for inputs, results, and computations: Float32 (default) or Float64
+* `H₀::Tuple{AbstractMatrix, AbstractVector}`: required matrix-vector tuple (R,r) expressesing the null Rβ=r
+
+# Required keyword argument
+* `resp::AbstractVector`: response/dependent variable (y/y₁)
+
+# Optional keyword arguments
+* `predexog::AbstractVecOrMat`: exogenous predictors (X/X₁)
+* `predendog::AbstractVecOrMat`: endogenous predictors (Y₂)
+* `inst::AbstractVecOrMat`: instruments (X₂)
+* `H₁::Tuple{AbstractMatrix, AbstractVector`: model constraints; same format as for H₀
+* `clustid::AbstractVecOrMat{<:Integer}`: data vector/matrix of error and bootstrapping cluster identifiers; see Notes 
+* `nbootclustvar::Integer=1`: number of bootstrap-clustering variables
+* `nerrclustvar::Integer=nbootclustvar`: number of error-clustering variables
+* `hetrobust::Bool=false`: true unless errors are treated as iid
+* `feid::AbstractVector{<:Integer}`: data vector for fixed effect group identifier
+* `fedfadj::Bool=true`: true if small-sample adjustment should reflect number of fixed effects
+* `obswt`: observation weight vector
+* `fweights::Bool=false`: true for frequency weights
+* `maxmatsize::Number`: maximum size of auxilliary weight matrix (v), in gigabytes
+* `ptype::PType=symmetric`: p value type (symmetric, equaltail, lower, upper)
+* `bootstrapc::Bool=false`: true for bootstrap-c
+* `LIML::Bool=false`: true for LIML or Fuller LIML
+* `Fuller::Number`: Fuller factor
+* `κ::Number`: fixed κ for _k_-class estimation
+* `ARubin::Bool=false`: true for Anderson-Rubin test
+* `small::Bool=true`: true for small-sample corrections
+* `scorebs::Bool=false`: true for score bootstrap instead of wild bootstrap
+* `reps::Integer=999`: number of bootstrap replications
+* `imposenull::Bool=true`: true to impose null
+* `auxwttype::AuxWtType=rademacher`: auxilliary weight type (rademacher mammen webb normal gamma)
+* `rng::AbstractRNG=MersenneTwister()`: randon number generator
+* `level::Number=.95`: significance level (0-1)
+* `rtol::Number=1e-6`: tolerance for CI bound determination
+* `madjtype::MAdjType=none`: multiple hypothesis adjustment (none, bonferroni, sidak)
+* `NH0::Integer=1`: number of hypotheses tested, including one being tested now
+* `ML::Bool=false`: true for (nonlinear) ML estimation
+* `scores::AbstractVecOrMat`: for ML, pre-computed scores
+* `β::AbstractVector`: for ML, parameter estimates
+* `A::AbstractMatrix`: for ML, covariance estimates
+* `gridmin`: vector of graph lower bounds, max length 2, entries=missing OK
+* `gridmax`: vector of graph upper bounds
+* `gridpoints`: vector of number of sampling points
+* `diststat::String=""`: "numer" or "t" to save associated bootstrap distribution
+* `getCI::Bool=true`: whether to return CI
+* `getplot::Bool=getCI`: whether to generate plot data
+* `getauxweights::Bool=false`: whether to save auxilliary weight matrix (v)
+
+# Notes
+Oredr the columns of `clustid` this way:
+1. Variables only used to define bootstrapping clusters, as in the subcluster bootstrap.
+2. Variables used to define both bootstrapping and error clusters.
+3. Variables only used to define error clusters.
+In the most common case, `clustid` will consist of a single column of type 2.
+
+All data matrices must be sorted by the columns in clustid, ordered from left to right.
+
+The code does not handle missing data values: all data and identifier matrices must 
+match the estimation sample.
+
+"""
 function wildboottest(T::DataType,
 					  H₀::Tuple{AbstractMatrix, AbstractVector};
-					  H₁::Tuple{AbstractMatrix, AbstractVector}=(zeros(T,0,0), zeros(T,0)),
 					  resp::AbstractVector,
 					  predexog::AbstractVecOrMat=zeros(T,0,0),
 					  predendog::AbstractVecOrMat=zeros(T,0,0),
 					  inst::AbstractVecOrMat=zeros(T,0,0),
-					  scores::AbstractVecOrMat=Matrix{Float32}(undef,0,0),
-					  clustid::AbstractVecOrMat=zeros(T,0,0),  # bootstrap-only clust vars, then boot&err clust vars, then err-only clust vars
+					  H₁::Tuple{AbstractMatrix, AbstractVector}=(zeros(T,0,0), zeros(T,0)),
+					  clustid::AbstractVecOrMat=zeros(Int,0,0),  # bootstrap-only clust vars, then boot&err clust vars, then err-only clust vars
 					  nbootclustvar::Integer=1,
 					  nerrclustvar::Integer=nbootclustvar,
 					  hetrobust::Bool=false,
@@ -2328,6 +2424,7 @@ function wildboottest(T::DataType,
 					  madjtype::MAdjType=none,
 					  NH0::Integer=1,
 					  ML::Bool=false,
+					  scores::AbstractVecOrMat=Matrix{Float32}(undef,0,0),
 					  β::AbstractVector=zeros(T,0),
 					  A::AbstractMatrix=zeros(T,0,0),
 					  gridmin::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Number = [missing],
