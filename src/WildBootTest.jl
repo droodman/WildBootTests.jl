@@ -21,7 +21,7 @@
 module WildBootTest
 export BoottestResult, wildboottest, AuxWtType, PType, MAdjType, teststat, stattype, p, padj, reps, repsfeas, NBootClust, dof, dof_r, plotpoints, peak, CI, dist, statnumer, statvar, auxweights
 
-using LinearAlgebra, Random, Distributions, LoopVectorization, LazyArrays
+using LinearAlgebra, Random, Distributions, LoopVectorization
 
 "Auxilliary weight types: rademacher, mammen, webb, normal, gamma"
 @enum AuxWtType rademacher mammen webb normal gamma
@@ -208,7 +208,7 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, info::Vector{UnitRange
         dest[g,J[j]] = X[f,J[j]] * _wt
       end
       if f<l
-       @turbo for j ∈ eachindexJ, i ∈ f+1:l
+       	@turbo for j ∈ eachindexJ, i ∈ f+1:l
           dest[g,J[j]] += X[i,J[j]] * wt[i]
         end
       end
@@ -1081,8 +1081,8 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.dof = nrows(o.R)
 	else
 		if o.ARubin
-			o.R = ApplyArray(hcat, zeros(o.kX₂,o.kX₁), I(o.kX₂))  # attack surface is all endog vars
-			o.R₁ = o.kX₁>0 && nrows(o.R₁)>0 ? ApplyArray(hcat, o.R₁[:,1:kX₁], zeros(nrows(o.R₁),o.kX₂)) : zeros(0, o.kX)  # and convert model constraints from referring to X₁, Y₂ to X₁, X₂
+			o.R = hcat(zeros(o.kX₂,o.kX₁), Matrix(I(o.kX₂)))  # attack surface is all endog vars
+			o.R₁ = o.kX₁>0 && nrows(o.R₁)>0 ? hcat(o.R₁[:,1:kX₁], zeros(nrows(o.R₁),o.kX₂)) : zeros(0, o.kX)  # and convert model constraints from referring to X₁, Y₂ to X₁, X₂
 		end
 		o.dof = nrows(o.R)
 
@@ -1310,7 +1310,7 @@ function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) wher
 			o.v = T==Float64 ? tmp : T.(tmp)
 			o.WREnonARubin && (o.v .-= one(T))
 		elseif o.auxtwtype==webb
-			o.v = getindex.(Ref(T.([-√1.5, -1, -√.5, √.5, 1, √1.5] .- o.WREnonARubin)), ceil.(Int16, 6rand(o.rng, o.Nstar, _B+first)))
+			o.v = rand(o.rng, T.([-√1.5, -1, -√.5, √.5, 1, √1.5] .- o.WREnonARubin), o.Nstar, _B+first)
 		elseif o.auxtwtype == mammen
 			o.v = getindex.(Ref(T.([1-ϕ; ϕ] .- o.WREnonARubin)), ceil.(Int16, rand(o.rng, o.Nstar, _B+first) ./ (ϕ/√5)))
 		elseif o.WREnonARubin  # Rademacher
@@ -1584,7 +1584,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 					@clustAccum!(denom, c, coldot(@panelsum(Jcaps, o.clust[c].info)))
 				end
 			else
-				denom = (HessianFixedκ(o,[0],0,zero(T), w) .- 2 .* βs .* HessianFixedκ(o, [0], 1, zero(T), w) .+ βs.^2 .* HessianFixedκ(o, [1], 1, zero(T), w)) ./ o._Nobs ./ o.As  # classical error variance
+				denom = (HessianFixedκ(o, [0], 0, zero(T), w) .- 2 .* βs .* HessianFixedκ(o, [0], 1, zero(T), w) .+ βs.^2 .* HessianFixedκ(o, [1], 1, zero(T), w)) ./ o._Nobs ./ o.As  # classical error variance
 			end
 			@storeWtGrpResults!(o.dist, view(o.sqrt ? o.numerw ./ sqrt.(denom) : o.numerw .^ 2 ./ denom, 1, :))
 			denom *= o.Repl.RRpar[1]^2
@@ -2320,7 +2320,7 @@ CI(o::BoottestResult) = o.CI
 "Return bootstrap distribution of statistic or statistic numerator in wild bootstrap test"
 dist(o::BoottestResult) = o.dist
 
-"Return auxilliary weight matrix for wild bootstrap test"
+"Return auxilliary weight matrix for wild bootstrap"
 auxweights(o::BoottestResult) = o.auxweights
 
 

@@ -7,7 +7,7 @@ rng = StableRNG(1231)
 
 open("unittests.log", "w") do log
 
-df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Macros\collapsed.dta"))
+df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\collapsed.dta"))
 dropmissing!(df)
 f = @formula(hasinsurance ~ 1 + selfemployed + post + post_self)
 f = apply_schema(f, schema(f, df, Dict(:hasinsurance => ContinuousTerm)))
@@ -27,7 +27,7 @@ println(log, "boottest (post_self=.05) (post=-.02), reps(9999) weight(webb)")
 test = wildboottest(([0 0 0 1.; 0 0 1. 0], [0.05; -0.02]); resp, predexog, clustid=df.year, reps=9999, auxwttype=WildBootTest.webb, rng)
 println(log, "F=$(teststat(test)) p=$(p(test))")
 
-df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Macros\nlsw88.dta"))[:,[:wage; :tenure; :ttl_exp; :collgrad; :industry]]
+df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\nlsw88.dta"))[:,[:wage; :tenure; :ttl_exp; :collgrad; :industry]]
 dropmissing!(df)
 desc = describe(df, :eltype)
 for i in axes(desc, 1)  # needed only for lm()
@@ -49,7 +49,7 @@ println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
 println(log, "\nivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)")
 println(log, "boottest tenure, ptype(equaltail)")
-df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Macros\nlsw88.dta"))
+df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\nlsw88.dta"))
 df = df[:, [:wage; :tenure; :ttl_exp; :collgrad; :industry; :union]]
 dropmissing!(df)
 sort!(df, :industry)
@@ -82,7 +82,7 @@ println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
 println(log, "\nivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)")
 println(log, "boottest tenure")
-df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Macros\nlsw88.dta"))
+df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\nlsw88.dta"))
 df = df[:, [:wage, :tenure, :ttl_exp, :collgrad, :industry]]
 dropmissing!(df)
 sort!(df, :industry)
@@ -97,7 +97,7 @@ println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
 println(log, "\nivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)")
 println(log, "boottest tenure, nograph weight(webb) reps(9999)")
-df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Macros\nlsw88.dta"))
+df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\nlsw88.dta"))
 df = df[:, [:wage, :tenure, :ttl_exp, :collgrad, :smsa, :race, :age, :union, :married, :industry]]
 dropmissing!(df)
 sort!(df, :industry)
@@ -112,7 +112,7 @@ println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
 println(log, "\nareg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)")
 println(log, "boottest tenure, cluster(age occupation) bootcluster(occupation)")
-df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Macros\nlsw88.dta"))
+df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\nlsw88.dta"))
 df = df[:, [:wage, :ttl_exp, :collgrad, :tenure, :age, :industry, :occupation, :hours]]
 dropmissing!(df)
 sort!(df, [:occupation, :age])
@@ -130,7 +130,7 @@ println(log, "qui areg lnl0708s centr_tribe lnpd0 \$pix \$geo \$poly, absorb(cco
 println(log, "boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode)")
 println(log, "boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(pixcluster)")
 println(log, "boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode pixcluster)")
-df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Work\Econometrics\Wild cluster\pixel-level-baseline-final.dta"))
+df = DataFrame(load(raw"d:\OneDrive\Documents\Work\Econometrics\Wild cluster\pixel-level-baseline-final.dta"))
 pix  = [:lnkm, :pixpetro, :pixdia, :pixwaterd, :pixcapdist, :pixmal, :pixsead, :pixsuit, :pixelev, :pixbdist]
 geo  = [:lnwaterkm, :lnkm2split, :mean_elev, :mean_suit, :malariasuit, :petroleum, :diamondd]
 poly = [:capdistance1, :seadist1, :borderdist1]
@@ -164,7 +164,7 @@ println(log, "boottest merit, nogr reps(9999) gridpoints(10) bootcluster(state y
 println(log, "boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(state year)")
 println(log, "boottest merit, nogr reps(9999) gridpoints(10) bootcluster(individual)")
 println(log, "boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual)")
-df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Work\Econometrics\Wild cluster\regm.dta"))
+df = DataFrame(load(raw"d:\OneDrive\Documents\Work\Econometrics\Wild cluster\regm.dta"))
 df = DataFrame(coll=Bool.(df.coll), merit=Bool.(df.merit), male=Bool.(df.male), black=Bool.(df.black), asian=Bool.(df.asian), state=categorical(Int8.(df.state)), year=categorical(Int16.(df.year)))
 
 dropmissing!(df)
