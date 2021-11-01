@@ -2370,7 +2370,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `scores::AbstractVecOrMat`: for ML, pre-computed scores
 * `β::AbstractVector`: for ML, parameter estimates
 * `A::AbstractMatrix`: for ML, covariance estimates
-* `gridmin`: vector of graph lower bounds, max length 2, entries=missing OK
+* `gridmin`: vector of graph lower bounds, max length 2, entries may be `missing`
 * `gridmax`: vector of graph upper bounds
 * `gridpoints`: vector of number of sampling points
 * `diststat::String=""`: "numer" or "t" to save associated bootstrap distribution
@@ -2379,11 +2379,11 @@ Function to perform wild-bootstrap-based hypothesis test
 * `getauxweights::Bool=false`: whether to save auxilliary weight matrix (v)
 
 # Notes
-Oredr the columns of `clustid` this way:
+Order the columns of `clustid` this way:
 1. Variables only used to define bootstrapping clusters, as in the subcluster bootstrap.
 2. Variables used to define both bootstrapping and error clusters.
 3. Variables only used to define error clusters.
-In the most common case, `clustid` will consist of a single column of type 2.
+In the most common case, `clustid` is a single column of type 2.
 
 All data matrices must be sorted by the columns in clustid, ordered from left to right.
 
