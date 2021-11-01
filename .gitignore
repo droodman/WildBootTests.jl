@@ -1,1 +1,5 @@
 /workspace.code-workspace
+.vs/ProjectSettings.json
+.vs/slnx.sqlite
+.vscode/launch.json
+.vs/WildBootTest.jl/v16/.suo
