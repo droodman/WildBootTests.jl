@@ -1304,7 +1304,7 @@ function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) wher
 								[ones( o.Nstar) count_binary(o.Nstar, -1, 1)]
 		elseif o.auxtwtype==normal
 			o.v = randn(o.rng, T, o.Nstar, _B+first)
-			o.WREnonARubin && o.v .-= one(T)
+			o.WREnonARubin && (o.v .-= one(T))
 		elseif o.auxtwtype==gamma
 			tmp = quantile.(Gamma(4,.5), rand(o.rng, o.Nstar, _B+first))
 			o.v = T==Float64 ? tmp : T.(tmp)
