@@ -1,11 +1,9 @@
-!any(LOAD_PATH .== ".") && push!(LOAD_PATH, ".")  # make sure current directory in module search path
-
 using WildBootTest
 using StatFiles, StatsModels, DataFrames, DataFramesMeta, BenchmarkTools, Plots, CategoricalArrays, Random, StableRNGs
 
 rng = StableRNG(1231)
 
-open("unittests.log", "w") do log
+open("unittests.log", "w") do log  # use Github (Desktop) to detect changes in output
 
 df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\collapsed.dta"))
 dropmissing!(df)
@@ -36,7 +34,6 @@ for i in axes(desc, 1)  # needed only for lm()
     @transform!(df, @byrow $sym=Float64($sym))
   end
 end
-sort!(df, :industry)
 f = @formula(wage ~ 1 + tenure + ttl_exp + collgrad)
 f = apply_schema(f, schema(f, df))
 resp, predexog = modelcols(f, df)
@@ -52,7 +49,6 @@ println(log, "boottest tenure, ptype(equaltail)")
 df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\nlsw88.dta"))
 df = df[:, [:wage; :tenure; :ttl_exp; :collgrad; :industry; :union]]
 dropmissing!(df)
-sort!(df, :industry)
 f = @formula(wage ~ 1 + ttl_exp + collgrad)
 f = apply_schema(f, schema(f, df))
 resp, predexog = modelcols(f, df)
@@ -85,7 +81,6 @@ println(log, "boottest tenure")
 df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\nlsw88.dta"))
 df = df[:, [:wage, :tenure, :ttl_exp, :collgrad, :industry]]
 dropmissing!(df)
-sort!(df, :industry)
 f = @formula(wage ~ 1)
 f = apply_schema(f, schema(f, df))
 resp, predexog = modelcols(f, df)
@@ -100,7 +95,6 @@ println(log, "boottest tenure, nograph weight(webb) reps(9999)")
 df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\nlsw88.dta"))
 df = df[:, [:wage, :tenure, :ttl_exp, :collgrad, :smsa, :race, :age, :union, :married, :industry]]
 dropmissing!(df)
-sort!(df, :industry)
 f = @formula(wage ~ 1 + collgrad + smsa + race + age)
 f = apply_schema(f, schema(f, df))
 resp, predexog = modelcols(f, df)
@@ -115,7 +109,6 @@ println(log, "boottest tenure, cluster(age occupation) bootcluster(occupation)")
 df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\nlsw88.dta"))
 df = df[:, [:wage, :ttl_exp, :collgrad, :tenure, :age, :industry, :occupation, :hours]]
 dropmissing!(df)
-sort!(df, [:occupation, :age])
 f = @formula(wage ~ ttl_exp + collgrad + tenure)  # constant unneeded in FE model
 f = apply_schema(f, schema(f, df))
 resp, predexog = modelcols(f, df)
@@ -140,17 +133,12 @@ df.ccode = levelcode.(categorical(df.pixwbcode, compress=true))
 df.pixcode = levelcode.(categorical(df.pixcluster, compress=true))
 f = Term(:lnl0708s) ~ sum(term.([:centr_tribe; :lnpd0; pix; geo; poly]))
 f = apply_schema(f, schema(f, df))
-
-sort!(df, [:ccode, :pixcode])
 resp, predexog = modelcols(f, df)
+
 test = wildboottest(([1 zeros(1,size(predexog,2)-1)], [0.]); resp, predexog, clustid=Matrix(df[:, [:ccode, :pixcode]]), nbootclustvar=1, nerrclustvar=2, feid=df.ccode, reps=9999, rng)
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
-
-sort!(df, [:pixcode, :ccode])
-resp, predexog = modelcols(f, df)
 test = wildboottest(([1 zeros(1,size(predexog,2)-1)], [0.]); resp, predexog, clustid=Matrix(df[:, [:pixcode, :ccode]]), nbootclustvar=1, nerrclustvar=2, feid=df.ccode, reps=9999, rng)
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
-
 test = wildboottest(([1 zeros(1,size(predexog,2)-1)], [0.]); resp, predexog, clustid=Matrix(df[:, [:pixcode, :ccode]]), nbootclustvar=2, nerrclustvar=2, feid=df.ccode, reps=9999, rng)
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
@@ -166,30 +154,22 @@ println(log, "boottest merit, nogr reps(9999) gridpoints(10) bootcluster(individ
 println(log, "boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual)")
 df = DataFrame(load(raw"d:\OneDrive\Documents\Work\Econometrics\Wild cluster\regm.dta"))
 df = DataFrame(coll=Bool.(df.coll), merit=Bool.(df.merit), male=Bool.(df.male), black=Bool.(df.black), asian=Bool.(df.asian), state=categorical(Int8.(df.state)), year=categorical(Int16.(df.year)))
-
 dropmissing!(df)
 df = df[df.state .∉ Ref([34,57,59,61,64,71,72,85,88]),:]
 f = @formula(coll ~ 1 + merit + male + black + asian + year + state)
 f = apply_schema(f, schema(f, df))
-sort!(df, [:state, :year])
 resp, predexog = modelcols(f, df)
+
 test = wildboottest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid=levelcode.(df.state), gridpoints=[10], reps=9999, rng)
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
-
 test = wildboottest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid=levelcode.(df.state), reps=9999, imposenull=false)
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
-
-resp, predexog = modelcols(f, df)
 test = wildboottest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid=[levelcode.(df.year) levelcode.(df.state)], nbootclustvar=2, nerrclustvar=1, reps=9999, rng)
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
-
 test = wildboottest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid=[levelcode.(df.year) levelcode.(df.state)], nbootclustvar=2, nerrclustvar=1, reps=9999, imposenull=false, rng)
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
-
-resp, predexog = modelcols(f, df)
 test = wildboottest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid= [collect(1:nrow(df)) levelcode.(df.state)], nbootclustvar=1, nerrclustvar=1, reps=9999, rng)
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
-
 test = wildboottest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid= [collect(1:nrow(df)) levelcode.(df.state)], nbootclustvar=1, nerrclustvar=1, reps=9999, imposenull=false, rng)
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 

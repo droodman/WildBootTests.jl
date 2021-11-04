@@ -1,4 +1,4 @@
-# WildBootTest.jl 0.1 6 October 2021
+# WildBootTest.jl 0.1 2 November 2021
 
 # MIT License
 #
@@ -21,7 +21,7 @@
 module WildBootTest
 export BoottestResult, wildboottest, AuxWtType, PType, MAdjType, teststat, stattype, p, padj, reps, repsfeas, NBootClust, dof, dof_r, plotpoints, peak, CI, dist, statnumer, statvar, auxweights
 
-using LinearAlgebra, Random, Distributions, LoopVectorization
+using LinearAlgebra, Random, Distributions, LoopVectorization, SortingAlgorithms
 
 "Auxilliary weight types: rademacher, mammen, webb, normal, gamma"
 @enum AuxWtType rademacher mammen webb normal gamma
@@ -679,11 +679,11 @@ function getdist(o::StrBootTest, diststat::String="")
   if diststat == "numer"
 	  _numer = isone(o.v_sd) ? o.numer : o.numer / o.v_sd
 	  o.distCDR = (@view _numer[:,2:end]) .+ o.r
-	  sort!(o.distCDR)  # need to specify horizontal sort??
+	  sort!(o.distCDR)
   elseif length(o.distCDR)==0
     if length(o.dist) > 1
 	    o.distCDR = reshape((@view o.dist[2:end]), :, 1) * o.multiplier
-	    sort!(o.distCDR, dims=1)  # need to specify horizontal sort??
+	    sort!(o.distCDR, dims=1)
 	  else
 	    o.distCDR = zeros(0,1)
 	  end
@@ -840,6 +840,8 @@ macro clustAccum!(X, c, Y)  # efficiently add a cluster combination-specific ter
   end
 end
 
+@inline _sortperm(X::AbstractVecOrMat) = size(X,2)==1 ? sortperm(ndims(X)==1 ? X : reshape(X,length(X)), alg=RadixSort) : sortperm(collect(eachrow(X)))  # sort a data matrix
+
 function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repeatedly to make CI, do stuff once that doesn't depend on r
   o.Nobs = nrows(o.X₁)
   o.NClustVar = ncols(o.ID)
@@ -869,13 +871,25 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   end
   o._Nobs = o.haswt && o.fweights ? o.sumwt : o.Nobs
 
+  if !iszero(o.NClustVar)
+	o.subcluster = o.NClustVar - o.nerrclustvar
+	p = _sortperm(view(o.ID, :, [collect(o.subcluster+1:o.NClustVar); collect(1:o.subcluster)]))  # sort by err cluster vars, then remaining boot cluster vars
+	o.ID = ndims(o.ID)==1 ? o.ID[p] : o.ID[p,:]
+	o.X₁ = ndims(o.X₁)==1 ? o.X₁[p] : o.X₁[p,:]
+	o.X₂ = ndims(o.X₂)==1 ? o.X₂[p] : o.X₂[p,:]
+	o.y₁ = o.y₁[p]
+	o.Y₂ = ndims(o.Y₂)==1 ? o.Y₂[p] : o.Y₂[p,:]
+	o.haswt && (o.wt = o.wt[p])
+	isdefined(o, :FEID) && length(o.FEID)>0 && (o.FEID = o.FEID[p])
+  end
+
   if o.WREnonARubin
-	  if o.NClustVar>0
+	  if !iszero(o.NClustVar)
 	    o.infoBootData, o.IDBootData = panelsetupID(o.ID, collect(1:o.nbootclustvar))
 	  else
 	    o.infoCapData = o.infoBootData = Vector{UnitRange{Int64}}(undef, o.Nobs, 0)  # no clustering, so no collapsing by cluster
 	  end
-  elseif o.NClustVar>0
+  elseif !iszero(o.NClustVar)
 	  o.infoBootData = panelsetup(o.ID, collect(1:min(o.NClustVar,o.nbootclustvar)))  # bootstrap cluster grouping defs rel to original data
   else
 	  infoCapData = infoAllData = infoBootData = Vector{UnitRange{Int64}}(undef, o.Nobs, 0)  # causes no collapsing of data in panelsum() calls, only multiplying by weights if any
@@ -889,7 +903,6 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	    combs = [x & 2^y > 0 for x in 2^o.nerrclustvar-1:-1:1, y in o.nerrclustvar-1:-1:0]  # represent all error clustering combinations. First is intersection of all error clustering vars
 	    o.clust = Vector{StrClust{T}}(undef, nrows(combs))  # leave out no-cluster combination
 	    o.NErrClustCombs = length(o.clust)
-	    o.subcluster = o.NClustVar - o.nerrclustvar
 
 	    if o.NClustVar > o.nbootclustvar  # info for grouping by intersections of all bootstrap && clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusters
 		    if o.WREnonARubin && !o.granular
@@ -902,7 +915,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		    o.WREnonARubin && !o.granular && (IDAllData = o.IDBootData)
 	    end
 
-			Nall = length(o.infoAllData)
+		Nall = length(o.infoAllData)
 
 	    if o.NClustVar > o.nerrclustvar  # info for intersections of error clustering wrt data
 		    if o.WREnonARubin && !o.granular
@@ -929,13 +942,13 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		    	  order = Vector{Int64}(undef,0)
 		    	  info  = Vector{UnitRange{Int64}}(undef, Nall)  # causes no collapsing of data in panelsum() calls
 		      else
-		    	  order = sortperm(collect(eachrow(@view IDCap[:,ClustCols])))  # XXX slow?
+		    	  order = _sortperm(@view IDCap[:,ClustCols])
 		    	  IDCap = @view IDCap[order, :]
 		    	  info  = panelsetup(IDCap, ClustCols)
 		      end
 		    else
 		      if any(combs[c, min(findall(view(combs,c,:) .≠ view(combs,c-1,:))...):end])  # if this sort ordering same as last to some point and missing thereafter, no need to re-sort
-		    	  order = sortperm(collect(eachrow(@view IDCap[:,ClustCols])))  # XXX slow?
+		    	  order = _sortperm(@view IDCap[:,ClustCols])
 		    	  IDCap = @view IDCap[order,:]
 		      else
 		    	  order = Vector{Int64}(undef,0)
@@ -994,8 +1007,8 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	  minN = nrows(o.infoBootData)
 		end
 
-		if isdefined(o, :FEID)  && length(o.FEID)>0
-			p = sortperm(o.FEID)
+		if isdefined(o, :FEID) && length(o.FEID)>0
+			p = _sortperm(o.FEID)
 			sortID = o.FEID[p]
 			i_FE = 1; o.FEboot = o.B>0 && !o.WREnonARubin && o.NClustVar>0; j = o.Nobs; o._FEID = ones(Int64, o.Nobs)
 			o.invFEwt = zeros(T, o.NFE>0 ? o.NFE : o.Nobs)
@@ -2111,7 +2124,8 @@ function search(o::StrBootTest{T}, α::T, f₁::T, x₁::T, f₂::T, x₂::T) wh
   end
 end
 
-# derive wild bootstrap-based CI, for case of linear model with one-degree null imposed.
+# derive wild bootstrap-based CI, for case of linear model with one-degree null imposed
+# and generate plot data
 function plot(o::StrBootTest{T}) where T
   _r = copy(o.r)
   α = one(T) - o.level
@@ -2385,8 +2399,6 @@ Order the columns of `clustid` this way:
 3. Variables only used to define error clusters.
 In the most common case, `clustid` is a single column of type 2.
 
-All data matrices must be sorted by the columns in clustid, ordered from left to right.
-
 The code does not handle missing data values: all data and identifier matrices must 
 match the estimation sample.
 
@@ -2468,15 +2480,3 @@ end
 wildboottest(H₀::Tuple{AbstractMatrix, AbstractVector}; args...) = wildboottest(Float32, H₀; args...)
 
 end # module
-
-# using StatFiles, StatsModels, DataFrames, DataFramesMeta, BenchmarkTools, Plots, CategoricalArrays, Random, StableRNGs, Profile
-
-# df = DataFrame(load(raw"C:\Users\drood\OneDrive\Documents\Work\Econometrics\Wild cluster\regm.dta"))
-# df = DataFrame(coll=Bool.(df.coll), merit=Bool.(df.merit), male=Bool.(df.male), black=Bool.(df.black), asian=Bool.(df.asian), state=categorical(Int8.(df.state)), year=categorical(Int16.(df.year)))
-# dropmissing!(df)
-# df = df[df.state .∉ Ref([34,57,59,61,64,71,72,85,88]),:]
-# f = @formula(coll ~ 1 + merit + male + black + asian + year + state)
-# f = apply_schema(f, schema(f, df))
-# sort!(df, [:state, :year])
-# resp, predexog = modelcols(f, df)
-# test = WildBootTest.wildboottest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid=[levelcode.(df.year) levelcode.(df.state)], nbootclustvar=2, nerrclustvar=1, reps=9)

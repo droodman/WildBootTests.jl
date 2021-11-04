@@ -25,7 +25,7 @@ boottest, ar
 z=2.4454057 p=0.030273438 CI=Float32[0.06995593 1.2517974]
 
 scoretest tenure
-z=2.3278735 p=0.019918824 CI=Float32[0.13671649 1.3236709]
+z=2.3278737 p=0.019918812 CI=Float32[0.13671668 1.3236711]
 
 waldtest tenure
 z=2.6040125 p=0.00921394 CI=Float32[0.18202367 1.2898895]
@@ -63,9 +63,9 @@ boottest merit, nogr reps(9999) gridpoints(10) bootcluster(state year)
 boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(state year)
 boottest merit, nogr reps(9999) gridpoints(10) bootcluster(individual)
 boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual)
-t=6.712659 p=0.48634863 CI=Float32[-2.8203247 1.2860543]
-t=6.7127304 p=0.0 CI=Float32[0.04898552 0.09535048]
+t=6.7126546 p=0.48634863 CI=Float32[-2.8203301 1.2860568]
+t=6.712728 p=0.0 CI=Float32[0.04905112 0.09528488]
 t=6.7126617 p=0.29662967 CI=Float32[-5.272176 4.389646]
 t=6.7127123 p=0.0920092 CI=Float32[-0.012159986 0.156496]
-t=6.71266 p=0.38023803 CI=Float32[-0.09789376 0.23988964]
-t=6.712717 p=0.37763777 CI=Float32[-0.093400694 0.23773669]
+t=6.7126603 p=0.3969397 CI=Float32[-0.09767873 0.24134701]
+t=6.7127175 p=0.38403842 CI=Float32[-0.09344239 0.23777838]
