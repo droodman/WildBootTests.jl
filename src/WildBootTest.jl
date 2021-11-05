@@ -164,14 +164,14 @@ end
 function colquadformminus!(X::AbstractMatrix, row::Integer, Q::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)
   @turbo for i ∈ axes(A,2), j ∈ axes(A,1), k ∈ axes(A,1)
     X[row,i] -= A[j,i] * Q[k,j] * B[k,i]
-	end
- 	X
+  end
+  X
 end
 colquadformminus!(X::AbstractMatrix, Q::AbstractMatrix, A::AbstractMatrix) = colquadformminus!(X, 1, Q, A, A)
 
 function matmulplus!(A::Matrix, B::Matrix, C::Matrix)  # add B*C to A in place
   @turbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
-			A[i,k] += B[i,j] * C[j,k]
+	A[i,k] += B[i,j] * C[j,k]
   end
 end
 
@@ -180,13 +180,13 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, info::Vector{UnitRange
     iszero(length(X)) && return
     J = CartesianIndices(axes(X)[2:end])
     eachindexJ = eachindex(J)
-    @inbounds for g in eachindex(info)
+    @inbounds @simd for g in eachindex(info)
       f, l = first(info[g]), last(info[g])
-      @turbo for j ∈ eachindexJ
+      for j ∈ eachindexJ
         dest[g,J[j]] = X[f,J[j]]
       end
       if f<l
-        @turbo for j ∈ eachindexJ, i ∈ f+1:l
+        for j ∈ eachindexJ, i ∈ f+1:l
           dest[g,J[j]] += X[i,J[j]]
         end
       end
@@ -201,14 +201,14 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, info::Vector{UnitRange
     end
     J = CartesianIndices(axes(X)[2:end])
     eachindexJ = eachindex(J)
-    @inbounds for g in eachindex(info)
+    @inbounds @simd for g in eachindex(info)
       f, l = first(info[g]), last(info[g])
       _wt = wt[f]
-      @turbo for j ∈ eachindexJ
+      for j ∈ eachindexJ
         dest[g,J[j]] = X[f,J[j]] * _wt
       end
       if f<l
-       	@turbo for j ∈ eachindexJ, i ∈ f+1:l
+       	for j ∈ eachindexJ, i ∈ f+1:l
           dest[g,J[j]] += X[i,J[j]] * wt[i]
         end
       end
@@ -220,23 +220,23 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, info::Vector{UnitRange
   function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractMatrix, info::Vector{UnitRange{T}} where T<:Integer)
     iszero(length(X)) && return
     if iszero(length(info)) || nrows(info)==nrows(X)
-      for i ∈ axes(wt,2)
+      @inbounds @simd for i ∈ axes(wt,2)
         dest[:,i,:] .= X .* view(wt,:,i)
       end
       return
     end
     J = CartesianIndices(axes(X)[2:end])
     eachindexJ = eachindex(J)
-    @inbounds for g in eachindex(info)
+    @inbounds @simd for g in eachindex(info)
       f, l = first(info[g]), last(info[g])
       fl = f+1:l
       for k ∈ axes(wt,2)
         _wt = wt[f,k]
-        @turbo for j ∈ eachindexJ
+        for j ∈ eachindexJ
           dest[g,k,J[j]] = X[f,J[j]] * _wt
         end
         if f<l
-          @turbo for j ∈ eachindexJ, i ∈ fl
+          for j ∈ eachindexJ, i ∈ fl
             dest[g,k,J[j]] += X[i,J[j]] * wt[i,k]
           end
         end
