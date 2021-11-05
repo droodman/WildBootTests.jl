@@ -19,7 +19,7 @@
 
 
 module WildBootTest
-export BoottestResult, wildboottest, AuxWtType, PType, MAdjType, teststat, stattype, p, padj, reps, repsfeas, NBootClust, dof, dof_r, plotpoints, peak, CI, dist, statnumer, statvar, auxweights
+export BoottestResult, wildboottest, AuxWtType, PType, MAdjType, DistStatType, teststat, stattype, p, padj, reps, repsfeas, NBootClust, dof, dof_r, plotpoints, peak, CI, dist, statnumer, statvar, auxweights
 
 using LinearAlgebra, Random, Distributions, LoopVectorization, SortingAlgorithms
 
@@ -29,8 +29,11 @@ using LinearAlgebra, Random, Distributions, LoopVectorization, SortingAlgorithms
 "p value types: symmetric, equaltail, lower, upper"
 @enum PType symmetric equaltail lower upper
 
-"Multiple hypothesis adjustment types: none, bonferroni, sidak"
-@enum MAdjType none bonferroni sidak
+"Multiple hypothesis adjustment types: nomadj, bonferroni, sidak"
+@enum MAdjType nomadj bonferroni sidak
+
+"Bootstrap distribution statistics optionally returned"
+@enum DistStatType nodist t numer
 
 struct StrClust{T<:Real}
 	N::Int; multiplier::T; even::Bool
@@ -322,7 +325,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   ID::VecOrMat{Int64}; nbootclustvar::Int8; nerrclustvar::Int64; small::Bool
   FEID::Vector{Int64}; FEdfadj::Bool
   level::T; rtol::T
-  madjtype::MAdjType; NH0::Int16
+  madjtype::MAdjType; NH₀::Int16
   ML::Bool; β::Vector{T}; A::Matrix{T}; sc::VecOrMat{T}
   willplot::Bool; gridmin::Vector{Union{T,Missing}}; gridmax::Vector{Union{T,Missing}}; gridpoints::Vector{Union{Int32,Missing}}
 
@@ -357,8 +360,8 @@ mutable struct StrBootTest{T<:AbstractFloat}
   T1L::Vector{Matrix{T}}; T1R::Vector{Matrix{T}}
 	crosstabCapstarind::Vector{Int64}
 
-  StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH0, ML, β, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real =
-	  new(matconvert(T,R), matconvert(T,r), matconvert(T,R₁), matconvert(T,r₁), matconvert(T,y₁), matconvert(T,X₁), matconvert(T,Y₂), matconvert(T,X₂), matconvert(T,wt), fweights, LIML || !iszero(Fuller), Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, matconvert(Int64,ID), nbootclustvar, nerrclustvar, small, FEID, FEdfadj, level, rtol, madjtype, NH0, ML, matconvert(T,β), matconvert(T,A), matconvert(T,sc), willplot, gridmin, gridmax, gridpoints,
+  StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML, β, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real =
+	  new(matconvert(T,R), matconvert(T,r), matconvert(T,R₁), matconvert(T,r₁), matconvert(T,y₁), matconvert(T,X₁), matconvert(T,Y₂), matconvert(T,X₂), matconvert(T,wt), fweights, LIML || !iszero(Fuller), Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, matconvert(Int64,ID), nbootclustvar, nerrclustvar, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML, matconvert(T,β), matconvert(T,A), matconvert(T,sc), willplot, gridmin, gridmax, gridpoints,
 		  nrows(R),
 		  ptype==symmetric || ptype==equaltail,
 		  scorebs || iszero(B) || ML,
@@ -674,13 +677,13 @@ function setdirty!(o::StrBootTest, _dirty::Bool; noinitialize::Bool=false)
   !noinitialize && (o.initialized = false)
 end
 
-function getdist(o::StrBootTest, diststat::String="")
+function getdist(o::StrBootTest, diststat::DistStatType=nodist)
   o.dirty && boottest!(o)
-  if diststat == "numer"
+  if diststat == numer
 	  _numer = isone(o.v_sd) ? o.numer : o.numer / o.v_sd
 	  o.distCDR = (@view _numer[:,2:end]) .+ o.r
 	  sort!(o.distCDR)
-  elseif length(o.distCDR)==0
+  elseif length(o.distCDR)==0  # return test stats
     if length(o.dist) > 1
 	    o.distCDR = reshape((@view o.dist[2:end]), :, 1) * o.multiplier
 	    sort!(o.distCDR, dims=1)
@@ -767,8 +770,8 @@ getreps(o::StrBootTest) = o.B  # return number of replications, possibly reduced
 
 function getpadj(o::StrBootTest{T}; classical::Bool=false) where T
   _p = o.dirty || classical ? getp(o, classical=classical) : o.p
-  if o.madjtype==bonferroni min(one(T), o.NH0 * _p)
-  elseif o.madjtype==sidak  one(T) - (one(T) - _p) ^ o.NH0
+  if o.madjtype==bonferroni min(one(T), o.NH₀ * _p)
+  elseif o.madjtype==sidak  one(T) - (one(T) - _p) ^ o.NH₀
   else _p
   end
 end
@@ -861,6 +864,8 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   isnan(o.κ) && (o.κ = o.kX₂>0 ? one(T) : zero(T))  # if κ in κ-class estimation not specified, it's 0 or 1 for OLS or 2SLS
   o.WRE = !(iszero(o.κ) || o.scorebs) || o.ARubin
   o.WREnonARubin = o.WRE && !o.ARubin
+
+  iszero(o.B) && (o.scorebs = true)
 
   o.haswt = typeof(o.wt) <: AbstractVector
   if o.haswt
@@ -1227,7 +1232,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
   ((!o.bootstrapt && o.dof==1) || o.bootstrapt && (o.WREnonARubin || o.dof>1+o.robust || !isnan(o.maxmatsize))) &&  # unless nonWRE or dof=1 or splitting weight matrix, code will create dist element-by-element, so pre-allocate vector now
 	(o.dist = fill(T(NaN), o.B+1))
-  (o.Nw>1 || o.WREnonARubin || (!o.null && o.dof<=2)) && (o.numer = fill(T(NaN), o.dof, o.B+1))
+  (o.Nw>1 || o.WREnonARubin || (!o.null && o.dof≤2)) && (o.numer = fill(T(NaN), o.dof, o.B+1))
 
   if !o.WREnonARubin
 		o.poles = o.anchor = zeros(T,0)
@@ -1385,7 +1390,7 @@ function _HessianFixedκ!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer, i
 		if !isone(κ)
 			if o.Repl.Yendog[ind1+1]
 				T2 = o.SstarUZperpinvZperpZperp[ind1+1]'o.SstarUZperp[ind2+1]  # quadratic term
-				T2[diagind(T2)] .-= ind1 <= ind2 ? o.SstarUU[ind2+1, ind1+1] : o.SstarUU[ind1+1, ind2+1]  # minus diagonal crosstab
+				T2[diagind(T2)] .-= ind1 ≤ ind2 ? o.SstarUU[ind2+1, ind1+1] : o.SstarUU[ind1+1, ind2+1]  # minus diagonal crosstab
 				o.NFE>0 &&
 					(T2 .+= o.CTFEU[ind1+1]'(o.invFEwt .* o.CTFEU[ind2+1]))
 
@@ -2023,7 +2028,7 @@ end
 
 # Return matrix that counts from 0 to 2^N-1 in binary, one column for each number, one row for each binary digit
 # except use provided lo and hi values for 0 and 1
-count_binary(N::Integer, lo::Number, hi::Number) = N<=1 ? [lo  hi] :
+count_binary(N::Integer, lo::Number, hi::Number) = N≤1 ? [lo  hi] :
 														  (tmp = count_binary(N-1, lo, hi);
 														   [fill(lo, 1, ncols(tmp)) fill(hi, 1, ncols(tmp)) ;
 																			  tmp                     tmp     ])
@@ -2129,7 +2134,12 @@ end
 function plot(o::StrBootTest{T}) where T
   _r = copy(o.r)
   α = one(T) - o.level
-  o.gridpoints[ismissing.(o.gridpoints)] .= 25
+
+	iszero(length(o.gridmin   )) && (o.gridmin    = fill(missing, o.q))
+	iszero(length(o.gridmax   )) && (o.gridmax    = fill(missing, o.q))
+	iszero(length(o.gridpoints)) && (o.gridpoints = fill(missing, o.q))
+
+	o.gridpoints[ismissing.(o.gridpoints)] .= 25
 
   boottest!(o)
   if !o.ARubin
@@ -2140,9 +2150,9 @@ function plot(o::StrBootTest{T}) where T
   end
 
 	if isone(o.q)  # 1D plot
-		α<=0 && (α = T(.05))  # if level=100, no CI constructed, but we need a reasonable α to choose graphing bounds
+		α≤0 && (α = T(.05))  # if level=100, no CI constructed, but we need a reasonable α to choose graphing bounds
 
-		if α > 0 && ncols(o.v)-1 <= 1/α-1e6
+		if α > 0 && ncols(o.v)-1 ≤ 1/α-1e6
 			throw(ErrorException("need at least $(ceil(1/α)) replications to resolve a $(o.level)% two-sided confidence interval."))
 		end
 
@@ -2214,7 +2224,9 @@ function plot(o::StrBootTest{T}) where T
 		c = clamp((floor(Int, (o.confpeak[1] - lo[1]) / (hi[1] - lo[1]) * (o.gridpoints[1] - 1)) + 2), 1, o.gridpoints[1]+1)  # insert original point estimate into grid
 		o.plotX = [@view o.plotX[1:c-1,:] ; o.confpeak ; @view o.plotX[c:end,:]]
 		insert!(o.plotY, c, p_confpeak)
+
 	else  # 2D plot
+
 		lo = Vector{T}(undef, 2)
 		hi = Vector{T}(undef, 2)
 		for d ∈ 1:o.dof
@@ -2345,23 +2357,23 @@ Function to perform wild-bootstrap-based hypothesis test
 
 # Positional arguments
 * `T::DataType`: data type for inputs, results, and computations: Float32 (default) or Float64
-* `H₀::Tuple{AbstractMatrix, AbstractVector}`: required matrix-vector tuple (R,r) expressesing the null Rβ=r
+* `H₀::Tuple{AbstractMatrix, AbstractVector}`: required matrix-vector tuple (R,r) expressesing the null Rβ=r; see Notes
 
 # Required keyword argument
 * `resp::AbstractVector`: response/dependent variable (y/y₁)
 
 # Optional keyword arguments
-* `predexog::AbstractVecOrMat`: exogenous predictors (X/X₁)
+* `predexog::AbstractVecOrMat`: exogenous predictors, including constant term, if any (X/X₁)
 * `predendog::AbstractVecOrMat`: endogenous predictors (Y₂)
 * `inst::AbstractVecOrMat`: instruments (X₂)
-* `H₁::Tuple{AbstractMatrix, AbstractVector`: model constraints; same format as for H₀
+* `H₁::Tuple{AbstractMatrix, AbstractVector}`: model constraints; same format as for H₀
 * `clustid::AbstractVecOrMat{<:Integer}`: data vector/matrix of error and bootstrapping cluster identifiers; see Notes 
 * `nbootclustvar::Integer=1`: number of bootstrap-clustering variables
 * `nerrclustvar::Integer=nbootclustvar`: number of error-clustering variables
-* `hetrobust::Bool=false`: true unless errors are treated as iid
+* `hetrobust::Bool=true`: true unless errors are treated as iid
 * `feid::AbstractVector{<:Integer}`: data vector for fixed effect group identifier
 * `fedfadj::Bool=true`: true if small-sample adjustment should reflect number of fixed effects
-* `obswt`: observation weight vector
+* `obswt`: observation weight vector; default is equal weighting
 * `fweights::Bool=false`: true for frequency weights
 * `maxmatsize::Number`: maximum size of auxilliary weight matrix (v), in gigabytes
 * `ptype::PType=symmetric`: p value type (symmetric, equaltail, lower, upper)
@@ -2372,27 +2384,30 @@ Function to perform wild-bootstrap-based hypothesis test
 * `ARubin::Bool=false`: true for Anderson-Rubin test
 * `small::Bool=true`: true for small-sample corrections
 * `scorebs::Bool=false`: true for score bootstrap instead of wild bootstrap
-* `reps::Integer=999`: number of bootstrap replications
+* `reps::Integer=999`: number of bootstrap replications; `reps` = 0 requests classical Rao (Wald) test if `imposenull` = `true` (`false`)
 * `imposenull::Bool=true`: true to impose null
-* `auxwttype::AuxWtType=rademacher`: auxilliary weight type (rademacher mammen webb normal gamma)
+* `auxwttype::AuxWtType=rademacher`: auxilliary weight type (rademacher, mammen, webb, normal, gamma)
 * `rng::AbstractRNG=MersenneTwister()`: randon number generator
 * `level::Number=.95`: significance level (0-1)
 * `rtol::Number=1e-6`: tolerance for CI bound determination
-* `madjtype::MAdjType=none`: multiple hypothesis adjustment (none, bonferroni, sidak)
-* `NH0::Integer=1`: number of hypotheses tested, including one being tested now
+* `madjtype::MAdjType=nomadj`: multiple hypothesis adjustment (nomadj, bonferroni, sidak)
+* `NH₀::Integer=1`: number of hypotheses tested, including one being tested now
 * `ML::Bool=false`: true for (nonlinear) ML estimation
 * `scores::AbstractVecOrMat`: for ML, pre-computed scores
 * `β::AbstractVector`: for ML, parameter estimates
 * `A::AbstractMatrix`: for ML, covariance estimates
-* `gridmin`: vector of graph lower bounds, max length 2, entries may be `missing`
+* `gridmin`: vector of graph lower bounds, max length 2, `missing` entries ask wildboottest() to choose
 * `gridmax`: vector of graph upper bounds
 * `gridpoints`: vector of number of sampling points
-* `diststat::String=""`: "numer" or "t" to save associated bootstrap distribution
+* `diststat::DistStatType=nodiststat`: t to save bootstrap distribution of Wald/χ²/F/t statistics; numer to save numerators thereof
 * `getCI::Bool=true`: whether to return CI
 * `getplot::Bool=getCI`: whether to generate plot data
 * `getauxweights::Bool=false`: whether to save auxilliary weight matrix (v)
 
 # Notes
+The columns of `R` in the statement of the null should correspond to those of the matrix [`predexog` `predendog`],
+where `predendog` is non-empty only in instrumental variables regression. 
+
 Order the columns of `clustid` this way:
 1. Variables only used to define bootstrapping clusters, as in the subcluster bootstrap.
 2. Variables used to define both bootstrapping and error clusters.
@@ -2413,7 +2428,7 @@ function wildboottest(T::DataType,
 					  clustid::AbstractVecOrMat=zeros(Int,0,0),  # bootstrap-only clust vars, then boot&err clust vars, then err-only clust vars
 					  nbootclustvar::Integer=1,
 					  nerrclustvar::Integer=nbootclustvar,
-					  hetrobust::Bool=false,
+					  hetrobust::Bool=true,
 					  feid::AbstractVector=Vector(undef,0),
 					  fedfadj::Bool=true,
 					  obswt::Union{AbstractVector,UniformScaling{Bool}}=I,
@@ -2433,33 +2448,48 @@ function wildboottest(T::DataType,
 					  rng::AbstractRNG=MersenneTwister(),
 					  level::Number=.95,
 					  rtol::Number=1e-6,
-					  madjtype::MAdjType=none,
-					  NH0::Integer=1,
+					  madjtype::MAdjType=nomadj,
+					  NH₀::Integer=1,
 					  ML::Bool=false,
 					  scores::AbstractVecOrMat=Matrix{Float32}(undef,0,0),
 					  β::AbstractVector=zeros(T,0),
 					  A::AbstractMatrix=zeros(T,0,0),
-					  gridmin::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Number = [missing],
-					  gridmax::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Number = [missing],
-					  gridpoints::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Integer = [missing],
-					  diststat::String="",
+					  gridmin::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Number = Vector{T}(undef,0),
+					  gridmax::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Number = Vector{T}(undef,0),
+					  gridpoints::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Integer = Vector{Int64}(undef,0),
+					  diststat::DistStatType=nodist,
 					  getCI::Bool=true,
 					  getplot::Bool=getCI,
 					  getauxweights::Bool=false)
 
-  if nrows(H₀[1])==2
-		_gridmin    = ismissing.(gridmin)==[true] ? [missing; missing] : gridmin
-		_gridmax    = ismissing.(gridmax)==[true] ? [missing; missing] : gridmax
-		_gridpoints = ismissing.(gridpoints)==[true] ? [missing; missing] : gridpoints
-  else
-		_gridmin, _gridmax, _gridpoints = gridmin, gridmax, gridpoints
-  end
+  @assert length(predexog)==0 || nrows(predexog)==nrows(resp) "All data vector/matrices must have same height"
+  @assert length(predendog)==0 || nrows(predendog)==nrows(resp) "All data vector/matrices must have same height"
+  @assert length(inst)==0 || nrows(inst)==nrows(resp) "All data vector/matrices must have same height"
+  @assert length(feid)==0 || nrows(feid)==nrows(resp) "Fixed-effect ID vector must have same height as data matrices"
+  @assert length(clustid)==0 || nrows(clustid)==nrows(resp) "Cluster ID vector must have same height as data matrices"
+  @assert obswt==I || nrows(obswt)==nrows(resp) "Weight vector must have same height as data matrices"
+  @assert nrows(H₀[1])==nrows(H₀[2]) "Entries of H₀ tuple must have same height"
+  @assert ncols(H₀[1])==ncols(predexog)+ncols(predendog) "Wrong number of columns in null specification"
+  @assert nrows(H₁[1])==nrows(H₁[2]) "Entries of H₁ tuple must have same height"
+  @assert length(H₁[1])==0 || ncols(H₁[1])==ncols(predexog)+ncols(predendog) "Wrong number of columns in model constraint specification"
+  @assert nbootclustvar ≤ ncols(clustid) "nbootclustvar > width of clustid"
+  @assert nerrclustvar ≤ ncols(clustid) "nerrclustvar > width of clustid"
+  @assert reps ≥ 0 "reps < 0"
+  @assert level ≥ 0. && level≤1. "level must be in the range [0,1]"
+  @assert rtol > 0. "rtol ≤ 0"
+  @assert NH₀ > 0 "NH₀ ≤ 0"
+	if getplot || getCI
+		@assert iszero(length(gridmin   )) || length(gridmin   )==nrows(H₀[1]) "Length of gridmin doesn't match number of hypotheses being jointly tested"
+		@assert iszero(length(gridmax   )) || length(gridmax   )==nrows(H₀[1]) "Length of gridmax doesn't match number of hypotheses being jointly tested"
+		@assert iszero(length(gridpoints)) || length(gridpoints)==nrows(H₀[1]) "Length of gridpoints doesn't match number of hypotheses being jointly tested"
+	end
+
   M = StrBootTest{T}(H₀[1], H₀[2], H₁[1], H₁[2], resp, predexog, predendog, inst, obswt, fweights, LIML, Fuller, κ, ARubin,
-	reps, auxwttype, rng, maxmatsize, ptype, imposenull, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, hetrobust, small,
-	feid, fedfadj, level, rtol, madjtype, NH0, ML, β, A, scores, getplot,
-	map(x->ismissing(x) ? missing : T(x), _gridmin),
-	map(x->ismissing(x) ? missing : T(x), _gridmax),
-	map(x->ismissing(x) ? missing : Int32(x), _gridpoints))
+	                   reps, auxwttype, rng, maxmatsize, ptype, imposenull, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, hetrobust, small,
+	                   feid, fedfadj, level, rtol, madjtype, NH₀, ML, β, A, scores, getplot,
+	                   map(x->ismissing(x) ? missing : T(x), gridmin),
+	                   map(x->ismissing(x) ? missing : T(x), gridmax),
+	                   map(x->ismissing(x) ? missing : Int32(x), gridpoints))
 
   if getplot || (level<1 && getCI)
 		plot = getplot ? _getplot(M) : nothing
@@ -2470,11 +2500,11 @@ function wildboottest(T::DataType,
   end
 
   BoottestResult{T}(getstat(M),
-					isone(nrows(H₀[1])) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
-					getp(M), getpadj(M), getreps(M), getrepsfeas(M), getNBootClust(M), getdf(M), getdf_r(M), plot, peak, CI,
-					getdist(M,diststat),
-					getb(M), getV(M),
-					getauxweights && reps>0 ? getauxweights(M) : nothing, M)
+	                  isone(nrows(H₀[1])) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
+	                  getp(M), getpadj(M), getreps(M), getrepsfeas(M), getNBootClust(M), getdf(M), getdf_r(M), plot, peak, CI,
+	                  getdist(M,diststat),
+	                  getb(M), getV(M),
+	                  getauxweights && reps>0 ? getauxweights(M) : nothing, M)
 end
 
 wildboottest(H₀::Tuple{AbstractMatrix, AbstractVector}; args...) = wildboottest(Float32, H₀; args...)
