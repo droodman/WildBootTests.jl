@@ -902,7 +902,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   o.Nstar = nrows(o.infoBootData)
 
   if o.bootstrapt
-    if !iszero(o.NClustVar)
+    if o.NClustVar>0
 	    minN = Inf; sumN = 0
 
 	    combs = [x & 2^y > 0 for x in 2^o.nerrclustvar-1:-1:1, y in o.nerrclustvar-1:-1:0]  # represent all error clustering combinations. First is intersection of all error clustering vars
@@ -915,12 +915,15 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		    else
 		      o.infoAllData            = panelsetup(o.ID, collect(1:o.NClustVar))
 		    end
-	    else
+				if o.subcluster>0 & nrows(o.infoBootData) ≠ nrows(o.infoAllData)
+					throw(ErrorException("\nThis program can only perform the subcluster bootstrap when the bootstrap clusters are nested within the (intersections of the) error clusters.\n"))
+				end
+		else
 		    o.infoAllData = o.infoBootData  # info for grouping by intersections of all bootstrap && clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusters
 		    o.WREnonARubin && !o.granular && (IDAllData = o.IDBootData)
 	    end
 
-		Nall = length(o.infoAllData)
+			Nall = length(o.infoAllData)
 
 	    if o.NClustVar > o.nerrclustvar  # info for intersections of error clustering wrt data
 		    if o.WREnonARubin && !o.granular
@@ -2510,3 +2513,12 @@ end
 wildboottest(H₀::Tuple{AbstractMatrix, AbstractVector}; args...) = wildboottest(Float32, H₀; args...)
 
 end # module
+
+# using StatFiles, StatsModels, DataFrames, DataFramesMeta, BenchmarkTools, Plots, CategoricalArrays, Random, StableRNGs
+# df = DataFrame(load(raw"d:\OneDrive\Desktop\voters.dta"))
+# df = df[:, [:proposition_vote, :treatment, :ideology1, :log_income, :Q1_immigration, :group_id1, :group_id2]]
+# dropmissing!(df)
+# f = @formula(proposition_vote ~ treatment + ideology1 + log_income + Q1_immigration + 1)
+# f = apply_schema(f, schema(f, df, Dict(:Q1_immigration  => CategoricalTerm)))
+# resp, predexog = modelcols(f, df)
+# test = WildBootTest.wildboottest(([0 0 0 0 0 0 0 0 0 0 0 0 1.], [0.]); resp, predexog, clustid=Matrix(df[:, [:Q1_immigration, :group_id1, :group_id2]]))
