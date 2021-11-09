@@ -171,4 +171,12 @@ println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 test = wildboottest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid= [collect(1:nrow(df)) levelcode.(df.state)], nbootclustvar=1, nerrclustvar=1, reps=9999, imposenull=false, rng=StableRNG(1231))
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
+# df = DataFrame(load(raw"D:\OneDrive\Documents\Macros\WildBootTest.jl"))
+# df = df[:, [:proposition_vote, :treatment, :ideology1, :log_income, :Q1_immigration, :group_id1, :group_id2]]
+# dropmissing!(df)
+# f = @formula(proposition_vote ~ treatment + ideology1 + log_income + Q1_immigration + 1)
+# f = apply_schema(f, schema(f, df, Dict(:Q1_immigration  => CategoricalTerm)))
+# resp, predexog = modelcols(f, df)
+# test = WildBootTest.wildboottest(([0 0 0 0 0 0 0 0 0 0 0 0 1.], [0.]); resp, predexog, clustid=Matrix(df[:, [:Q1_immigration, :group_id1, :group_id2]]), rng=StableRNG(1231))
+
 end
