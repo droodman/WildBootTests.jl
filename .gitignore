@@ -4,3 +4,4 @@
 .vscode/launch.json
 .vs/WildBootTest.jl/v16/.suo
 voters.dta
+test/profiling.jl

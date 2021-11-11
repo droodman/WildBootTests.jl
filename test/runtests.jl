@@ -1,4 +1,4 @@
-using WildBootTest
+using WildBootTests
 using StatFiles, StatsModels, DataFrames, DataFramesMeta, BenchmarkTools, Plots, CategoricalArrays, Random, StableRNGs
 
 open("unittests.log", "w") do log  # use Github (Desktop) to detect changes in output

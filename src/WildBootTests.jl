@@ -18,7 +18,7 @@
 #     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-module WildBootTest
+module WildBootTests
 export BoottestResult, wildboottest, AuxWtType, PType, MAdjType, DistStatType, teststat, stattype, p, padj, reps, repsfeas, NBootClust, dof, dof_r, plotpoints, peak, CI, dist, statnumer, statvar, auxweights
 
 using LinearAlgebra, Random, Distributions, LoopVectorization, SortingAlgorithms
