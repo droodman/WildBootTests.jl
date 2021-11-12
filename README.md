@@ -4,12 +4,13 @@ This package performs wild bootstrap-based hypothesis tests in Julia at extreme 
 
 The package offers/supports:
 * Confidence intervals formed by inverting the test and iteratively searching for bounds.
-* Multiway clustering of standard errors.
+* Multiway clustering.
 * Arbitrary and multiple linear hypotheses in the parameters.
 * Generation of data for plotting of confidence curves or surfaces after one- or two-dimensional hypothesis tests.
 * The wild bootstrap for OLS ([Wu 1986](https://doi.org/10.1214/aos/1176350142)).
 * The Wild Restricted Efficient bootstrap (WRE) for IV/2SLS/LIML ([Davidson and MacKinnon 2010](https://doi.org/10.1198/jbes.2009.07221)).
 * The subcluster bootstrap ([MacKinnon and Webb 2018]( https://doi.org/10.1111/ectj.12107)).
+* Non-bootstrapped Wald, Rao, and Anderson-Rubin tests, optionally with multiway clustering.
 
 WildBootTests.jl incorporates order-of-magnitude algorithmic speed-ups developed since [Roodman et al. (2019)](https://journals.sagepub.com/doi/abs/10.1177/1536867X19830877?journalCode=stja) for [OLS](https://www.statalist.org/forums/forum/general-stata-discussion/general/1586107-boottest-just-as-wild-10x-faster) and [IV/2SLS](https://www.statalist.org/forums/forum/general-stata-discussion/general/1597888-boottest-~100x-faster-after-iv-gmm). And it exploits the efficiency of Julia, such as by offering single-precision (Float32) computation.
 
