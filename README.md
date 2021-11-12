@@ -58,11 +58,11 @@ CI = Float32[0.93461335 1.1347668]
 julia> test = wildboottest((R, r); resp, predexog, clustid, reps=99999);  # same, using Julia syntactic sugar
 
 julia> p(test)  # programmatically extract p value
-0.4920549f0
+0.49459493f0
 
 julia> CI(test)  # programmatically extract confidence interval
 1×2 Matrix{Float32}:
- 0.934613  1.13477
+ 0.934961  1.13469
 
 julia> plot(plotpoints(test)...)  # plot confidence curve
 ```
