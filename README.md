@@ -22,7 +22,7 @@ The interface is low-level: the exported function `wildboottest()` accepts scala
 # Examples
 
 ```
-julia> using WildBootTests, CSV, DataFrames, Plots, GLM
+julia> using WildBootTests, CSV, DataFrames, GLM, Plots
 
 julia> d = download("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv")
 
