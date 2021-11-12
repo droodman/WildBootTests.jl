@@ -65,6 +65,12 @@ dist(o::BoottestResult) = o.dist
 "Return auxilliary weight matrix for wild bootstrap"
 auxweights(o::BoottestResult) = o.auxweights
 
+using Printf
+function Base.show(io::IO, o::BoottestResult{T}) where T
+	print(io, "WildBootTests.BoottestResult{$T}\n\n")
+	Printf.@printf(io, "p  = %5.3f\n", p(o))
+	isdefined(o, :CI) && print(io, "CI = $(CI(o))\n")
+end
 
 """
 wildboottest([T=Float32], H₀::Tuple{AbstractMatrix, AbstractVector}; resp, <optional keyword arguments>) <: WildBootTest.BoottestResult
