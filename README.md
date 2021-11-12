@@ -25,11 +25,14 @@ using WildBootTests, CSV, DataFrames, Plots, GLM
 df = CSV.read(download("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv"), DataFrame)
 f = @formula(y ~ 1 + x)
 f = apply_schema(f, schema(f, df))
-lm(d, df)  # run OLS regression for illustration; actually not needed to run following lines
-resp, predexog = modelcols(f, df)  # extract data matrices for the response & predictor variables
-R = [0 1.]; r = [0]  # specify the null as Rβ = r, where β is the parameter vector; here, that coeffecient on x is 1
+lm(f, df)  # run OLS for illustration; not needed for following lines
 
-test = wildboottest(([0 1.], [1.]); resp=resp, predexog=predexog, clustid=df.firm, reps=99999);
-p(test)
-CI(test)
-plot(plotpoints(test)...)
+resp, predexog = modelcols(f, df)  # extract data matrices for response & (exogenous) predictor variables
+R = [0 1.]; r = [0]  # express hypothesis that coeffecient on x is 1 as Rβ = r, where β is the parameter vector
+
+test = wildboottest((R, r); resp=resp, predexog=predexog, clustid=df.firm, reps=99999);  # run wild bootstrap test, clustering by firm, imposing null
+
+p(test)  # get p value
+CI(test)  # get confidence interval
+plot(plotpoints(test)...)  # plot confidence curve
+```
