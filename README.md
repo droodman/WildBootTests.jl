@@ -20,19 +20,43 @@ wildboottest() accepts many optional arguments. Most correspond to boottest opti
 # Examples
 
 ```
-using WildBootTests, CSV, DataFrames, Plots, GLM
+julia> using WildBootTests, CSV, DataFrames, Plots, GLM
 
-df = CSV.read(download("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv"), DataFrame)
-f = @formula(y ~ 1 + x)
-f = apply_schema(f, schema(f, df))
-lm(f, df)  # run OLS for illustration; not needed for following lines
+julia> df = CSV.read(download("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv"), DataFrame);
 
-resp, predexog = modelcols(f, df)  # extract data matrices for response & (exogenous) predictor variables
-R = [0 1.]; r = [0]  # express hypothesis that coeffecient on x is 1 as Rβ = r, where β is the parameter vector
+julia> f = @formula(y ~ 1 + x);
 
-test = wildboottest((R, r); resp=resp, predexog=predexog, clustid=df.firm, reps=99999)  # run test clustering by firm
+julia> f = apply_schema(f, schema(f, df));
 
-p(test)  # get p value
-CI(test)  # get confidence interval
-plot(plotpoints(test)...)  # plot confidence curve
+julia> lm(f, df)  # run OLS for illustration; not needed for following lines
+StatsModels.TableRegressionModel{LinearModel{GLM.LmResp{Vector{Float64}}, GLM.DensePredChol{Float64, LinearAlgebra.CholeskyPivoted{Float64, Matrix{Float64}}}}, Matrix{Float64}}
+
+y ~ 1 + x
+
+Coefficients:
+─────────────────────────────────────────────────────────────────────────
+                 Coef.  Std. Error      t  Pr(>|t|)  Lower 95%  Upper 95%
+─────────────────────────────────────────────────────────────────────────
+(Intercept)  0.0296797   0.0283593   1.05    0.2954  -0.025917  0.0852764
+x            1.03483     0.0285833  36.20    <1e-99   0.978798  1.09087
+─────────────────────────────────────────────────────────────────────────
+
+julia> resp, predexog = modelcols(f, df);  # extract data matrices for response & (exogenous) predictor variables
+
+julia> R = [0 1.]; r = [0];  # express hypothesis that coeffecient on x is 1 as Rβ = r, where β is the parameter vector
+
+julia> test = wildboottest((R, r); resp=resp, predexog=predexog, clustid=df.firm, reps=99999)  # bootstrap test clustering by firm
+WildBootTests.BoottestResult{Float32}
+
+p  = 0.0
+CI = Float32[0.9350536 1.1346284]
+
+julia> p(test)  # programmatically extract p value
+0.0f0
+
+julia> CI(test)  # programmatically extract confidence interval
+1×2 Matrix{Float32}:
+ 0.935054  1.13463
+
+julia> plot(plotpoints(test)...)  # plot confidence curve
 ```
