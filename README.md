@@ -20,5 +20,16 @@ wildboottest() accepts many optional arguments. Most correspond to boottest opti
 # Examples
 
 ```
-using DataFrames, CSV, WildBootTests
+using WildBootTests, CSV, DataFrames, Plots
 df = CSV.read(download("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv"), DataFrame)
+f = @formula(y ~ 1 + x)
+f = apply_schema(f, schema(f, df))
+resp, predexog = modelcols(f, df)  # extract data matrices for the respond & predictor variables
+R = [0 1.]; r = [0]  # specify the null as Rβ = r, where β is the parameter vector; here, that the coeffecient on x is 1
+test = wildboottest(([0 1.], [1.]); resp=resp, predexog=predexog, clustid=df.firm, reps=99999);
+p(test)
+CI(test)
+plot(plotpoints(test)...)
+
+
+
