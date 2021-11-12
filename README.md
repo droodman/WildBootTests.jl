@@ -53,6 +53,8 @@ WildBootTests.BoottestResult{Float32}
 p  = 0.492
 CI = Float32[0.93461335 1.1347668]
 
+julia> test = wildboottest((R, r); resp, predexog, clustid=df.firm, reps=99999);  # same, exploiting Julia syntactic sugar
+
 julia> p(test)  # programmatically extract p value
 0.4920549f0
 
