@@ -1,4 +1,4 @@
-name = "WildBootTest"
+name = "WildBootTests"
 uuid = "65c2e505-86ba-4c19-93f1-95506c1443d5"
 authors = ["droodman <d.roodman@outlook.com>"]
 version = "0.1.0"
