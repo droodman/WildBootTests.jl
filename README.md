@@ -17,7 +17,7 @@ WildBootTests.jl incorporates order-of-magnitude algorithmic speed-ups developed
 
 The interface is low-level: the exported function `wildboottest()` accepts scalars, vectors, and matrices, not [DataFrame](https://github.com/JuliaData/DataFrames.jl)s or results from estimation functions such as [lm()](https://juliastats.org/GLM.jl/v1.5/). This design minimizes the package's dependency footprint while making the core functionality available to multiple programming environments, including Julia, R (through [JuliaCall](https://cran.r-project.org/web/packages/JuliaCall/index.html) and [wildboottestjlr](https://github.com/s3alfisc/wildboottestjlr)), and Python (through [PyJulia](https://github.com/JuliaPy/pyjulia)). A separate package will provide a higher-level Julia interface.
 
-wildboottest() accepts many optional arguments. Most correspond to options of the Stata package `boottest`, which are documented in [Roodman et al. (2019), §7](https://www.econ.queensu.ca/sites/econ.queensu.ca/files/qed_wp_1406.pdf#page=28). Julia-specific additions include an optional first argument `T`, which may be `Float32` or `Float64` and specifies the precision of computation; and `rng`, which takes a random number generator such as `MersenneTwister(2302394)`.
+`wildboottest()` accepts many optional arguments. Most correspond to options of the Stata package `boottest`, which are documented in [Roodman et al. (2019), §7](https://www.econ.queensu.ca/sites/econ.queensu.ca/files/qed_wp_1406.pdf#page=28). Julia-specific additions include an optional first argument `T`, which can be `Float32` or `Float64` to specify the precision of computation; and `rng`, which takes a random number generator such as `MersenneTwister(2302394)`.
 
 # Examples
 
