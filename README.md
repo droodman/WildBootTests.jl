@@ -22,8 +22,9 @@ wildboottest() accepts many optional arguments. Most correspond to options of th
 ```
 julia> using WildBootTests, CSV, DataFrames, Plots, GLM
 
-julia> df = CSV.read(download("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv"), 
-                     DataFrame);
+julia> df = CSV.read(
+              download("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv"), 
+                       DataFrame);
 
 julia> f = @formula(y ~ 1 + x);  # state OLS model
 
