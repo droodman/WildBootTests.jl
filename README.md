@@ -43,11 +43,11 @@ Coefficients:
 x            1.03483     0.0285833  36.20    <1e-99   0.978798  1.09087
 ─────────────────────────────────────────────────────────────────────────
 
-julia> resp, predexog = modelcols(f, df);  # extract data matrices for response & (exogenous) predictor variables
+julia> resp, predexog = modelcols(f, df);  # extract response & (exogenous) predictor variables
 
-julia> R = [0 1.]; r = [1];  # express hypothesis that coefficient on x is 1 as Rβ = r, where β is the parameter vector
+julia> R = [0 1.]; r = [1];  # express null that coefficient on x is 1 as Rβ = r, where β is the parameter vector
 
-julia> test = wildboottest((R, r); resp=resp, predexog=predexog, clustid=df.firm, reps=99999)  # bootstrap test clustering by firm
+julia> test = wildboottest((R, r); resp=resp, predexog=predexog, clustid=df.firm, reps=99999)  # bootstrap, clustering by firm
 WildBootTests.BoottestResult{Float32}
 
 p  = 0.492
