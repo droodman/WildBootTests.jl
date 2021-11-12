@@ -30,7 +30,7 @@ lm(f, df)  # run OLS for illustration; not needed for following lines
 resp, predexog = modelcols(f, df)  # extract data matrices for response & (exogenous) predictor variables
 R = [0 1.]; r = [0]  # express hypothesis that coeffecient on x is 1 as Rβ = r, where β is the parameter vector
 
-test = wildboottest((R, r); resp=resp, predexog=predexog, clustid=df.firm, reps=99999);  # run wild bootstrap test, clustering by firm, imposing null
+test = wildboottest((R, r); resp=resp, predexog=predexog, clustid=df.firm, reps=99999)  # run test clustering by firm
 
 p(test)  # get p value
 CI(test)  # get confidence interval
