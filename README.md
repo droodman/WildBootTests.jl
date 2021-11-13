@@ -6,6 +6,7 @@ The package offers/supports:
 * Confidence intervals formed by inverting the test and iteratively searching for bounds.
 * Multiway clustering.
 * Arbitrary and multiple linear hypotheses in the parameters.
+* Maintained linear constraints on the model (restricted OLS, IV/2SLS/LIML).
 * One-way fixed effects.
 * The wild bootstrap for OLS ([Wu 1986](https://doi.org/10.1214/aos/1176350142)).
 * The Wild Restricted Efficient bootstrap (WRE) for IV/2SLS/LIML ([Davidson and MacKinnon 2010](https://doi.org/10.1198/jbes.2009.07221)).
@@ -19,7 +20,7 @@ The interface is low-level: the exported function `wildboottest()` accepts scala
 
 `wildboottest()` accepts many optional arguments. Most correspond to options of the Stata package `boottest`, which are documented in [Roodman et al. (2019), §7](https://www.econ.queensu.ca/sites/econ.queensu.ca/files/qed_wp_1406.pdf#page=28). Julia-specific additions include an optional first argument `T`, which can be `Float32` or `Float64` to specify the precision of computation; and `rng`, which takes a random number generator such as `MersenneTwister(2302394)`.
 
-# Examples
+# Example with full session log
 
 ```
 julia> using WildBootTests, CSV, DataFrames, GLM, Plots
@@ -67,4 +68,14 @@ julia> CI(test)  # programmatically extract confidence interval
  0.934961  1.13469
 
 julia> plot(plotpoints(test)...)  # plot confidence curve
+```
+# Examples without session log
+```
+# use Webb instead of Rademacher weights
+wildboottest((R, r); resp, predexog, clustid, reps=99999, auxwttype=WildBootTests.webb)
+
+# test that coefficient on intercept = 0 and coefficient on x = 1
+R = [1 0; 0 1.]; r = [0;1]
+wildboottest((R, r); resp, predexog, clustid, reps=99999)
+
 ```
