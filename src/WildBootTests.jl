@@ -53,7 +53,7 @@ function boottest!(o::StrBootTest{T}) where T
 		w > 1 && MakeWildWeights!(o, length(o.WeightGrp[w]), first=false)
 
 		o.WREnonARubin ? MakeWREStats!(o, w) :
-										MakeNonWREStats!(o, w)
+										 MakeNonWREStats!(o, w)
 
 		!o.bootstrapt && UpdateBootstrapcDenom!(o, w)
   end

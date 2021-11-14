@@ -31,16 +31,16 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   end
   o._Nobs = o.haswt && o.fweights ? o.sumwt : o.Nobs
 
-  if !iszero(o.NClustVar)
-	o.subcluster = o.NClustVar - o.nerrclustvar
-	p = _sortperm(view(o.ID, :, [collect(o.subcluster+1:o.NClustVar); collect(1:o.subcluster)]))  # sort by err cluster vars, then remaining boot cluster vars
-	o.ID = ndims(o.ID)==1 ? o.ID[p] : o.ID[p,:]
-	o.X₁ = ndims(o.X₁)==1 ? o.X₁[p] : o.X₁[p,:]
-	o.X₂ = ndims(o.X₂)==1 ? o.X₂[p] : o.X₂[p,:]
-	o.y₁ = o.y₁[p]
-	o.Y₂ = ndims(o.Y₂)==1 ? o.Y₂[p] : o.Y₂[p,:]
-	o.haswt && (o.wt = o.wt[p])
-	isdefined(o, :FEID) && length(o.FEID)>0 && (o.FEID = o.FEID[p])
+  if !(iszero(o.NClustVar)  || o.issorted)
+		o.subcluster = o.NClustVar - o.nerrclustvar
+		p = _sortperm(view(o.ID, :, [collect(o.subcluster+1:o.NClustVar); collect(1:o.subcluster)]))  # sort by err cluster vars, then remaining boot cluster vars
+		o.ID = ndims(o.ID)==1 ? o.ID[p] : o.ID[p,:]
+		o.X₁ = ndims(o.X₁)==1 ? o.X₁[p] : o.X₁[p,:]
+		o.X₂ = ndims(o.X₂)==1 ? o.X₂[p] : o.X₂[p,:]
+		o.y₁ = o.y₁[p]
+		o.Y₂ = ndims(o.Y₂)==1 ? o.Y₂[p] : o.Y₂[p,:]
+		o.haswt && (o.wt = o.wt[p])
+		isdefined(o, :FEID) && length(o.FEID)>0 && (o.FEID = o.FEID[p])
   end
 
   if o.WREnonARubin

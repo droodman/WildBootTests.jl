@@ -29,8 +29,17 @@ end
 @inline wtsum(wt::AbstractArray, X::AbstractArray) = wt'X
 @inline wtsum(wt::UniformScaling, X::AbstractArray) = sum(X,dims=1)
 # checkI!(X::AbstractArray) = all(abs.(X - I) .< 10eps(eltype(X))) ? I : X
-@inline X₁₂B(X₁::AbstractArray, X₂::AbstractArray, B::AbstractMatrix) = @views X₁*B[1:size(X₁,2),:] + X₂*B[size(X₁,2)+1:end,:]
-@inline X₁₂B(X₁::AbstractArray, X₂::AbstractArray, B::AbstractVector) = @views X₁*B[1:size(X₁,2)  ] + X₂*B[size(X₁,2)+1:end  ]
+
+function X₁₂B(X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractMatrix)
+	dest = X₁ * B[1:size(X₁,2),:]
+	length(dest)>0 && length(X₂)>0 && matmulplus!(dest, X₂, B[size(X₁,2)+1:end,:])
+	dest
+end
+function X₁₂B(X₁::AbstractArray, X₂::AbstractArray, B::AbstractVector)
+	dest = X₁ * B[1:size(X₁,2)]
+	length(dest)>0 && length(X₂)>0 && matmulplus!(dest, X₂, B[size(X₁,2)+1:end])
+	dest
+end
 
 import Base.*  # extend * to left- and right-multiply arrays by vec or mat
 @inline *(A::AbstractArray, B::AbstractVecOrMat) = reshape(reshape(A,:,size(B,1)) * B, size(A)[1:end-1]..., size(B)[2:end]...)
@@ -113,10 +122,20 @@ function colquadformminus!(X::AbstractMatrix, row::Integer, Q::AbstractMatrix, A
 end
 colquadformminus!(X::AbstractMatrix, Q::AbstractMatrix, A::AbstractMatrix) = colquadformminus!(X, 1, Q, A, A)
 
+function matmulplus!(A::Matrix, B::Vector, C::Matrix)  # add B*C to A in place
+	@turbo for k ∈ eachindex(axes(A,2), axes(C,2)), i ∈ eachindex(axes(A,1),axes(B,1))
+		A[i,k] += B[i] * C[k]
+	end
+end
 function matmulplus!(A::Matrix, B::Matrix, C::Matrix)  # add B*C to A in place
-  @turbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
-	A[i,k] += B[i,j] * C[j,k]
-  end
+	@turbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
+		A[i,k] += B[i,j] * C[j,k]
+	end
+end
+function matmulplus!(A::Vector, B::Matrix, C::Vector)  # add B*C to A in place
+	@turbo for j ∈ eachindex(axes(B,2),axes(C,1)), i ∈ eachindex(axes(A,1),axes(B,1))
+		A[i] += B[i,j] * C[j]
+	end
 end
 
 # like Mata panelsetup() but can group on multiple columns, like sort(), and faster. But doesn't take minobs, maxobs arguments.
@@ -145,7 +164,7 @@ function panelsetupID(X::AbstractArray{S} where S, colinds::Vector{T} where T<:I
   lo = p = 1
   id = @view X[1, colinds]
   @inbounds for hi ∈ 2:N
-    if (tmp=X[hi,colinds]) ≠ id
+    if (tmp=view(X,hi,colinds)) ≠ id
   	  info[p] = lo:hi-1
       lo = hi
   	  p += 1
@@ -206,8 +225,8 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractVector, in
 	end
 end
 # multiple-weighted panelsum!() along first axis of an Array
-# *2nd* dimension of resulting 3-D array corresponds to cols of v=wt;
-# this facilitates reshape() to 2-D array in which results for each col of v are stacked vertically
+# *2nd* dimension of resulting 3-D array corresponds to cols of wt;
+# this facilitates reshape() to 2-D array in which results for each col of wt are stacked vertically
 function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractMatrix, info::Vector{UnitRange{T}} where T<:Integer)
 	iszero(length(X)) && return
 	if iszero(length(info)) || nrows(info)==nrows(X)
@@ -257,6 +276,7 @@ function panelsum2(X₁::AbstractArray, X₂::AbstractArray, wt::AbstractVecOrMa
 	end
 end
 @inline panelsum(X::AbstractArray, wt::UniformScaling, info::Vector{UnitRange{T}} where T<:Integer) = panelsum(X, info)
+
 # macros to efficiently handle result = input
 macro panelsum(X, info)
 	:( iszero(length($(esc(info)))) || length($(esc(info)))==nrows($(esc(X))) ? $(esc(X)) : panelsum($(esc(X)), $(esc(info)) ) )

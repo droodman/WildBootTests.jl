@@ -69,7 +69,7 @@ using Printf
 function Base.show(io::IO, o::BoottestResult{T}) where T
 	print(io, "WildBootTests.BoottestResult{$T}\n\n")
 	Printf.@printf(io, "p  = %5.3f\n", p(o))
-	isdefined(o, :CI) && print(io, "CI = $(CI(o))\n")
+	isdefined(o, :CI) && !isnothing(o.CI) && length(o.CI)>0 && print(io, "CI = $(CI(o))\n")
 end
 
 """
@@ -142,18 +142,19 @@ match the estimation sample.
 """
 function wildboottest(T::DataType,
 					  H₀::Tuple{AbstractMatrix, AbstractVector};
-					  resp::AbstractVector,
-					  predexog::AbstractVecOrMat=zeros(T,0,0),
-					  predendog::AbstractVecOrMat=zeros(T,0,0),
-					  inst::AbstractVecOrMat=zeros(T,0,0),
+					  resp::AbstractVector{<:Real},
+					  predexog::AbstractVecOrMat{<:Real}=zeros(T,0,0),
+					  predendog::AbstractVecOrMat{<:Real}=zeros(T,0,0),
+					  inst::AbstractVecOrMat{<:Real}=zeros(T,0,0),
 					  H₁::Tuple{AbstractMatrix, AbstractVector}=(zeros(T,0,0), zeros(T,0)),
-					  clustid::AbstractVecOrMat=zeros(Int,0,0),  # bootstrap-only clust vars, then boot&err clust vars, then err-only clust vars
+					  clustid::AbstractVecOrMat{<:Integer}=zeros(Int,0,0),  # bootstrap-only clust vars, then boot&err clust vars, then err-only clust vars
 					  nbootclustvar::Integer=1,
 					  nerrclustvar::Integer=nbootclustvar,
+						issorted::Bool=false,
 					  hetrobust::Bool=true,
-					  feid::AbstractVector=Vector(undef,0),
+					  feid::AbstractVector{<:Integer}=Vector{Int8}(undef,0),
 					  fedfadj::Bool=true,
-					  obswt::Union{AbstractVector,UniformScaling{Bool}}=I,
+					  obswt::Union{AbstractVector{<:Real},UniformScaling{Bool}}=I,
 					  fweights::Bool=false,
 					  maxmatsize::Number=0,
 					  ptype::PType=symmetric,
@@ -187,9 +188,9 @@ function wildboottest(T::DataType,
   @assert length(predexog)==0 || nrows(predexog)==nrows(resp) "All data vector/matrices must have same height"
   @assert length(predendog)==0 || nrows(predendog)==nrows(resp) "All data vector/matrices must have same height"
   @assert length(inst)==0 || nrows(inst)==nrows(resp) "All data vector/matrices must have same height"
-  @assert length(feid)==0 || nrows(feid)==nrows(resp) "Fixed-effect ID vector must have same height as data matrices"
-  @assert length(clustid)==0 || nrows(clustid)==nrows(resp) "Cluster ID vector must have same height as data matrices"
-  @assert obswt==I || nrows(obswt)==nrows(resp) "Weight vector must have same height as data matrices"
+  @assert length(feid)==0 || nrows(feid)==nrows(resp) "feid vector must have same height as data matrices"
+  @assert length(clustid)==0 || nrows(clustid)==nrows(resp) "clustid must have same height as data matrices"
+  @assert obswt==I || nrows(obswt)==nrows(resp) "obswt must have same height as data matrices"
   @assert nrows(H₀[1])==nrows(H₀[2]) "Entries of H₀ tuple must have same height"
   @assert ncols(H₀[1])==ncols(predexog)+ncols(predendog) "Wrong number of columns in null specification"
   @assert nrows(H₁[1])==nrows(H₁[2]) "Entries of H₁ tuple must have same height"
@@ -207,7 +208,7 @@ function wildboottest(T::DataType,
 	end
 
   M = StrBootTest{T}(H₀[1], H₀[2], H₁[1], H₁[2], resp, predexog, predendog, inst, obswt, fweights, LIML, Fuller, κ, ARubin,
-	                   reps, auxwttype, rng, maxmatsize, ptype, imposenull, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, hetrobust, small,
+	                   reps, auxwttype, rng, maxmatsize, ptype, imposenull, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, issorted, hetrobust, small,
 	                   feid, fedfadj, level, rtol, madjtype, NH₀, ML, β, A, scores, getplot,
 	                   map(x->ismissing(x) ? missing : T(x), gridmin),
 	                   map(x->ismissing(x) ? missing : T(x), gridmax),

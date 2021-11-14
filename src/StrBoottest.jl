@@ -1,4 +1,4 @@
-# Definition of StrBoottest "class" for holding intermediate results, with some associated utilities and get functions
+# Definition of StrBoottest "class" for holding intermediate results, with associated utilities and get functions
 
 "Auxilliary weight types: rademacher, mammen, webb, normal, gamma"
 @enum AuxWtType rademacher mammen webb normal gamma
@@ -24,7 +24,7 @@ struct StrFE{T<:Real}
 end
 
 
-matconvert(T::DataType, X) = !isa(X, AbstractArray) || eltype(X)==T ? X : T.(X)
+@inline matconvert(T::DataType, X) = !isa(X, AbstractArray) || eltype(X)==T ? X : T.(X)
 
 mutable struct StrBootTest{T<:AbstractFloat}
   R::Matrix{T}; r::Vector{T}; R₁::Matrix{T};r₁::Vector{T}
@@ -33,8 +33,8 @@ mutable struct StrBootTest{T<:AbstractFloat}
   LIML::Bool; Fuller::T; κ::T; ARubin::Bool
   B::Int64; auxtwtype::AuxWtType; rng::AbstractRNG; maxmatsize::Float16
   ptype::PType; null::Bool; bootstrapt::Bool
-  ID::VecOrMat{Int64}; nbootclustvar::Int8; nerrclustvar::Int64; small::Bool
-  FEID::Vector{Int64}; FEdfadj::Bool
+	ID::Union{VecOrMat{Int8},VecOrMat{Int16},VecOrMat{Int32},VecOrMat{Int64}}; nbootclustvar::Int8; nerrclustvar::Int64; issorted::Bool; small::Bool
+  FEID::Union{VecOrMat{Int8},VecOrMat{Int16},VecOrMat{Int32},VecOrMat{Int64}}; FEdfadj::Bool
   level::T; rtol::T
   madjtype::MAdjType; NH₀::Int16
   ML::Bool; β::Vector{T}; A::Matrix{T}; sc::VecOrMat{T}
@@ -72,8 +72,12 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	crosstabCapstarind::Vector{Int64}
   seed::UInt64
 
-  StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML, β, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real =
-	  new(matconvert(T,R), matconvert(T,r), matconvert(T,R₁), matconvert(T,r₁), matconvert(T,y₁), matconvert(T,X₁), matconvert(T,Y₂), matconvert(T,X₂), matconvert(T,wt), fweights, LIML || !iszero(Fuller), Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, matconvert(Int64,ID), nbootclustvar, nerrclustvar, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML, matconvert(T,β), matconvert(T,A), matconvert(T,sc), willplot, gridmin, gridmax, gridpoints,
+  StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
+	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,
+								 β, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real =
+	  new(matconvert(T,R), matconvert(T,r), matconvert(T,R₁), matconvert(T,r₁), matconvert(T,y₁), matconvert(T,X₁), matconvert(T,Y₂), matconvert(T,X₂), matconvert(T,wt), fweights, LIML || !iszero(Fuller), 
+		    Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, matconvert(Int64,ID), nbootclustvar, nerrclustvar, issorted, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML, 
+				matconvert(T,β), matconvert(T,A), matconvert(T,sc), willplot, gridmin, gridmax, gridpoints,
 		  nrows(R),
 		  ptype==symmetric || ptype==equaltail,
 		  scorebs || iszero(B) || ML,

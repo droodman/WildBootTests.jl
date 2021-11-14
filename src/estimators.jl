@@ -111,12 +111,11 @@ function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where 
   o.ZperpinvZperpZperp = o.Zperp * o.invZperpZperp
 
   o.X₁ = o.parent.X₁ * perp(o.RperpX); o.X₁ .-= o.ZperpinvZperpZperp * cross(o.Zperp, o.parent.wt, o.X₁)  # FWL-process X₁ XXX XB(o.parent.X₁, perp(RperpX))
-  o.X₂ = o.parent.X₂ - o.ZperpinvZperpZperp * cross(o.Zperp, o.parent.wt, o.parent.X₂)                # FWL-process X₂
+  o.X₂ = o.ZperpinvZperpZperp * cross(o.Zperp, o.parent.wt, o.parent.X₂); o.X₂ .= o.parent.X₂ .- o.X₂                 # FWL-process X₂
   X₂X₁ = cross(o.X₂, o.parent.wt, o.X₁)
   o.XX = Symmetric([symcross(o.X₁, o.parent.wt) X₂X₁' ; X₂X₁ symcross(o.X₂, o.parent.wt)])
   o.kX = ncols(o.XX)
   o.invXX = invsym(o.XX)
-
   o.Z   = X₁₂B(o.parent.X₁, o.parent.Y₂, o.Rpar     )  # Zpar
   o.ZR₁ = X₁₂B(o.parent.X₁, o.parent.Y₂, o.R₁invR₁R₁)
 

@@ -10,17 +10,17 @@ f = apply_schema(f, schema(f, df, Dict(:hasinsurance => ContinuousTerm)))
 resp, predexog = modelcols(f, df)
 
 println(log, "\nboottest post_self=.04, weight(webb)")
-test = wildboottest(([0 0 0 1.], [.04]); resp, predexog, clustid=df.year, auxwttype=WildBootTest.webb, rng=StableRNG(1231))
+test = wildboottest(([0 0 0 1.], [.04]); resp, predexog, clustid=Int32.(df.year), auxwttype=WildBootTests.webb, rng=StableRNG(1231))
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
 println(log, "\nboottest post_self=.04, weight(webb) reps(9999999) noci")
-test = wildboottest(([0 0 0 1.], [.04]); resp, predexog, clustid=df.year, reps=9999999, auxwttype=WildBootTest.webb, getCI=false, rng=StableRNG(1231))
+test = wildboottest(([0 0 0 1.], [.04]); resp, predexog, clustid=Int32.(df.year), reps=9999999, auxwttype=WildBootTests.webb, getCI=false, rng=StableRNG(1231))
 println(log, "t=$(teststat(test)) p=$(p(test))")
 
 
 println(log, "\nregress hasinsurance selfemployed post post_self, cluster(year)")
 println(log, "boottest (post_self=.05) (post=-.02), reps(9999) weight(webb)")
-test = wildboottest(([0 0 0 1.; 0 0 1. 0], [0.05; -0.02]); resp, predexog, clustid=df.year, reps=9999, auxwttype=WildBootTest.webb, rng=StableRNG(1231))
+test = wildboottest(([0 0 0 1.; 0 0 1. 0], [0.05; -0.02]); resp, predexog, clustid=Int32.(df.year), reps=9999, auxwttype=WildBootTests.webb, rng=StableRNG(1231))
 println(log, "F=$(teststat(test)) p=$(p(test))")
 
 df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\nlsw88.dta"))[:,[:wage; :tenure; :ttl_exp; :collgrad; :industry]]
@@ -53,11 +53,11 @@ resp, predexog = modelcols(f, df)
 ivf = @formula(tenure ~ union)
 ivf = apply_schema(ivf, schema(ivf, df))
 predendog, inst = modelcols(ivf, df)
-test = wildboottest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, ptype=WildBootTest.equaltail, rng=StableRNG(1231))
+test = wildboottest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, ptype=WildBootTests.equaltail, rng=StableRNG(1231))
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
 println(log, "\nboottest tenure, ptype(equaltail) reps(99999) weight(webb) stat(c)")
-test = wildboottest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, auxwttype=WildBootTest.webb, bootstrapc=true, ptype=WildBootTest.equaltail, rng=StableRNG(1231))
+test = wildboottest(([0 0 0 1.], [.0]); resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, auxwttype=WildBootTests.webb, bootstrapc=true, ptype=WildBootTests.equaltail, rng=StableRNG(1231))
 println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 plot(plotpoints(test)...)
 
@@ -85,7 +85,7 @@ resp, predexog = modelcols(f, df)
 ivf = @formula(tenure ~ collgrad + ttl_exp)
 ivf = apply_schema(ivf, schema(ivf, df))
 predendog, inst = modelcols(ivf, df)
-test = wildboottest(([0 1.], [.0]); resp, predexog, predendog, inst, LIML=true, clustid=df.industry, small=false, reps=999, rng=StableRNG(1231))
+test = wildboottest(([0 1.], [.0]); resp, predexog, predendog, inst, LIML=true, clustid=df.industry, small=false, reps=9, rng=StableRNG(1231))
 println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
 println(log, "\nivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)")
@@ -99,7 +99,7 @@ resp, predexog = modelcols(f, df)
 ivf = @formula(tenure ~ union + married)
 ivf = apply_schema(ivf, schema(ivf, df))
 predendog, inst = modelcols(ivf, df)
-test = wildboottest(([0 0 0 0 0 1.], [0.]); resp, predexog, predendog, inst, Fuller=1, clustid=df.industry, small=false, reps=9999, auxwttype=WildBootTest.webb, rng=StableRNG(1231))
+test = wildboottest(([0 0 0 0 0 1.], [0.]); resp, predexog, predendog, inst, Fuller=1, clustid=df.industry, small=false, reps=9999, auxwttype=WildBootTests.webb, rng=StableRNG(1231))
 println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
 println(log, "\nareg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)")
@@ -171,12 +171,12 @@ println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 test = wildboottest(([0. 1 zeros(1,size(predexog,2)-2)], [0.]); resp, predexog, clustid= [collect(1:nrow(df)) levelcode.(df.state)], nbootclustvar=1, nerrclustvar=1, reps=9999, imposenull=false, rng=StableRNG(1231))
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
-# df = DataFrame(load(raw"D:\OneDrive\Documents\Macros\WildBootTest.jl"))
+# df = DataFrame(load(raw"D:\OneDrive\Documents\Macros\WildBootTests.jl"))
 # df = df[:, [:proposition_vote, :treatment, :ideology1, :log_income, :Q1_immigration, :group_id1, :group_id2]]
 # dropmissing!(df)
 # f = @formula(proposition_vote ~ treatment + ideology1 + log_income + Q1_immigration + 1)
 # f = apply_schema(f, schema(f, df, Dict(:Q1_immigration  => CategoricalTerm)))
 # resp, predexog = modelcols(f, df)
-# test = WildBootTest.wildboottest(([0 0 0 0 0 0 0 0 0 0 0 0 1.], [0.]); resp, predexog, clustid=Matrix(df[:, [:Q1_immigration, :group_id1, :group_id2]]), rng=StableRNG(1231))
+# test = WildBootTests.wildboottest(([0 0 0 0 0 0 0 0 0 0 0 0 1.], [0.]); resp, predexog, clustid=Matrix(df[:, [:Q1_immigration, :group_id1, :group_id2]]), rng=StableRNG(1231))
 
 end

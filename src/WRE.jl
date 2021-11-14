@@ -1,5 +1,6 @@
 
-# For WRE, and with reference to Y = [y₁ Z], given 0-based columns indexes within it, ind1, ind2, return all bootstrap realizations of Y[:,ind1]'((1-κ)*M_Zperp-κ*M_Xpar)*Y[:,ind2] for κ constant across replications
+# For WRE, and with reference to Y = [y₁ Z], given 0-based columns indexes within it, ind1, ind2, return all bootstrap realizations of 
+# Y[:,ind1]'((1-κ)*M_Zperp-κ*M_Xpar)*Y[:,ind2] for κ constant across replications
 # ind1 can be a rowvector
 # (only really the Hessian when we narrow Y to Z)
 function HessianFixedκ(o::StrBootTest{T}, ind1::Vector{S} where S<:Integer, ind2::Integer, κ::Number, w::Integer) where T
@@ -68,8 +69,8 @@ end
 # for all groups in the intersection of all error clusterings
 # return value has one row per cap cluster, one col per bootstrap replication
 function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
-  	if o.granular
-    	if o.Nw == 1  # create or avoid NxB matrix?
+  if o.granular
+   	if o.Nw == 1  # create or avoid NxB matrix?
 			PXYstar = iszero(ind1) ? o.Repl.PXy₁ : o.Repl.PXZ[:,ind1]
 			o.Repl.Yendog[ind1+1] && (PXYstar = PXYstar .+ o.SstarUPX[ind1+1] * o.v)
 
@@ -78,7 +79,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 			for ind2 ∈ 1:o.Repl.kZ
 				_β = view(βs,ind2,:)'
 				dest .-= @panelsum(PXYstar .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[:,ind2] * _β .- o.SstarUMZperp[ind2+1] * (o.v .* _β) :
-															           o.Repl.Z[:,ind2] * _β                                            ), o.wt, o.infoCapData)
+															         o.Repl.Z[:,ind2] * _β                                            ), o.wt, o.infoCapData)
 			end
 		else  # create pieces of each N x B matrix one at a time rather than whole thing at once
 			dest = Matrix{T}(undef, o.clust[1].N, ncols(o.v))  # XXX preallocate this & turn Filling into Filling! ?
@@ -94,7 +95,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 							dest[i,:]   = wtsum(o.wt, PXYstar .* (o.Repl.y₁[i] .- view(o.SstarUMZperp[1],i,:))'o.v)
 						else
 							dest[i,:] .-= wtsum(o.wt, PXYstar .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[i,ind2] * _β .- view(o.SstarUMZperp[ind2+1],i,:)'βv :
-																						  o.Repl.Z[i,ind2] * _β))
+																						        o.Repl.Z[i,ind2] * _β))
 						end
 					end
 				else
@@ -112,8 +113,8 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 					end
 				end
 			end
-    	end
-  	else  # coarse error clustering
+    end
+  else  # coarse error clustering
 		for ind2 ∈ 0:o.Repl.kZ
 			βv = iszero(ind2) ? o.v : o.v .* (_β = -view(βs,ind2,:)')
 
@@ -201,7 +202,7 @@ function PrepWRE!(o::StrBootTest)
 			end
 
 			o.SstarUPX[i+1]     = o.Repl.XinvXX * o.SstarUX[i+1]
-			o.SstarUMZperp[i+1] = o.Repl.Zperp  * o.SstarUZperpinvZperpZperp[i+1]
+			o.SstarUMZperp[i+1] = o.Repl.Zperp * o.SstarUZperpinvZperpZperp[i+1]
 			if o.Nobs == o.Nstar  # subtract "crosstab" of observation by cap-group of u
 				o.SstarUMZperp[i+1][diagind(o.SstarUMZperp[i+1])] .-= i>0 ? o.Ü₂par[:,i] : o.DGP.u⃛₁  # case: bootstrapping by observation
 			else
@@ -216,7 +217,7 @@ function PrepWRE!(o::StrBootTest)
 end
 
 function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
-    if isone(o.Repl.kZ)  # optimized code for 1 coefficient in bootstrap regression
+  if isone(o.Repl.kZ)  # optimized code for 1 coefficient in bootstrap regression
 		if o.LIML
 			YY₁₁   = HessianFixedκ(o, [0], 0, zero(T), w)  # κ=0 => Y*MZperp*Y
 			YY₁₂   = HessianFixedκ(o, [0], 1, zero(T), w)
@@ -235,7 +236,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			βs = (κs .* (YPXY₁₂ .- YY₁₂) .+ YY₁₂) ./ o.As
 		else
 			o.As = HessianFixedκ(o, [1], 1, o.κ, w)
-			βs = HessianFixedκ(o, [1], 0, o.κ, w) ./ o.As
+			βs   = HessianFixedκ(o, [1], 0, o.κ, w) ./ o.As
 		end
 
 		if o.null
