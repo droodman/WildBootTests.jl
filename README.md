@@ -50,15 +50,15 @@ julia> resp, predexog = modelcols(f, df);  # extract response & (exogenous) pred
 
 julia> clustid = df.firm  # extract clustering variable
 
-julia> R = [0 1.]; r = [1];  # express null that coefficient on x is 1 as Rβ = r, where β is parameter vector
+julia> R = [0 1]; r = [1];  # express null that coefficient on x is 1 as Rβ = r, where β is parameter vector
 
-julia> test = wildboottest((R, r); resp=resp, predexog=predexog, clustid=clustid, reps=99999)  # run test
+julia> test = wildboottest((R, r); resp=resp, predexog=predexog, clustid=clustid, reps=9999)  # test with 9,999 replications
 WildBootTests.BoottestResult{Float32}
 
 p  = 0.492
 CI = Float32[0.93461335 1.1347668]
 
-julia> test = wildboottest((R, r); resp, predexog, clustid, reps=99999);  # same, using Julia syntactic sugar
+julia> test = wildboottest((R, r); resp, predexog, clustid, reps=9999);  # same, using Julia syntactic sugar
 
 julia> p(test)  # programmatically extract p value
 0.49459493f0
