@@ -259,7 +259,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 				Jcaps = Filling(o, 1, βs) ./ o.As
 				for c ∈ 1:o.NErrClustCombs  # sum sandwich over error clusterings
 					length(o.clust[c].order)>0 && 
-						(Jcaps = view(Jcaps,o.clust[c].order,:))
+						(Jcaps = Jcaps[o.clust[c].order,:])  # physically reorder rows to keep @turbo happy
 					@clustAccum!(denom, c, coldot(@panelsum(Jcaps, o.clust[c].info)))
 				end
 			else
@@ -323,7 +323,8 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 					Jcap = o._Jcap * (A[b] * o.Repl.RRpar')
 
 					for c ∈ 1:o.NErrClustCombs
-						(!isone(o.NClustVar) && length(o.clust[c].order)>0) && (Jcap = view(Jcap,o.clust[c].order,:))
+						(!isone(o.NClustVar) && length(o.clust[c].order)>0) &&
+							(Jcap = Jcap[o.clust[c].order,:])  # physically reorder rows to keep @turbo happy
 						J_b = @panelsum(Jcap, o.clust[c].info)
 						@clustAccum!(denom, c, J_b'J_b)
 					end

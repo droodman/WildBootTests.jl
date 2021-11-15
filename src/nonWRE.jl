@@ -127,23 +127,23 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 		u✻XAR = @panelsum(o.uXAR, o.wt, o.infoAllData)  # collapse data to all-boot && error-cluster-var intersections. If no collapsing needed, panelsum() will still fold in any weights
 		if o.B>0
 			if o.scorebs
-				Kd = zeros(T, o.clust[1].N, o.dof, o.N✻)  # inefficient, but not optimizing for the score bootstrap
+				K = zeros(T, o.clust[1].N, o.dof, o.N✻)  # inefficient, but not optimizing for the score bootstrap
 			else
-				Kd = @panelsum2(o.X₁, o.X₂, vHadw(o.DGP.XAR, o.wt), o.infoCapData) * o.SuwtXA  # overloaded def of * for >2D arrays
+				K = @panelsum2(o.X₁, o.X₂, vHadw(o.DGP.XAR, o.wt), o.infoCapData) * o.SuwtXA  # overloaded def of * for >2D arrays
 			end
 
 			o.NFE>0 && !o.FEboot && (o.CT_WE = crosstabFE(o, vHadw(o.ü, o.wt), o.infoBootData))
 
 			o.NFE>0 && !o.FEboot &&
-				(Kd .+= o.M.CT_XAR * (o.invFEwt .* o.CT_WE))  # overloaded def of * for >2D arrays
-			Kd[o.crosstabCap✻ind] .-= reshape(u✻XAR,:)  # subtract crosstab of u✻XAR wrt bootstrapping cluster and all-cluster-var intersections from M
-			o.scorebs && (Kd .-= o.ClustShare * colsum(Kd))  # recenter
+				(K .+= o.M.CT_XAR * (o.invFEwt .* o.CT_WE))  # overloaded def of * for >2D arrays
+			K[o.crosstabCap✻ind] .-= reshape(u✻XAR,:)  # subtract crosstab of u✻XAR wrt bootstrapping cluster and all-cluster-var intersections from M
+			o.scorebs && (K .-= o.ClustShare * colsum(K))  # recenter
 
-			for c ∈ 1+o.granular:o.NErrClustCombs  # XXX pre-compute common iterators
+			for c ∈ 1+o.granular:o.NErrClustCombs
 				length(o.clust[c].order)>0 &&
-					(Kd = view(Kd, o.clust[c].order,:,:))
+					(K = K[o.clust[c].order,:,:])  # a bit faster to physically reorder rows than create view, to keep @turbo happy
 				for d ∈ 1:o.dof
-					o.Kcd[c,d] = @panelsum(view(Kd,:,d,:), o.clust[c].info)
+					o.Kcd[c,d] = @panelsum(view(K,:,d,:), o.clust[c].info)
 				end
 			end
 		else  # B = 0. In this case, only 1st term of (64) is non-zero after multiplying by v* (= all 1's), and it is then a one-way sum by c
@@ -151,7 +151,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 				(u✻XAR .-= o.ClustShare * colsum(u✻XAR))  # recenter if OLS
 			for c ∈ 1:o.NErrClustCombs
 				length(o.clust[c].order)>0 &&
-					(u✻XAR = view(u✻XAR, o.clust[c].order,:))
+					(u✻XAR = u✻XAR[o.clust[c].order,:])
 				tmp = @panelsum(u✻XAR, o.clust[c].info)
 				for d ∈ 1:o.dof
 					o.Kcd[c,d] = reshape(view(tmp,:,d),:,1)
