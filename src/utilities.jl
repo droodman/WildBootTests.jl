@@ -189,17 +189,25 @@ count_binary(N::Integer, lo::Number, hi::Number) = N≤1 ? [lo  hi] :
 
 # unweighted panelsum!() along first axis of an Array
 function panelsum!(dest::AbstractArray, X::AbstractArray, info::Vector{UnitRange{T}} where T<:Integer)
+# print("typeof(dest)=$(typeof(dest)) typeof(X)=$(typeof(X)) typeof(info)=$(typeof(info)) \n")
 	iszero(length(X)) && return
 	J = CartesianIndices(axes(X)[2:end])
 	eachindexJ = eachindex(J)
 	@inbounds @simd for g in eachindex(info)
 		f, l = first(info[g]), last(info[g])
-		for j ∈ eachindexJ
-			dest[g,J[j]] = X[f,J[j]]
-		end
+		fl = f+1:l
 		if f<l
-			for j ∈ eachindexJ, i ∈ f+1:l
-				dest[g,J[j]] += X[i,J[j]]
+			for j ∈ eachindexJ
+				Jj = J[j]
+				tmp = X[f,Jj]
+				@turbo for i ∈ fl
+					tmp += X[i,Jj]
+				end
+				dest[g,Jj] = tmp
+			end
+		else
+			for j ∈ eachindexJ
+				dest[g,J[j]] = X[f,J[j]]
 			end
 		end
 	end
@@ -215,13 +223,20 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractVector, in
 	eachindexJ = eachindex(J)
 	@inbounds @simd for g in eachindex(info)
 		f, l = first(info[g]), last(info[g])
+    fl = f+1:l
 		_wt = wt[f]
-		for j ∈ eachindexJ
-			dest[g,J[j]] = X[f,J[j]] * _wt
-		end
 		if f<l
-			for j ∈ eachindexJ, i ∈ f+1:l
-				dest[g,J[j]] += X[i,J[j]] * wt[i]
+			for j ∈ eachindexJ
+				Jj = J[j]
+				tmp = X[f,Jj] * _wt
+				@turbo for i ∈ fl
+					tmp += X[i,Jj] * wt[i]
+				end
+				dest[g,Jj] = tmp
+			end
+		else
+			for j ∈ eachindexJ
+				dest[g,J[j]] = X[f,J[j]] * _wt
 			end
 		end
 	end
@@ -244,13 +259,19 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractMatrix, in
 		fl = f+1:l
 		for k ∈ axes(wt,2)
 			_wt = wt[f,k]
-			for j ∈ eachindexJ
-				dest[g,k,J[j]] = X[f,J[j]] * _wt
-			end
 			if f<l
-				for j ∈ eachindexJ, i ∈ fl
-					dest[g,k,J[j]] += X[i,J[j]] * wt[i,k]
+				for j ∈ eachindexJ
+					Jj = J[j]
+					tmp = X[f,Jj] * _wt
+					@turbo for i ∈ fl
+						tmp += X[i,Jj] * wt[i,k]
+					end
+					dest[g,k,Jj] = tmp
 				end
+			else
+				for j ∈ eachindexJ
+					dest[g,k,J[j]] = X[f,J[j]] * _wt
+				end	
 			end
 		end
 	end
@@ -272,7 +293,7 @@ function panelsum2(X₁::AbstractArray, X₂::AbstractArray, wt::AbstractVecOrMa
 		panelsum(X₁,wt,info)
 	else
 		dest = similar(X₁, length(info), size(wt)[2:end]..., ncols(X₁)+ncols(X₂))
-		panelsum!(view(dest, Vector{Colon}(undef,ndims(wt))...,           1:ncols(X₁  )), X₁, wt, info)
+		panelsum!(view(dest, Vector{Colon}(undef,ndims(wt))...,           1:ncols(X₁      )), X₁, wt, info)
 		panelsum!(view(dest, Vector{Colon}(undef,ndims(wt))..., ncols(X₁)+1:size(dest)[end]), X₂, wt, info)
 		dest
 	end

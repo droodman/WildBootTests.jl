@@ -177,6 +177,6 @@ println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 # f = @formula(proposition_vote ~ treatment + ideology1 + log_income + Q1_immigration + 1)
 # f = apply_schema(f, schema(f, df, Dict(:Q1_immigration  => CategoricalTerm)))
 # resp, predexog = modelcols(f, df)
-# test = WildBootTests.wildboottest(([0 0 0 0 0 0 0 0 0 0 0 0 1.], [0]); resp, predexog, clustid=Matrix(df[:, [:Q1_immigration, :group_id1, :group_id2]]), rng=StableRNG(1231))
+# test = WildBootTests.wildboottest(([0 0 0 0 0 0 0 0 0 0 0 0 1], [0]); resp, predexog, clustid=Matrix(df[:, [:Q1_immigration, :group_id1, :group_id2]]), rng=StableRNG(1231))
 
 end
