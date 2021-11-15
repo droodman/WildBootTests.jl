@@ -54,7 +54,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   else
 	  infoCapData = infoAllData = infoBootData = Vector{UnitRange{Int64}}(undef, o.Nobs, 0)  # causes no collapsing of data in panelsum() calls, only multiplying by weights if any
   end
-  o.Nstar = nrows(o.infoBootData)
+  o.N✻ = nrows(o.infoBootData)
 
   if o.bootstrapt
     if o.NClustVar>0
@@ -142,15 +142,15 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
     		(o.ClustShare = o.haswt ? o.wt/o.sumwt : 1/o._Nobs)
     end
 
-		o.purerobust = o.robust && !o.scorebs && iszero(o.subcluster) && o.Nstar==o.Nobs  # do we ever error-cluster *and* bootstrap-cluster by individual?
-		o.granular   = o.WREnonARubin ? 2*o.Nobs*o.B*(2*o.Nstar+1) < o.Nstar*(o.Nstar*o.Nobs+o.clust[1].N*o.B*(o.Nstar+1)) :
-											o.NClustVar>0 && !o.scorebs && (o.purerobust || (o.clust[1].N+o.Nstar)*o.kZ*o.B + (o.clust[1].N-o.Nstar)*o.B + o.kZ*o.B < o.clust[1].N*o.kZ^2 + o.Nobs*o.kZ + o.clust[1].N * o.Nstar * o.kZ + o.clust[1].N * o.Nstar)
+		o.purerobust = o.robust && !o.scorebs && iszero(o.subcluster) && o.N✻==o.Nobs  # do we ever error-cluster *and* bootstrap-cluster by individual?
+		o.granular   = o.WREnonARubin ? 2*o.Nobs*o.B*(2*o.N✻+1) < o.N✻*(o.N✻*o.Nobs+o.clust[1].N*o.B*(o.N✻+1)) :
+											o.NClustVar>0 && !o.scorebs && (o.purerobust || (o.clust[1].N+o.N✻)*o.kZ*o.B + (o.clust[1].N-o.N✻)*o.B + o.kZ*o.B < o.clust[1].N*o.kZ^2 + o.Nobs*o.kZ + o.clust[1].N * o.N✻ * o.kZ + o.clust[1].N * o.N✻)
 
 		if o.robust && !o.purerobust
 			(o.subcluster>0 || o.granular) &&
 				(o.infoErrAll = panelsetup(o.IDAll, collect(o.subcluster+1:o.NClustVar)))  # info for error clusters wrt data collapsed to intersections of all bootstrapping && error clusters; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusterings
 			((o.scorebs && o.B>0) || (o.WREnonARubin && !o.granular && o.bootstrapt)) &&
-				(o.JNcapNstar = zeros(T, o.clust[1].N, o.Nstar))
+				(o.JNcapN✻ = zeros(T, o.clust[1].N, o.N✻))
 		end
 
 		if o.WREnonARubin && o.robust && o.bootstrapt && !o.granular
@@ -158,12 +158,12 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 				_, IDAllData = panelsetupID(o.ID, collect(             1:o.NClustVar))
 				_, IDCapData = panelsetupID(o.ID, collect(o.subcluster+1:o.NClustVar))
 			end
-			o.IDCTCapstar   = Vector{Vector{Int64}}(undef, o.Nstar)
-			o.infoCTCapstar = Vector{Vector{UnitRange{Int64}}}(undef, o.Nstar)
-			for i ∈ 1:o.Nstar
+			o.IDCTCap✻   = Vector{Vector{Int64}}(undef, o.N✻)
+			o.infoCTCap✻ = Vector{Vector{UnitRange{Int64}}}(undef, o.N✻)
+			for i ∈ 1:o.N✻
 				tmp = IDAllData[o.infoBootData[i]]                        # ID numbers w.r.t. intersection of all bootstrap/error clusterings contained in bootstrap cluster i
-				o.infoCTCapstar[i] = o.infoAllData[tmp[1]:tmp[end]]       # for each of those ID's, panel info for the all-bootstrap/error-clusterings data row groupings
-				o.IDCTCapstar[i] = IDCapData[first.(o.infoCTCapstar[i])]  # ID numbers of those groupings w.r.t. the all-error-clusterings grouping
+				o.infoCTCap✻[i] = o.infoAllData[tmp[1]:tmp[end]]       # for each of those ID's, panel info for the all-bootstrap/error-clusterings data row groupings
+				o.IDCTCap✻[i] = IDCapData[first.(o.infoCTCap✻[i])]  # ID numbers of those groupings w.r.t. the all-error-clusterings grouping
 			end
 		end
   else
@@ -238,10 +238,10 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		end
 	end
 
-	o.enumerate = o.B>0 && o.auxtwtype==rademacher && o.Nstar*log(2) < log(o.B)+1e-6  # generate full Rademacher set?
+	o.enumerate = o.B>0 && o.auxtwtype==rademacher && o.N✻*log(2) < log(o.B)+1e-6  # generate full Rademacher set?
 	o.enumerate && (o.maxmatsize = 0)
 
-	o.Nw = iszero(o.maxmatsize) ? 1 : ceil((o.B+1) * Float64(max(nrows(o.IDBootData), length(o.IDBootAll), o.Nstar) * sizeof(T)) / o.maxmatsize / 1073741824) # 1073741824 = giga(byte)
+	o.Nw = iszero(o.maxmatsize) ? 1 : ceil((o.B+1) * Float64(max(nrows(o.IDBootData), length(o.IDBootAll), o.N✻) * sizeof(T)) / o.maxmatsize / 1073741824) # 1073741824 = giga(byte)
 	if isone(o.Nw)
 		MakeWildWeights!(o, o.B, first=true)  # make all wild weights, once
 		o.enumerate && (o.B = ncols(o.v) - 1)  # replications reduced to 2^G
@@ -308,25 +308,25 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			Estimate!(o.Repl, o.r₁)
 
 			o.LIML && o.Repl.kZ==1 && o.Nw==1 && (o.As = o.βs = zeros(1, o.B+1))
-			o.SstarUZperpinvZperpZperp = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
-			o.SstarUZperp              = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
-			o.SstaruY                  = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
-			o.SstarUXinvXX             = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
-			o.SstarUX                  = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
-			o.SstarUU                  = Matrix{Matrix{T}}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
+			o.S✻UZperpinvZperpZperp = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
+			o.S✻UZperp              = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
+			o.S✻uY                  = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
+			o.S✻UXinvXX             = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
+			o.S✻UX                  = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
+			o.S✻UU                  = Matrix{Matrix{T}}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
 			o.T1L = isone(o.Nw) ? [Matrix{T}(undef, o.Repl.kX, ncols(o.v))] :
 									[Matrix{T}(undef, o.Repl.kX, length(o.WeightGrp[1])), Matrix{T}(undef, o.Repl.kX, length(o.WeightGrp[end]))]
 			o.T1R = deepcopy(o.T1L)
 
 			if o.bootstrapt
 				o.δdenom_b = zeros(o.Repl.kZ, o.Repl.kZ)
-				o.SstarUMZperp = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
-				o.SstarUPX     = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
+				o.S✻UMZperp = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
+				o.S✻UPX     = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
 				o._Jcap = zeros(o.clust[1].N, o.Repl.kZ)
-				!o.granular && (o.SCTcapuXinvXX = Matrix{Matrix{T}}(undef, o.Repl.kZ+1, o.Nstar))
+				!o.granular && (o.SCTcapuXinvXX = Matrix{Matrix{T}}(undef, o.Repl.kZ+1, o.N✻))
 				if o.LIML || !o.robust
-					o.YYstar_b   = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
-					o.YPXYstar_b = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
+					o.YY✻_b   = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
+					o.YPXY✻_b = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
 				end
 				o.NFE>0 && (o.bootstrapt || !isone(o.κ) || o.LIML) && (o.CTFEU = Vector{Matrix{T}}(undef, o.Repl.kZ+1))
 			end
@@ -360,19 +360,19 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
 		if o.robust && o.granular < o.NErrClustCombs && o.B>0
 			if o.subcluster>0  # crosstab c,c* is wide
-				o.crosstabCapstarind = Vector{Int64}(undef, Nall)
+				o.crosstabCap✻ind = Vector{Int64}(undef, Nall)
 				for i ∈ axes(o.infoErrAll, 1)
-					o.crosstabCapstarind[o.infoErrAll[i]]              = collect(i                            .+ o.clust[1].N * o.dof * (o.infoErrAll[i] .- 1))
+					o.crosstabCap✻ind[o.infoErrAll[i]]              = collect(i                            .+ o.clust[1].N * o.dof * (o.infoErrAll[i] .- 1))
 				end
 			elseif o.NClustVar == o.nbootclustvar  # crosstab c,c* is square
-				o.crosstabCapstarind = collect(1 : 1+Nall*o.dof : 1+(Nall-1)*(1+Nall*o.dof))  # ~diagind()
+				o.crosstabCap✻ind = collect(1 : 1+Nall*o.dof : 1+(Nall-1)*(1+Nall*o.dof))  # ~diagind()
 			else  # crosstab c,c* is tall
-				o.crosstabCapstarind = Vector{Int64}(undef, Nall)
+				o.crosstabCap✻ind = Vector{Int64}(undef, Nall)
 				for i ∈ axes(o.clust[o.BootClust].info, 1)
-					o.crosstabCapstarind[o.clust[o.BootClust].info[i]] = collect(o.clust[o.BootClust].info[i] .+ o.clust[1].N * o.dof * (              i  - 1))
+					o.crosstabCap✻ind[o.clust[o.BootClust].info[i]] = collect(o.clust[o.BootClust].info[i] .+ o.clust[1].N * o.dof * (              i  - 1))
 				end
 			end
-			o.crosstabCapstarind = vcat([o.crosstabCapstarind .+ i*o.clust[1].N for i in 0:o.dof-1]...)
+			o.crosstabCap✻ind = vcat([o.crosstabCap✻ind .+ i*o.clust[1].N for i in 0:o.dof-1]...)
 		end
   end
 
@@ -416,23 +416,23 @@ const ϕ = (1 + √5)/2
 function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) where T
   if _B>0  # in scoretest or waldtest WRE, still make v a col of 1's
     if o.enumerate
-			o.v = o.WREnonARubin ? [zeros(o.Nstar) count_binary(o.Nstar, -2, 0)] :  # complete Rademacher set
-								[ones( o.Nstar) count_binary(o.Nstar, -1, 1)]
+			o.v = o.WREnonARubin ? [zeros(o.N✻) count_binary(o.N✻, -2, 0)] :  # complete Rademacher set
+								[ones( o.N✻) count_binary(o.N✻, -1, 1)]
 		elseif o.auxtwtype==normal
-			o.v = randn(o.rng, T, o.Nstar, _B+first)
+			o.v = randn(o.rng, T, o.N✻, _B+first)
 			o.WREnonARubin && (o.v .-= one(T))
 		elseif o.auxtwtype==gamma
-			tmp = quantile.(Gamma(4,.5), rand(o.rng, o.Nstar, _B+first))
+			tmp = quantile.(Gamma(4,.5), rand(o.rng, o.N✻, _B+first))
 			o.v = T==Float64 ? tmp : T.(tmp)
 			o.WREnonARubin && (o.v .-= one(T))
 		elseif o.auxtwtype==webb
-			o.v = rand(o.rng, T.([-√1.5, -1, -√.5, √.5, 1, √1.5] .- o.WREnonARubin), o.Nstar, _B+first)
+			o.v = rand(o.rng, T.([-√1.5, -1, -√.5, √.5, 1, √1.5] .- o.WREnonARubin), o.N✻, _B+first)
 		elseif o.auxtwtype == mammen
-			o.v = getindex.(Ref(T.([1-ϕ; ϕ] .- o.WREnonARubin)), ceil.(Int16, rand(o.rng, o.Nstar, _B+first) ./ (ϕ/√5)))
+			o.v = getindex.(Ref(T.([1-ϕ; ϕ] .- o.WREnonARubin)), ceil.(Int16, rand(o.rng, o.N✻, _B+first) ./ (ϕ/√5)))
 		elseif o.WREnonARubin  # Rademacher
-			o.v = -2rand(o.rng, Bool, o.Nstar, _B+first)
+			o.v = -2rand(o.rng, Bool, o.N✻, _B+first)
 		else
-			o.v = rand(o.rng, Bool, o.Nstar, _B+first) .- T(.5)  # rand(o.rng, Bool, o.Nstar, _B+first) .- T(.5)
+			o.v = rand(o.rng, Bool, o.N✻, _B+first) .- T(.5)  # rand(o.rng, Bool, o.N✻, _B+first) .- T(.5)
 			o.v_sd = .5
 		end
 

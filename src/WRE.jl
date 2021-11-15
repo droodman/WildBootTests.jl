@@ -27,7 +27,7 @@ function _HessianFixedκ!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer, i
 			_T1L = iszero(ind1) ? o.Repl.Xy₁par : @view o.Repl.XZ[:,ind1]
 			if o.Repl.Yendog[ind1+1]
 				T1L = o.T1L[isone(o.Nw) || w<o.Nw ? 1 : 2]
-				T1L .= o.SstarUX[ind1+1] * o.v
+				T1L .= o.S✻UX[ind1+1] * o.v
 				T1L .+= _T1L
 			else
 				T1L = _T1L
@@ -35,7 +35,7 @@ function _HessianFixedκ!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer, i
 			_T1R = iszero(ind2) ? o.Repl.invXXXy₁par : @view o.Repl.invXXXZ[:,ind2]
 			if o.Repl.Yendog[ind2+1]
 				T1R = o.T1R[isone(o.Nw) || w<o.Nw ? 1 : 2]
-				T1R .= o.SstarUXinvXX[ind2+1] * o.v
+				T1R .= o.S✻UXinvXX[ind2+1] * o.v
 				T1R .+= _T1R
 			else
 				T1R = _T1R  # right-side linear term
@@ -44,15 +44,15 @@ function _HessianFixedκ!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer, i
 		end
 		if !isone(κ)
 			if o.Repl.Yendog[ind1+1]
-				T2 = o.SstarUZperpinvZperpZperp[ind1+1]'o.SstarUZperp[ind2+1]  # quadratic term
-				T2[diagind(T2)] .-= ind1 ≤ ind2 ? o.SstarUU[ind2+1, ind1+1] : o.SstarUU[ind1+1, ind2+1]  # minus diagonal crosstab
+				T2 = o.S✻UZperpinvZperpZperp[ind1+1]'o.S✻UZperp[ind2+1]  # quadratic term
+				T2[diagind(T2)] .-= ind1 ≤ ind2 ? o.S✻UU[ind2+1, ind1+1] : o.S✻UU[ind1+1, ind2+1]  # minus diagonal crosstab
 				o.NFE>0 &&
 					(T2 .+= o.CTFEU[ind1+1]'(o.invFEwt .* o.CTFEU[ind2+1]))
 
 				if iszero(κ)
-					dest .= o.Repl.YY[ind1+1,ind2+1] .+ colquadformminus!((                            @views o.SstaruY[ind2+1][:,ind1+1] .+ o.SstaruY[ind1+1][:,ind2+1])'o.v, T2, o.v)
+					dest .= o.Repl.YY[ind1+1,ind2+1] .+ colquadformminus!((                            @views o.S✻uY[ind2+1][:,ind1+1] .+ o.S✻uY[ind1+1][:,ind2+1])'o.v, T2, o.v)
 				else
-					dest .=   κ .* dest .+ (1 - κ)   .* colquadformminus!((o.Repl.YY[ind1+1,ind2+1] .+ @views o.SstaruY[ind2+1][:,ind1+1] .+ o.SstaruY[ind1+1][:,ind2+1])'o.v, T2, o.v)
+					dest .=   κ .* dest .+ (1 - κ)   .* colquadformminus!((o.Repl.YY[ind1+1,ind2+1] .+ @views o.S✻uY[ind2+1][:,ind1+1] .+ o.S✻uY[ind1+1][:,ind2+1])'o.v, T2, o.v)
 				end
 			elseif iszero(κ)
 				dest .= o.Repl.YY[ind1+1,ind2+1]
@@ -71,14 +71,14 @@ end
 function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
   if o.granular
    	if o.Nw == 1  # create or avoid NxB matrix?
-			PXYstar = iszero(ind1) ? o.Repl.PXy₁ : o.Repl.PXZ[:,ind1]
-			o.Repl.Yendog[ind1+1] && (PXYstar = PXYstar .+ o.SstarUPX[ind1+1] * o.v)
+			PXY✻ = iszero(ind1) ? o.Repl.PXy₁ : o.Repl.PXZ[:,ind1]
+			o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ o.S✻UPX[ind1+1] * o.v)
 
-			dest = @panelsum(PXYstar .* (o.Repl.y₁ .- o.SstarUMZperp[1] * o.v), o.wt, o.infoCapData)
+			dest = @panelsum(PXY✻ .* (o.Repl.y₁ .- o.S✻UMZperp[1] * o.v), o.wt, o.infoCapData)
 
 			for ind2 ∈ 1:o.Repl.kZ
 				_β = view(βs,ind2,:)'
-				dest .-= @panelsum(PXYstar .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[:,ind2] * _β .- o.SstarUMZperp[ind2+1] * (o.v .* _β) :
+				dest .-= @panelsum(PXY✻ .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[:,ind2] * _β .- o.S✻UMZperp[ind2+1] * (o.v .* _β) :
 															         o.Repl.Z[:,ind2] * _β                                            ), o.wt, o.infoCapData)
 			end
 		else  # create pieces of each N x B matrix one at a time rather than whole thing at once
@@ -88,26 +88,26 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 
 				if o.purerobust
 					for i ∈ 1:o.clust[1].N
-						PXYstar = hcat(iszero(ind1) ? o.Repl.PXy₁[i] : o.Repl.PXZ[i,ind1])
-						o.Repl.Yendog[ind1+1] && (PXYstar = PXYstar .+ view(o.SstarUPX[ind1+1],i,:)'o.v)
+						PXY✻ = hcat(iszero(ind1) ? o.Repl.PXy₁[i] : o.Repl.PXZ[i,ind1])
+						o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ view(o.S✻UPX[ind1+1],i,:)'o.v)
 
 						if iszero(ind2)
-							dest[i,:]   = wtsum(o.wt, PXYstar .* (o.Repl.y₁[i] .- view(o.SstarUMZperp[1],i,:))'o.v)
+							dest[i,:]   = wtsum(o.wt, PXY✻ .* (o.Repl.y₁[i] .- view(o.S✻UMZperp[1],i,:))'o.v)
 						else
-							dest[i,:] .-= wtsum(o.wt, PXYstar .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[i,ind2] * _β .- view(o.SstarUMZperp[ind2+1],i,:)'βv :
+							dest[i,:] .-= wtsum(o.wt, PXY✻ .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[i,ind2] * _β .- view(o.S✻UMZperp[ind2+1],i,:)'βv :
 																						        o.Repl.Z[i,ind2] * _β))
 						end
 					end
 				else
 					for i ∈ 1:o.clust[1].N
 						S = o.infoCapData[i]
-						PXYstar = ind1 ? o.Repl.PXZ[S,ind1] : o.Repl.PXy₁[S]
-						o.Repl.Yendog[ind1+1] && (PXYstar = PXYstar .+ view(o.SstarUPX[ind1+1],S,:) * o.v)
+						PXY✻ = ind1 ? o.Repl.PXZ[S,ind1] : o.Repl.PXy₁[S]
+						o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ view(o.S✻UPX[ind1+1],S,:) * o.v)
 
 						if iszero(ind2)
-							dest[i,:]   = wtsum(o.wt, PXYstar .* (o.Repl.y₁[S] .- view(o.SstarUMZperp[1],S,:) * o.v))
+							dest[i,:]   = wtsum(o.wt, PXY✻ .* (o.Repl.y₁[S] .- view(o.S✻UMZperp[1],S,:) * o.v))
 						else
-							dest[i,:] .-= wtsum(o.wt, PXYstar .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[S,ind2] * _β .- view(o.SstarUMZperp[ind2+1],S,:) * βv :
+							dest[i,:] .-= wtsum(o.wt, PXY✻ .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[S,ind2] * _β .- view(o.S✻UMZperp[ind2+1],S,:) * βv :
 																						  o.Repl.Z[S,ind2] * _β                                       ))
 						end
 					end
@@ -119,23 +119,23 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 			βv = iszero(ind2) ? o.v : o.v .* (_β = -view(βs,ind2,:)')
 
 			# T1 * o.v will be 1st-order terms
-			T₁ = o.Repl.Yendog[ind1+1] ? o.Repl.ScapYX[ind2+1] * o.SstarUXinvXX[ind1+1] : Matrix{T}(undef,0,0)  #  S_∩ (Y_(∥j):*X_∥ ) (X_∥^' X_∥ )^(-1) [S_* (U ̈_(∥i):*X_∥ )]^'
+			T₁ = o.Repl.Yendog[ind1+1] ? o.Repl.ScapYX[ind2+1] * o.S✻UXinvXX[ind1+1] : Matrix{T}(undef,0,0)  #  S_∩ (Y_(∥j):*X_∥ ) (X_∥^' X_∥ )^(-1) [S_* (U ̈_(∥i):*X_∥ )]^'
 
 			if o.Repl.Yendog[ind2+1]  # add CT_(cap,*) (P_(X_par ) Y_(pari).*U ̈_(parj) )
 				if o.NClustVar == o.nbootclustvar && iszero(o.subcluster)  # simple case of one clustering: full crosstab is diagonal
 					tmp = ind1>0 ? o.Repl.XZ[:,ind1] : o.Repl.Xy₁par
 					if length(T₁)>0
-						T₁[diagind(T₁)] .+= o.SstarUXinvXX[ind2+1]'tmp
+						T₁[diagind(T₁)] .+= o.S✻UXinvXX[ind2+1]'tmp
 					else
-						T₁                = o.SstarUXinvXX[ind2+1]'tmp  # keep T₁ as vector rather than Diagonal matrix; probably better for fusion loop
+						T₁                = o.S✻UXinvXX[ind2+1]'tmp  # keep T₁ as vector rather than Diagonal matrix; probably better for fusion loop
 					end
 				else
-					!o.Repl.Yendog[ind1+1] && (T₁ = o.JNcapNstar)
-					for i ∈ 1:o.Nstar
-						T₁[o.IDCTCapstar[i], i] .+= o.SCTcapuXinvXX[ind2+1,i] * (ind1>0 ? view(o.Repl.XZ,:,ind1) : o.Repl.Xy₁par)
+					!o.Repl.Yendog[ind1+1] && (T₁ = o.JNcapN✻)
+					for i ∈ 1:o.N✻
+						T₁[o.IDCTCap✻[i], i] .+= o.SCTcapuXinvXX[ind2+1,i] * (ind1>0 ? view(o.Repl.XZ,:,ind1) : o.Repl.Xy₁par)
 					end
 				end
-				length(o.Repl.Zperp) > 0 && (T₁ = T₁ .- o.Repl.ScapPXYZperp[ind1+1] * o.SstarUZperpinvZperpZperp[ind2+1])  # subtract S_∩ (P_(X_∥ ) Y_(∥i):*Z_⊥ ) (Z_⊥^' Z_⊥ )^(-1) [S_* (U ̈_(∥j):*Z_⊥ )]^'
+				length(o.Repl.Zperp) > 0 && (T₁ = T₁ .- o.Repl.ScapPXYZperp[ind1+1] * o.S✻UZperpinvZperpZperp[ind2+1])  # subtract S_∩ (P_(X_∥ ) Y_(∥i):*Z_⊥ ) (Z_⊥^' Z_⊥ )^(-1) [S_* (U ̈_(∥j):*Z_⊥ )]^'
 					o.NFE              > 0 && (T₁ = T₁ .- o.Repl.CT_FEcapPY[ind1+1] * o.CTFEU[ind2+1])
 			end
 
@@ -161,7 +161,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 			if o.Repl.Yendog[ind1+1] && o.Repl.Yendog[ind2+1]
 				for i ∈ 1:o.clust[1].N
 					S = o.infoCapData[i]
-					colquadformminus!(dest, i, cross(view(o.SstarUPX[ind1+1],S,:), o.haswt ? o.wt[S] : I, view(o.SstarUMZperp[ind2+1],S,:)), o.v, βv)
+					colquadformminus!(dest, i, cross(view(o.S✻UPX[ind1+1],S,:), o.haswt ? o.wt[S] : I, view(o.S✻UMZperp[ind2+1],S,:)), o.v, βv)
 				end
 			end
 		end
@@ -175,43 +175,49 @@ function PrepWRE!(o::StrBootTest)
   o.Ü₂par = o.DGP.Ü₂ * o.Repl.RparY  # XXX XB(o.DGP.Ü₂, o.Repl.RparY)
 
   for i ∈ 0:o.Repl.kZ  # precompute various clusterwise sums
-		uwt = vHadw(i>0 ? o.Ü₂par[:,i] : o.DGP.u⃛₁, o.wt)
+		uwt = vHadw(i>0 ? view(o.Ü₂par,:,i) : o.DGP.u⃛₁, o.wt)
 
-		# S_star(u .* X), S_star(u .* Zperp) for residuals u for each endog var; store transposed
-		o.SstarUX[i+1]      = @panelsum2(o.Repl.X₁, o.Repl.X₂, uwt, o.infoBootData)'
-		o.SstarUXinvXX[i+1] = o.Repl.invXX * o.SstarUX[i+1]
+		# S_✻(u .* X), S_✻(u .* Zperp) for residuals u for each endog var; store transposed
+		o.S✻UX[i+1]      = @panelsum2(o.Repl.X₁, o.Repl.X₂, uwt, o.infoBootData)'
+		o.S✻UXinvXX[i+1] = o.Repl.invXX * o.S✻UX[i+1]
 
 		if o.LIML || o.bootstrapt || !isone(o.κ)
-			o.SstarUZperp[i+1]              = @panelsum(o.Repl.Zperp, uwt, o.infoBootData)'
-			o.SstarUZperpinvZperpZperp[i+1] = o.Repl.invZperpZperp * o.SstarUZperp[i+1]
+			o.S✻UZperp[i+1]              = @panelsum(o.Repl.Zperp, uwt, o.infoBootData)'
+			o.S✻UZperpinvZperpZperp[i+1] = o.Repl.invZperpZperp * o.S✻UZperp[i+1]
 			o.NFE>0 && (o.CTFEU[i+1] = crosstabFE(o, uwt, o.infoBootData))
 		end
 
 		if o.LIML || !o.robust || !isone(o.κ)
-			o.SstaruY[i+1] = @panelsum2(o.Repl.y₁par, o.Repl.Z, uwt, o.infoBootData)
+			o.S✻uY[i+1] = @panelsum2(o.Repl.y₁par, o.Repl.Z, uwt, o.infoBootData)
 			for j ∈ 0:i
-				o.SstarUU[i+1,j+1] = @panelsum(j>0 ? o.Ü₂par[:,j] : o.DGP.u⃛₁, uwt, o.infoBootData)
+				o.S✻UU[i+1,j+1] = @panelsum(j>0 ? view(o.Ü₂par,:,j) : o.DGP.u⃛₁, uwt, o.infoBootData)
 			end
 		end
 
 		if o.robust && o.bootstrapt
 			if !o.granular  # Within each bootstrap cluster, groupwise sum by all-error-cluster-intersections of u.*X and u.Zperp (and times invXX or invZperpZperp)
-				for g ∈ 1:o.Nstar
-					o.SCTcapuXinvXX[i+1,g] = @panelsum(o.Repl.XinvXX, uwt, o.infoCTCapstar[g])
+				for g ∈ 1:o.N✻
+					o.SCTcapuXinvXX[i+1,g] = @panelsum(o.Repl.XinvXX, uwt, o.infoCTCap✻[g])
 				end
 			end
 
-			o.SstarUPX[i+1]     = o.Repl.XinvXX * o.SstarUX[i+1]
-			o.SstarUMZperp[i+1] = o.Repl.Zperp * o.SstarUZperpinvZperpZperp[i+1]
-			if o.Nobs == o.Nstar  # subtract "crosstab" of observation by cap-group of u
-				o.SstarUMZperp[i+1][diagind(o.SstarUMZperp[i+1])] .-= i>0 ? o.Ü₂par[:,i] : o.DGP.u⃛₁  # case: bootstrapping by observation
+			o.S✻UPX[i+1]     = o.Repl.XinvXX * o.S✻UX[i+1]
+			o.S✻UMZperp[i+1] = o.Repl.Zperp * o.S✻UZperpinvZperpZperp[i+1]
+			if o.Nobs == o.N✻  # subtract "crosstab" of observation by cap-group of u
+				o.S✻UMZperp[i+1][diagind(o.S✻UMZperp[i+1])] .-= i>0 ? view(o.Ü₂par,:,i) : o.DGP.u⃛₁  # case: bootstrapping by observation
 			else
-				for g ∈ 1:o.Nobs
-					o.SstarUMZperp[i+1][g,o.IDBootData[g]] -= iszero(i) ? o.DGP.u⃛₁[g] : o.Ü₂par[g,i]
+				if iszero(i)
+					for g ∈ 1:o.Nobs
+						o.S✻UMZperp[i+1][g,o.IDBootData[g]] -= o.DGP.u⃛₁[g]
+					end
+				else
+					for g ∈ 1:o.Nobs
+						o.S✻UMZperp[i+1][g,o.IDBootData[g]] -= o.Ü₂par[g,i]
+					end
 				end
 			end
 			o.NFE>0 &&
-				(o.SstarUMZperp[i+1] .+= (o.invFEwt .* view(o.CTFEU[i+1]),o._FEID,:))  # CT_(*,FE) (U ̈_(parj) ) (S_FE S_FE^' )^(-1) S_FE
+				(o.S✻UMZperp[i+1] .+= view(o.invFEwt .* o.CTFEU[i+1], o._FEID,:))  # CT_(*,FE) (U ̈_(parj) ) (S_FE S_FE^' )^(-1) S_FE
 		end
   end
 end
@@ -226,11 +232,11 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			YPXY₁₂ = HessianFixedκ(o, [0], 1, one(T) , w)
 			YPXY₂₂ = HessianFixedκ(o, [1], 1, one(T) , w)
 			YY₁₂YPXY₁₂ = YY₁₂ .* YPXY₁₂
-			x₁₁ = YY₂₂ .* YPXY₁₁ .- YY₁₂YPXY₁₂      # elements of YYstar^-1 * YPXYstar up to factor of det(YYstar)
+			x₁₁ = YY₂₂ .* YPXY₁₁ .- YY₁₂YPXY₁₂      # elements of YY✻^-1 * YPXY✻ up to factor of det(YY✻)
 			x₁₂ = YY₂₂ .* YPXY₁₂ .- YY₁₂ .* YPXY₂₂
 			x₂₁ = YY₁₁ .* YPXY₁₂ .- YY₁₂ .* YPXY₁₁
 			x₂₂ = YY₁₁ .* YPXY₂₂ .- YY₁₂YPXY₁₂
-			κs = (x₁₁ .+ x₂₂)/2; κs = 1 ./ (1 .- (κs - sqrt.(κs.^2 .- x₁₁.*x₂₂ .+ x₁₂.*x₂₁)) ./ (YY₁₁ .* YY₂₂ .- YY₁₂ .* YY₁₂))  # solve quadratic equation for smaller eignenvalue; last term is det(YYstar)
+			κs = (x₁₁ .+ x₂₂)/2; κs = 1 ./ (1 .- (κs - sqrt.(κs.^2 .- x₁₁.*x₂₂ .+ x₁₂.*x₂₁)) ./ (YY₁₁ .* YY₂₂ .- YY₁₂ .* YY₁₂))  # solve quadratic equation for smaller eignenvalue; last term is det(YY✻)
 			!iszero(o.Fuller) && (κs .-= o.Fuller / (o._Nobs - o.kX))
 			o.As = κs .* (YPXY₂₂ .- YY₂₂) .+ YY₂₂
 			βs = (κs .* (YPXY₁₂ .- YY₁₂) .+ YY₁₂) ./ o.As
@@ -269,17 +275,17 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 		A = Vector{Matrix{T}}(undef, ncols(o.v))
 
 		if o.LIML
-			o.YYstar   = [HessianFixedκ(o, collect(0:i), i, zero(T), w) for i ∈ 0:o.Repl.kZ] # κ=0 => Y*MZperp*Y
-			o.YPXYstar = [HessianFixedκ(o, collect(0:i), i,  one(T), w) for i ∈ 0:o.Repl.kZ] # κ=1 => Y*PXpar*Y
+			o.YY✻   = [HessianFixedκ(o, collect(0:i), i, zero(T), w) for i ∈ 0:o.Repl.kZ] # κ=0 => Y*MZperp*Y
+			o.YPXY✻ = [HessianFixedκ(o, collect(0:i), i,  one(T), w) for i ∈ 0:o.Repl.kZ] # κ=1 => Y*PXpar*Y
 
 			for b ∈ axes(o.v,2)
 				for i ∈ 0:o.Repl.kZ
-					o.YYstar_b[1:i+1,i+1]   = o.YYstar[i+1][:,b]  # fill uppper triangles, which is all that invsym() looks at
-					o.YPXYstar_b[1:i+1,i+1] = o.YPXYstar[i+1][:,b]
+					o.YY✻_b[1:i+1,i+1]   = o.YY✻[i+1][:,b]  # fill uppper triangles, which is all that invsym() looks at
+					o.YPXY✻_b[1:i+1,i+1] = o.YPXY✻[i+1][:,b]
 				end
-				o.κ = 1/(1 - eigvals(invsym(o.YYstar_b) * Symmetric(o.YPXYstar_b))[1])
+				o.κ = 1/(1 - eigvals(invsym(o.YY✻_b) * Symmetric(o.YPXY✻_b))[1])
 				!iszero(o.Fuller) && (o.κ -= o.Fuller / (o._Nobs - o.kX))
-				βs[:,b] = (A[b] = invsym(o.κ*o.YPXYstar_b[2:end,2:end] + (1-o.κ)*o.YYstar_b[2:end,2:end])) * (o.κ*o.YPXYstar_b[1,2:end]' + (1-o.κ)*o.YYstar_b[1,2:end]')
+				βs[:,b] = (A[b] = invsym(o.κ*o.YPXY✻_b[2:end,2:end] + (1-o.κ)*o.YY✻_b[2:end,2:end])) * (o.κ*o.YPXY✻_b[1,2:end]' + (1-o.κ)*o.YY✻_b[1,2:end]')
 			end
 		else
 			δnumer = HessianFixedκ(o, collect(1:o.Repl.kZ), 0, o.κ, w)
@@ -297,7 +303,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			if o.robust
 				Zyg = [Filling(o, i, βs) for i ∈ 1:o.Repl.kZ]  # XXX concatenate into 3-d array?
 			else
-				o.YYstar = [HessianFixedκ(o, collect(i:o.Repl.kZ), i, zero(T), w) for i ∈ 0:o.Repl.kZ]  # κ=0 => Y*MZperp*Y
+				o.YY✻ = [HessianFixedκ(o, collect(i:o.Repl.kZ), i, zero(T), w) for i ∈ 0:o.Repl.kZ]  # κ=0 => Y*MZperp*Y
 			end
 		end
 
@@ -323,9 +329,9 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 					end
 				else  # non-robust
 					for i ∈ 0:o.Repl.kZ
-						YYstar_b[i+1,i+1:o.Repl.kZ+1] = view(YYstar[i+1],b,:)  # fill upper triangle
+						YY✻_b[i+1,i+1:o.Repl.kZ+1] = view(YY✻[i+1],b,:)  # fill upper triangle
 					end
-					denom = (o.Repl.RRpar * A[b] * o.Repl.RRpar') * [-one(T) ; βs[:,b]]'Symmetric(YYstar_b) * [-one(T) ; βs[:,b]] / o._Nobs  # 2nd half is sig2 of errors
+					denom = (o.Repl.RRpar * A[b] * o.Repl.RRpar') * [-one(T) ; βs[:,b]]'Symmetric(YY✻_b) * [-one(T) ; βs[:,b]] / o._Nobs  # 2nd half is sig2 of errors
 				end
 				if o.sqrt
 					o.dist[b+first(o.WeightGrp[w])-1] = numer_b[1] / sqrt(denom[1])

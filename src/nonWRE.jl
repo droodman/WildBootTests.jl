@@ -124,10 +124,10 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 			  o.DGP.A * @panelsum2(o.X₁, o.X₂, vHadw(o.ü, o.wt), o.infoBootData)'  # same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined; X₂ empty except in Anderson-Rubin
 
 	if o.robust && o.bootstrapt && o.granular < o.NErrClustCombs
-		ustarXAR = @panelsum(o.uXAR, o.wt, o.infoAllData)  # collapse data to all-boot && error-cluster-var intersections. If no collapsing needed, panelsum() will still fold in any weights
+		u✻XAR = @panelsum(o.uXAR, o.wt, o.infoAllData)  # collapse data to all-boot && error-cluster-var intersections. If no collapsing needed, panelsum() will still fold in any weights
 		if o.B>0
 			if o.scorebs
-				Kd = zeros(T, o.clust[1].N, o.dof, o.Nstar)  # inefficient, but not optimizing for the score bootstrap
+				Kd = zeros(T, o.clust[1].N, o.dof, o.N✻)  # inefficient, but not optimizing for the score bootstrap
 			else
 				Kd = @panelsum2(o.X₁, o.X₂, vHadw(o.DGP.XAR, o.wt), o.infoCapData) * o.SuwtXA  # overloaded def of * for >2D arrays
 			end
@@ -136,7 +136,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 
 			o.NFE>0 && !o.FEboot &&
 				(Kd .+= o.M.CT_XAR * (o.invFEwt .* o.CT_WE))  # overloaded def of * for >2D arrays
-			Kd[o.crosstabCapstarind] .-= reshape(ustarXAR,:)  # subtract crosstab of ustarXAR wrt bootstrapping cluster and all-cluster-var intersections from M
+			Kd[o.crosstabCap✻ind] .-= reshape(u✻XAR,:)  # subtract crosstab of u✻XAR wrt bootstrapping cluster and all-cluster-var intersections from M
 			o.scorebs && (Kd .-= o.ClustShare * colsum(Kd))  # recenter
 
 			for c ∈ 1+o.granular:o.NErrClustCombs  # XXX pre-compute common iterators
@@ -148,11 +148,11 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 			end
 		else  # B = 0. In this case, only 1st term of (64) is non-zero after multiplying by v* (= all 1's), and it is then a one-way sum by c
 			o.scorebs &&
-				(ustarXAR .-= o.ClustShare * colsum(ustarXAR))  # recenter if OLS
+				(u✻XAR .-= o.ClustShare * colsum(u✻XAR))  # recenter if OLS
 			for c ∈ 1:o.NErrClustCombs
 				length(o.clust[c].order)>0 &&
-					(ustarXAR = view(ustarXAR, o.clust[c].order,:))
-				tmp = @panelsum(ustarXAR, o.clust[c].info)
+					(u✻XAR = view(u✻XAR, o.clust[c].order,:))
+				tmp = @panelsum(u✻XAR, o.clust[c].info)
 				for d ∈ 1:o.dof
 					o.Kcd[c,d] = reshape(view(tmp,:,d),:,1)
 				end
@@ -185,15 +185,15 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 	@views if o.B>0 && o.robust && o.bootstrapt
 		if o.granular || o.purerobust  # optimized treatment when bootstrapping by many/small groups
 			if o.purerobust
-				o.ustar = o.ü .* o.v
-				partialFE!(o, o.ustar)
-				o.ustar -= X₁₂B(o.X₁, o.X₂, o.βdev)  # XXX make X₁₂Bminus
+				o.u✻ = o.ü .* o.v
+				partialFE!(o, o.u✻)
+				o.u✻ -= X₁₂B(o.X₁, o.X₂, o.βdev)  # XXX make X₁₂Bminus
 			else  # clusters small but not all singletons
 				if o.NFE>0 && !o.FEboot
-					o.ustar = o.ü .* view(o.v, o.IDBootData, :)
-					partialFE!(o, o.ustar)
+					o.u✻ = o.ü .* view(o.v, o.IDBootData, :)
+					partialFE!(o, o.u✻)
 					for d ∈ 1:o.dof
-						o.Jcd[1,d] = @panelsum(o.ustar, o.M.WXAR[:,d], o.infoCapData)                           - @panelsum2(o.X₁, o.X₂, o.M.WXAR[:,d], o.infoCapData) * o.βdev
+						o.Jcd[1,d] = @panelsum(o.u✻, o.M.WXAR[:,d], o.infoCapData)                           - @panelsum2(o.X₁, o.X₂, o.M.WXAR[:,d], o.infoCapData) * o.βdev
 					end
 				else
 					_v = view(o.v,o.IDBootAll,:)
@@ -215,10 +215,10 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 
 	if o.robust
     	if !o.interpolating  # these quadratic computation needed to *prepare* for interpolation but are superseded by interpolation once it is going
-      		o.purerobust && (ustar2 = o.ustar .^ 2)
+      		o.purerobust && (u✻2 = o.u✻ .^ 2)
       		for i ∈ 1:o.dof, j ∈ 1:i
     			o.purerobust &&
-  	      			(o.denom[i,j] = cross(view(o.M.WXAR,:,i), view(o.M.WXAR,:,j), ustar2) * (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier))
+  	      			(o.denom[i,j] = cross(view(o.M.WXAR,:,i), view(o.M.WXAR,:,j), u✻2) * (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier))
 				for c ∈ o.purerobust+1:o.NErrClustCombs
 					@clustAccum!(o.denom[i,j], c, j==i ? coldot(o.Jcd[c,i]) : coldot(o.Jcd[c,i],o.Jcd[c,j]))
 				end
@@ -250,20 +250,20 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 		if isone(o.dof)  # optimize for one null constraint
 			o.denom[1,1] = o.R * AR
 			if !o.ML
-				o.ustar = o.B>0 ? o.v .* o.ü : o.ü
+				o.u✻ = o.B>0 ? o.v .* o.ü : o.ü
 				if o.scorebs
 					if o.haswt  # Center variance if interpolated
-						o.ustar .-= o.ClustShare'o.ustar
+						o.u✻ .-= o.ClustShare'o.u✻
 					else
-						o.ustar .-= colsum(o.ustar) * o.ClustShare  # Center variance if interpolated
+						o.u✻ .-= colsum(o.u✻) * o.ClustShare  # Center variance if interpolated
 					end
 				else
-					o.ustar -= X₁₂B(o.X₁, o.X₂, o.βdev)  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
+					o.u✻ -= X₁₂B(o.X₁, o.X₂, o.βdev)  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
 				end
 				if o.haswt
-					o.denom[1,1] .*= o.wt'(o.ustar .^ 2)
+					o.denom[1,1] .*= o.wt'(o.u✻ .^ 2)
 				else
-					o.denom[1,1] .*= coldot(o.ustar)
+					o.denom[1,1] .*= coldot(o.u✻)
 				end
 			end
 
@@ -282,17 +282,17 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 				for k ∈ 1:ncols(o.v)
 					numer_l =view(o.numerw,:,k)
 					o.dist[k+first(o.WeightGrp[w])-1] = o.numer_l'invdenom*numer_l
-					o.ustar = o.B>0 ? view(o.v,:,k) .* o.ü : o.ü
+					o.u✻ = o.B>0 ? view(o.v,:,k) .* o.ü : o.ü
 					if o.scorebs
 						if o.haswt  # Center variance if interpolated
-							o.ustar .-= o.wt'o.ustar * o.ClustShare
+							o.u✻ .-= o.wt'o.u✻ * o.ClustShare
 						else
-							o.ustar .-= colsum(o.ustar) * o.ClustShare  # Center variance if interpolated
+							o.u✻ .-= colsum(o.u✻) * o.ClustShare  # Center variance if interpolated
 						end
 					else
-						o.ustar .-= X₁₂B(o.X₁, o.X₂, view(o.βdev,:,k))  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
+						o.u✻ .-= X₁₂B(o.X₁, o.X₂, view(o.βdev,:,k))  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
 					end
-					o.dist[k+first(o.WeightGrp[w])-1] ./= (tmp = symcross(o.ustar, o.wt))
+					o.dist[k+first(o.WeightGrp[w])-1] ./= (tmp = symcross(o.u✻, o.wt))
 				end
 				isone(w) && (o.statDenom = o.denom[1,1] * tmp)  # original-sample denominator
 			end

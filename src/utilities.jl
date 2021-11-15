@@ -138,18 +138,19 @@ function matmulplus!(A::Vector, B::Matrix, C::Vector)  # add B*C to A in place
 	end
 end
 
-# like Mata panelsetup() but can group on multiple columns, like sort(), and faster. But doesn't take minobs, maxobs arguments.
+# like Mata panelsetup() but can group on multiple columns, like sort(). But doesn't take minobs, maxobs arguments.
 function panelsetup(X::AbstractArray{S} where S, colinds::Vector{T} where T<:Integer)
   N = nrows(X)
   info = Vector{UnitRange{Int64}}(undef, N)
   lo = p = 1
-  id = view(X,1,colinds)
   @inbounds for hi ∈ 2:N
-  	if (tmp=view(X,hi,colinds)) ≠ id
-  	  info[p] = lo:hi-1
-      lo = hi
-  	  p += 1
-  	  id = tmp
+    for j ∈ colinds
+      if X[hi,j] ≠ X[lo,j]
+        info[p] = lo:hi-1
+        lo = hi
+        p += 1
+        break
+      end
   	end
   end
   info[p] = lo:N
@@ -162,14 +163,15 @@ function panelsetupID(X::AbstractArray{S} where S, colinds::Vector{T} where T<:I
   info = Vector{UnitRange{Int64}}(undef, N)
   ID = ones(Int64, N)
   lo = p = 1
-  id = @view X[1, colinds]
   @inbounds for hi ∈ 2:N
-    if (tmp=view(X,hi,colinds)) ≠ id
-  	  info[p] = lo:hi-1
-      lo = hi
-  	  p += 1
-  	  id = tmp
-	  end
+    for j ∈ colinds
+      if X[hi,j] ≠ X[lo,j]
+        info[p] = lo:hi-1
+        lo = hi
+        p += 1
+        break
+      end
+  	end
 	  ID[hi] = p
   end
   info[p] = lo:N

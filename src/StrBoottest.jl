@@ -52,10 +52,10 @@ mutable struct StrBootTest{T<:AbstractFloat}
 
   sqrt::Bool; Nobs::Int64; _Nobs::Int64; kZ::Int64; kY₂::Int64; kX₁::Int64; sumwt::T; NClustVar::Int8; haswt::Bool; REst::Bool; multiplier::T; smallsample::T
 		WREnonARubin::Bool; dof::Int64; dof_r::Int64; p::T; BootClust::Int8
-		purerobust::Bool; Nstar::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX₂::Int64; kX::Int64
-  _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; ustar::Matrix{T}; CT_WE::Matrix{T}
+		purerobust::Bool; N✻::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX₂::Int64; kX::Int64
+  _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; u✻::Matrix{T}; CT_WE::Matrix{T}
   infoBootData::Vector{UnitRange{Int64}}; infoBootAll::Vector{UnitRange{Int64}}; infoErrAll::Vector{UnitRange{Int64}}
-  JNcapNstar::Matrix{T}; statDenom::Matrix{T}; uXAR::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; βdev::Matrix{T}; δdenom_b::Matrix{T}; _Jcap::Matrix{T}; YYstar_b::Matrix{T}; YPXYstar_b::Matrix{T}; numerw::Matrix{T}
+  JNcapN✻::Matrix{T}; statDenom::Matrix{T}; uXAR::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; βdev::Matrix{T}; δdenom_b::Matrix{T}; _Jcap::Matrix{T}; YY✻_b::Matrix{T}; YPXY✻_b::Matrix{T}; numerw::Matrix{T}
 	distCDR::Matrix{T}; plotX::Matrix{T}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
   numersum::Vector{T}; ü₀::Vector{T}; invFEwt::Vector{T}
 	βs::Matrix{T}; As::Matrix{T}
@@ -63,13 +63,13 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	ü::Vector{T}
 	DGP::StrEstimator{T,E} where E; Repl::StrEstimator{T,E} where E; M::StrEstimator{T,E} where E
 	clust::Vector{StrClust{T}}
-	denom::Matrix{Matrix{T}}; Kcd::Matrix{Matrix{T}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; SCTcapuXinvXX::Matrix{Matrix{T}}; SstarUU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
-	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; IDCTCapstar::Vector{Vector{Int64}}; infoCTCapstar::Vector{Vector{UnitRange{Int64}}}; SstarUX::Vector{Matrix{T}}; SstarUXinvXX::Vector{Matrix{T}}; SstarUZperpinvZperpZperp::Vector{Matrix{T}}; SstaruY::Vector{Matrix{T}}; SstarUMZperp::Vector{Matrix{T}}; SstarUPX::Vector{Matrix{T}}; SstarUZperp::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
+	denom::Matrix{Matrix{T}}; Kcd::Matrix{Matrix{T}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; SCTcapuXinvXX::Matrix{Matrix{T}}; S✻UU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
+	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; IDCTCap✻::Vector{Vector{Int64}}; infoCTCap✻::Vector{Vector{UnitRange{Int64}}}; S✻UX::Vector{Matrix{T}}; S✻UXinvXX::Vector{Matrix{T}}; S✻UZperpinvZperpZperp::Vector{Matrix{T}}; S✻uY::Vector{Matrix{T}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻UZperp::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
   ∂denom∂r::Vector{Matrix{Matrix{T}}}; ∂Jcd∂r::Vector{Matrix{Matrix{T}}}
   ∂²denom∂r²::Matrix{Matrix{Matrix{T}}}
 	FEs::Vector{StrFE{T}}
   T1L::Vector{Matrix{T}}; T1R::Vector{Matrix{T}}
-	crosstabCapstarind::Vector{Int64}
+	crosstabCap✻ind::Vector{Int64}
   seed::UInt64
 
   StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
@@ -302,7 +302,7 @@ getv(o::StrBootTest) = @views isone(o.v_sd) ? o.v[:,2:end] : o.v[:,2:end] / o.v_
 # Return number of bootstrap replications with feasible results
 # Returns 0 if getp() not yet accessed, or doing non-bootstrapping tests
 getrepsfeas(o::StrBootTest) = o.BFeas
-getNBootClust(o::StrBootTest) = o.Nstar
+getNBootClust(o::StrBootTest) = o.N✻
 getreps(o::StrBootTest) = o.B  # return number of replications, possibly reduced to 2^G
 
 function getpadj(o::StrBootTest{T}; classical::Bool=false) where T
