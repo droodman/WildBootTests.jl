@@ -25,7 +25,7 @@ The interface is low-level: the exported function `wildboottest()` accepts scala
 ```
 julia> using WildBootTests, CSV, DataFrames, GLM, Plots
 
-julia> d = download("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv")
+julia> d = download("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv");
 
 julia> df = CSV.read(d, DataFrame);
 
@@ -48,7 +48,7 @@ x            1.03483     0.0285833  36.20    <1e-99   0.978798  1.09087
 
 julia> resp, predexog = modelcols(f, df);  # extract response & (exogenous) predictor variables
 
-julia> clustid = df.firm  # extract clustering variable
+julia> clustid = df.firm;  # extract clustering variable
 
 julia> R = [0 1]; r = [1];  # express null that coefficient on x is 1 as Rβ = r, where β is parameter vector
 
