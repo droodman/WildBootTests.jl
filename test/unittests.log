@@ -40,7 +40,7 @@ z=4.0267124 p=0.0250025 CI=Float32[-0.89395976 -0.38685176; 0.30942127 1.2528665
 
 areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)
 boottest tenure, cluster(age occupation) bootcluster(occupation)
-t=0.48740008 p=0.6596597 CI=Float32[-0.04159961 0.114947945]
+t=0.48740003 p=0.6596597 CI=Float32[-0.041599624 0.11494796]
 
 global pix lnkm pixpetro pixdia pixwaterd pixcapdist pixmal pixsead pixsuit pixelev pixbdist
 global geo lnwaterkm lnkm2split mean_elev mean_suit malariasuit petroleum diamondd

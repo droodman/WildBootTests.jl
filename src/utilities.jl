@@ -6,7 +6,11 @@
 @inline symcross(X::AbstractVecOrMat, wt::Union{UniformScaling,AbstractVector}) = Symmetric(cross(X,wt,X))  # maybe bad name since it means cross product in Julia
 @inline function cross(X::AbstractVecOrMat{T}, wt::AbstractVector{T}, Y::AbstractVecOrMat{T}) where T
   dest = Matrix{T}(undef, ncols(X), ncols(Y))
-  mul!(dest, X', wt.*Y)
+  if ncols(X)>ncols(Y)
+		mul!(dest, X', wt.*Y)
+	else
+		mul!(dest, (X.*wt)', Y)
+	end
 end
 @inline function cross(X::AbstractVecOrMat{T}, wt::UniformScaling, Y::AbstractVecOrMat{T}) where T
   dest = Matrix{T}(undef, ncols(X), ncols(Y))
@@ -14,7 +18,11 @@ end
 end
 @inline function crossvec(X::AbstractMatrix{T}, wt::AbstractVector{T}, Y::AbstractVector{T}) where T
   dest = Vector{T}(undef, ncols(X))
-  mul!(dest, X', wt.*Y)
+  if ncols(X)>ncols(Y)
+		mul!(dest, X', wt.*Y)
+	else
+		mul!(dest, (X.*wt)', Y)
+	end
 end
 @inline function crossvec(X::AbstractMatrix{T}, wt::UniformScaling, Y::AbstractVector{T}) where T
   dest = Vector{T}(undef, ncols(X))
@@ -113,7 +121,7 @@ function colquadform(Q::AbstractMatrix, A::AbstractMatrix) :: AbstractVector
   dest
 end
 
- # From given row of given matrix, substract inner products of corresponding ncols of A & B with quadratic form Q
+ # From given row of given matrix, substract inner products of corresponding cols of A & B with quadratic form Q
 function colquadformminus!(X::AbstractMatrix, row::Integer, Q::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)
   @turbo for i ∈ axes(A,2), j ∈ axes(A,1), k ∈ axes(A,1)
     X[row,i] -= A[j,i] * Q[k,j] * B[k,i]
@@ -221,7 +229,7 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractVector, in
 	end
 	J = CartesianIndices(axes(X)[2:end])
 	eachindexJ = eachindex(J)
-	@inbounds @simd for g in eachindex(info)
+	@inbounds for g in eachindex(info)
 		f, l = first(info[g]), last(info[g])
     fl = f+1:l
 		_wt = wt[f]
@@ -271,7 +279,7 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractMatrix, in
 			else
 				for j ∈ eachindexJ
 					dest[g,k,J[j]] = X[f,J[j]] * _wt
-				end	
+				end
 			end
 		end
 	end

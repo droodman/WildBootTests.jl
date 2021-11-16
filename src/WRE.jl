@@ -275,17 +275,17 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 		A = Vector{Matrix{T}}(undef, ncols(o.v))
 
 		if o.LIML
-			o.YY✻   = [HessianFixedκ(o, collect(0:i), i, zero(T), w) for i ∈ 0:o.Repl.kZ] # κ=0 => Y*MZperp*Y
+			YY✻   = [HessianFixedκ(o, collect(0:i), i, zero(T), w) for i ∈ 0:o.Repl.kZ] # κ=0 => Y*MZperp*Y
 			o.YPXY✻ = [HessianFixedκ(o, collect(0:i), i,  one(T), w) for i ∈ 0:o.Repl.kZ] # κ=1 => Y*PXpar*Y
 
 			for b ∈ axes(o.v,2)
 				for i ∈ 0:o.Repl.kZ
-					o.YY✻_b[1:i+1,i+1]   = o.YY✻[i+1][:,b]  # fill uppper triangles, which is all that invsym() looks at
+					o.YY✻_b[1:i+1,i+1]   = YY✻[i+1][:,b]  # fill uppper triangles, which is all that invsym() looks at
 					o.YPXY✻_b[1:i+1,i+1] = o.YPXY✻[i+1][:,b]
 				end
 				o.κ = 1/(1 - eigvals(invsym(o.YY✻_b) * Symmetric(o.YPXY✻_b))[1])
 				!iszero(o.Fuller) && (o.κ -= o.Fuller / (o._Nobs - o.kX))
-				βs[:,b] = (A[b] = invsym(o.κ*o.YPXY✻_b[2:end,2:end] + (1-o.κ)*o.YY✻_b[2:end,2:end])) * (o.κ*o.YPXY✻_b[1,2:end]' + (1-o.κ)*o.YY✻_b[1,2:end]')
+				βs[:,b] = (A[b] = invsym(o.κ*o.YPXY✻_b[2:end,2:end] + (1-o.κ)*o.YY✻_b[2:end,2:end])) * (o.κ*o.YPXY✻_b[1,2:end]' + (1-o.κ)*YY✻_b[1,2:end]')
 			end
 		else
 			δnumer = HessianFixedκ(o, collect(1:o.Repl.kZ), 0, o.κ, w)
@@ -301,7 +301,10 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 
 		if o.bootstrapt
 			if o.robust
-				Zyg = [Filling(o, i, βs) for i ∈ 1:o.Repl.kZ]  # XXX concatenate into 3-d array?
+				Zyg = Vector{Matrix{T}}(undef, o.Repl.kZ)  # XXX move to Init()
+				for i ∈ 1:o.Repl.kZ  # avoid list comprehension construction because of compiler type detection issue
+					Zyg[i] = Filling(o, i, βs)
+				end
 			else
 				o.YY✻ = [HessianFixedκ(o, collect(i:o.Repl.kZ), i, zero(T), w) for i ∈ 0:o.Repl.kZ]  # κ=0 => Y*MZperp*Y
 			end
@@ -310,9 +313,9 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 		numer_b = Vector{T}(undef,nrows(o.Repl.RRpar))  # XXX move to Init()
 		for b ∈ reverse(axes(o.v,2))
 			if o.null || w==1 && b==1
-				numer_b .= o.Repl.RRpar * βs[:,b] + o.Repl.Rt₁ - o.r
+				numer_b .= o.Repl.RRpar * view(βs,:,b) + o.Repl.Rt₁ - o.r
 			else
-				numer_b .= o.Repl.RRpar * (βs[:,b] - o.DGP.β₀)
+				numer_b .= o.Repl.RRpar * (view(βs,:,b) - o.DGP.β₀)
 			end
 
 			if o.bootstrapt
@@ -330,9 +333,9 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 					end
 				else  # non-robust
 					for i ∈ 0:o.Repl.kZ
-						YY✻_b[i+1,i+1:o.Repl.kZ+1] = view(YY✻[i+1],b,:)  # fill upper triangle
+						o.YY✻_b[i+1,i+1:o.Repl.kZ+1] = view(YY✻[i+1],b,:)  # fill upper triangle
 					end
-					denom = (o.Repl.RRpar * A[b] * o.Repl.RRpar') * [-one(T) ; βs[:,b]]'Symmetric(YY✻_b) * [-one(T) ; βs[:,b]] / o._Nobs  # 2nd half is sig2 of errors
+					denom = (o.Repl.RRpar * A[b] * o.Repl.RRpar') * [-one(T) ; βs[:,b]]'Symmetric(o.YY✻_b) * [-one(T) ; βs[:,b]] / o._Nobs  # 2nd half is sig2 of errors
 				end
 				if o.sqrt
 					o.dist[b+first(o.WeightGrp[w])-1] = numer_b[1] / sqrt(denom[1])
