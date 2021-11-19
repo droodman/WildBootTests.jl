@@ -71,15 +71,15 @@ end
 function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
   if o.granular
    	if o.Nw == 1  # create or avoid NxB matrix?
-			PXY✻ = iszero(ind1) ? o.Repl.PXy₁ : o.Repl.PXZ[:,ind1]
+			PXY✻ = iszero(ind1) ? o.Repl.PXy₁ : view(o.Repl.PXZ,:,ind1)
 			o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ o.S✻UPX[ind1+1] * o.v)
 
 			dest = @panelsum(PXY✻ .* (o.Repl.y₁ .- o.S✻UMZperp[1] * o.v), o.wt, o.infoCapData)
 
 			for ind2 ∈ 1:o.Repl.kZ
 				_β = view(βs,ind2,:)'
-				dest .-= @panelsum(PXY✻ .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[:,ind2] * _β .- o.S✻UMZperp[ind2+1] * (o.v .* _β) :
-															         o.Repl.Z[:,ind2] * _β                                            ), o.wt, o.infoCapData)
+				dest .-= @panelsum(PXY✻ .* (o.Repl.Yendog[ind2+1] ? view(o.Repl.Z,:,ind2) * _β .- o.S✻UMZperp[ind2+1] * (o.v .* _β) :
+															                              view(o.Repl.Z,:,ind2) * _β                                        ), o.wt, o.infoCapData)
 			end
 		else  # create pieces of each N x B matrix one at a time rather than whole thing at once
 			dest = Matrix{T}(undef, o.clust[1].N, ncols(o.v))  # XXX preallocate this & turn Filling into Filling! ?
@@ -95,7 +95,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 							dest[i,:]   = wtsum(o.wt, PXY✻ .* (o.Repl.y₁[i] .- view(o.S✻UMZperp[1],i,:))'o.v)
 						else
 							dest[i,:] .-= wtsum(o.wt, PXY✻ .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[i,ind2] * _β .- view(o.S✻UMZperp[ind2+1],i,:)'βv :
-																						        o.Repl.Z[i,ind2] * _β))
+																						                             o.Repl.Z[i,ind2] * _β))
 						end
 					end
 				else
@@ -123,7 +123,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 
 			if o.Repl.Yendog[ind2+1]  # add CT_(cap,*) (P_(X_par ) Y_(pari).*U ̈_(parj) )
 				if o.NClustVar == o.nbootclustvar && iszero(o.subcluster)  # simple case of one clustering: full crosstab is diagonal
-					tmp = ind1>0 ? o.Repl.XZ[:,ind1] : o.Repl.Xy₁par
+					tmp = ind1>0 ? view(o.Repl.XZ,:,ind1) : o.Repl.Xy₁par
 					if length(T₁)>0
 						T₁[diagind(T₁)] .+= o.S✻UXinvXX[ind2+1]'tmp
 					else
@@ -172,7 +172,7 @@ end
 function PrepWRE!(o::StrBootTest)
   Estimate!(o.DGP, o.null ? [o.r₁ ; o.r] : o.r₁)
   MakeResiduals!(o.DGP)
-  o.Ü₂par = o.DGP.Ü₂ * o.Repl.RparY  # XXX XB(o.DGP.Ü₂, o.Repl.RparY)
+  o.Ü₂par = o.DGP.Ü₂ * o.Repl.RparY
 
   for i ∈ 0:o.Repl.kZ  # precompute various clusterwise sums
 		uwt = vHadw(i>0 ? view(o.Ü₂par,:,i) : o.DGP.u⃛₁, o.wt)

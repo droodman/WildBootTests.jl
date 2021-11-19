@@ -9,12 +9,15 @@ struct IVGMM<:Estimator end
 mutable struct StrEstimator{T<:AbstractFloat, E<:Estimator}
   parent
   isDGP::Bool; LIML::Bool; Fuller::T; κ::T
-  R₁perp::Matrix{T}; Rpar::Union{UniformScaling{Bool}, Matrix{T}}
+  R₁perp::Union{Matrix{T},UniformScaling{Bool}}; Rpar::Union{Matrix{T},UniformScaling}
 
   kZ::Int64
   y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β::Vector{T}; β₀::Vector{T}; PXy₁::Vector{T}; invXXXy₁par::Vector{T}
   Yendog::Vector{Bool}
-  invZperpZperp::Matrix{T}; ZperpinvZperpZperp::Matrix{T}; XZ::Matrix{T}; PXZ::Matrix{T}; YPXY::Matrix{T}; R₁invR₁R₁::Matrix{T}; RperpX::Matrix{T}; RRpar::Matrix{T}; RparY::Matrix{T}; RR₁invR₁R₁::Matrix{T}; ∂β∂r::Matrix{T}; YY::Matrix{T}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; XinvXX::Matrix{T}; Rt₁::Vector{T}; invXX::Matrix{T}; Y₂::Matrix{T}; X₂::Matrix{T}; invH
+  invZperpZperp::Matrix{T}; ZperpinvZperpZperp::Matrix{T}; XZ::Matrix{T}; PXZ::Matrix{T}; YPXY::Matrix{T}; R₁invR₁R₁::Union{Matrix{T},UniformScaling}
+	RperpX::Union{Matrix{T},UniformScaling,SelectionMatrix}; RperpXperp::Union{Matrix{T},UniformScaling,SelectionMatrix}; RRpar::Matrix{T}; RparY::Union{Matrix{T},UniformScaling,SelectionMatrix}; RR₁invR₁R₁::Matrix{T}
+	∂β∂r::Matrix{T}; YY::Matrix{T}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; XinvXX::Matrix{T}; Rt₁::Vector{T}
+	invXX::Matrix{T}; Y₂::Matrix{T}; X₂::Matrix{T}; invH
 	y₁par::Vector{T}; Xy₁par::Vector{T}
 	A::Matrix{T}; Z::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
 	FillingT₀::Matrix{Vector{T}}
@@ -45,9 +48,9 @@ end
 # for replication regressions R₁ is maintained constraints, R is null
 function setR!(o::StrEstimator{T,E}, R₁::AbstractMatrix{T}, R::Union{UniformScaling{Bool},AbstractMatrix{T}}=Matrix{T}(undef,0,0)) where {T,E}
   if length(R₁) > 0
-	  o.R₁invR₁R₁ = invsym(R₁ * R₁')
-	  all(iszero.(diag(o.R₁invR₁R₁))) && throw(ErrorException("Null hypothesis or model constraints are inconsistent or redundant."))
-	  o.R₁invR₁R₁ = R₁'o.R₁invR₁R₁
+	  invR₁R₁ = invsym(R₁ * R₁')
+	  all(iszero.(diag(invR₁R₁))) && throw(ErrorException("Null hypothesis or model constraints are inconsistent or redundant."))
+	  o.R₁invR₁R₁ = R₁'invR₁R₁
 	  F = eigensym(o.R₁invR₁R₁ * R₁)
 	  o.R₁perp = F.vectors[:, abs.(F.values) .< 1000*eps(T)]  # eigenvectors orthogonal to span of R₁; foundation for parameterizing subspace compatible with constraints
   else
@@ -70,7 +73,9 @@ function setR!(o::StrEstimator{T,E}, R₁::AbstractMatrix{T}, R::Union{UniformSc
 
 	  o.RRpar = R * o.Rpar
 	  o.RperpX = o.RperpX[1:o.parent.kX₁,:]  # Zperp=Z*RperpX; though formally a multiplier on Z, it will only extract exogenous components, in X₁, since all endogenous ones will be retained
-	  o.RparY = o.Rpar[o.parent.kX₁+1:end,:]  # part of Rpar that refers to Y₂
+		o.RperpXperp = selectify(perp(o.RperpX))
+		o.RperpX = selectify(o.RperpX)
+	  o.RparY = selectify(o.Rpar[o.parent.kX₁+1:end,:])  # part of Rpar that refers to Y₂
 	  o.R₁invR₁R₁Y = o.R₁invR₁R₁[o.parent.kX₁+1:end,:]
 	  o.RR₁invR₁R₁ = R * o.R₁invR₁R₁
   end
@@ -83,10 +88,10 @@ function InitVars!(o::StrEstimator{T,OLS}, Rperp::AbstractMatrix{T}) where T # R
   o.invH = inv(H)
 
   R₁AR₁ = iszero(length(o.R₁perp)) ? o.invH : Symmetric(o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')  # for DGP regression
-  o.β₀ = Vector{T}(undef, nrows(R₁AR₁)); mul!(o.β₀, R₁AR₁, crossvec(o.parent.X₁, o.parent.wt, o.y₁par))
+  o.β₀ = R₁AR₁ * crossvec(o.parent.X₁, o.parent.wt, o.y₁par)
   o.∂β∂r = R₁AR₁ * H * o.R₁invR₁R₁ - o.R₁invR₁R₁
 
-  o.A = iszero(length(Rperp)) ? o.invH : Rperp * invsym(Rperp'H*Rperp) * Rperp'   # for replication regression
+  o.A = iszero(length(Rperp)) ? o.invH : Rperp * invsym(Rperp'H*Rperp) * Rperp'  # for replication regression
   o.AR = o.A * o.parent.R'
   (o.parent.scorebs || o.parent.robust) && (o.XAR = o.parent.X₁ * o.AR)
 end
@@ -99,19 +104,20 @@ function InitVars!(o::StrEstimator{T,ARubin}, Rperp::AbstractMatrix{T} = Matrix{
   (o.parent.scorebs || o.parent.robust) && (o.XAR = X₁₂B(o.parent.X₁, o.parent.X₂, o.AR))
 
   R₁AR₁ = iszero(length(o.R₁perp)) ? o.A : o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp'
-  o.β₀   = R₁AR₁ * [crossvec(o.parent.X₁, o.parent.wt, o.parent.y₁) ; crossvec(o.parent.X₂, o.parent.wt, o.parent.y₁)]  # XXX use LazyArrays?
+  o.β₀   = R₁AR₁ * [crossvec(o.parent.X₁, o.parent.wt, o.parent.y₁) ; crossvec(o.parent.X₂, o.parent.wt, o.parent.y₁)]
   o.∂β∂r = R₁AR₁ * [cross(o.parent.X₁, o.parent.wt, o.parent.Y₂) ; cross(o.parent.X₂, o.parent.wt, o.parent.Y₂)]
 end
 
 function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where T
   !isempty(Rperp) && (o.Rperp = Rperp[1])
 
-  o.Zperp = o.parent.X₁ * o.RperpX  # XXX XB(o.parent.X₁, o.RperpX)
+  o.Zperp = o.parent.X₁ * o.RperpX
   o.invZperpZperp = iszero(length(o.Zperp)) ? Matrix{T}(undef,0,0) : inv(symcross(o.Zperp, o.parent.wt))
   o.ZperpinvZperpZperp = o.Zperp * o.invZperpZperp
 
-  o.X₁ = o.parent.X₁ * perp(o.RperpX); o.X₁ .-= o.ZperpinvZperpZperp * cross(o.Zperp, o.parent.wt, o.X₁)  # FWL-process X₁ XXX XB(o.parent.X₁, perp(RperpX))
-  o.X₂ = o.ZperpinvZperpZperp * cross(o.Zperp, o.parent.wt, o.parent.X₂); o.X₂ .= o.parent.X₂ .- o.X₂                 # FWL-process X₂
+  o.X₁ = o.parent.X₁ * o.RperpXperp; o.X₁ .-= o.ZperpinvZperpZperp * cross(o.Zperp, o.parent.wt, o.X₁)  # FWL-process X₁
+  o.X₂ = o.ZperpinvZperpZperp * cross(o.Zperp, o.parent.wt, o.parent.X₂)
+		o.X₂ .= o.parent.X₂ .- o.X₂                 # FWL-process X₂
   X₂X₁ = cross(o.X₂, o.parent.wt, o.X₁)
   o.XX = Symmetric([symcross(o.X₁, o.parent.wt) X₂X₁' ; X₂X₁ symcross(o.X₂, o.parent.wt)])
   o.kX = ncols(o.XX)
@@ -165,34 +171,32 @@ function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where 
 	  !o.LIML && MakeH!(o, !isempty(Rperp)) # DGP is LIML except possibly when getting confidence peak for A-R plot; but LIML=0 when exactly id'd, for then κ=1 always and Hessian doesn't depend on r₁ and can be computed now
   else
 	  o.kZ = ncols(o.Rpar)
-	  o.ScapYX       = Vector{Matrix{T}}(undef, o.kZ+1)
-	  o.ScapPXYZperp = Vector{Matrix{T}}(undef, o.kZ+1)
-	  o.XinvXX = X₁₂B(o.X₁, o.X₂, o.invXX)
+	  o.Yendog = [true; o.RparY==I ? fill(true, o.kZ) : vec(colsum(o.RparY.≠0)).>0]  # columns of Y = [y₁par Zpar] that are endogenous (normally all)
 
-	  o.Yendog = [true; vec(colsum(o.RparY.≠0)).>0]  # columns of Y = [y₁par Zpar] that are endogenous (normally all)
+	  if o.parent.robust && o.parent.bootstrapt  # for WRE replication regression, prepare for CRVE
+			o.ScapYX       = Vector{Matrix{T}}(undef, o.kZ+1)
+			o.ScapPXYZperp = Vector{Matrix{T}}(undef, o.kZ+1)
+			o.XinvXX = X₁₂B(o.X₁, o.X₂, o.invXX)
+			
+			o.PXZ = X₁₂B(o.X₁, o.X₂, o.invXXXZ)
 
-	  if o.parent.robust  # for WRE replication regression, prepare for CRVE
-	    if o.parent.bootstrapt
-	  	  o.PXZ = X₁₂B(o.X₁, o.X₂, o.invXXXZ)
+			o.FillingT₀ = Matrix{Matrix{T}}(undef, o.kZ+1, o.kZ+1)  # fixed component of groupwise term in sandwich filling
+			o.parent.NFE>0 &&
+				(o.CT_FEcapPY = Vector{Matrix{T}}(undef, o.kZ+1))
+			for i ∈ 1:o.kZ
+				uwt = vHadw(view(o.PXZ,:,i), o.parent.wt)
+				o.parent.NFE>0 &&
+				(o.CT_FEcapPY[i+1] = crosstabFEt(o.parent, uwt, o.parent.infoCapData) .* o.parent.invFEwt)
+				tmp = @panelsum(o.Z, uwt, o.parent.infoCapData)
+				for j ∈ 1:o.kZ
+					o.FillingT₀[i+1,j+1] = view(tmp,:,j)
+				end
+			end
 
-	  	  o.FillingT₀ = Matrix{Matrix{T}}(undef, o.kZ+1, o.kZ+1)  # fixed component of groupwise term in sandwich filling
-	  	  o.parent.NFE>0 &&
-	  	    (o.CT_FEcapPY = Vector{Matrix{T}}(undef, o.kZ+1))
-	  	  for i ∈ 1:o.kZ
-	  	    uwt = vHadw(view(o.PXZ,:,i), o.parent.wt)
-	  	    o.parent.NFE>0 &&
-	  	  	(o.CT_FEcapPY[i+1] = crosstabFEt(o.parent, uwt, o.parent.infoCapData) .* o.parent.invFEwt)
-	  	    tmp = @panelsum(o.Z, uwt, o.parent.infoCapData)
-	  	    for j ∈ 1:o.kZ
-	  	  	  o.FillingT₀[i+1,j+1] = view(tmp,:,j)
-	  	    end
-	  	  end
-
-	  	  for i ∈ 1:o.kZ  # precompute various clusterwise sums
-	  	    o.ScapPXYZperp[i+1] = @panelsum(o.Zperp, vHadw(view(o.PXZ,:,i), o.parent.wt), o.parent.infoCapData)  # Scap(P_(MZperpX) * Z .* Zperp)
-	  	    !o.parent.granular &&
-	  	  		(o.ScapYX[i+1] = @panelsum2(o.X₁, o.X₂, vHadw(view(o.Z,:,i), o.parent.wt), o.parent.infoCapData))  # Scap(M_Zperp[Z or y₁] .* P_(MZperpX)])
-	  	  end
+			for i ∈ 1:o.kZ  # precompute various clusterwise sums
+				o.ScapPXYZperp[i+1] = @panelsum(o.Zperp, vHadw(view(o.PXZ,:,i), o.parent.wt), o.parent.infoCapData)  # Scap(P_(MZperpX) * Z .* Zperp)
+				!o.parent.granular &&
+					(o.ScapYX[i+1] = @panelsum2(o.X₁, o.X₂, vHadw(view(o.Z,:,i), o.parent.wt), o.parent.infoCapData))  # Scap(M_Zperp[Z or y₁] .* P_(MZperpX)])
 	    end
 	  end
   end
@@ -261,7 +265,7 @@ function Estimate!(o::StrEstimator{T,IVGMM} where T, r₁::AbstractVector)
 	    o.ScapPXYZperp[1] = @panelsum(o.Zperp, uwt, o.parent.infoCapData)  # Scap(P_(MZperpX) * y₁ .* Zperp)
 
 	    o.parent.NFE>0 &&
-	  	(o.CT_FEcapPY[1] = crosstabFEt(o.parent, uwt, o.parent.infoCapData) .* o.parent.invFEwt)
+	  		(o.CT_FEcapPY[1] = crosstabFEt(o.parent, uwt, o.parent.infoCapData) .* o.parent.invFEwt)
 
 	    uwt = vHadw(o.y₁par, o.parent.wt)
 	    tmp = @panelsum(o.PXZ, uwt, o.parent.infoCapData)
@@ -270,7 +274,7 @@ function Estimate!(o::StrEstimator{T,IVGMM} where T, r₁::AbstractVector)
 	    end
 	    o.FillingT₀[1] = @panelsum(o.PXy₁, uwt, o.parent.infoCapData)
 	    !o.parent.granular &&
-	  	(o.ScapYX[1] = @panelsum2(o.X₁, o.X₂  , uwt, o.parent.infoCapData))  # Scap(M_Zperp*y₁ .* P_(MZperpX)])
+	  	(o.ScapYX[1] = @panelsum2(o.X₁, o.X₂, uwt, o.parent.infoCapData))  # Scap(M_Zperp*y₁ .* P_(MZperpX)])
 	  end
   end
 end

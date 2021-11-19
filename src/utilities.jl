@@ -39,12 +39,12 @@ end
 # checkI!(X::AbstractArray) = all(abs.(X - I) .< 10eps(eltype(X))) ? I : X
 
 function X₁₂B(X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractMatrix)
-	dest = X₁ * B[1:size(X₁,2),:]
+	dest = X₁ * view(B,size(X₁,2),:)
 	length(dest)>0 && length(X₂)>0 && matmulplus!(dest, X₂, B[size(X₁,2)+1:end,:])
 	dest
 end
 function X₁₂B(X₁::AbstractArray, X₂::AbstractArray, B::AbstractVector)
-	dest = X₁ * B[1:size(X₁,2)]
+	dest = X₁ * view(B,1:size(X₁,2))
 	length(dest)>0 && length(X₂)>0 && matmulplus!(dest, X₂, B[size(X₁,2)+1:end])
 	dest
 end
@@ -197,7 +197,6 @@ count_binary(N::Integer, lo::Number, hi::Number) = N≤1 ? [lo  hi] :
 
 # unweighted panelsum!() along first axis of an Array
 function panelsum!(dest::AbstractArray, X::AbstractArray, info::Vector{UnitRange{T}} where T<:Integer)
-# print("typeof(dest)=$(typeof(dest)) typeof(X)=$(typeof(X)) typeof(info)=$(typeof(info)) \n")
 	iszero(length(X)) && return
 	J = CartesianIndices(axes(X)[2:end])
 	eachindexJ = eachindex(J)
@@ -319,16 +318,21 @@ macro panelsum2(X₁, X₂, wt, info)
 	:( panelsum2($(esc(X₁)), $(esc(X₂)), $(esc(wt)), $(esc(info))) )
 end
 
-# right-multiply a data matrix by a matrix, with efficient handling of special cases like latter is identity
-# pointer (real matrix) scalar XB(real matrix X, real matrix M) {
-# 	scalar r
-#   r = nrows(M)
-# 	return (all(colsum(M) .== 1) && all(colsum(!M) .== r-1)?  # is M 0's but for one 1 in each col, so it's just copying/reordering ncols?
-#              (all(diagonal(M)) && nrows(M)==ncols(M)?  # is M just the identity matrix?
-#                 &X            :
-#                 &X[:,colsum(M.*(1::r))]) :  # reorder X
-#              &(X * M))
-# }
+struct SelectionMatrix{T} <: AbstractMatrix{T}
+	p::Vector{Int64}
+	size::Tuple{Int64,Int64}
+end
+SelectionMatrix(X::AbstractMatrix{T}) where T = SelectionMatrix{T}(X'collect(1:size(X,1)), size(X))
+selectify(X) = X==I ? I :
+                      isa(X,AbstractMatrix) &&
+											  length(X) > 0 &&
+											  all(sum(isone.(X), dims=1) .== 1) &&
+												all(sum(iszero.(X), dims=1) .== size(X,1)-1) ? SelectionMatrix(X) :
+											                                                 X
 
-# (wt of type UniformScaling <=> wt=I)
-# @inline isone(X::AbstractArray) = X==ones(eltype(X),ones(Int64, ndims(X))...)
+import Base.size, Base.getindex, Base.*
+size(X::SelectionMatrix) = X.size
+getindex(X::SelectionMatrix, i, j) = i==X.p[j]
+*(X::AbstractMatrix, Y::SelectionMatrix) = view(X,:,Y.p)
+*(X::SelectionMatrix, Y::AbstractMatrix) = view(Y, X.p, :)
+*(X::SelectionMatrix, Y::AbstractVector) = view(Y, X.p)
