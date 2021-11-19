@@ -39,7 +39,7 @@ end
 # checkI!(X::AbstractArray) = all(abs.(X - I) .< 10eps(eltype(X))) ? I : X
 
 function X₁₂B(X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractMatrix)
-	dest = X₁ * view(B,size(X₁,2),:)
+	dest = X₁ * view(B,1:size(X₁,2),:)
 	length(dest)>0 && length(X₂)>0 && matmulplus!(dest, X₂, B[size(X₁,2)+1:end,:])
 	dest
 end
@@ -104,7 +104,6 @@ function coldot(args...)
   coldot!(dest, args...)
   dest
  end
-# coldot(A::AbstractMatrix, B::AbstractVector) = coldot(B,A)
 coldot(A::AbstractVector, B::AbstractVector) = [dot(A,B)]
 function coldotplus!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)  # colsum(A .* B)
   @turbo for i ∈ axes(A,2), j ∈ axes(A,1)
@@ -193,7 +192,7 @@ end
 count_binary(N::Integer, lo::Number, hi::Number) = N≤1 ? [lo  hi] :
 														  (tmp = count_binary(N-1, lo, hi);
 														   [fill(lo, 1, ncols(tmp)) fill(hi, 1, ncols(tmp)) ;
-																			  tmp                     tmp     ])
+																			            tmp                     tmp     ])
 
 # unweighted panelsum!() along first axis of an Array
 function panelsum!(dest::AbstractArray, X::AbstractArray, info::Vector{UnitRange{T}} where T<:Integer)
@@ -336,3 +335,4 @@ getindex(X::SelectionMatrix, i, j) = i==X.p[j]
 *(X::AbstractMatrix, Y::SelectionMatrix) = view(X,:,Y.p)
 *(X::SelectionMatrix, Y::AbstractMatrix) = view(Y, X.p, :)
 *(X::SelectionMatrix, Y::AbstractVector) = view(Y, X.p)
+
