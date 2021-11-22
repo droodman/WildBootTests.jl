@@ -48,7 +48,6 @@ function _HessianFixedκ!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer, i
 				T2[diagind(T2)] .-= ind1 ≤ ind2 ? o.S✻UU[ind2+1, ind1+1] : o.S✻UU[ind1+1, ind2+1]  # minus diagonal crosstab
 				o.NFE>0 &&
 					(T2 .+= o.CTFEU[ind1+1]'(o.invFEwt .* o.CTFEU[ind2+1]))
-
 				if iszero(κ)
 					dest .= o.Repl.YY[ind1+1,ind2+1] .+ colquadformminus!((                            @views o.S✻uY[ind2+1][:,ind1+1] .+ o.S✻uY[ind1+1][:,ind2+1])'o.v, T2, o.v)
 				else
@@ -203,7 +202,7 @@ function PrepWRE!(o::StrBootTest)
 
 			o.S✻UPX[i+1]     = o.Repl.XinvXX * o.S✻UX[i+1]
 			o.S✻UMZperp[i+1] = o.Repl.Zperp * o.S✻UZperpinvZperpZperp[i+1]
-			if o.Nobs == o.N✻  # subtract "crosstab" of observation by cap-group of u
+			if o.Nobs == o.N✻  # subtract crosstab of observation by ∩-group of u
 				o.S✻UMZperp[i+1][diagind(o.S✻UMZperp[i+1])] .-= i>0 ? view(o.Ü₂par,:,i) : o.DGP.u⃛₁  # case: bootstrapping by observation
 			else
 				if iszero(i)
@@ -236,7 +235,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			x₁₂ = YY₂₂ .* YPXY₁₂ .- YY₁₂ .* YPXY₂₂
 			x₂₁ = YY₁₁ .* YPXY₁₂ .- YY₁₂ .* YPXY₁₁
 			x₂₂ = YY₁₁ .* YPXY₂₂ .- YY₁₂YPXY₁₂
-			κs = (x₁₁ .+ x₂₂)/2; κs = 1 ./ (1 .- (κs - sqrt.(κs.^2 .- x₁₁.*x₂₂ .+ x₁₂.*x₂₁)) ./ (YY₁₁ .* YY₂₂ .- YY₁₂ .* YY₁₂))  # solve quadratic equation for smaller eignenvalue; last term is det(YY✻)
+			κs = (x₁₁ .+ x₂₂)./2; κs = 1 ./ (1 .- (κs .- sqrt.(κs.^2 .- x₁₁ .* x₂₂ .+ x₁₂ .* x₂₁)) ./ (YY₁₁ .* YY₂₂ .- YY₁₂ .* YY₁₂))  # solve quadratic equation for smaller eignenvalue; last term is det(YY✻)
 			!iszero(o.Fuller) && (κs .-= o.Fuller / (o._Nobs - o.kX))
 			o.As = κs .* (YPXY₂₂ .- YY₂₂) .+ YY₂₂
 			βs = (κs .* (YPXY₁₂ .- YY₁₂) .+ YY₁₂) ./ o.As
@@ -280,20 +279,19 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 
 			for b ∈ axes(o.v,2)
 				for i ∈ 0:o.Repl.kZ
-					o.YY✻_b[1:i+1,i+1]   = YY✻[i+1][:,b]  # fill uppper triangles, which is all that invsym() looks at
-					o.YPXY✻_b[1:i+1,i+1] = o.YPXY✻[i+1][:,b]
+					o.YY✻_b[1:i+1,i+1]   = YY✻[i+1][:,b]  # fill uppper triangles, which is all that invsym() looks a					o.YPXY✻_b[1:i+1,i+1] = o.YPXY✻[i+1][:,b]
 				end
 				o.κ = 1/(1 - eigvals(invsym(o.YY✻_b) * Symmetric(o.YPXY✻_b))[1])
 				!iszero(o.Fuller) && (o.κ -= o.Fuller / (o._Nobs - o.kX))
 				βs[:,b] = (A[b] = invsym(o.κ*o.YPXY✻_b[2:end,2:end] + (1-o.κ)*o.YY✻_b[2:end,2:end])) * (o.κ*o.YPXY✻_b[1,2:end]' + (1-o.κ)*YY✻_b[1,2:end]')
 			end
 		else
-			δnumer = HessianFixedκ(o, collect(1:o.Repl.kZ), 0, o.κ, w)
+			δnumer =  HessianFixedκ(o, collect(1:o.Repl.kZ), 0, o.κ, w)
 			δdenom = [HessianFixedκ(o, collect(1:i), i, o.κ, w) for i ∈ 1:o.Repl.kZ]
 			
 			for b ∈ axes(o.v,2)
 				for i ∈ 1:o.Repl.kZ
-					o.δdenom_b[1:i,i] = view(δdenom[i],:,b)  # fill uppper triangle, which is all that invsym() looks at
+					o.δdenom_b[1:i,i] = view(δdenom[i],:,b)  # fill uppper triangle
 				end
 				βs[:,b] = (A[b] = invsym(o.δdenom_b)) * view(δnumer,:,b)
 			end
@@ -301,27 +299,25 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 
 		if o.bootstrapt
 			if o.robust
-				Zyg = Vector{Matrix{T}}(undef, o.Repl.kZ)  # XXX move to Init()
 				for i ∈ 1:o.Repl.kZ  # avoid list comprehension construction because of compiler type detection issue
-					Zyg[i] = Filling(o, i, βs)
+					o.Zyg[i] = Filling(o, i, βs)
 				end
 			else
 				o.YY✻ = [HessianFixedκ(o, collect(i:o.Repl.kZ), i, zero(T), w) for i ∈ 0:o.Repl.kZ]  # κ=0 => Y*MZperp*Y
 			end
 		end
 
-		numer_b = Vector{T}(undef,nrows(o.Repl.RRpar))  # XXX move to Init()
 		for b ∈ reverse(axes(o.v,2))
 			if o.null || w==1 && b==1
-				numer_b .= o.Repl.RRpar * view(βs,:,b) + o.Repl.Rt₁ - o.r
+				o.numer_b .= o.Repl.RRpar * view(βs,:,b) + o.Repl.Rt₁ - o.r
 			else
-				numer_b .= o.Repl.RRpar * (view(βs,:,b) - o.DGP.β₀)
+				o.numer_b .= o.Repl.RRpar * (view(βs,:,b) - o.DGP.β₀)
 			end
 
 			if o.bootstrapt
 				if o.robust  # Compute denominator for this WRE test stat
-					for i ∈ 1:o.Repl.kZ  # XXX replace with 3-D array
-						o._Jcap[:,i] = view(Zyg[i],:,b)
+					for i ∈ 1:o.Repl.kZ  # XXX replace with 3-D array?
+						o._Jcap[:,i] = view(o.Zyg[i],:,b)
 					end
 					Jcap = o._Jcap * (A[b] * o.Repl.RRpar')
 
@@ -338,12 +334,12 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 					denom = (o.Repl.RRpar * A[b] * o.Repl.RRpar') * [-one(T) ; βs[:,b]]'Symmetric(o.YY✻_b) * [-one(T) ; βs[:,b]] / o._Nobs  # 2nd half is sig2 of errors
 				end
 				if o.sqrt
-					o.dist[b+first(o.WeightGrp[w])-1] = numer_b[1] / sqrt(denom[1])
+					o.dist[b+first(o.WeightGrp[w])-1] = o.numer_b[1] / sqrt(denom[1])
 				else
-					o.dist[b+first(o.WeightGrp[w])-1] = numer_b'invsym(denom)*numer_b  # hand-code for 2-dimensional?
+					o.dist[b+first(o.WeightGrp[w])-1] = o.numer_b'invsym(denom)*o.numer_b  # hand-code for 2-dimensional?
 				end
 			end
-			o.numer[:,b+first(o.WeightGrp[w])-1] = numer_b  # slight inefficiency: in usual bootstrap-t case, only need to save numerators in numer if getdist("numer") is coming because of svmat(numer)
+			o.numer[:,b+first(o.WeightGrp[w])-1] = o.numer_b  # slight inefficiency: in usual bootstrap-t case, only need to save numerators in numer if getdist("numer") is coming because of svmat(numer)
 		end
 	end
 	w==1 && o.bootstrapt && (o.statDenom = denom)  # original-sample denominator

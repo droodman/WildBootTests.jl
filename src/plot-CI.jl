@@ -1,8 +1,4 @@
-
-
-# given a pre-configured boottest linear model with one-degree null imposed, compute distance from target p value of boostrapped one associated with given value of r
-# used with optimize() to construct confidence intervals
-# performs no error checking
+# given a pre-configured boottest linear model with one-degree null imposed, compute boostrapped p value associated with r
 function r_to_p(o::StrBootTest{T}, r::AbstractVector{T}) where T
   o.r = r
   o.dirty = true
@@ -36,6 +32,7 @@ function search(o::StrBootTest{T}, α::T, f₁::T, x₁::T, f₂::T, x₂::T) wh
 					clamp(((f₃ - α) / (f₁ - f₂) + (x₃ - x₁) / ((x₂ - x₁) * (f₃ - f₁)) * (f₂ - α)) * (f₁ - α) / (f₃ - f₂), T(0.000001), T(0.999999))
   end
 end
+
 
 # derive wild bootstrap-based CI, for case of linear model with one-degree null imposed
 # and generate plot data

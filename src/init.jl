@@ -393,7 +393,13 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	(o.dist = fill(T(NaN), o.B+1))
   (o.Nw>1 || o.WREnonARubin || (!o.null && o.dof≤2)) && (o.numer = fill(T(NaN), o.dof, o.B+1))
 
-  if !o.WREnonARubin
+  if o.WREnonARubin
+		if o.Repl.kZ>1
+			o.bootstrapt && o.robust
+      	(o.Zyg = Vector{Matrix{T}}(undef,o.Repl.kZ))
+			o.numer_b = Vector{T}(undef,nrows(o.Repl.RRpar))
+		end		
+	else
 		o.poles = o.anchor = zeros(T,0)
 		o.interpolable = o.bootstrapt && o.B>0 && o.null && o.Nw==1 && (iszero(o.κ) || o.ARubin)
 		if o.interpolable

@@ -28,6 +28,7 @@ end
   dest = Vector{T}(undef, ncols(X))
   mul!(dest, X', Y)
 end
+
 @inline vHadw(v::AbstractArray, w::AbstractVector) = v .* w
 @inline vHadw(v::AbstractArray, w::UniformScaling) = v
 @inline nrows(X::AbstractArray) = size(X,1)
@@ -36,7 +37,6 @@ end
 @inline rowsum(X::AbstractArray) = vec(sum(X, dims=2))
 @inline wtsum(wt::AbstractArray, X::AbstractArray) = wt'X
 @inline wtsum(wt::UniformScaling, X::AbstractArray) = sum(X,dims=1)
-# checkI!(X::AbstractArray) = all(abs.(X - I) .< 10eps(eltype(X))) ? I : X
 
 function X₁₂B(X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractMatrix)
 	dest = X₁ * view(B,1:size(X₁,2),:)
@@ -105,6 +105,7 @@ function coldot(args...)
   dest
  end
 coldot(A::AbstractVector, B::AbstractVector) = [dot(A,B)]
+
 function coldotplus!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)  # colsum(A .* B)
   @turbo for i ∈ axes(A,2), j ∈ axes(A,1)
 	  dest[i] += A[j,i] * B[j,i]
@@ -317,6 +318,8 @@ macro panelsum2(X₁, X₂, wt, info)
 	:( panelsum2($(esc(X₁)), $(esc(X₂)), $(esc(wt)), $(esc(info))) )
 end
 
+# SelectionMatrix type to efficiently represent selection matrices
+import Base.size, Base.getindex, Base.*
 struct SelectionMatrix{T} <: AbstractMatrix{T}
 	p::Vector{Int64}
 	size::Tuple{Int64,Int64}
@@ -328,11 +331,9 @@ selectify(X) = X==I ? I :
 											  all(sum(isone.(X), dims=1) .== 1) &&
 												all(sum(iszero.(X), dims=1) .== size(X,1)-1) ? SelectionMatrix(X) :
 											                                                 X
-
-import Base.size, Base.getindex, Base.*
 size(X::SelectionMatrix) = X.size
 getindex(X::SelectionMatrix, i, j) = i==X.p[j]
+*(X::AbstractVector, Y::SelectionMatrix) = view(X,Y.p)
 *(X::AbstractMatrix, Y::SelectionMatrix) = view(X,:,Y.p)
 *(X::SelectionMatrix, Y::AbstractMatrix) = view(Y, X.p, :)
 *(X::SelectionMatrix, Y::AbstractVector) = view(Y, X.p)
-
