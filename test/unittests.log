@@ -16,16 +16,16 @@ t=2.124948 p=0.0 CI=Float32[0.008769146 0.18435653]
 
 ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
 boottest tenure, ptype(equaltail)
-t=2.603963 p=0.044433594 CI=Float32[0.11879468 2.2101414]
+t=2.6039627 p=0.044433594 CI=Float32[0.11879453 2.2101414]
 
 boottest tenure, ptype(equaltail) reps(99999) weight(webb) stat(c)
-z=1.6443634 p=0.11061106 CI=Float32[-Inf Inf]
+z=1.6443632 p=0.11061106 CI=Float32[-Inf Inf]
 
 boottest, ar
 z=2.4454057 p=0.030273438 CI=Float32[0.06995593 1.2517974]
 
 scoretest tenure
-z=2.3278737 p=0.019918812 CI=Float32[0.13671671 1.3236711]
+z=2.3278728 p=0.01991886 CI=Float32[0.13671672 1.3236711]
 
 waldtest tenure
 z=2.604013 p=0.009213928 CI=Float32[0.18202372 1.2898893]
@@ -36,7 +36,7 @@ z=7.584672 p=0.003003003 CI=Float32[0.3354117 0.8054973]
 
 ivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)
 boottest tenure, nograph weight(webb) reps(9999)
-z=4.0267124 p=0.0250025 CI=Float32[-0.89395976 -0.38685176; 0.30942127 1.2528665]
+z=4.026846 p=0.0250025 CI=Float32[-0.8936746 -0.38782808; 0.30943274 1.2528461]
 
 areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)
 boottest tenure, cluster(age occupation) bootcluster(occupation)

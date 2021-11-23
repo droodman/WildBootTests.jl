@@ -14,7 +14,7 @@ mutable struct StrEstimator{T<:AbstractFloat, E<:Estimator}
   kZ::Int64
   y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β::Vector{T}; β₀::Vector{T}; PXy₁::Vector{T}; invXXXy₁par::Vector{T}
   Yendog::Vector{Bool}
-  invZperpZperp::Matrix{T}; ZperpinvZperpZperp::Matrix{T}; XZ::Matrix{T}; PXZ::Matrix{T}; YPXY::Matrix{T}; R₁invR₁R₁::Union{Matrix{T},UniformScaling}
+  invZperpZperp::Matrix{T}; XZ::Matrix{T}; PXZ::Matrix{T}; YPXY::Matrix{T}; R₁invR₁R₁::Union{Matrix{T},UniformScaling}
 	RperpX::Union{Matrix{T},UniformScaling,SelectionMatrix}; RperpXperp::Union{Matrix{T},UniformScaling,SelectionMatrix}; RRpar::Matrix{T}; RparY::Union{Matrix{T},UniformScaling,SelectionMatrix}; RR₁invR₁R₁::Matrix{T}
 	∂β∂r::Matrix{T}; YY::Matrix{T}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; XinvXX::Matrix{T}; Rt₁::Vector{T}
 	invXX::Matrix{T}; Y₂::Matrix{T}; X₂::Matrix{T}; invH
@@ -113,11 +113,9 @@ function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where 
 
   o.Zperp = o.parent.X₁ * o.RperpX
   o.invZperpZperp = iszero(length(o.Zperp)) ? Matrix{T}(undef,0,0) : inv(symcross(o.Zperp, o.parent.wt))
-  o.ZperpinvZperpZperp = o.Zperp * o.invZperpZperp
-
-  o.X₁ = o.parent.X₁ * o.RperpXperp; o.X₁ .-= o.ZperpinvZperpZperp * cross(o.Zperp, o.parent.wt, o.X₁)  # FWL-process X₁
-  o.X₂ = o.ZperpinvZperpZperp * cross(o.Zperp, o.parent.wt, o.parent.X₂)
-		o.X₂ .= o.parent.X₂ .- o.X₂                 # FWL-process X₂
+  
+  o.X₁ = o.parent.X₁ * o.RperpXperp; o.X₁ .-= o.Zperp * (o.invZperpZperp * cross(o.Zperp, o.parent.wt, o.X₁))  # FWL-process X₁
+  o.X₂ = o.Zperp * (o.invZperpZperp * cross(o.Zperp, o.parent.wt, o.parent.X₂)); o.X₂ .= o.parent.X₂ .- o.X₂                 # FWL-process X₂
   X₂X₁ = cross(o.X₂, o.parent.wt, o.X₁)
   o.XX = Symmetric([symcross(o.X₁, o.parent.wt) X₂X₁' ; X₂X₁ symcross(o.X₂, o.parent.wt)])
   o.kX = ncols(o.XX)
@@ -125,10 +123,10 @@ function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where 
   o.Z   = X₁₂B(o.parent.X₁, o.parent.Y₂, o.Rpar     )  # Zpar
   o.ZR₁ = X₁₂B(o.parent.X₁, o.parent.Y₂, o.R₁invR₁R₁)
 
-  o.Z   .-= o.ZperpinvZperpZperp * cross(o.Zperp, o.parent.wt, o.Z  )  # partialling out
-  o.ZR₁ .-= o.ZperpinvZperpZperp * cross(o.Zperp, o.parent.wt, o.ZR₁)
-  o.Y₂ = o.parent.Y₂ - o.ZperpinvZperpZperp * cross(o.Zperp, o.parent.wt, o.parent.Y₂)
-  o.y₁ = o.parent.y₁ - o.ZperpinvZperpZperp * crossvec(o.Zperp, o.parent.wt, o.parent.y₁)
+  o.Z   .-= o.Zperp * (o.invZperpZperp * cross(o.Zperp, o.parent.wt, o.Z))  # partialling out
+  o.ZR₁ .-= o.Zperp * (o.invZperpZperp * cross(o.Zperp, o.parent.wt, o.ZR₁))
+  o.Y₂ = o.parent.Y₂ - o.Zperp * (o.invZperpZperp * cross(o.Zperp, o.parent.wt, o.parent.Y₂))
+  o.y₁ = o.parent.y₁ - o.Zperp * o.invZperpZperp * (crossvec(o.Zperp, o.parent.wt, o.parent.y₁))
 
   o.X₁Y₂ = cross(o.X₁, o.parent.wt, o.Y₂)
   o.X₂Y₂ = cross(o.X₂, o.parent.wt, o.Y₂)

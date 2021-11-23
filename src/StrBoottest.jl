@@ -71,7 +71,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   ∂²denom∂r²::Matrix{Matrix{Matrix{T}}}
 	FEs::Vector{StrFE{T}}
   T1L::Vector{Matrix{T}}; T1R::Vector{Matrix{T}}
-	crosstabCap✻ind::Vector{Int64}
+	crosstabCap✻ind::Vector{Int64}; crosstabBootind::Vector{Int64}
   seed::UInt64
 
   StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 

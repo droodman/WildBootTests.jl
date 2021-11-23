@@ -52,7 +52,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   elseif !iszero(o.NClustVar)
 	  o.infoBootData = panelsetup(o.ID, collect(1:min(o.NClustVar,o.nbootclustvar)))  # bootstrap cluster grouping defs rel to original data
   else
-	  infoCapData = infoAllData = infoBootData = Vector{UnitRange{Int64}}(undef, o.Nobs, 0)  # causes no collapsing of data in panelsum() calls, only multiplying by weights if any
+	  infoCapData = infoAllData = o.infoBootData = Vector{UnitRange{Int64}}(undef, o.Nobs, 0)  # causes no collapsing of data in panelsum() calls, only multiplying by weights if any
   end
   o.N✻ = nrows(o.infoBootData)
 
@@ -378,7 +378,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
   o.small && (o.dof_r = o.NClustVar>0 ? minN - 1 : o._Nobs - o.kZ - o.NFE)
 
-  o.sqrt = isone(o.dof)  # work with t/z stats instead of F/chi2
+  o.sqrt = isone(o.dof)  # work with t/z stats instead of F/chi2?
 
   if o.small
 		o.multiplier = (o.smallsample = (o._Nobs - o.kZ - o.FEdfadj * o.NFE) / (o._Nobs - o.robust)) / o.dof  # divide by # of constraints because F stat is so defined
@@ -395,10 +395,14 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
   if o.WREnonARubin
 		if o.Repl.kZ>1
-			o.bootstrapt && o.robust
+			o.bootstrapt && o.robust &&
       	(o.Zyg = Vector{Matrix{T}}(undef,o.Repl.kZ))
 			o.numer_b = Vector{T}(undef,nrows(o.Repl.RRpar))
-		end		
+		end
+		if o.bootstrapt && o.robust
+    	F = FakeMatrix((o.Nobs,o.N✻))
+			o.crosstabBootind = o.Nobs==o.N✻ ? diagind(F) : LinearIndices(F)[CartesianIndex.(1:o.Nobs, o.IDBootData[1:o.Nobs])]
+		end
 	else
 		o.poles = o.anchor = zeros(T,0)
 		o.interpolable = o.bootstrapt && o.B>0 && o.null && o.Nw==1 && (iszero(o.κ) || o.ARubin)

@@ -202,21 +202,15 @@ function PrepWRE!(o::StrBootTest)
 
 			o.S✻UPX[i+1]     = o.Repl.XinvXX * o.S✻UX[i+1]
 			o.S✻UMZperp[i+1] = o.Repl.Zperp * o.S✻UZperpinvZperpZperp[i+1]
-			if o.Nobs == o.N✻  # subtract crosstab of observation by ∩-group of u
-				o.S✻UMZperp[i+1][diagind(o.S✻UMZperp[i+1])] .-= i>0 ? view(o.Ü₂par,:,i) : o.DGP.u⃛₁  # case: bootstrapping by observation
+
+			if iszero(i)  # subtract crosstab of observation by ∩-group of u
+				o.S✻UMZperp[  1][o.crosstabBootind] .-= o.DGP.u⃛₁
 			else
-				if iszero(i)
-					for g ∈ 1:o.Nobs
-						o.S✻UMZperp[i+1][g,o.IDBootData[g]] -= o.DGP.u⃛₁[g]
-					end
-				else
-					for g ∈ 1:o.Nobs
-						o.S✻UMZperp[i+1][g,o.IDBootData[g]] -= o.Ü₂par[g,i]
-					end
-				end
+				o.S✻UMZperp[i+1][o.crosstabBootind] .-= view(o.Ü₂par,:,i)
 			end
+
 			o.NFE>0 &&
-				(o.S✻UMZperp[i+1] .+= view(o.invFEwt .* o.CTFEU[i+1], o._FEID,:))  # CT_(*,FE) (U ̈_(parj) ) (S_FE S_FE^' )^(-1) S_FE
+				(o.S✻UMZperp[i+1] .+= view(o.invFEwt .* o.CTFEU[i+1], o._FEID, :))  # CT_(*,FE) (U ̈_(parj) ) (S_FE S_FE^' )^(-1) S_FE
 		end
   end
 end

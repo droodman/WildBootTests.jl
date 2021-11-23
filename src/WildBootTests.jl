@@ -98,3 +98,13 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T, w::Integer)
 end
 
 end
+
+# using StatFiles, StatsModels, DataFrames, DataFramesMeta, BenchmarkTools, Plots, CategoricalArrays, Random, StableRNGs
+# df = DataFrame(load(raw"d:\OneDrive\Documents\Work\Econometrics\Wild cluster\regm.dta"))
+# df = DataFrame(coll=Bool.(df.coll), merit=Bool.(df.merit), male=Bool.(df.male), black=Bool.(df.black), asian=Bool.(df.asian), state=categorical(Int8.(df.state)), year=categorical(Int16.(df.year)))
+# dropmissing!(df)
+# df = df[df.state .∉ Ref([34,57,59,61,64,71,72,85,88]),:]
+# f = @formula(coll ~ 1 + merit + male + black + asian + year + state)
+# f = apply_schema(f, schema(f, df))
+# resp, predexog = modelcols(f, df)
+# test = WildBootTests.wildboottest(([0 1 zeros(1,size(predexog,2)-2)], [0]); resp, predexog, clustid= [collect(1:nrow(df)) levelcode.(df.state)], nbootclustvar=1, nerrclustvar=1, reps=9999, rng=StableRNG(1231))

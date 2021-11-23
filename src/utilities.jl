@@ -337,3 +337,9 @@ getindex(X::SelectionMatrix, i, j) = i==X.p[j]
 *(X::AbstractMatrix, Y::SelectionMatrix) = view(X,:,Y.p)
 *(X::SelectionMatrix, Y::AbstractMatrix) = view(Y, X.p, :)
 *(X::SelectionMatrix, Y::AbstractVector) = view(Y, X.p)
+
+struct FakeMatrix{T} <: AbstractMatrix{T}  # AbstractMatrix with almost no storage, just for LinearIndices() conversion                
+	size::Tuple{Int64,Int64}                                  
+end
+FakeMatrix(size::Tuple{Int64,Int64}) = FakeMatrix{Bool}(size)
+size(X::FakeMatrix) = X.size
