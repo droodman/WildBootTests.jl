@@ -116,7 +116,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 	end
 
 	o.SuwtXA = o.scorebs ?
-				 o.B>0 ?
+				o.B>0 ?
 					 o.NClustVar ?
 				          @panelsum(o.uXAR, o.wt, o.infoBootData) :
 					      vHadw(o.uXAR, o.wt)                    :

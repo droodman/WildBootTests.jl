@@ -185,9 +185,9 @@ function wildboottest(T::DataType,
 					  getplot::Bool=getCI,
 					  getauxweights::Bool=false)
 
-  @assert length(predexog)==0 || nrows(predexog)==nrows(resp) "All data vector/matrices must have same height"
-  @assert length(predendog)==0 || nrows(predendog)==nrows(resp) "All data vector/matrices must have same height"
-  @assert length(inst)==0 || nrows(inst)==nrows(resp) "All data vector/matrices must have same height"
+  @assert length(predexog)==0 || nrows(predexog)==nrows(resp) "All data vectors/matrices must have same height"
+  @assert length(predendog)==0 || nrows(predendog)==nrows(resp) "All data vectors/matrices must have same height"
+  @assert length(inst)==0 || nrows(inst)==nrows(resp) "All data vectors/matrices must have same height"
   @assert length(feid)==0 || nrows(feid)==nrows(resp) "feid vector must have same height as data matrices"
   @assert length(clustid)==0 || nrows(clustid)==nrows(resp) "clustid must have same height as data matrices"
   @assert obswt==I || nrows(obswt)==nrows(resp) "obswt must have same height as data matrices"

@@ -147,7 +147,7 @@ function matmulplus!(A::Vector, B::Matrix, C::Vector)  # add B*C to A in place
 end
 
 # like Mata panelsetup() but can group on multiple columns, like sort(). But doesn't take minobs, maxobs arguments.
-function panelsetup(X::AbstractArray{S} where S, colinds::Vector{T} where T<:Integer)
+function panelsetup(X::AbstractArray{S} where S, colinds::AbstractVector{T} where T<:Integer)
   N = nrows(X)
   info = Vector{UnitRange{Int64}}(undef, N)
   lo = p = 1
@@ -166,7 +166,7 @@ function panelsetup(X::AbstractArray{S} where S, colinds::Vector{T} where T<:Int
   info
 end
 # Like above but also return standardized ID variable, starting from 1
-function panelsetupID(X::AbstractArray{S} where S, colinds::Vector{T} where T<:Integer)
+function panelsetupID(X::AbstractArray{S} where S, colinds::UnitRange{T} where T<:Integer)
   N = nrows(X)
   info = Vector{UnitRange{Int64}}(undef, N)
   ID = ones(Int64, N)
@@ -338,8 +338,8 @@ getindex(X::SelectionMatrix, i, j) = i==X.p[j]
 *(X::SelectionMatrix, Y::AbstractMatrix) = view(Y, X.p, :)
 *(X::SelectionMatrix, Y::AbstractVector) = view(Y, X.p)
 
-struct FakeMatrix{T} <: AbstractMatrix{T}  # AbstractMatrix with almost no storage, just for LinearIndices() conversion                
-	size::Tuple{Int64,Int64}                                  
+struct FakeArray{N} <: AbstractArray{Bool,N}  # AbstractArray with almost no storage, just for LinearIndices() conversion         
+	size::Tuple{Vararg{Int64,N}}
 end
-FakeMatrix(size::Tuple{Int64,Int64}) = FakeMatrix{Bool}(size)
-size(X::FakeMatrix) = X.size
+FakeArray(size...) = FakeArray{length(size)}(size)
+size(X::FakeArray) = X.size
