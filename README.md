@@ -50,15 +50,15 @@ julia> resp, predexog = modelcols(f, df);  # extract response & (exogenous) pred
 
 julia> clustid = df.firm;  # extract clustering variable
 
-julia> R = [0 1]; r = [1];  # express null that coefficient on x is 1 as Rβ = r, where β is parameter vector
+julia> R = [0 1]; r = [1];  # put null that coefficient on x = 1 in Rβ = r form, where β is parameter vector
 
-julia> test = wildboottest(R, r; resp=resp, predexog=predexog, clustid=clustid, reps=9999)
+julia> test = wildboottest(R, r; resp=resp, predexog=predexog, clustid=clustid)
 WildBootTests.BoottestResult{Float32}
 
 p  = 0.492
 CI = Float32[0.93461335 1.1347668]
 
-julia> test = wildboottest(R, r; resp, predexog, clustid, reps=9999);  # same, using Julia syntactic sugar
+julia> test = wildboottest(R, r; resp, predexog, clustid);  # same, using Julia syntactic sugar
 
 julia> p(test)  # programmatically extract p value
 0.49459493f0
@@ -71,10 +71,34 @@ julia> plot(plotpoints(test)...)  # plot confidence curve
 ```
 # Examples omitting output
 ```
-# use Webb instead of Rademacher weights
-test = wildboottest(R, r; resp, predexog, clustid, reps=99999, auxwttype=WildBootTests.webb)
+# use Webb instead of Rademacher weights, 99,999 bootstrap replications instead of 999
+wildboottest(R, r; resp, predexog, clustid, reps=99999, auxwttype=WildBootTests.webb)
 
-# test that coefficient on intercept = 0 and coefficient on x = 1
+# bootstrap in double-precision (Float64) instead of single (Float32)
+# slow on first use because of recompile
+wildboottest(Float64, R, r; resp, predexog, clustid)
+
+# use (guaranteed-stable random number generator)[https://github.com/JuliaRandom/StableRNGs.jl] for exact replicability
+using StableRNGs
+wildboottest(R, r; resp, predexog, clustid, rng=StableRNG(23948572))
+
+# test that coefficient on intercept = 0 and coefficient on x = 1; plot confidence surface
 test = wildboottest([1 0; 0 1], [0;1]; resp, predexog, clustid, reps=9999)
-plot(plotpoints(test).X..., plotpoints(test).p, st=:contourf) # plot confidence surface
+plot(plotpoints(test).X..., plotpoints(test).p, st=:contourf)
+
+# multiway-cluster errors by firm and year; bootstrap by firm
+wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:firm, :year]]), nerrclustvar=2, nbootclustvar=1)
+
+# same but bootstrap by year
+wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:year, :firm]]), nerrclustvar=2, nbootclustvar=1)
+
+# same but bootstrap by year-firm pair
+wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:year, :firm]]), nerrclustvar=2, nbootclustvar=2)
+
+# add year fixed effects to model; cluster by firm
+wildboottest(R, r; resp, predexog, feid=df.year, clustid=df.firm)
+
+# test hypotheses, while imposing model constraint that constant term = 0.2
+R1 = [1 0]; r1 = [.2]
+wildboottest(R, r; R1, r1, resp, predexog, clustid=df.firm)
 ```
