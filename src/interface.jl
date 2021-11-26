@@ -14,7 +14,7 @@ struct BoottestResult{T}
   b::Vector{T}
   V::Matrix{T}
   auxweights::Union{Nothing,Matrix{T}}
-  # M::StrBootTest
+  M::StrBootTest
 end
 
 "Return test statistic subject to wild bootstrap test"
@@ -85,7 +85,7 @@ Function to perform wild-bootstrap-based hypothesis test
 
 # Positional arguments
 * `T::DataType`: data type for inputs, results, and computations: Float32 (default) or Float64
-* `H₀::Tuple{AbstractMatrix, AbstractVector}`: required matrix-vector tuple (R,r) expressesing the null Rβ=r; see Notes
+* `R::AbstractMatrix` and `r::AbstractVector`: required matrix and vector expressesing the null Rβ=r; see Notes
 
 # Required keyword argument
 * `resp::AbstractVector`: response/dependent variable (y/y₁)
@@ -94,7 +94,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `predexog::AbstractVecOrMat`: exogenous predictors, including constant term, if any (X/X₁)
 * `predendog::AbstractVecOrMat`: endogenous predictors (Y₂)
 * `inst::AbstractVecOrMat`: instruments (X₂)
-* `H₁::Tuple{AbstractMatrix, AbstractVector}`: model constraints; same format as for H₀
+* `R₁::AbstractMatrix` and `r₁::AbstractVector`: model constraints; same format as for `R` and `r`
 * `clustid::AbstractVecOrMat{<:Integer}`: data vector/matrix of error and bootstrapping cluster identifiers; see Notes 
 * `nbootclustvar::Integer=1`: number of bootstrap-clustering variables
 * `nerrclustvar::Integer=nbootclustvar`: number of error-clustering variables
@@ -143,16 +143,18 @@ Order the columns of `clustid` this way:
 In the most common case, `clustid` is a single column of type 2.
 
 The code does not handle missing data values: all data and identifier matrices must 
-match the estimation sample.
+be restricted to the estimation sample.
 
 """
 function wildboottest(T::DataType,
-					  H₀::Tuple{AbstractMatrix, AbstractVector};
+					  R::AbstractMatrix,
+						r::AbstractVector;
 					  resp::AbstractVector{<:Real},
 					  predexog::AbstractVecOrMat{<:Real}=zeros(T,0,0),
 					  predendog::AbstractVecOrMat{<:Real}=zeros(T,0,0),
 					  inst::AbstractVecOrMat{<:Real}=zeros(T,0,0),
-					  H₁::Tuple{AbstractMatrix, AbstractVector}=(zeros(T,0,0), zeros(T,0)),
+					  R₁::AbstractMatrix=zeros(T,0,0),
+						r₁::AbstractVector=zeros(T,0),
 					  clustid::AbstractVecOrMat{<:Integer}=zeros(Int,0,0),  # bootstrap-only clust vars, then boot&err clust vars, then err-only clust vars
 					  nbootclustvar::Integer=1,
 					  nerrclustvar::Integer=nbootclustvar,
@@ -197,10 +199,10 @@ function wildboottest(T::DataType,
   @assert length(feid)==0 || nrows(feid)==nrows(resp) "feid vector must have same height as data matrices"
   @assert length(clustid)==0 || nrows(clustid)==nrows(resp) "clustid must have same height as data matrices"
   @assert obswt==I || nrows(obswt)==nrows(resp) "obswt must have same height as data matrices"
-  @assert nrows(H₀[1])==nrows(H₀[2]) "Entries of H₀ tuple must have same height"
-  @assert ncols(H₀[1])==ncols(predexog)+ncols(predendog) "Wrong number of columns in null specification"
-  @assert nrows(H₁[1])==nrows(H₁[2]) "Entries of H₁ tuple must have same height"
-  @assert length(H₁[1])==0 || ncols(H₁[1])==ncols(predexog)+ncols(predendog) "Wrong number of columns in model constraint specification"
+  @assert nrows(R)==nrows(r) "Entries of H₀ tuple must have same height"
+  @assert ncols(R)==ncols(predexog)+ncols(predendog) "Wrong number of columns in null specification"
+  @assert nrows(R₁)==nrows(r₁) "Entries of H₁ tuple must have same height"
+  @assert length(R₁)==0 || ncols(R₁)==ncols(predexog)+ncols(predendog) "Wrong number of columns in model constraint specification"
   @assert nbootclustvar ≤ ncols(clustid) "nbootclustvar > width of clustid"
   @assert nerrclustvar ≤ ncols(clustid) "nerrclustvar > width of clustid"
   @assert reps ≥ 0 "reps < 0"
@@ -208,12 +210,12 @@ function wildboottest(T::DataType,
   @assert rtol > 0. "rtol ≤ 0"
   @assert NH₀ > 0 "NH₀ ≤ 0"
 	if getplot || getCI
-		@assert iszero(length(gridmin   )) || length(gridmin   )==nrows(H₀[1]) "Length of gridmin doesn't match number of hypotheses being jointly tested"
-		@assert iszero(length(gridmax   )) || length(gridmax   )==nrows(H₀[1]) "Length of gridmax doesn't match number of hypotheses being jointly tested"
-		@assert iszero(length(gridpoints)) || length(gridpoints)==nrows(H₀[1]) "Length of gridpoints doesn't match number of hypotheses being jointly tested"
+		@assert iszero(length(gridmin   )) || length(gridmin   )==nrows(R) "Length of gridmin doesn't match number of hypotheses being jointly tested"
+		@assert iszero(length(gridmax   )) || length(gridmax   )==nrows(R) "Length of gridmax doesn't match number of hypotheses being jointly tested"
+		@assert iszero(length(gridpoints)) || length(gridpoints)==nrows(R) "Length of gridpoints doesn't match number of hypotheses being jointly tested"
 	end
 
-  M = StrBootTest{T}(H₀[1], H₀[2], H₁[1], H₁[2], resp, predexog, predendog, inst, obswt, fweights, LIML, Fuller, κ, ARubin,
+  M = StrBootTest{T}(R, r, R₁, r₁, resp, predexog, predendog, inst, obswt, fweights, LIML, Fuller, κ, ARubin,
 	                   reps, auxwttype, rng, maxmatsize, ptype, imposenull, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, issorted, hetrobust, small,
 	                   feid, fedfadj, level, rtol, madjtype, NH₀, ML, β, A, scores, getplot,
 	                   map(x->ismissing(x) ? missing : T(x), gridmin),
@@ -229,11 +231,11 @@ function wildboottest(T::DataType,
   end
 
   BoottestResult{T}(getstat(M),
-	                  isone(nrows(H₀[1])) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
+	                  isone(nrows(R)) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
 	                  getp(M), getpadj(M), getreps(M), getrepsfeas(M), getNBootClust(M), getdf(M), getdf_r(M), plot, peak, CI,
 	                  getdist(M,diststat),
 	                  getb(M), getV(M),
-	                  getauxweights && reps>0 ? getauxweights(M) : nothing #=, M=# )
+	                  getauxweights && reps>0 ? getauxweights(M) : nothing , M)
 end
 
-wildboottest(H₀::Tuple{AbstractMatrix, AbstractVector}; args...) = wildboottest(Float32, H₀; args...)
+wildboottest(R::AbstractMatrix, r::AbstractVector; args...) = wildboottest(Float32, R, r; args...)
