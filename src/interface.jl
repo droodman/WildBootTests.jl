@@ -7,7 +7,7 @@ struct BoottestResult{T}
   reps::Int64; repsfeas::Int64
   NBootClust::Int64
   dof::Int64; dof_r::Int64
-  plot::Union{Nothing, NamedTuple{(:X, :p), Tuple{Matrix{T},Vector{T}}}}
+  plot::Union{Nothing, NamedTuple{(:X, :p), Tuple{Tuple{Vararg{Vector{T}, N} where N},Vector{T}}}}
   peak::Union{Nothing, NamedTuple{(:X, :p), Tuple{Vector{T}, T}}}
   CI::Union{Nothing, Matrix{T}}
   dist::Matrix{T}
@@ -50,7 +50,13 @@ dof(o::BoottestResult) = o.dof
 "Return residual degrees of freedom wild bootstrap test"
 dof_r(o::BoottestResult) = o.dof_r
 
-"Return data for confidence plot of wild bootstrap test"
+"""
+Return data for confidence plot of wild bootstrap test.
+Return value is a 2-tuple with named entries `X` and `p` holding
+the confidence sampling locations and p values respectively. `X` is in turn
+a 1- or 2-tuple of vectors of sampling coordinates for each 
+dimension of the tested hypothesis.
+"""
 plotpoints(o::BoottestResult) = o.plot
 
 "Return parameter value with peak p value in wild bootstrap test"

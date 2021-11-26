@@ -359,13 +359,12 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		end
 
 		if o.robust && o.granular<o.NErrClustCombs && o.B>0
-			if o.subcluster>0  # crosstab c,c* is wide
-				o.crosstabCap✻ind = LinearIndices(FakeArray(length(o.infoErrAll), o.dof, Nall))[[CartesianIndex(j, d, i) for d ∈ 1:o.dof for (j,v) ∈ enumerate(o.infoErrAll) for i ∈ v]]
-			elseif o.NClustVar == o.nbootclustvar  # crosstab c,c* is square
-				o.crosstabCap✻ind = LinearIndices(FakeArray(o.N✻, o.dof, o.N✻))[[CartesianIndex(i, d, i) for d ∈ 1:o.dof for i ∈ 1:Nall]]  # ~diagind()
-			else  # crosstab c,c* is tall
-				o.crosstabCap✻ind = LinearIndices(FakeArray(Nall, o.dof, o.N✻))[[CartesianIndex(i, d, j) for d ∈ 1:o.dof for (j,v) ∈ enumerate(o.clust[o.BootClust].info) for i ∈ v]]
-			end
+			inds = o.subcluster>0 ?
+				        [CartesianIndex(j, d, i) for d ∈ 1:o.dof for (j,v) ∈ enumerate(o.infoErrAll) for i ∈ v] :  # crosstab c,c* is wide
+			       o.NClustVar == o.nbootclustvar ?
+				        [CartesianIndex(i, d, i) for d ∈ 1:o.dof for i ∈ 1:Nall] :  # crosstab c,c* is square
+			          [CartesianIndex(i, d, j) for d ∈ 1:o.dof for (j,v) ∈ enumerate(o.clust[o.BootClust].info) for i ∈ v]  # crosstab c,c* is tall
+			o.crosstabCap✻ind = LinearIndices(FakeArray(Tuple(max(inds...))...))[inds]
 		end
 	end
 

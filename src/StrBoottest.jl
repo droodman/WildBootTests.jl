@@ -58,7 +58,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   JNcapN✻::Matrix{T}; statDenom::Matrix{T}; uXAR::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; βdev::Matrix{T}; δdenom_b::Matrix{T}
 	_Jcap::Matrix{T}; YY✻_b::Matrix{T}; YPXY✻_b::Matrix{T}; numerw::Matrix{T}; Zyg::Vector{Matrix{T}}; numer_b::Vector{T}
 		
-	distCDR::Matrix{T}; plotX::Matrix{T}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
+	distCDR::Matrix{T}; plotX::Tuple{Vararg{Vector{T}, N} where N}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
   numersum::Vector{T}; ü₀::Vector{T}; invFEwt::Vector{T}
 	βs::Matrix{T}; As::Matrix{T}
 	infoAllData::Vector{UnitRange{Int64}}; infoCapData::Vector{UnitRange{Int64}}; IDAll::Matrix{T}; Ü₂par::Matrix{T}
@@ -222,7 +222,7 @@ function getdist(o::StrBootTest, diststat::DistStatType=nodist)
 	  _numer = isone(o.v_sd) ? o.numer : o.numer / o.v_sd
 	  o.distCDR = (@view _numer[:,2:end]) .+ o.r
 	  sort!(o.distCDR)
-  elseif length(o.distCDR)==0  # return test stats
+  elseif nrows(o.distCDR)==0  # return test stats
     if length(o.dist) > 1
 	    o.distCDR = reshape((@view o.dist[2:end]), :, 1) * o.multiplier
 	    sort!(o.distCDR, dims=1)

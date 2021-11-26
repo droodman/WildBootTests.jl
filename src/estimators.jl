@@ -40,14 +40,13 @@ end
 function perp(A::AbstractMatrix)
   F = eigensym(A*invsym(A'A)*A')
   F.vectors[:, abs.(F.values) .< 1000eps(eltype(A))]
-  # checkI!(dest)
 end
 
 # R₁ is constraints. R is attack surface for null; only needed when using FWL for WRE
 # for DGP regression, R₁ is maintained constraints + null if imposed while R should have 0 nrows
 # for replication regressions R₁ is maintained constraints, R is null
 function setR!(o::StrEstimator{T,E}, R₁::AbstractMatrix{T}, R::Union{UniformScaling{Bool},AbstractMatrix{T}}=Matrix{T}(undef,0,0)) where {T,E}
-  if length(R₁) > 0
+  if nrows(R₁) > 0
 	  invR₁R₁ = invsym(R₁ * R₁')
 	  all(iszero.(diag(invR₁R₁))) && throw(ErrorException("Null hypothesis or model constraints are inconsistent or redundant."))
 	  o.R₁invR₁R₁ = R₁'invR₁R₁
@@ -66,7 +65,7 @@ function setR!(o::StrEstimator{T,E}, R₁::AbstractMatrix{T}, R::Union{UniformSc
 	  o.Rpar   = F.vectors[:,   val]  # perp and par of RR₁perp
     o.RperpX = F.vectors[:, .!val]
 
-	  if length(R₁) > 0  # fold model constraint factors into Rpar, RperpX
+	  if nrows(R₁) > 0  # fold model constraint factors into Rpar, RperpX
 	    o.Rpar   = o.R₁perp * o.Rpar
 	    o.RperpX = o.R₁perp * o.RperpX
 	  end
@@ -87,11 +86,11 @@ function InitVars!(o::StrEstimator{T,OLS}, Rperp::AbstractMatrix{T}) where T # R
   H = symcross(o.parent.X₁, o.parent.wt)
   o.invH = inv(H)
 
-  R₁AR₁ = iszero(length(o.R₁perp)) ? o.invH : Symmetric(o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')  # for DGP regression
+  R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.invH : Symmetric(o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')  # for DGP regression
   o.β₀ = R₁AR₁ * crossvec(o.parent.X₁, o.parent.wt, o.y₁par)
   o.∂β∂r = R₁AR₁ * H * o.R₁invR₁R₁ - o.R₁invR₁R₁
 
-  o.A = iszero(length(Rperp)) ? o.invH : Rperp * invsym(Rperp'H*Rperp) * Rperp'  # for replication regression
+  o.A = iszero(nrows(Rperp)) ? o.invH : Rperp * invsym(Rperp'H*Rperp) * Rperp'  # for replication regression
   o.AR = o.A * o.parent.R'
   (o.parent.scorebs || o.parent.robust) && (o.XAR = o.parent.X₁ * o.AR)
 end
@@ -103,7 +102,7 @@ function InitVars!(o::StrEstimator{T,ARubin}, Rperp::AbstractMatrix{T} = Matrix{
   o.AR = o.A * o.parent.R'
   (o.parent.scorebs || o.parent.robust) && (o.XAR = X₁₂B(o.parent.X₁, o.parent.X₂, o.AR))
 
-  R₁AR₁ = iszero(length(o.R₁perp)) ? o.A : o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp'
+  R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.A : o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp'
   o.β₀   = R₁AR₁ * [crossvec(o.parent.X₁, o.parent.wt, o.parent.y₁) ; crossvec(o.parent.X₂, o.parent.wt, o.parent.y₁)]
   o.∂β∂r = R₁AR₁ * [cross(o.parent.X₁, o.parent.wt, o.parent.Y₂) ; cross(o.parent.X₂, o.parent.wt, o.parent.Y₂)]
 end
@@ -144,7 +143,7 @@ function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where 
   o.invXXXZ = o.invXX * o.XZ
   o.ZXinvXXXZ = o.XZ'o.invXXXZ
 
-  if length(o.R₁invR₁R₁)>0
+  if ncols(o.R₁invR₁R₁)>0
 	  o.X₂ZR₁    = cross(o.X₂, o.parent.wt, o.ZR₁)
 	  o.X₁ZR₁    = cross(o.X₁, o.parent.wt, o.ZR₁)
 	  o.ZZR₁     = cross(o.Z , o.parent.wt, o.ZR₁)
@@ -218,14 +217,14 @@ function MakeH!(o::StrEstimator{T,IVGMM} where T, makeXAR::Bool=false)
   H = isone(o.κ) ? o.H_2SLS : o.ZZ + o.κ * o.H_2SLSmZZ
   o.invH = invsym(H)
   if makeXAR  # for replication regression in score bootstrap of IV/GMM
-	  o.A = length(o.Rperp)>0 ? o.Rperp * invsym(o.Rperp'H*o.Rperp) * o.Rperp' : o.invH
+	  o.A = ncols(o.Rperp)>0 ? o.Rperp * invsym(o.Rperp'H*o.Rperp) * o.Rperp' : o.invH
 	  o.AR = o.A * (o.Rpar'o.parent.R')
 	  o.XAR = X₁₂B(o.X₁, o.X₂, o.V * o.AR)
   end
 end
 
 function Estimate!(o::StrEstimator{T,IVGMM} where T, r₁::AbstractVector)
-  if length(o.R₁invR₁R₁)>0
+  if ncols(o.R₁invR₁R₁)>0
     o.y₁pary₁par = o.y₁y₁ - (o.twoR₁Zy₁'r₁)[1] + r₁'o.ZR₁ZR₁ * r₁
 	  o.y₁par   = o.y₁ - o.ZR₁ * r₁
 	  o.Y₂y₁par = o.Y₂y₁  - o.ZR₁Y₂'r₁

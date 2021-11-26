@@ -120,15 +120,15 @@ function plot(o::StrBootTest{T}) where T
 			hi = [o.gridmax[1]]
 		end
 
-		o.plotX = reshape(range(lo[1], hi[1], length=o.gridpoints[1]),:,1)
-		o.plotY = fill(T(NaN), length(o.plotX))
+		o.plotX = (collect(range(lo[1], hi[1], length=o.gridpoints[1])),)  # store as 1-tuple since q=1
+		o.plotY = fill(T(NaN), o.gridpoints[1])
 		o.plotY[1  ] = p_lo
 		o.plotY[end] = p_hi
 		p_confpeak = o.WREnonARubin ? T(NaN) : o.twotailed ? one(T) : T(.5)
 
 		c = clamp((floor(Int, (o.confpeak[1] - lo[1]) / (hi[1] - lo[1]) * (o.gridpoints[1] - 1)) + 2), 1, o.gridpoints[1]+1)  # insert original point estimate into grid
-		o.plotX = [@view o.plotX[1:c-1,:] ; o.confpeak ; @view o.plotX[c:end,:]]
-		insert!(o.plotY, c, p_confpeak)
+		insert!(o.plotX[1], c, o.confpeak[1])
+		insert!(o.plotY   , c, p_confpeak)
 
 	else  # 2D plot
 
@@ -138,13 +138,15 @@ function plot(o::StrBootTest{T}) where T
 			lo[d] = ismissing(o.gridmin[d]) ? o.confpeak[d] - halfwidth[d] : o.gridmin[d]
 			hi[d] = ismissing(o.gridmax[d]) ? o.confpeak[d] + halfwidth[d] : o.gridmax[d]
 		end
-		o.plotX = [repeat(range(lo[1], hi[1], length=o.gridpoints[1]), inner=o.gridpoints[2]) repeat(range(lo[2], hi[2], length=o.gridpoints[2]), outer=o.gridpoints[1])]
-		o.plotY = fill(T(NaN), nrows(o.plotX))
+		o.plotX = (collect(range(lo[1], hi[1], length=o.gridpoints[1])), 
+		           collect(range(lo[2], hi[2], length=o.gridpoints[2])))
+		o.plotY = fill(T(NaN), o.gridpoints[1]*o.gridpoints[2])
 	end
 
-	isnan(o.plotY[1]) && (o.plotY[1] = r_to_p(o, view(o.plotX,1,:)))  # do in this order for widest interpolation
-	@views for i ∈ length(o.plotY):-1:2
-		isnan(o.plotY[i]) && (o.plotY[i] = r_to_p(o, view(o.plotX,i,:)))
+	pts = length(o.plotY)
+	isnan(o.plotY[1]) && (o.plotY[1] = r_to_p(o, [o.plotX[i][1] for i in 1:o.q]))  # do in this order for widest interpolation
+	@views for (i,v) ∈ Iterators.reverse(enumerate(Iterators.product(o.plotX...)))
+		i>1 && isnan(o.plotY[i]) && (o.plotY[i] = r_to_p(o, [v...]))
 	end
 
 	if any(isnan.(o.plotY))
@@ -173,16 +175,16 @@ function plot(o::StrBootTest{T}) where T
 			for i ∈ 1:length(lo), j ∈ 1:2
 				if !isinf(o.CI[i,j])
 					t = Int(o.CI[i,j])
-					o.CI[i,j] = search(o, α, o.plotY[t], o.plotX[t], o.plotY[t+1], o.plotX[t+1])
+					o.CI[i,j] = search(o, α, o.plotY[t], o.plotX[1][t], o.plotY[t+1], o.plotX[1][t+1])
 				end
 			end
 		end
 	end
 
-  if @isdefined c  # now that it's done helping graph look good, remove peak point from returned grid for evenness, for Bayesian sampling purposes
-		o.peak = (X = view(o.plotX,c,:), p = o.plotY[c])
-		o.plotX = view(o.plotX,[1:c-1; c+1:nrows(o.plotX)],:)
-		deleteat!(o.plotY, c)
+  if @isdefined c  # now that it's done helping 1-D graph look good, remove peak point from returned grid for evenness, for Bayesian sampling purposes
+		o.peak = (X = [o.plotX[1][c]], p = o.plotY[c])
+		deleteat!(o.plotX[1], c)
+		deleteat!(o.plotY   , c)
   end
 
 	o.r = _r; o.dirty = true  # restore backups

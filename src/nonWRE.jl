@@ -166,11 +166,11 @@ end
 function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{T}(undef,0)) where T  # called to *prepare* interpolation, or when w>1, in which case there is no interpolation
 	o.numerw = o.scorebs ?
 			   (o.B>0 ?
-				 o.SuwtXA'o.v :
-				 o.SuwtXA * o.v_sd    ) :
+				 	o.SuwtXA'o.v :
+				 	o.SuwtXA * o.v_sd    ) :
 			   (!o.robust || o.granular || o.purerobust ?
-				  o.R * (o.βdev = o.SuwtXA * o.v) :
-				 (o.R * o.SuwtXA) * o.v)
+				  	 o.R * (o.βdev = o.SuwtXA * o.v) :
+				 		(o.R * o.SuwtXA) * o.v)
 
 	if isone(w)
 		if o.ARubin
@@ -214,16 +214,16 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 	!o.bootstrapt && return
 
 	if o.robust
-    	if !o.interpolating  # these quadratic computation needed to *prepare* for interpolation but are superseded by interpolation once it is going
-      		o.purerobust && (u✻2 = o.u✻ .^ 2)
-      		for i ∈ 1:o.dof, j ∈ 1:i
-    			o.purerobust &&
-  	      			(o.denom[i,j] = cross(view(o.M.WXAR,:,i), view(o.M.WXAR,:,j), u✻2) * (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier))
+    if !o.interpolating  # these quadratic computation needed to *prepare* for interpolation but are superseded by interpolation once it is going
+    	o.purerobust && (u✻2 = o.u✻ .^ 2)
+    	for i ∈ 1:o.dof, j ∈ 1:i
+    		o.purerobust &&
+  	   		(o.denom[i,j] = cross(view(o.M.WXAR,:,i), view(o.M.WXAR,:,j), u✻2) * (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier))
 				for c ∈ o.purerobust+1:o.NErrClustCombs
 					@clustAccum!(o.denom[i,j], c, j==i ? coldot(o.Jcd[c,i]) : coldot(o.Jcd[c,i],o.Jcd[c,j]))
 				end
-  	 		 end
-   		end
+  		end
+   	end
 
 		if isone(o.dof)
 			@storeWtGrpResults!(o.dist, vec(o.numerw ./ sqrtNaN.(o.denom[1,1])))
