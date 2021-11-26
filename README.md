@@ -87,6 +87,11 @@ test = wildboottest([1 0; 0 1], [0;1]; resp, predexog, clustid, reps=9999)
 plot(plotpoints(test).X..., plotpoints(test).p, st=:contourf)
 
 # multiway-cluster error variance by firm and year; bootstrap by firm
-wildboottest(R, r; resp, predexog, clustid=df[:,[:firm, :year]], nbootclustvar=1, nerrclustvar=2)
+test = wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:firm, :year]]), nerrclustvar=2, nbootclustvar=1)
 
+# same but bootstrap by year
+test = wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:year, :firm]]), nerrclustvar=2, nbootclustvar=1)
+
+# same but bootstrap by year-firm pair
+test = wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:year, :firm]]), nerrclustvar=2, nbootclustvar=2)
 ```
