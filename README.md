@@ -52,13 +52,13 @@ julia> clustid = df.firm;  # extract clustering variable
 
 julia> R = [0 1]; r = [1];  # express null that coefficient on x is 1 as Rβ = r, where β is parameter vector
 
-julia> test = wildboottest((R, r); resp=resp, predexog=predexog, clustid=clustid, reps=9999)
+julia> test = wildboottest(R, r; resp=resp, predexog=predexog, clustid=clustid, reps=9999)
 WildBootTests.BoottestResult{Float32}
 
 p  = 0.492
 CI = Float32[0.93461335 1.1347668]
 
-julia> test = wildboottest((R, r); resp, predexog, clustid, reps=9999);  # same, using Julia syntactic sugar
+julia> test = wildboottest(R, r; resp, predexog, clustid, reps=9999);  # same, using Julia syntactic sugar
 
 julia> p(test)  # programmatically extract p value
 0.49459493f0
@@ -72,10 +72,9 @@ julia> plot(plotpoints(test)...)  # plot confidence curve
 # Examples omitting output
 ```
 # use Webb instead of Rademacher weights
-wildboottest((R, r); resp, predexog, clustid, reps=99999, auxwttype=WildBootTests.webb)
-plot(plotpoints(test)...)  # plot confidence curve
+test = wildboottest(R, r; resp, predexog, clustid, reps=99999, auxwttype=WildBootTests.webb)
 
 # test that coefficient on intercept = 0 and coefficient on x = 1
-test = wildboottest(([1 0; 0 1], [0;1]); resp, predexog, clustid, reps=99999)
+test = wildboottest([1 0; 0 1], [0;1]; resp, predexog, clustid, reps=9999)
 plot(plotpoints(test).X..., plotpoints(test).p, st=:contourf) # plot confidence surface
 ```
