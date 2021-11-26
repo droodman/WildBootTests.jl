@@ -85,4 +85,8 @@ test = wildboottest(R, r; resp, predexog, clustid, rng=StableRNG(23948572))
 # test that coefficient on intercept = 0 and coefficient on x = 1; plot confidence surface
 test = wildboottest([1 0; 0 1], [0;1]; resp, predexog, clustid, reps=9999)
 plot(plotpoints(test).X..., plotpoints(test).p, st=:contourf)
+
+# multiway-cluster error variance by firm and year; bootstrap by firm
+wildboottest(R, r; resp, predexog, clustid=df[:,[:firm, :year]], nbootclustvar=1, nerrclustvar=2)
+
 ```
