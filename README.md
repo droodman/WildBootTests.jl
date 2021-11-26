@@ -75,8 +75,7 @@ julia> plot(plotpoints(test)...)  # plot confidence curve
 wildboottest((R, r); resp, predexog, clustid, reps=99999, auxwttype=WildBootTests.webb)
 plot(plotpoints(test)...)  # plot confidence curve
 
-# test that coefficient on intercept = 0 and coefficient on x = 1; plot confidence surface
-R = [1 0; 0 1]; r = [0;1];
-test = wildboottest((R, r); resp, predexog, clustid, reps=99999)
-plot(plotpoints(test).X..., plotpoints(test).p, st=:contourf)
+# test that coefficient on intercept = 0 and coefficient on x = 1
+test = wildboottest(([1 0; 0 1], [0;1]); resp, predexog, clustid, reps=99999)
+plot(plotpoints(test).X..., plotpoints(test).p, st=:contourf) # plot confidence surface
 ```
