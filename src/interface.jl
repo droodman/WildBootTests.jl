@@ -94,7 +94,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `predexog::AbstractVecOrMat`: exogenous predictors, including constant term, if any (X/X₁)
 * `predendog::AbstractVecOrMat`: endogenous predictors (Y₂)
 * `inst::AbstractVecOrMat`: instruments (X₂)
-* `R₁::AbstractMatrix` and `r₁::AbstractVector`: model constraints; same format as for `R` and `r`
+* `R1::AbstractMatrix` and `r1::AbstractVector`: model constraints; same format as for `R` and `r`
 * `clustid::AbstractVecOrMat{<:Integer}`: data vector/matrix of error and bootstrapping cluster identifiers; see Notes 
 * `nbootclustvar::Integer=1`: number of bootstrap-clustering variables
 * `nerrclustvar::Integer=nbootclustvar`: number of error-clustering variables
@@ -153,8 +153,8 @@ function wildboottest(T::DataType,
 					  predexog::AbstractVecOrMat{<:Real}=zeros(T,0,0),
 					  predendog::AbstractVecOrMat{<:Real}=zeros(T,0,0),
 					  inst::AbstractVecOrMat{<:Real}=zeros(T,0,0),
-					  R₁::AbstractMatrix=zeros(T,0,0),
-						r₁::AbstractVector=zeros(T,0),
+					  R1::AbstractMatrix=zeros(T,0,0),
+						r1::AbstractVector=zeros(T,0),
 					  clustid::AbstractVecOrMat{<:Integer}=zeros(Int,0,0),  # bootstrap-only clust vars, then boot&err clust vars, then err-only clust vars
 					  nbootclustvar::Integer=1,
 					  nerrclustvar::Integer=nbootclustvar,
@@ -201,8 +201,8 @@ function wildboottest(T::DataType,
   @assert obswt==I || nrows(obswt)==nrows(resp) "obswt must have same height as data matrices"
   @assert nrows(R)==nrows(r) "Entries of H₀ tuple must have same height"
   @assert ncols(R)==ncols(predexog)+ncols(predendog) "Wrong number of columns in null specification"
-  @assert nrows(R₁)==nrows(r₁) "Entries of H₁ tuple must have same height"
-  @assert length(R₁)==0 || ncols(R₁)==ncols(predexog)+ncols(predendog) "Wrong number of columns in model constraint specification"
+  @assert nrows(R1)==nrows(r1) "Entries of H₁ tuple must have same height"
+  @assert length(R1)==0 || ncols(R1)==ncols(predexog)+ncols(predendog) "Wrong number of columns in model constraint specification"
   @assert nbootclustvar ≤ ncols(clustid) "nbootclustvar > width of clustid"
   @assert nerrclustvar ≤ ncols(clustid) "nerrclustvar > width of clustid"
   @assert reps ≥ 0 "reps < 0"
@@ -215,7 +215,7 @@ function wildboottest(T::DataType,
 		@assert iszero(length(gridpoints)) || length(gridpoints)==nrows(R) "Length of gridpoints doesn't match number of hypotheses being jointly tested"
 	end
 
-  M = StrBootTest{T}(R, r, R₁, r₁, resp, predexog, predendog, inst, obswt, fweights, LIML, Fuller, κ, ARubin,
+  M = StrBootTest{T}(R, r, R1, r1, resp, predexog, predendog, inst, obswt, fweights, LIML, Fuller, κ, ARubin,
 	                   reps, auxwttype, rng, maxmatsize, ptype, imposenull, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, issorted, hetrobust, small,
 	                   feid, fedfadj, level, rtol, madjtype, NH₀, ML, β, A, scores, getplot,
 	                   map(x->ismissing(x) ? missing : T(x), gridmin),
