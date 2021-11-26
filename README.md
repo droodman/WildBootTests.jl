@@ -95,6 +95,8 @@ wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:year, :firm]]), nerrclu
 # same but bootstrap by year-firm pair
 wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:year, :firm]]), nerrclustvar=2, nbootclustvar=2)
 
-# add year fixed effects to model; cluster errors and botstrap by firm
+# add year fixed effects to model; cluster by firm
 wildboottest(R, r; resp, predexog, feid=df.year, clustid=df.firm)
+
+
 ```
