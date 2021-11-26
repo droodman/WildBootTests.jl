@@ -74,7 +74,7 @@ julia> plot(plotpoints(test)...)  # plot confidence curve
 # use Webb instead of Rademacher weights
 test = wildboottest(R, r; resp, predexog, clustid, reps=99999, auxwttype=WildBootTests.webb)
 
-# test that coefficient on intercept = 0 and coefficient on x = 1
+# test that coefficient on intercept = 0 and coefficient on x = 1; plot confidence surface
 test = wildboottest([1 0; 0 1], [0;1]; resp, predexog, clustid, reps=9999)
-plot(plotpoints(test).X..., plotpoints(test).p, st=:contourf) # plot confidence surface
+plot(plotpoints(test).X..., plotpoints(test).p, st=:contourf)
 ```
