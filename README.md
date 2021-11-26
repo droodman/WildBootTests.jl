@@ -20,7 +20,7 @@ The interface is low-level: the exported function `wildboottest()` accepts scala
 
 `wildboottest()` accepts many optional arguments. Most correspond to options of the Stata package `boottest`, which are documented in [Roodman et al. (2019), §7](https://www.econ.queensu.ca/sites/econ.queensu.ca/files/qed_wp_1406.pdf#page=28). Julia-specific additions include an optional first argument `T`, which can be `Float32` or `Float64` to specify the precision of computation; and `rng`, which takes a random number generator such as `MersenneTwister(2302394)`.
 
-# Example with full session log
+# Example with output
 
 ```
 julia> using WildBootTests, CSV, DataFrames, GLM, Plots
@@ -69,13 +69,13 @@ julia> CI(test)  # programmatically extract confidence interval
 
 julia> plot(plotpoints(test)...)  # plot confidence curve
 ```
-# Examples without session log
+# Examples omitting output
 ```
 # use Webb instead of Rademacher weights
 wildboottest((R, r); resp, predexog, clustid, reps=99999, auxwttype=WildBootTests.webb)
+plot(plotpoints(test)...)  # plot confidence curve
 
 # test that coefficient on intercept = 0 and coefficient on x = 1
-R = [1 0; 0 1.]; r = [0;1]
-wildboottest((R, r); resp, predexog, clustid, reps=99999)
-
+test = wildboottest(([1 0; 0 1], [0;1]); resp, predexog, clustid, reps=99999)
+plot(plotpoints(test).X..., plotpoints(test).p, st=:contourf) # plot confidence surface
 ```
