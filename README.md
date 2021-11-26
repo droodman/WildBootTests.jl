@@ -50,15 +50,15 @@ julia> resp, predexog = modelcols(f, df);  # extract response & (exogenous) pred
 
 julia> clustid = df.firm;  # extract clustering variable
 
-julia> R = [0 1]; r = [1];  # express null that coefficient on x is 1 as Rβ = r, where β is parameter vector
+julia> R = [0 1]; r = [1];  # put null that coefficient on x = 1 in Rβ = r form, where β is parameter vector
 
-julia> test = wildboottest(R, r; resp=resp, predexog=predexog, clustid=clustid, reps=9999)
+julia> test = wildboottest(R, r; resp=resp, predexog=predexog, clustid=clustid)
 WildBootTests.BoottestResult{Float32}
 
 p  = 0.492
 CI = Float32[0.93461335 1.1347668]
 
-julia> test = wildboottest(R, r; resp, predexog, clustid, reps=9999);  # same, using Julia syntactic sugar
+julia> test = wildboottest(R, r; resp, predexog, clustid);  # same, using Julia syntactic sugar
 
 julia> p(test)  # programmatically extract p value
 0.49459493f0
@@ -71,8 +71,16 @@ julia> plot(plotpoints(test)...)  # plot confidence curve
 ```
 # Examples omitting output
 ```
-# use Webb instead of Rademacher weights
+# use Webb instead of Rademacher weights, 99,999 replications instead of 999
 test = wildboottest(R, r; resp, predexog, clustid, reps=99999, auxwttype=WildBootTests.webb)
+
+# bootstrap in double-precision (Float64) instead of single (Float32)
+# slow on first use because of recompile
+test = wildboottest(Float64, R, r; resp, predexog, clustid)
+
+# use guaranteed-stable random number generator for exact replicability
+using StableRNGs
+test = wildboottest(R, r; resp, predexog, clustid, rng=StableRNG(23948572))
 
 # test that coefficient on intercept = 0 and coefficient on x = 1; plot confidence surface
 test = wildboottest([1 0; 0 1], [0;1]; resp, predexog, clustid, reps=9999)
