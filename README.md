@@ -98,5 +98,7 @@ wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:year, :firm]]), nerrclu
 # add year fixed effects to model; cluster by firm
 wildboottest(R, r; resp, predexog, feid=df.year, clustid=df.firm)
 
-
+# test hypotheses, while imposing model constraint that constant term = 0.2
+R1 = [1 0]; r1 = [.2]
+wildboottest(R, r; R1, r1, resp, predexog, clustid=df.firm)
 ```
