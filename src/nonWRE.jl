@@ -186,8 +186,8 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 		if o.granular || o.purerobust  # optimized treatment when bootstrapping by many/small groups
 			if o.purerobust
 				o.u✻ = o.ü .* o.v
-				partialFE!(o, o.u✻)
-				o.u✻ -= X₁₂B(o.X₁, o.X₂, o.βdev)  # XXX make X₁₂Bminus
+				o.NFE>0 && partialFE!(o, o.u✻)
+				o.u✻ .-= X₁₂B(o.X₁, o.X₂, o.βdev)  # XXX make X₁₂Bminus
 			else  # clusters small but not all singletons
 				if o.NFE>0 && !o.FEboot
 					o.u✻ = o.ü .* view(o.v, o.IDBootData, :)

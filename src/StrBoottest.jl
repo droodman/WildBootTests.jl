@@ -153,7 +153,7 @@ function crosstabFEt(o::StrBootTest{T}, v::AbstractMatrix{T}, info::Vector{UnitR
 end
 
 
-# partial fixed effects out of a data matrix
+# partial any fixed effects out of a data matrix
 function partialFE!(o::StrBootTest, In::AbstractArray)
   if length(In)>0
 	  for f ∈ o.FEs
