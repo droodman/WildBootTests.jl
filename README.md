@@ -71,27 +71,30 @@ julia> plot(plotpoints(test)...)  # plot confidence curve
 ```
 # Examples omitting output
 ```
-# use Webb instead of Rademacher weights, 99,999 replications instead of 999
-test = wildboottest(R, r; resp, predexog, clustid, reps=99999, auxwttype=WildBootTests.webb)
+# use Webb instead of Rademacher weights, 99,999 bootstrap replications instead of 999
+wildboottest(R, r; resp, predexog, clustid, reps=99999, auxwttype=WildBootTests.webb)
 
 # bootstrap in double-precision (Float64) instead of single (Float32)
 # slow on first use because of recompile
-test = wildboottest(Float64, R, r; resp, predexog, clustid)
+wildboottest(Float64, R, r; resp, predexog, clustid)
 
-# use guaranteed-stable random number generator for exact replicability
+# use (guaranteed-stable random number generator)[https://github.com/JuliaRandom/StableRNGs.jl] for exact replicability
 using StableRNGs
-test = wildboottest(R, r; resp, predexog, clustid, rng=StableRNG(23948572))
+wildboottest(R, r; resp, predexog, clustid, rng=StableRNG(23948572))
 
 # test that coefficient on intercept = 0 and coefficient on x = 1; plot confidence surface
 test = wildboottest([1 0; 0 1], [0;1]; resp, predexog, clustid, reps=9999)
 plot(plotpoints(test).X..., plotpoints(test).p, st=:contourf)
 
-# multiway-cluster error variance by firm and year; bootstrap by firm
-test = wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:firm, :year]]), nerrclustvar=2, nbootclustvar=1)
+# multiway-cluster errors by firm and year; bootstrap by firm
+wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:firm, :year]]), nerrclustvar=2, nbootclustvar=1)
 
 # same but bootstrap by year
-test = wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:year, :firm]]), nerrclustvar=2, nbootclustvar=1)
+wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:year, :firm]]), nerrclustvar=2, nbootclustvar=1)
 
 # same but bootstrap by year-firm pair
-test = wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:year, :firm]]), nerrclustvar=2, nbootclustvar=2)
+wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:year, :firm]]), nerrclustvar=2, nbootclustvar=2)
+
+# add year fixed effects to model; cluster errors and botstrap by firm
+wildboottest(R, r; resp, predexog, feid=df.year, clustid=df.firm)
 ```
