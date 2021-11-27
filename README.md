@@ -20,7 +20,7 @@ The interface is low-level: the exported function `wildboottest()` accepts scala
 
 `wildboottest()` accepts many optional arguments. Most correspond to options of the Stata package `boottest`, which are documented in [Roodman et al. (2019), §7](https://www.econ.queensu.ca/sites/econ.queensu.ca/files/qed_wp_1406.pdf#page=28). Julia-specific additions include an optional first argument `T`, which can be `Float32` or `Float64` to specify the precision of computation; and `rng`, which takes a random number generator such as `MersenneTwister(2302394)`.
 
-# OLS example with output
+## OLS example with output
 
 ```
 julia> using WildBootTests, CSV, DataFrames, GLM, Plots
@@ -69,7 +69,7 @@ julia> CI(test)  # programmatically extract confidence interval
 
 julia> plot(plotpoints(test)...)  # plot confidence curve
 ```
-# OLS examples omitting output
+## OLS examples omitting output
 ```
 # use Webb instead of Rademacher weights, 99,999 bootstrap replications instead of 999
 wildboottest(R, r; resp, predexog, clustid, reps=99999, auxwttype=WildBootTests.webb)
@@ -108,7 +108,7 @@ wildboottest(R, r; resp, predexog, feid=df.year, clustid=df.firm)
 R1 = [1 0]; r1 = [.2]
 wildboottest(R, r; R1, r1, resp, predexog, clustid=df.firm)
 ```
-# IV/2SLS examples omitting output
+## IV/2SLS examples omitting output
 ```
 # specify exactly identified model: regress wage on on tenure, instrumented by union,
 # controlling for ttl_exp and collgrad
