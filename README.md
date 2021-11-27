@@ -78,7 +78,7 @@ wildboottest(R, r; resp, predexog, clustid, reps=99999, auxwttype=WildBootTests.
 # slow on first use because of recompile
 wildboottest(Float64, R, r; resp, predexog, clustid)
 
-# use (guaranteed-stable random number generator)[https://github.com/JuliaRandom/StableRNGs.jl] for exact replicability
+# use guaranteed-stable random number generator for exact replicability
 using StableRNGs
 wildboottest(R, r; resp, predexog, clustid, rng=StableRNG(23948572))
 
@@ -94,6 +94,12 @@ wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:year, :firm]]), nerrclu
 
 # same but bootstrap by year-firm pair
 wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:year, :firm]]), nerrclustvar=2, nbootclustvar=2)
+
+# Rao/score test with multiway clustering of errors but no bootstrap
+wildboottest(R, r; resp, predexog, predendog, inst, Matrix(df[:,[:year, :firm]]), reps=0)
+
+# Same but Wald test: i.e., conventional, multiway clustered errors
+wildboottest(R, r; resp, predexog, predendog, inst, clustid=Matrix(df[:,[:year, :firm]]), reps=0, imposenull=false)
 
 # add year fixed effects to model; cluster by firm
 wildboottest(R, r; resp, predexog, feid=df.year, clustid=df.firm)
