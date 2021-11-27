@@ -38,7 +38,7 @@ padj(o::BoottestResult) = o.padj
 "Return requested number of replications in wild bootstrap test"
 reps(o::BoottestResult) = o.reps
 
-"Return actual  number of replications in wild bootstrap test, subject to enumeration of Rademacher draws"
+"Return actual number of replications in wild bootstrap test, subject to enumeration of Rademacher draws"
 repsfeas(o::BoottestResult) = o.repsfeas
 
 "Return number of bootstrapping clusters in wild bootstrap test"

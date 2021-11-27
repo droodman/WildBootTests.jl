@@ -1,3 +1,6 @@
+```@contents
+```
+
 ```@docs
 wildboottest
 AuxWtType
@@ -21,4 +24,3 @@ statnumer
 statvar
 auxweights
 ```
-
