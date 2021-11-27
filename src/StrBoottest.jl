@@ -1,12 +1,12 @@
 # Definition of StrBoottest "class" for holding intermediate results, with associated utilities and get functions
 
-"Auxilliary weight types: rademacher, mammen, webb, normal, gamma"
+"Auxilliary weight types: `rademacher`, `mammen`, `webb`, `normal`, `gamma`"
 @enum AuxWtType rademacher mammen webb normal gamma
 
-"p value types: symmetric, equaltail, lower, upper"
+"p value types: `symmetric`, `equaltail`, `lower`, `upper`"
 @enum PType symmetric equaltail lower upper
 
-"Multiple hypothesis adjustment types: nomadj, bonferroni, sidak"
+"Multiple hypothesis adjustment types: `nomadj`, `bonferroni`, `sidak`"
 @enum MAdjType nomadj bonferroni sidak
 
 "Bootstrap distribution statistics optionally returned"
