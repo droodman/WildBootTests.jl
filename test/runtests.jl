@@ -53,7 +53,7 @@ resp, predexog = modelcols(f, df)
 ivf = @formula(tenure ~ union)
 ivf = apply_schema(ivf, schema(ivf, df))
 predendog, inst = modelcols(ivf, df)
-test = wildboottest([0 0 0 1.], [.0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, ptype=WildBootTests.equaltail, rng=StableRNG(1231))
+test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, ptype=WildBootTests.equaltail, rng=StableRNG(1231))
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
 println(log, "\nboottest tenure, ptype(equaltail) reps(99999) weight(webb) stat(c)")
@@ -67,11 +67,11 @@ println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 plot(plotpoints(test)...)
 
 println(log, "\nscoretest tenure")
-test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, scorebs=true, rng=StableRNG(1231))
+test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0,, rng=StableRNG(1231))
 println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
 println(log, "\nwaldtest tenure")
-test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, imposenull=false, scorebs=true, rng=StableRNG(1231))
+test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, imposenull=false, rng=StableRNG(1231))
 println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
 println(log, "\nivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)")
@@ -170,6 +170,10 @@ test = wildboottest([0 1 zeros(1,size(predexog,2)-2)], [0]; resp, predexog, clus
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 test = wildboottest([0 1 zeros(1,size(predexog,2)-2)], [0]; resp, predexog, clustid= [collect(1:nrow(df)) levelcode.(df.state)], nbootclustvar=1, nerrclustvar=1, reps=9999, imposenull=false, rng=StableRNG(1231))
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
+
+# d=download("https://raw.github.com/droodman/WildBootTests.jl/master/data/Levitt.dta", tempname() * ".dta")
+# df = DataFrame(load(d))
+# df = df[:, [:lViolentpop,: lPropertypop, ]]
 
 # df = DataFrame(load(raw"D:\OneDrive\Documents\Macros\WildBootTests.jl"))
 # df = df[:, [:proposition_vote, :treatment, :ideology1, :log_income, :Q1_immigration, :group_id1, :group_id2]]

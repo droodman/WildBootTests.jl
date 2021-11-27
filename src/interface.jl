@@ -79,7 +79,8 @@ function Base.show(io::IO, o::BoottestResult{T}) where T
 end
 
 """
-wildboottest([T=Float32], H₀::Tuple{AbstractMatrix, AbstractVector}; resp, <optional keyword arguments>) <: WildBootTest.BoottestResult
+wildboottest([T::DataType=Float32,] R::AbstractMatrix, r::AbstractVector; 
+             resp, <optional keyword arguments>) -> WildBootTest.BoottestResult
 
 Function to perform wild-bootstrap-based hypothesis test
 
@@ -104,7 +105,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `obswt`: observation weight vector; default is equal weighting
 * `fweights::Bool=false`: true for frequency weights
 * `maxmatsize::Number`: maximum size of auxilliary weight matrix (v), in gigabytes
-* `ptype::PType=symmetric`: p value type (symmetric, equaltail, lower, upper)
+* `ptype::PType=symmetric`: p value type (`symmetric`, `equaltail`, `lower`, `upper`)
 * `bootstrapc::Bool=false`: true for bootstrap-c
 * `LIML::Bool=false`: true for LIML or Fuller LIML
 * `Fuller::Number`: Fuller factor
@@ -114,11 +115,11 @@ Function to perform wild-bootstrap-based hypothesis test
 * `scorebs::Bool=false`: true for score bootstrap instead of wild bootstrap
 * `reps::Integer=999`: number of bootstrap replications; `reps` = 0 requests classical Rao (Wald) test if `imposenull` = `true` (`false`)
 * `imposenull::Bool=true`: true to impose null
-* `auxwttype::AuxWtType=rademacher`: auxilliary weight type (rademacher, mammen, webb, normal, gamma)
+* `auxwttype::AuxWtType=rademacher`: auxilliary weight type (`rademacher`, `mammen`, `webb`, `normal`, `gamma`)
 * `rng::AbstractRNG=MersenneTwister()`: randon number generator
 * `level::Number=.95`: significance level (0-1)
 * `rtol::Number=1e-6`: tolerance for CI bound determination
-* `madjtype::MAdjType=nomadj`: multiple hypothesis adjustment (nomadj, bonferroni, sidak)
+* `madjtype::MAdjType=nomadj`: multiple hypothesis adjustment (`nomadj`, `bonferroni`, `sidak`)
 * `NH₀::Integer=1`: number of hypotheses tested, including one being tested now
 * `ML::Bool=false`: true for (nonlinear) ML estimation
 * `scores::AbstractVecOrMat`: for ML, pre-computed scores
