@@ -64,13 +64,14 @@ end
 
 
 # Workhorse for WRE CRVE sandwich filling
-# With reference to notional Y = [y₁ Z], given 0-based columns index within it, ind1, and a matrix βs of all the bootstrap estimates, return all bootstrap realizations of P_X * Y[:,ind1]_g ' u\hat_1g^*b
+# With reference to Z, given a column index within it, ind1, and a matrix βs of all the bootstrap estimates, 
+# return all bootstrap realizations of P_X * Y[:,ind1]_g ' û₁g^*b
 # for all groups in the intersection of all error clusterings
 # return value has one row per cap cluster, one col per bootstrap replication
 function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
   if o.granular
    	if o.Nw == 1  # create or avoid NxB matrix?
-			PXY✻ = iszero(ind1) ? o.Repl.PXy₁ : view(o.Repl.PXZ,:,ind1)
+			PXY✻ = view(o.Repl.PXZ,:,ind1)
 			o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ o.S✻UPX[ind1+1] * o.v)
 
 			dest = @panelsum(PXY✻ .* (o.Repl.y₁ .- o.S✻UMZperp[1] * o.v), o.wt, o.infoCapData)
@@ -87,7 +88,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 
 				if o.purerobust
 					for i ∈ 1:o.clust[1].N
-						PXY✻ = hcat(iszero(ind1) ? o.Repl.PXy₁[i] : o.Repl.PXZ[i,ind1])
+						PXY✻ = hcat(o.Repl.PXZ[i,ind1])
 						o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ view(o.S✻UPX[ind1+1],i,:)'o.v)
 
 						if iszero(ind2)
@@ -100,14 +101,14 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 				else
 					for i ∈ 1:o.clust[1].N
 						S = o.infoCapData[i]
-						PXY✻ = ind1 ? o.Repl.PXZ[S,ind1] : o.Repl.PXy₁[S]
+						PXY✻ = view(o.Repl.PXZ,S,ind1)
 						o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ view(o.S✻UPX[ind1+1],S,:) * o.v)
 
 						if iszero(ind2)
 							dest[i,:]   = wtsum(o.wt, PXY✻ .* (o.Repl.y₁[S] .- view(o.S✻UMZperp[1],S,:) * o.v))
 						else
 							dest[i,:] .-= wtsum(o.wt, PXY✻ .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[S,ind2] * _β .- view(o.S✻UMZperp[ind2+1],S,:) * βv :
-																						  o.Repl.Z[S,ind2] * _β                                       ))
+																						                             o.Repl.Z[S,ind2] * _β                                       ))
 						end
 					end
 				end
@@ -122,7 +123,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 
 			if o.Repl.Yendog[ind2+1]  # add CT_(cap,*) (P_(X_par ) Y_(pari).*U ̈_(parj) )
 				if o.NClustVar == o.nbootclustvar && iszero(o.subcluster)  # simple case of one clustering: full crosstab is diagonal
-					tmp = ind1>0 ? view(o.Repl.XZ,:,ind1) : o.Repl.Xy₁par
+					tmp = view(o.Repl.XZ,:,ind1)
 					if length(T₁)>0
 						T₁[diagind(T₁)] .+= o.S✻UXinvXX[ind2+1]'tmp
 					else
@@ -131,7 +132,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
 				else
 					!o.Repl.Yendog[ind1+1] && (T₁ = o.JNcapN✻)
 					for i ∈ 1:o.N✻
-						T₁[o.IDCTCap✻[i], i] .+= o.SCTcapuXinvXX[ind2+1,i] * (ind1>0 ? view(o.Repl.XZ,:,ind1) : o.Repl.Xy₁par)
+						T₁[o.IDCTCap✻[i], i] .+= o.SCTcapuXinvXX[ind2+1,i] * view(o.Repl.XZ,:,ind1)
 					end
 				end
 				ncols(o.Repl.Zperp) > 0 && (T₁ = T₁ .- o.Repl.ScapPXYZperp[ind1+1] * o.S✻UZperpinvZperpZperp[ind2+1])  # subtract S_∩ (P_(X_∥ ) Y_(∥i):*Z_⊥ ) (Z_⊥^' Z_⊥ )^(-1) [S_* (U ̈_(∥j):*Z_⊥ )]^'
@@ -168,6 +169,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
   dest
 end
 
+
 function PrepWRE!(o::StrBootTest)
   Estimate!(o.DGP, o.null ? [o.r₁ ; o.r] : o.r₁)
   MakeResiduals!(o.DGP)
@@ -200,7 +202,7 @@ function PrepWRE!(o::StrBootTest)
 				end
 			end
 
-			o.S✻UPX[i+1]     = o.Repl.XinvXX * o.S✻UX[i+1]
+			i>0 && (o.S✻UPX[i+1] = o.Repl.XinvXX * o.S✻UX[i+1])
 			o.S✻UMZperp[i+1] = o.Repl.Zperp * o.S✻UZperpinvZperpZperp[i+1]
 
 			if iszero(i)  # subtract crosstab of observation by ∩-group of u
@@ -301,7 +303,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			end
 		end
 
-		for b ∈ reverse(axes(o.v,2))
+		@inbounds for b ∈ reverse(axes(o.v,2))
 			if o.null || w==1 && b==1
 				o.numer_b .= o.Repl.RRpar * view(βs,:,b) + o.Repl.Rt₁ - o.r
 			else

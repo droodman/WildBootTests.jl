@@ -12,7 +12,7 @@ mutable struct StrEstimator{T<:AbstractFloat, E<:Estimator}
   R₁perp::Union{Matrix{T},UniformScaling{Bool}}; Rpar::Union{Matrix{T},UniformScaling}
 
   kZ::Int64
-  y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β::Vector{T}; β₀::Vector{T}; PXy₁::Vector{T}; invXXXy₁par::Vector{T}
+  y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β::Vector{T}; β₀::Vector{T}; invXXXy₁par::Vector{T}
   Yendog::Vector{Bool}
   invZperpZperp::Matrix{T}; XZ::Matrix{T}; PXZ::Matrix{T}; YPXY::Matrix{T}; R₁invR₁R₁::Union{Matrix{T},UniformScaling}
 	RperpX::Union{Matrix{T},UniformScaling,SelectionMatrix}; RperpXperp::Union{Matrix{T},UniformScaling,SelectionMatrix}; RRpar::Matrix{T}; RparY::Union{Matrix{T},UniformScaling,SelectionMatrix}; RR₁invR₁R₁::Matrix{T}
@@ -97,7 +97,7 @@ end
 
 function InitVars!(o::StrEstimator{T,ARubin}, Rperp::AbstractMatrix{T} = Matrix{T}(undef,0,0)) where T
   X₂X₁ = cross(o.parent.X₂, o.parent.wt, o.parent.X₁)
-  H = Symmetric([symcross(o.parent.X₁, o.parent.wt) X₂X₁' ; X₂X₁ symcross(o.parent.X₂, o.parent.wt)])  # XXX use LazyArrays?
+  H = Symmetric([symcross(o.parent.X₁, o.parent.wt) X₂X₁' ; X₂X₁ symcross(o.parent.X₂, o.parent.wt)])
   o.A = inv(H)
   o.AR = o.A * o.parent.R'
   (o.parent.scorebs || o.parent.robust) && (o.XAR = X₁₂B(o.parent.X₁, o.parent.X₂, o.AR))
@@ -183,7 +183,7 @@ function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where 
 			for i ∈ 1:o.kZ
 				uwt = vHadw(view(o.PXZ,:,i), o.parent.wt)
 				o.parent.NFE>0 &&
-				(o.CT_FEcapPY[i+1] = crosstabFEt(o.parent, uwt, o.parent.infoCapData) .* o.parent.invFEwt)
+					(o.CT_FEcapPY[i+1] = crosstabFEt(o.parent, uwt, o.parent.infoCapData) .* o.parent.invFEwt)
 				tmp = @panelsum(o.Z, uwt, o.parent.infoCapData)
 				for j ∈ 1:o.kZ
 					o.FillingT₀[i+1,j+1] = view(tmp,:,j)
@@ -252,26 +252,13 @@ function Estimate!(o::StrEstimator{T,IVGMM} where T, r₁::AbstractVector)
 	  o.Rt₁ = o.RR₁invR₁R₁ * r₁
 
 	  if o.parent.robust && o.parent.bootstrapt  # prepare WRE replication regressions
-	    o.PXy₁ = X₁₂B(o.X₁, o.X₂, o.invXXXy₁par)
-
-	    uwt = vHadw(o.PXy₁, o.parent.wt)
-	    tmp = @panelsum(o.Z, uwt, o.parent.infoCapData)
-	    for i ∈ 1:o.kZ
-	  	  o.FillingT₀[1,i+1] = view(tmp,:,i)
-	    end
-	    o.ScapPXYZperp[1] = @panelsum(o.Zperp, uwt, o.parent.infoCapData)  # Scap(P_(MZperpX) * y₁ .* Zperp)
-
-	    o.parent.NFE>0 &&
-	  		(o.CT_FEcapPY[1] = crosstabFEt(o.parent, uwt, o.parent.infoCapData) .* o.parent.invFEwt)
-
 	    uwt = vHadw(o.y₁par, o.parent.wt)
 	    tmp = @panelsum(o.PXZ, uwt, o.parent.infoCapData)
 	    for i ∈ 1:o.kZ
 	  	  o.FillingT₀[i+1,1] = view(tmp,:,i)
 	    end
-	    o.FillingT₀[1] = @panelsum(o.PXy₁, uwt, o.parent.infoCapData)
 	    !o.parent.granular &&
-	  	(o.ScapYX[1] = @panelsum2(o.X₁, o.X₂, uwt, o.parent.infoCapData))  # Scap(M_Zperp*y₁ .* P_(MZperpX)])
+	  		(o.ScapYX[1] = @panelsum2(o.X₁, o.X₂, uwt, o.parent.infoCapData))  # Scap(M_Zperp*y₁ .* P_(MZperpX)])
 	  end
   end
 end
