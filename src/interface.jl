@@ -14,7 +14,7 @@ struct BoottestResult{T}
   b::Vector{T}
   V::Matrix{T}
   auxweights::Union{Nothing,Matrix{T}}
-  M::StrBootTest
+  # M::StrBootTest
 end
 
 "Return test statistic subject to wild bootstrap test"
@@ -236,7 +236,7 @@ function wildboottest(T::DataType,
 	                  getp(M), getpadj(M), getreps(M), getrepsfeas(M), getNBootClust(M), getdf(M), getdf_r(M), plot, peak, CI,
 	                  getdist(M,diststat),
 	                  getb(M), getV(M),
-	                  getauxweights && reps>0 ? getauxweights(M) : nothing , M)
+	                  getauxweights && reps>0 ? getauxweights(M) : nothing #=, M=#)
 end
 
 wildboottest(R::AbstractMatrix, r::AbstractVector; args...) = wildboottest(Float32, R, r; args...)

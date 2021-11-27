@@ -236,8 +236,8 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 				(o.statDenom = [o.denom[1,1][1] o.denom[2,1][1] ; o.denom[2,1][1] o.denom[2,2][1]])  # original-sample denominator
 		else  # build each replication's denominator from vectors that hold values for each position in denominator, all replications
 			tmp = Matrix{T}(undef, o.dof, o.dof)
-			for k ∈ 1:ncols(o.v)  # XXX probably can simplify
-				for i ∈ 1:o.dof, j ∈ 1:i
+			@inbounds for k ∈ 1:ncols(o.v)
+				@turbo for i ∈ 1:o.dof, j ∈ 1:i
 					tmp[j,i] = o.denom[i,j][k]  # fill upper triangle, which is all invsym() looks at
 				end
 				numer_l = view(o.numerw,:,k)
