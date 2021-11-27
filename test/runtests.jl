@@ -39,7 +39,7 @@ resp, predexog = modelcols(f, df)
 println(log, "\nconstraint 1 ttl_exp = .2")
 println(log, "cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(industry)")
 println(log, "boottest tenure")
-test = wildboottest([0 1 0 0], [0]; R₁=[0 0 1 0], r₁=[.2], resp, predexog, clustid=df.industry, rng=StableRNG(1231))
+test = wildboottest([0 1 0 0], [0]; R1=[0 0 1 0], r1=[.2], resp, predexog, clustid=df.industry, rng=StableRNG(1231))
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
 println(log, "\nivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)")
@@ -67,7 +67,7 @@ println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 plot(plotpoints(test)...)
 
 println(log, "\nscoretest tenure")
-test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0,, rng=StableRNG(1231))
+test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, rng=StableRNG(1231))
 println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
 println(log, "\nwaldtest tenure")

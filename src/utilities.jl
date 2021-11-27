@@ -3,6 +3,7 @@
 @inline sqrtNaN(x) = x<0 ? typeof(x)(NaN) : sqrt(x)
 @inline invsym(X) = iszero(length(X)) ? X : inv(Symmetric(X))
 @inline eigensym(X) = eigen(Symmetric(X))  # does eigen recognize symmetric matrices?
+
 @inline symcross(X::AbstractVecOrMat, wt::Union{UniformScaling,AbstractVector}) = Symmetric(cross(X,wt,X))  # maybe bad name since it means cross product in Julia
 @inline function cross(X::AbstractVecOrMat{T}, wt::AbstractVector{T}, Y::AbstractVecOrMat{T}) where T
   dest = Matrix{T}(undef, ncols(X), ncols(Y))
@@ -31,10 +32,13 @@ end
 
 @inline vHadw(v::AbstractArray, w::AbstractVector) = v .* w
 @inline vHadw(v::AbstractArray, w::UniformScaling) = v
+
 @inline nrows(X::AbstractArray) = size(X,1)
 @inline ncols(X::AbstractArray) = size(X,2)
+
 @inline colsum(X::AbstractArray) = iszero(length(X)) ? Matrix{eltype(X)}(undef,1,0) : isone(ncols(X)) ? hcat(sum(X)) : sum(X, dims=1)
 @inline rowsum(X::AbstractArray) = vec(sum(X, dims=2))
+
 @inline wtsum(wt::AbstractArray, X::AbstractArray) = wt'X
 @inline wtsum(wt::UniformScaling, X::AbstractArray) = sum(X,dims=1)
 
@@ -47,6 +51,11 @@ function X₁₂B(X₁::AbstractArray, X₂::AbstractArray, B::AbstractVector)
 	dest = X₁ * view(B,1:size(X₁,2))
 	length(dest)>0 && length(X₂)>0 && matmulplus!(dest, X₂, B[size(X₁,2)+1:end])
 	dest
+end
+
+function minusX₁₂B!(dest::AbstractVecOrMat, X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractMatrix)
+  matmulminus!(dest, X₁, view(B,           1:size(X₁,2),:))
+  matmulminus!(dest, X₂, view(B,size(X₁,2)+1:size(B ,1),:))
 end
 
 import Base.*  # extend * to left- and right-multiply arrays by vec or mat
@@ -129,6 +138,12 @@ function colquadformminus!(X::AbstractMatrix, row::Integer, Q::AbstractMatrix, A
   X
 end
 colquadformminus!(X::AbstractMatrix, Q::AbstractMatrix, A::AbstractMatrix) = colquadformminus!(X, 1, Q, A, A)
+
+function matmulminus!(A::Matrix, B::Matrix, C::AbstractMatrix)  # add B*C to A in place
+	@turbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
+		A[i,k] -= B[i,j] * C[j,k]
+	end
+end
 
 function matmulplus!(A::Matrix, B::Vector, C::Matrix)  # add B*C to A in place
 	@turbo for k ∈ eachindex(axes(A,2), axes(C,2)), i ∈ eachindex(axes(A,1),axes(B,1))

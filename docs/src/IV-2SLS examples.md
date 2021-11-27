@@ -1,3 +1,4 @@
+##IV/2SLS examples
 ```
 # specify exactly identified model: regress wage on on tenure, instrumented by union,
 # controlling for ttl_exp and collgrad
