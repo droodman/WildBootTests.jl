@@ -20,7 +20,7 @@ The interface is low-level: the exported function `wildboottest()` accepts scala
 
 `wildboottest()` accepts many optional arguments. Most correspond to options of the Stata package `boottest`, which are documented in [Roodman et al. (2019), §7](https://www.econ.queensu.ca/sites/econ.queensu.ca/files/qed_wp_1406.pdf#page=28). Julia-specific additions include an optional first argument `T`, which can be `Float32` or `Float64` to specify the precision of computation; and `rng`, which takes a random number generator such as `MersenneTwister(2302394)`.
 
-# Example with output
+# OLS example with output
 
 ```
 julia> using WildBootTests, CSV, DataFrames, GLM, Plots
@@ -69,7 +69,7 @@ julia> CI(test)  # programmatically extract confidence interval
 
 julia> plot(plotpoints(test)...)  # plot confidence curve
 ```
-# Examples omitting output
+# OLS examples omitting output
 ```
 # use Webb instead of Rademacher weights, 99,999 bootstrap replications instead of 999
 wildboottest(R, r; resp, predexog, clustid, reps=99999, auxwttype=WildBootTests.webb)
@@ -101,4 +101,23 @@ wildboottest(R, r; resp, predexog, feid=df.year, clustid=df.firm)
 # test hypotheses, while imposing model constraint that constant term = 0.2
 R1 = [1 0]; r1 = [.2]
 wildboottest(R, r; R1, r1, resp, predexog, clustid=df.firm)
+```
+# IV/2SLS examples
+```
+# specify exactly identified model: regress wage on on tenure, instrumented by union,
+# controlling for ttl_exp and collgrad, clustering by industry, without finite-sample correction
+d = download("http://www.stata-press.com/data/r8/nlsw88.dta", tempname() * ".dta")
+df = DataFrame(load(d))[:, [:wage; :tenure; :ttl_exp; :collgrad; :industry; :union]]
+dropmissing!(df)
+f = @formula(wage ~ 1 + ttl_exp + collgrad)
+f = apply_schema(f, schema(f, df))
+resp, predexog = modelcols(f, df)
+ivf = @formula(tenure ~ union)
+ivf = apply_schema(ivf, schema(ivf, df))
+predendog, inst = modelcols(ivf, df)
+## test that coefficient on tenure = 0
+R = [0 0 0 1]; r = [0]
+test = wildboottest(R, r; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999)
+
+
 ```
