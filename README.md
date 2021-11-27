@@ -102,7 +102,7 @@ wildboottest(R, r; resp, predexog, feid=df.year, clustid=df.firm)
 R1 = [1 0]; r1 = [.2]
 wildboottest(R, r; R1, r1, resp, predexog, clustid=df.firm)
 ```
-# IV/2SLS examples
+# IV/2SLS examples omitting output
 ```
 # specify exactly identified model: regress wage on on tenure, instrumented by union,
 # controlling for ttl_exp and collgrad
