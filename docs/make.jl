@@ -3,8 +3,10 @@ using Documenter, WildBootTests
 
 makedocs(sitename="WildBootTests.jl",
          authors="David Roodman",
-  pages = [
-        "Home" => "index.md",
-        "Examples" => "README.md"
-        ]
-    )
+         pages = [
+                  "Overview" => "index.md",
+                  "OLS examples" => "OLS examples.md",
+                  "IV/2SLS examples" => "IV-2SLS examples.md",
+                  "Public functions and types" => "exported.md"
+                 ]
+        )

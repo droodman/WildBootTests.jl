@@ -102,7 +102,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `hetrobust::Bool=true`: true unless errors are treated as iid
 * `feid::AbstractVector{<:Integer}`: data vector for fixed effect group identifier
 * `fedfadj::Bool=true`: true if small-sample adjustment should reflect number of fixed effects
-* `obswt`: observation weight vector; default is equal weighting
+* `obswt::AbstractVector`: observation weight vector; default is equal weighting
 * `fweights::Bool=false`: true for frequency weights
 * `maxmatsize::Number`: maximum size of auxilliary weight matrix (v), in gigabytes
 * `ptype::PType=symmetric`: p value type (`symmetric`, `equaltail`, `lower`, `upper`)
@@ -113,7 +113,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `ARubin::Bool=false`: true for Anderson-Rubin test
 * `small::Bool=true`: true for small-sample corrections
 * `scorebs::Bool=false`: true for score bootstrap instead of wild bootstrap
-* `reps::Integer=999`: number of bootstrap replications; `reps` = 0 requests classical Rao (Wald) test if `imposenull` = `true` (`false`)
+* `reps::Integer=999`: number of bootstrap replications; `reps` = 0 requests classical Rao (or Wald) test if `imposenull` = `true` (or `false`)
 * `imposenull::Bool=true`: true to impose null
 * `auxwttype::AuxWtType=rademacher`: auxilliary weight type (`rademacher`, `mammen`, `webb`, `normal`, `gamma`)
 * `rng::AbstractRNG=MersenneTwister()`: randon number generator
