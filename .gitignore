@@ -5,3 +5,4 @@
 .vs/WildBootTest.jl/v16/.suo
 voters.dta
 test/profiling.jl
+src/WRE2.jl

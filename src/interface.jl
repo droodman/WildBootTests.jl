@@ -149,7 +149,7 @@ be restricted to the estimation sample.
 """
 function wildboottest(T::DataType,
 					  R::AbstractMatrix,
-						r::AbstractVector;
+						r::AbstractVecOrMat;
 					  resp::AbstractVector{<:Real},
 					  predexog::AbstractVecOrMat{<:Real}=zeros(T,0,0),
 					  predendog::AbstractVecOrMat{<:Real}=zeros(T,0,0),
@@ -201,7 +201,7 @@ function wildboottest(T::DataType,
   @assert length(clustid)==0 || nrows(clustid)==nrows(resp) "clustid must have same height as data matrices"
   @assert obswt==I || nrows(obswt)==nrows(resp) "obswt must have same height as data matrices"
   @assert nrows(R)==nrows(r) "Entries of H₀ tuple must have same height"
-  @assert ncols(R)==ncols(predexog)+ncols(predendog) "Wrong number of columns in null specification"
+  @assert ncols(R)==ncols(predexog)+ncols(predendog) && isone(ncols(r)) "Wrong number of columns in null specification"
   @assert nrows(R1)==nrows(r1) "Entries of H₁ tuple must have same height"
   @assert length(R1)==0 || ncols(R1)==ncols(predexog)+ncols(predendog) "Wrong number of columns in model constraint specification"
   @assert nbootclustvar ≤ ncols(clustid) "nbootclustvar > width of clustid"
@@ -239,4 +239,6 @@ function wildboottest(T::DataType,
 	                  getauxweights && reps>0 ? getauxweights(M) : nothing #=, M=#)
 end
 
-wildboottest(R::AbstractMatrix, r::AbstractVector; args...) = wildboottest(Float32, R, r; args...)
+wildboottest(T::DataType, R, r::Number; kwargs...) = wildboottest(T, R, [r]; kwargs...)
+wildboottest(R::AbstractMatrix, r::Union{Number,AbstractVecOrMat}; kwargs...) = wildboottest(Float32, R, r; kwargs...)
+

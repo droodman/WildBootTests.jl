@@ -96,13 +96,13 @@ end
 
 # cross-tab sum of a column vector w.r.t. given panel info and fixed-effect var
 # one row per FE, one col per other grouping
-function crosstabFE(o::StrBootTest{T}, v::AbstractVector, info::Vector{UnitRange{Int64}}) where T
+function crosstabFE(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitRange{Int64}}) where T
   dest = zeros(T, o.NFE, nrows(info))
   if length(info)>0
-	  for i ∈ 1:nrows(info)
+		@inbounds for i ∈ 1:nrows(info)
 	    FEIDi = @view o._FEID[info[i]]
 	    vi    = @view       v[info[i]]
-	    @inbounds @simd for j in eachindex(vi, FEIDi)
+	    @simd for j in eachindex(vi, FEIDi)
 	  	  dest[FEIDi[j],i] += vi[j]
 	    end
 	  end
@@ -117,10 +117,10 @@ end
 function crosstabFEt(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitRange{Int64}}) where T
   dest = zeros(T, nrows(info), o.NFE)
   if length(info)>0
-	  for i ∈ 1:nrows(info)
+		@inbounds for i ∈ 1:nrows(info)
 	    FEIDi = @view o._FEID[info[i]]
 	    vi    = @view       v[info[i]]
-	    @inbounds @simd for j ∈ eachindex(vi, FEIDi)
+	    @simd for j ∈ eachindex(vi, FEIDi)
 	  	  dest[i,FEIDi[j]] += vi[j]
 	    end
 	  end
@@ -137,10 +137,10 @@ end
 function crosstabFEt(o::StrBootTest{T}, v::AbstractMatrix{T}, info::Vector{UnitRange{Int64}}) where T
   dest = zeros(T, nrows(info), ncols(v), o.NFE)
   if length(info)>0
-	  for i ∈ 1:nrows(info)
+	  @inbounds for i ∈ 1:nrows(info)
 	    FEIDi = @view o._FEID[info[i]]
 	    vi    = @view       v[info[i],:]
-	    @inbounds @simd for j ∈ 1:length(FEIDi)
+	    @simd for j ∈ 1:length(FEIDi)
 	  	  dest[i,:,FEIDi[j]] += @view vi[j,:]
 	    end
 	  end

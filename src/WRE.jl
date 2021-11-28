@@ -64,8 +64,8 @@ end
 
 
 # Workhorse for WRE CRVE sandwich filling
-# With reference to Z, given a column index within it, ind1, and a matrix βs of all the bootstrap estimates, 
-# return all bootstrap realizations of P_X * Y[:,ind1]_g ' û₁g^*b
+# Given a column index within it, ind1, and a matrix βs of all the bootstrap estimates, 
+# return all bootstrap realizations of P_X * Z[:,ind1]_g ' û₁g^*b
 # for all groups in the intersection of all error clusterings
 # return value has one row per cap cluster, one col per bootstrap replication
 function Filling(o::StrBootTest{T}, ind1::Integer, βs::AbstractMatrix) where T
