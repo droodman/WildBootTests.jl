@@ -242,5 +242,5 @@ end
 _wildboottest(T::DataType, R, r::Number; kwargs...) = _wildboottest(T, R, [r]; kwargs...)
 _wildboottest(R::AbstractMatrix, r::Union{Number,AbstractVecOrMat}; kwargs...) = wildboottest(Float32, R, r; kwargs...)
 
-wildboottest(   R, r; kwargs...) = _wildboottest(                                          R, r; collect([a.first => (typeof(a.second)==String ? eval(Meta.parse("WildBootTests."*a.second)) : a.second) for a in kwargs])...)
-wildboottest(T, R, r; kwargs...) = _wildboottest(isa(T, String) ? eval(Meta.parse(T)) : T, R, r; collect([a.first => (typeof(a.second)==String ? eval(Meta.parse("WildBootTests."*a.second)) : a.second) for a in kwargs])...)
+wildboottest(   R, r; kwargs...) = _wildboottest(                                          R, r; collect([a.first => (typeof(a.second)==String ? eval(Meta.parse(a.second)) : a.second) for a in kwargs])...)
+wildboottest(T, R, r; kwargs...) = _wildboottest(isa(T, String) ? eval(Meta.parse(T)) : T, R, r; collect([a.first => (typeof(a.second)==String ? eval(Meta.parse(a.second)) : a.second) for a in kwargs])...)
