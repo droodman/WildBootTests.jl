@@ -12,16 +12,16 @@ mutable struct StrEstimator{T<:AbstractFloat, E<:Estimator}
   R₁perp::Union{Matrix{T},UniformScaling{Bool}}; Rpar::Union{Matrix{T},UniformScaling}
 
   kZ::Int64
-  y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β::Vector{T}; β₀::Vector{T}; invXXXy₁par::Vector{T}
+  y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β̂::Vector{T}; β̂₀::Vector{T}; invXXXy₁par::Vector{T}
   Yendog::Vector{Bool}
   invZperpZperp::Matrix{T}; XZ::Matrix{T}; PXZ::Matrix{T}; YPXY::Matrix{T}; R₁invR₁R₁::Union{Matrix{T},UniformScaling}
 	RperpX::Union{Matrix{T},UniformScaling,SelectionMatrix}; RperpXperp::Union{Matrix{T},UniformScaling,SelectionMatrix}; RRpar::Matrix{T}; RparY::Union{Matrix{T},UniformScaling,SelectionMatrix}; RR₁invR₁R₁::Matrix{T}
-	∂β∂r::Matrix{T}; YY::Matrix{T}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; XinvXX::Matrix{T}; Rt₁::Vector{T}
+	∂β̂∂r::Matrix{T}; YY::Matrix{T}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; XinvXX::Matrix{T}; Rt₁::Vector{T}
 	invXX::Matrix{T}; Y₂::Matrix{T}; X₂::Matrix{T}; invH
 	y₁par::Vector{T}; Xy₁par::Vector{T}
 	A::Matrix{T}; Z::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
 	FillingT₀::Matrix{Vector{T}}
-	WXAR::Matrix{T}; ScapPXYZperp::Vector{Matrix{T}}; ScapYX::Vector{Matrix{T}}; CT_XAR::Array{T,3}; CT_FEcapPY::Vector{Matrix{T}}
+	WXAR::Matrix{T}; S⋂PXYZperp::Vector{Matrix{T}}; S⋂YX::Vector{Matrix{T}}; CT_XAR::Array{T,3}; CT_FE⋂PY::Vector{Matrix{T}}
 
   # IV/GMM only
   ZZ::Matrix{T}; XY₂::Matrix{T}; XX::Matrix{T}; H_2SLS::Matrix{T}; V::Matrix{T}; ZY₂::Matrix{T}; X₂Y₂::Matrix{T}; X₁Y₂::Matrix{T}; ZR₁ZR₁::Matrix{T}; X₂ZR₁::Matrix{T}; ZR₁Y₂::Matrix{T}; X₁ZR₁::Matrix{T}
@@ -87,8 +87,8 @@ function InitVars!(o::StrEstimator{T,OLS}, Rperp::AbstractMatrix{T}) where T # R
   o.invH = inv(H)
 
   R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.invH : Symmetric(o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')  # for DGP regression
-  o.β₀ = R₁AR₁ * crossvec(o.parent.X₁, o.parent.wt, o.y₁par)
-  o.∂β∂r = R₁AR₁ * H * o.R₁invR₁R₁ - o.R₁invR₁R₁
+  o.β̂₀ = R₁AR₁ * crossvec(o.parent.X₁, o.parent.wt, o.y₁par)
+  o.∂β̂∂r = R₁AR₁ * H * o.R₁invR₁R₁ - o.R₁invR₁R₁
 
   o.A = iszero(nrows(Rperp)) ? o.invH : Rperp * invsym(Rperp'H*Rperp) * Rperp'  # for replication regression
   o.AR = o.A * o.parent.R'
@@ -103,8 +103,8 @@ function InitVars!(o::StrEstimator{T,ARubin}, Rperp::AbstractMatrix{T} = Matrix{
   (o.parent.scorebs || o.parent.robust) && (o.XAR = X₁₂B(o.parent.X₁, o.parent.X₂, o.AR))
 
   R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.A : o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp'
-  o.β₀   = R₁AR₁ * [crossvec(o.parent.X₁, o.parent.wt, o.parent.y₁) ; crossvec(o.parent.X₂, o.parent.wt, o.parent.y₁)]
-  o.∂β∂r = R₁AR₁ * [cross(o.parent.X₁, o.parent.wt, o.parent.Y₂) ; cross(o.parent.X₂, o.parent.wt, o.parent.Y₂)]
+  o.β̂₀   = R₁AR₁ * [crossvec(o.parent.X₁, o.parent.wt, o.parent.y₁) ; crossvec(o.parent.X₂, o.parent.wt, o.parent.y₁)]
+  o.∂β̂∂r = R₁AR₁ * [cross(o.parent.X₁, o.parent.wt, o.parent.Y₂) ; cross(o.parent.X₂, o.parent.wt, o.parent.Y₂)]
 end
 
 function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where T
@@ -171,29 +171,29 @@ function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where 
 	  o.Yendog = [true; o.RparY==I ? fill(true, o.kZ) : vec(colsum(o.RparY.≠0)).>0]  # columns of Y = [y₁par Zpar] that are endogenous (normally all)
 
 	  if o.parent.robust && o.parent.bootstrapt  # for WRE replication regression, prepare for CRVE
-			o.ScapYX       = Vector{Matrix{T}}(undef, o.kZ+1)
-			o.ScapPXYZperp = Vector{Matrix{T}}(undef, o.kZ+1)
+			o.S⋂YX       = Vector{Matrix{T}}(undef, o.kZ+1)
+			o.S⋂PXYZperp = Vector{Matrix{T}}(undef, o.kZ+1)
 			o.XinvXX = X₁₂B(o.X₁, o.X₂, o.invXX)
 			
 			o.PXZ = X₁₂B(o.X₁, o.X₂, o.invXXXZ)
 
 			o.FillingT₀ = Matrix{Matrix{T}}(undef, o.kZ+1, o.kZ+1)  # fixed component of groupwise term in sandwich filling
 			o.parent.NFE>0 &&
-				(o.CT_FEcapPY = Vector{Matrix{T}}(undef, o.kZ+1))
+				(o.CT_FE⋂PY = Vector{Matrix{T}}(undef, o.kZ+1))
 			for i ∈ 1:o.kZ
 				uwt = vHadw(view(o.PXZ,:,i), o.parent.wt)
 				o.parent.NFE>0 &&
-					(o.CT_FEcapPY[i+1] = crosstabFEt(o.parent, uwt, o.parent.infoCapData) .* o.parent.invFEwt)
-				tmp = @panelsum(o.Z, uwt, o.parent.infoCapData)
+					(o.CT_FE⋂PY[i+1] = crosstabFEt(o.parent, uwt, o.parent.info⋂Data) .* o.parent.invFEwt)
+				tmp = @panelsum(o.Z, uwt, o.parent.info⋂Data)
 				for j ∈ 1:o.kZ
 					o.FillingT₀[i+1,j+1] = view(tmp,:,j)
 				end
 			end
 
 			for i ∈ 1:o.kZ  # precompute various clusterwise sums
-				o.ScapPXYZperp[i+1] = @panelsum(o.Zperp, vHadw(view(o.PXZ,:,i), o.parent.wt), o.parent.infoCapData)  # Scap(P_(MZperpX) * Z .* Zperp)
+				o.S⋂PXYZperp[i+1] = @panelsum(o.Zperp, vHadw(view(o.PXZ,:,i), o.parent.wt), o.parent.info⋂Data)  # S⋂(P_(MZperpX) * Z .* Zperp)
 				!o.parent.granular &&
-					(o.ScapYX[i+1] = @panelsum2(o.X₁, o.X₂, vHadw(view(o.Z,:,i), o.parent.wt), o.parent.infoCapData))  # Scap(M_Zperp[Z or y₁] .* P_(MZperpX)])
+					(o.S⋂YX[i+1] = @panelsum2(o.X₁, o.X₂, vHadw(view(o.Z,:,i), o.parent.wt), o.parent.info⋂Data))  # S⋂(M_Zperp[Z or y₁] .* P_(MZperpX)])
 	    end
 	  end
   end
@@ -202,14 +202,14 @@ end
 
 # do most of estimation; for LIML r₁ must be passed now in order to solve eigenvalue problem involving it
 # inconsistency: for replication regression of Anderson-Rubin, r₁ refers to the *null*, not the maintained constraints, because that's what affects the endogenous variables
-# For OLS, compute β₀ (β when r=0) and ∂β∂r without knowing r₁, for efficiency
+# For OLS, compute β̂₀ (β̂ when r=0) and ∂β̂∂r without knowing r₁, for efficiency
 # For WRE, should only be called once for the replication regressions, since for them r₁ is the unchanging model constraints
 function Estimate!(o::StrEstimator{T,OLS} where T, r₁::AbstractVector)
-  o.β = o.β₀ - o.∂β∂r * r₁
+  o.β̂ = o.β̂₀ - o.∂β̂∂r * r₁
 end
 
 function Estimate!(o::StrEstimator{T,ARubin} where T, r₁::AbstractVector)
-  o.β = o.β₀ - o.∂β∂r * r₁
+  o.β̂ = o.β̂₀ - o.∂β̂∂r * r₁
   o.y₁par = o.parent.y₁ - o.parent.Y₂ * (isone(length(r₁)) ? r₁[1] : r₁)
 end
 
@@ -246,41 +246,43 @@ function Estimate!(o::StrEstimator{T,IVGMM} where T, r₁::AbstractVector)
 	    MakeH!(o)
 	  end
 
-	  o.β = o.invH * (isone(o.κ) ? o.ZXinvXXXy₁par : o.κ * (o.ZXinvXXXy₁par - o.Zy₁par) + o.Zy₁par)
+	  o.β̂ = o.invH * (isone(o.κ) ? o.ZXinvXXXy₁par : o.κ * (o.ZXinvXXXy₁par - o.Zy₁par) + o.Zy₁par)
 	  o.t₁Y = o.R₁invR₁R₁Y * r₁
   elseif o.parent.WREnonARubin  # if not score bootstrap of IV/GMM
 	  o.Rt₁ = o.RR₁invR₁R₁ * r₁
 
 	  if o.parent.robust && o.parent.bootstrapt  # prepare WRE replication regressions
 	    uwt = vHadw(o.y₁par, o.parent.wt)
-	    tmp = @panelsum(o.PXZ, uwt, o.parent.infoCapData)
+	    tmp = @panelsum(o.PXZ, uwt, o.parent.info⋂Data)
 	    for i ∈ 1:o.kZ
 	  	  o.FillingT₀[i+1,1] = view(tmp,:,i)
 	    end
 	    !o.parent.granular &&
-	  		(o.ScapYX[1] = @panelsum2(o.X₁, o.X₂, uwt, o.parent.infoCapData))  # Scap(M_Zperp*y₁ .* P_(MZperpX)])
+	  		(o.S⋂YX[1] = @panelsum2(o.X₁, o.X₂, uwt, o.parent.info⋂Data))  # S⋂(M_Zperp*y₁ .* P_(MZperpX)])
 	  end
   end
 end
 
 
 @inline function MakeResiduals!(o::StrEstimator{T,<:Union{OLS,ARubin}} where T)
-  o.ü₁ = o.y₁par - X₁₂B(o.parent.X₁, o.parent.X₂, o.β)
+  o.ü₁ = o.y₁par - X₁₂B(o.parent.X₁, o.parent.X₂, o.β̂)
 end
 
 function MakeResiduals!(o::StrEstimator{T,IVGMM} where T)
-  o.ü₁ = o.y₁par - o.Z * o.β
+  o.ü₁ = o.y₁par - o.Z * o.β̂
 
   if !o.parent.scorebs
-	  _β = [1 ; -o.β]
+	  _β = [1 ; -o.β̂]
 	  uu = _β'o.YY * _β
 
-	  Xu = o.Xy₁par - o.XZ * o.β  # after DGP regression, compute Y₂ residuals by regressing Y₂ on X while controlling for y₁ residuals, done through FWL
+	  Xu = o.Xy₁par - o.XZ * o.β̂  # after DGP regression, compute Y₂ residuals by regressing Y₂ on X while controlling for y₁ residuals, done through FWL
 	  negXuinvuu = Xu / -uu
-	  Π̂ = invsym(o.XX + negXuinvuu * Xu') * (negXuinvuu * (o.Y₂y₁par - o.ZY₂'o.β)' + o.XY₂)
+	  Π̂ = invsym(o.XX + negXuinvuu * Xu') * (negXuinvuu * (o.Y₂y₁par - o.ZY₂'o.β̂)' + o.XY₂)
 		o.Ü₂ = X₁₂B(o.X₁, o.X₂, Π̂); o.Ü₂ .= o.Y₂ .- o.Ü₂
 
-	  o.u⃛₁ = o.Ü₂ * (o.t₁Y + o.RparY * o.β); o.u⃛₁ .+= o.ü₁
+	  o.u⃛₁ = o.Ü₂ * (o.t₁Y + o.RparY * o.β̂); o.u⃛₁ .+= o.ü₁
+# Ü₂par = [o.y₁par - o.Z * o.β̂; o.Y₂ - X₁₂B(o.X₁, o.X₂, Π̂)] * [1                        o.DGP.Ü₂ * o.Repl.RparY
+# 			                                                       (o.t₁Y + o.RparY * o.β̂)  0                      ]
   end
 end
 
@@ -292,9 +294,9 @@ function InitTestDenoms!(o::StrEstimator)
   if o.parent.bootstrapt && (o.parent.scorebs || o.parent.robust)
 	  (o.parent.granular || o.parent.purerobust) && (o.WXAR = vHadw(o.XAR, o.parent.wt))
 
-	  if o.parent.robust && o.parent.NFE>0 && !(o.parent.FEboot || o.parent.scorebs) && o.parent.granular < o.parent.NErrClustCombs  # make first factor of second term of (64) for c=cap (c=1)
+	  if o.parent.robust && o.parent.NFE>0 && !(o.parent.FEboot || o.parent.scorebs) && o.parent.granular < o.parent.NErrClustCombs  # make first factor of second term of (64) for c=⋂ (c=1)
 	    !isdefined(o, :WXAR) && (o.WXAR = vHadw(o.XAR, o.parent.wt))
-	    o.CT_XAR = crosstabFEt(o.parent, o.WXAR, o.parent.infoCapData)
+	    o.CT_XAR = crosstabFEt(o.parent, o.WXAR, o.parent.info⋂Data)
 	  end
   end
 end

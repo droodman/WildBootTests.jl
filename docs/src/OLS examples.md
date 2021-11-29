@@ -28,7 +28,7 @@ julia> resp, predexog = modelcols(f, df);  # extract response & (exogenous) pred
 
 julia> clustid = df.firm;  # extract clustering variable
 
-julia> R = [0 1]; r = [1];  # put null that coefficient on x = 1 in Rβ = r form, where β is parameter vector
+julia> R = [0 1]; r = [1];  # put null that coefficient on x = 1 in Rβ̂ = r form, where β̂ is parameter vector
 
 julia> test = wildboottest(R, r; resp=resp, predexog=predexog, clustid=clustid)
 WildBootTests.BoottestResult{Float32}

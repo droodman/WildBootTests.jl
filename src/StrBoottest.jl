@@ -37,7 +37,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   FEID::Union{VecOrMat{Int8},VecOrMat{Int16},VecOrMat{Int32},VecOrMat{Int64}}; FEdfadj::Bool
   level::T; rtol::T
   madjtype::MAdjType; NH₀::Int16
-  ML::Bool; β::Vector{T}; A::Matrix{T}; sc::VecOrMat{T}
+  ML::Bool; β̂::Vector{T}; A::Matrix{T}; sc::VecOrMat{T}
   willplot::Bool; gridmin::Vector{Union{T,Missing}}; gridmax::Vector{Union{T,Missing}}; gridpoints::Vector{Union{Int32,Missing}}
 
   q::Int16; twotailed::Bool; scorebs::Bool; robust::Bool
@@ -55,31 +55,31 @@ mutable struct StrBootTest{T<:AbstractFloat}
 		purerobust::Bool; N✻::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX₂::Int64; kX::Int64
   _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; u✻::Matrix{T}; CT_WE::Matrix{T}
   infoBootData::Vector{UnitRange{Int64}}; infoBootAll::Vector{UnitRange{Int64}}; infoErrAll::Vector{UnitRange{Int64}}
-  JNcapN✻::Matrix{T}; statDenom::Matrix{T}; uXAR::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; βdev::Matrix{T}; δdenom_b::Matrix{T}
-	_Jcap::Matrix{T}; YY✻_b::Matrix{T}; YPXY✻_b::Matrix{T}; numerw::Matrix{T}; Zyg::Vector{Matrix{T}}; numer_b::Vector{T}
+  JN⋂N✻::Matrix{T}; statDenom::Matrix{T}; uXAR::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; β̂dev::Matrix{T}; δdenom_b::Matrix{T}
+	_J⋂::Matrix{T}; YY✻_b::Matrix{T}; YPXY✻_b::Matrix{T}; numerw::Matrix{T}; Zyg::Vector{Matrix{T}}; numer_b::Vector{T}
 		
 	distCDR::Matrix{T}; plotX::Tuple{Vararg{Vector{T}, N} where N}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
   numersum::Vector{T}; ü₀::Vector{T}; invFEwt::Vector{T}
-	βs::Matrix{T}; As::Matrix{T}
-	infoAllData::Vector{UnitRange{Int64}}; infoCapData::Vector{UnitRange{Int64}}; IDAll::Matrix{T}; Ü₂par::Matrix{T}
+	β̂s::Matrix{T}; As::Matrix{T}
+	infoAllData::Vector{UnitRange{Int64}}; info⋂Data::Vector{UnitRange{Int64}}; IDAll::Matrix{T}; Ü₂par::Matrix{T}
 	ü::Vector{T}
 	DGP::StrEstimator{T,E} where E; Repl::StrEstimator{T,E} where E; M::StrEstimator{T,E} where E
 	clust::Vector{StrClust{T}}
-	denom::Matrix{Matrix{T}}; Kcd::Matrix{Matrix{T}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; SCTcapuXinvXX::Matrix{Matrix{T}}; S✻UU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
-	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; IDCTCap✻::Vector{Vector{Int64}}; infoCTCap✻::Vector{Vector{UnitRange{Int64}}}; S✻UX::Vector{Matrix{T}}; S✻UXinvXX::Vector{Matrix{T}}; S✻UZperpinvZperpZperp::Vector{Matrix{T}}; S✻uY::Vector{Matrix{T}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻UZperp::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
+	denom::Matrix{Matrix{T}}; Kcd::Matrix{Matrix{T}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; SCT⋂uXinvXX::Matrix{Matrix{T}}; S✻UU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
+	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; IDCT⋂✻::Vector{Vector{Int64}}; infoCT⋂✻::Vector{Vector{UnitRange{Int64}}}; S✻UX::Vector{Matrix{T}}; S✻UXinvXX::Vector{Matrix{T}}; S✻UZperpinvZperpZperp::Vector{Matrix{T}}; S✻uY::Vector{Matrix{T}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻UZperp::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
   ∂denom∂r::Vector{Matrix{Matrix{T}}}; ∂Jcd∂r::Vector{Matrix{Matrix{T}}}
   ∂²denom∂r²::Matrix{Matrix{Matrix{T}}}
 	FEs::Vector{StrFE{T}}
   T1L::Vector{Matrix{T}}; T1R::Vector{Matrix{T}}
-	crosstabCap✻ind::Vector{Int64}; crosstabBootind::Vector{Int64}
+	crosstab⋂✻ind::Vector{Int64}; crosstabBootind::Vector{Int64}
   seed::UInt64
 
   StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
 	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,
-								 β, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real =
+								 β̂, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real =
 	  new(matconvert(T,R), matconvert(T,r), matconvert(T,R₁), matconvert(T,r₁), matconvert(T,y₁), matconvert(T,X₁), matconvert(T,Y₂), matconvert(T,X₂), matconvert(T,wt), fweights, LIML || !iszero(Fuller), 
 		    Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, matconvert(Int64,ID), nbootclustvar, nerrclustvar, issorted, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML, 
-				matconvert(T,β), matconvert(T,A), matconvert(T,sc), willplot, gridmin, gridmax, gridpoints,
+				matconvert(T,β̂), matconvert(T,A), matconvert(T,sc), willplot, gridmin, gridmax, gridpoints,
 		  nrows(R),
 		  ptype==symmetric || ptype==equaltail,
 		  scorebs || iszero(B) || ML,
@@ -102,7 +102,7 @@ function crosstabFE(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitRa
 		@inbounds for i ∈ 1:nrows(info)
 	    FEIDi = @view o._FEID[info[i]]
 	    vi    = @view       v[info[i]]
-	    @simd for j in eachindex(vi, FEIDi)
+	    @inbounds @simd for j in eachindex(vi, FEIDi)
 	  	  dest[FEIDi[j],i] += vi[j]
 	    end
 	  end
