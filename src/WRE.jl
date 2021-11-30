@@ -264,7 +264,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			denom *= o.Repl.RRpar[1]^2
 		end
 
-  else  # WRE bootstrap for more than 1 coefficeint in bootstrap regression
+  else  # WRE bootstrap for more than 1 retained coefficient in bootstrap regression
 
 		β̂s = zeros(T, o.Repl.kZ, ncols(o.v))
 		A = Vector{Matrix{T}}(undef, ncols(o.v))

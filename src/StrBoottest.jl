@@ -50,7 +50,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   CI::Matrix{T}
   peak::NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
 
-  sqrt::Bool; Nobs::Int64; _Nobs::Int64; kZ::Int64; kY₂::Int64; kX₁::Int64; sumwt::T; NClustVar::Int8; haswt::Bool; REst::Bool; multiplier::T; smallsample::T
+  sqrt::Bool; Nobs::Int64; _Nobs::T; kZ::Int64; kY₂::Int64; kX₁::Int64; sumwt::T; NClustVar::Int8; haswt::Bool; REst::Bool; multiplier::T; smallsample::T
 		WREnonARubin::Bool; dof::Int64; dof_r::Int64; p::T; BootClust::Int8
 		purerobust::Bool; N✻::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX₂::Int64; kX::Int64
   _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; u✻::Matrix{T}; CT_WE::Matrix{T}

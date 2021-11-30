@@ -123,10 +123,10 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		    sumN += N
 
 				if o.small
-						multiplier = T(N / (N-1))
-						N < minN && (minN = N)
+					multiplier = T(N / (N-1))
+					N < minN && (minN = N)
 				else
-						multiplier = one(T)
+					multiplier = one(T)
 				end
 				o.clust[c] = StrClust{T}(N, multiplier, even, order, info)
 	    end
