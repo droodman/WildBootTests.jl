@@ -74,6 +74,7 @@ auxweights(o::BoottestResult) = o.auxweights
 using Printf
 function Base.show(io::IO, o::BoottestResult{T}) where T
 	print(io, "WildBootTests.BoottestResult{$T}\n\n")
+	Printf.@printf(io, "%s = %5.3f\n", stattype(o)*repeat(' ',2-length(stattype(o))), teststat(o))
 	Printf.@printf(io, "p  = %5.3f\n", p(o))
 	isdefined(o, :CI) && !isnothing(o.CI) && length(o.CI)>0 && print(io, "CI = $(CI(o))\n")
 end
@@ -225,7 +226,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `gridmin`: vector of graph lower bounds, max length 2, `missing` entries ask wildboottest() to choose
 * `gridmax`: vector of graph upper bounds
 * `gridpoints`: vector of number of sampling points
-* `diststat::DistStatType=nodiststat`: t to save bootstrap distribution of Wald/χ²/F/t statistics; numer to save numerators thereof
+* `diststat::DistStatType=nodiststat`: t to save bootstrap distribution of t/z/F/χ² statistics; numer to save numerators thereof
 * `getCI::Bool=true`: whether to return CI
 * `getplot::Bool=getCI`: whether to generate plot data
 * `getauxweights::Bool=false`: whether to save auxilliary weight matrix (v)
