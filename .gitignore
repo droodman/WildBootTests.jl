@@ -6,3 +6,4 @@
 voters.dta
 test/profiling.jl
 src/WRE2.jl
+docs/build/

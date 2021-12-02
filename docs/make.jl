@@ -10,3 +10,8 @@ makedocs(sitename="WildBootTests.jl",
                   "Public functions and types" => "exported.md"
                  ]
         )
+
+deploydocs(
+  deploy_config = Documenter.GitHubActions(),
+  repo = "github.com/droodman/WildBootTests.jl.git",
+)

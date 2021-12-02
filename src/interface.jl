@@ -42,7 +42,7 @@ reps(o::BoottestResult) = o.reps
 repsfeas(o::BoottestResult) = o.repsfeas
 
 "Return number of bootstrapping clusters in wild bootstrap test"
-NBootClust(o::BoottestResult) = o.NBootClust
+nbootclust(o::BoottestResult) = o.NBootClust
 
 "Return degrees of freedom wild bootstrap test"
 dof(o::BoottestResult) = o.dof
