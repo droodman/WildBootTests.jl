@@ -1,4 +1,4 @@
-# OLS examples
+## Basic OLS example
 ```
 julia> using WildBootTests, CSV, DataFrames, GLM, Plots
 
