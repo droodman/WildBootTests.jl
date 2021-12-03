@@ -20,7 +20,7 @@ The interface is low-level: the exported function `wildboottest()` accepts scala
 
 `wildboottest()` accepts many optional arguments. Most correspond to options of the Stata package `boottest`, which are documented in [Roodman et al. (2019), §7](https://www.econ.queensu.ca/sites/econ.queensu.ca/files/qed_wp_1406.pdf#page=28). Julia-specific additions include an optional first argument `T`, which can be `Float32` or `Float64` to specify the precision of computation; and `rng`, which takes a random number generator such as `MersenneTwister(2302394)`.
 
-## OLS example with output
+## Example
 
 ```
 julia> using WildBootTests, CSV, DataFrames, GLM, Plots
@@ -68,88 +68,4 @@ julia> CI(test)  # programmatically extract confidence interval
  0.934961  1.13469
 
 julia> plot(plotpoints(test)...)  # plot confidence curve
-```
-## OLS examples omitting output
-```
-# use Webb instead of Rademacher weights, 99,999 bootstrap replications instead of 999
-wildboottest(R, r; resp, predexog, clustid, reps=99999, auxwttype=WildBootTests.webb)
-
-# bootstrap in double-precision (Float64) instead of single (Float32)
-# slow on first use because of recompile
-wildboottest(Float64, R, r; resp, predexog, clustid)
-
-# use guaranteed-stable random number generator for exact replicability
-using StableRNGs
-wildboottest(R, r; resp, predexog, clustid, rng=StableRNG(23948572))
-
-# test that coefficient on intercept = 0 and coefficient on x = 1; plot confidence surface
-test = wildboottest([1 0; 0 1], [0;1]; resp, predexog, clustid, reps=9999)
-plot(plotpoints(test).X..., plotpoints(test).p, st=:contourf)
-
-# multiway-cluster errors by firm and year; bootstrap by firm
-wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:firm, :year]]), nerrclustvar=2, nbootclustvar=1)
-
-# same but bootstrap by year
-wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:year, :firm]]), nerrclustvar=2, nbootclustvar=1)
-
-# same but bootstrap by year-firm pair
-wildboottest(R, r; resp, predexog, clustid=Matrix(df[:,[:year, :firm]]), nerrclustvar=2, nbootclustvar=2)
-
-# Rao/score test with multiway clustering of errors but no bootstrap
-wildboottest(R, r; resp, predexog, predendog, inst, Matrix(df[:,[:year, :firm]]), reps=0)
-
-# Same but Wald test: i.e., conventional, multiway clustered errors
-wildboottest(R, r; resp, predexog, predendog, inst, clustid=Matrix(df[:,[:year, :firm]]), reps=0, imposenull=false)
-
-# add year fixed effects to model; cluster by firm
-wildboottest(R, r; resp, predexog, feid=df.year, clustid=df.firm)
-
-# test hypotheses, while imposing model constraint that constant term = 0.2
-R1 = [1 0]; r1 = [.2]
-wildboottest(R, r; R1, r1, resp, predexog, clustid=df.firm)
-```
-## IV/2SLS examples omitting output
-```
-# specify exactly identified model: regress wage on on tenure, instrumented by union,
-# controlling for ttl_exp and collgrad
-d = download("http://www.stata-press.com/data/r8/nlsw88.dta", tempname() * ".dta")
-df = DataFrame(load(d))[:, [:wage; :tenure; :ttl_exp; :collgrad; :industry; :union]]
-dropmissing!(df)
-f = @formula(wage ~ 1 + ttl_exp + collgrad)
-f = apply_schema(f, schema(f, df))
-resp, predexog = modelcols(f, df)
-ivf = @formula(tenure ~ union)
-ivf = apply_schema(ivf, schema(ivf, df))
-predendog, inst = modelcols(ivf, df)
-
-# test that coefficient on tenure = 0, clustering errors by industry
-R = [0 0 0 1]; r = [0]
-wildboottest(R, r; resp, predexog, predendog, inst, clustid=df.industry)
-
-# use equal-tailed instead of symmetric p value
-wildboottest(R, r; resp, predexog, predendog, inst, clustid=df.industry, ptype=WildBootTests.equaltail)
-
-# perform bootstrap-c instead of bootstrap-t, as advocated by Young (2019)
-wildboottest(R, r; resp, predexog, predendog, inst, clustid=df.industry, bootstrapc=true)
-
-# Rao/score test without bootstrap
-wildboottest(R, r; resp, predexog, predendog, inst, clustid=df.industry, reps=0)
-
-# Wald test without bootstrap
-wildboottest(R, r; resp, predexog, predendog, inst, clustid=df.industry, reps=0, imposenull=false)
-
-# Anderson-Rubin test that hypothesis holds and instrument is valid
-wildboottest(R, r; resp, predexog, predendog, inst, clustid=df.industry, ARubin=true)
-
-# modify model to drop controls and make ttl_exp an instrument
-f = @formula(wage ~ 1)
-f = apply_schema(f, schema(f, df))
-resp, predexog = modelcols(f, df)
-ivf = @formula(tenure ~ collgrad + ttl_exp)
-ivf = apply_schema(ivf, schema(ivf, df))
-predendog, inst = modelcols(ivf, df)
-
-# test same hypothesis in context of LIML regression
-R = [0 1]; r = [0]
-wildboottest(R, r; resp, predexog, predendog, inst, LIML=true, clustid=df.industry)
 ```
