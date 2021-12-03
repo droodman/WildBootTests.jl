@@ -1,9 +1,4 @@
-<<<<<<< Updated upstream:docs/src/OLS examples.md
-## Example with full session log
-=======
 # OLS examples
->>>>>>> Stashed changes:docs/src/OLSexamples.md
-
 ```
 julia> using WildBootTests, CSV, DataFrames, GLM, Plots
 
@@ -51,13 +46,7 @@ julia> CI(test)  # programmatically extract confidence interval
 
 julia> plot(plotpoints(test)...)  # plot confidence curve
 ```
-<<<<<<< Updated upstream:docs/src/OLS examples.md
 ## Further examples
-=======
-
-
-# Examples omitting output
->>>>>>> Stashed changes:docs/src/OLSexamples.md
 ```
 # use Webb instead of Rademacher weights, 99,999 bootstrap replications instead of 999
 wildboottest(R, r; resp, predexog, clustid, reps=99999, auxwttype=WildBootTests.webb)

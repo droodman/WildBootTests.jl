@@ -1,4 +1,4 @@
-## IV/2SLS examples
+##IV/2SLS examples
 ```
 # specify exactly identified model: regress wage on on tenure, instrumented by union,
 # controlling for ttl_exp and collgrad
@@ -24,3 +24,22 @@ wildboottest(R, r; resp, predexog, predendog, inst, clustid=df.industry, bootstr
 
 # Rao/score test without bootstrap
 wildboottest(R, r; resp, predexog, predendog, inst, clustid=df.industry, reps=0)
+
+# Wald test without bootstrap
+wildboottest(R, r; resp, predexog, predendog, inst, clustid=df.industry, reps=0, imposenull=false)
+
+# Anderson-Rubin test that hypothesis holds and instrument is valid
+wildboottest(R, r; resp, predexog, predendog, inst, clustid=df.industry, ARubin=true)
+
+# modify model to drop controls and make ttl_exp an instrument
+f = @formula(wage ~ 1)
+f = apply_schema(f, schema(f, df))
+resp, predexog = modelcols(f, df)
+ivf = @formula(tenure ~ collgrad + ttl_exp)
+ivf = apply_schema(ivf, schema(ivf, df))
+predendog, inst = modelcols(ivf, df)
+
+# test same hypothesis in context of LIML regression
+R = [0 1]; r = [0]
+wildboottest(R, r; resp, predexog, predendog, inst, LIML=true, clustid=df.industry)
+```

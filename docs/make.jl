@@ -15,4 +15,3 @@ deploydocs(
   deploy_config = Documenter.GitHubActions(),
   repo = "github.com/droodman/WildBootTests.jl.git",
 )
-
