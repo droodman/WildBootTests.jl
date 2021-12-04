@@ -174,9 +174,9 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 
 	if isone(w)
 		if o.ARubin
-			o.numerw[:,1] = o.v_sd * o.DGP.Rpar * o.DGP.β̂[o.kX₁+1:end]  # coefficients on excluded instruments in ARubin OLS
+			o.numerw[:,1] = o.v_sd * (o.DGP.Rpar * o.DGP.β̂[o.kX₁+1:end])::Vector{T}  # coefficients on excluded instruments in ARubin OLS
 		elseif !o.null
-			o.numerw[:,1] = o.v_sd * (o.R * (o.ML ? o.β̂ : o.M.Rpar * o.M.β̂) - r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this.
+			o.numerw[:,1] = o.v_sd * (o.R * (o.ML ? o.β̂ : (o.M.Rpar * o.M.β̂)::Vector{T}) - r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this.
 		end
 	end
 

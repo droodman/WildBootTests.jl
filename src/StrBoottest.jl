@@ -24,20 +24,21 @@ struct StrFE{T<:Real}
 end
 
 
-@inline matconvert(T::DataType, X) = !isa(X, AbstractArray) || eltype(X)==T ? X : T.(X)
+@inline vecconvert(T::DataType, X) = isa(X, AbstractArray) ? reshape(eltype(X)==T ? X : T.(X), size(X,1)           ) : X
+@inline matconvert(T::DataType, X) = isa(X, AbstractArray) ? reshape(eltype(X)==T ? X : T.(X), size(X,1), size(X,2)) : X
 
 mutable struct StrBootTest{T<:AbstractFloat}
   R::Matrix{T}; r::Vector{T}; R₁::Matrix{T}; r₁::Vector{T}
-  y₁::Vector{T}; X₁::VecOrMat{T}; Y₂::VecOrMat{T}; X₂::VecOrMat{T}
+  y₁::Vector{T}; X₁::Matrix{T}; Y₂::Matrix{T}; X₂::Matrix{T}
   wt::Union{Vector{T}, UniformScaling}; fweights::Bool
   LIML::Bool; Fuller::T; κ::T; ARubin::Bool
   B::Int64; auxtwtype::AuxWtType; rng::AbstractRNG; maxmatsize::Float16
   ptype::PType; null::Bool; bootstrapt::Bool
-	ID::Union{VecOrMat{Int8},VecOrMat{Int16},VecOrMat{Int32},VecOrMat{Int64}}; nbootclustvar::Int8; nerrclustvar::Int64; issorted::Bool; small::Bool
-  FEID::Union{VecOrMat{Int8},VecOrMat{Int16},VecOrMat{Int32},VecOrMat{Int64}}; FEdfadj::Bool
+	ID::Matrix{Int64}; nbootclustvar::Int8; nerrclustvar::Int64; issorted::Bool; small::Bool
+  FEID::Vector{Int64}; FEdfadj::Bool
   level::T; rtol::T
   madjtype::MAdjType; NH₀::Int16
-  ML::Bool; β̂::Vector{T}; A::Matrix{T}; sc::VecOrMat{T}
+  ML::Bool; β̂::Vector{T}; A::Matrix{T}; sc::Matrix{T}
   willplot::Bool; gridmin::Vector{Union{T,Missing}}; gridmax::Vector{Union{T,Missing}}; gridpoints::Vector{Union{Int32,Missing}}
 
   q::Int16; twotailed::Bool; scorebs::Bool; robust::Bool
@@ -77,9 +78,10 @@ mutable struct StrBootTest{T<:AbstractFloat}
   StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
 	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,
 								 β̂, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real =
-	  new(matconvert(T,R), matconvert(T,r), matconvert(T,R₁), matconvert(T,r₁), matconvert(T,y₁), matconvert(T,X₁), matconvert(T,Y₂), matconvert(T,X₂), matconvert(T,wt), fweights, LIML || !iszero(Fuller), 
-		    Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, matconvert(Int64,ID), nbootclustvar, nerrclustvar, issorted, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML, 
-				matconvert(T,β̂), matconvert(T,A), matconvert(T,sc), willplot, gridmin, gridmax, gridpoints,
+begin
+	  new(matconvert(T,R), vecconvert(T,r), matconvert(T,R₁), vecconvert(T,r₁), vecconvert(T,y₁), matconvert(T,X₁), matconvert(T,Y₂), matconvert(T,X₂), vecconvert(T,wt), fweights, LIML || !iszero(Fuller), 
+		    Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, matconvert(Int64,ID), nbootclustvar, nerrclustvar, issorted, small, vecconvert(Int64,FEID), FEdfadj, level, rtol, madjtype, NH₀, ML, 
+				vecconvert(T,β̂), matconvert(T,A), matconvert(T,sc), willplot, gridmin, gridmax, gridpoints,
 		  nrows(R),
 		  ptype==symmetric || ptype==equaltail,
 		  scorebs || iszero(B) || ML,
@@ -91,7 +93,9 @@ mutable struct StrBootTest{T<:AbstractFloat}
 		  Vector{T}(undef,0), Vector{T}(undef,0), Matrix{T}(undef,0,0), Vector{T}(undef,0),
 		  Matrix{T}(undef,0,0),
 		  (X = Vector{T}(undef,0), p = T(NaN)))
+
 end
+	end
 
 
 # cross-tab sum of a column vector w.r.t. given panel info and fixed-effect var
@@ -172,7 +176,6 @@ function partialFE(o::StrBootTest, In::AbstractArray)
   end
   Out
 end
-
 
 macro storeWtGrpResults!(dest, content)  # poor hygiene in referencing caller's o and w
   if dest == :(o.dist)

@@ -40,7 +40,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.y₁ = o.y₁[p]
 		o.Y₂ = ndims(o.Y₂)==1 ? o.Y₂[p] : o.Y₂[p,:]
 		o.haswt && (o.wt = o.wt[p])
-		isdefined(o, :FEID) && length(o.FEID)>0 && (o.FEID = o.FEID[p])
+		isdefined(o, :FEID) && nrows(o.FEID)>0 && (o.FEID = o.FEID[p])
   end
 
   if o.WREnonARubin
@@ -170,7 +170,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	  minN = nrows(o.infoBootData)
 	end
 
-	if isdefined(o, :FEID) && length(o.FEID)>0
+	if isdefined(o, :FEID) && nrows(o.FEID)>0
 		p = _sortperm(o.FEID)
 		sortID = o.FEID[p]
 		i_FE = 1; o.FEboot = o.B>0 && !o.WREnonARubin && o.NClustVar>0; j = o.Nobs; o._FEID = ones(Int64, o.Nobs)
@@ -315,7 +315,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			o.S✻UX                  = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
 			o.S✻UU                  = Matrix{Matrix{T}}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
 			o.T1L = isone(o.Nw) ? [Matrix{T}(undef, o.Repl.kX, ncols(o.v))] :
-									[Matrix{T}(undef, o.Repl.kX, length(o.WeightGrp[1])), Matrix{T}(undef, o.Repl.kX, length(o.WeightGrp[end]))]
+									          [Matrix{T}(undef, o.Repl.kX, length(o.WeightGrp[1])), Matrix{T}(undef, o.Repl.kX, length(o.WeightGrp[end]))]
 			o.T1R = deepcopy(o.T1L)
 
 			if o.bootstrapt

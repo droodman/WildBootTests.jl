@@ -114,7 +114,7 @@ function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where 
   o.invZperpZperp = iszero(length(o.Zperp)) ? Matrix{T}(undef,0,0) : inv(symcross(o.Zperp, o.parent.wt))
   
   o.X₁ = o.parent.X₁ * o.RperpXperp; o.X₁ .-= o.Zperp * (o.invZperpZperp * cross(o.Zperp, o.parent.wt, o.X₁))  # FWL-process X₁
-  o.X₂ = o.Zperp * (o.invZperpZperp * cross(o.Zperp, o.parent.wt, o.parent.X₂)); o.X₂ .= o.parent.X₂ .- o.X₂                 # FWL-process X₂
+  o.X₂ = o.Zperp * (o.invZperpZperp * cross(o.Zperp, o.parent.wt, o.parent.X₂)); o.X₂ .= o.parent.X₂ .- o.X₂   # FWL-process X₂
   X₂X₁ = cross(o.X₂, o.parent.wt, o.X₁)
   o.XX = Symmetric([symcross(o.X₁, o.parent.wt) X₂X₁' ; X₂X₁ symcross(o.X₂, o.parent.wt)])
   o.kX = ncols(o.XX)
@@ -210,7 +210,7 @@ end
 
 function Estimate!(o::StrEstimator{T,ARubin} where T, r₁::AbstractVector)
   o.β̂ = o.β̂₀ - o.∂β̂∂r * r₁
-  o.y₁par = o.parent.y₁ - o.parent.Y₂ * (isone(length(r₁)) ? r₁[1] : r₁)
+  o.y₁par = o.parent.y₁ - o.parent.Y₂ * r₁
 end
 
 function MakeH!(o::StrEstimator{T,IVGMM} where T, makeXAR::Bool=false)
