@@ -140,8 +140,8 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 			o.scorebs && (K .-= o.ClustShare * colsum(K))  # recenter
 
 			for c ∈ 1+o.granular:o.NErrClustCombs
-				length(o.clust[c].order)>0 &&
-					(K = K[o.clust[c].order,:,:])  # a bit faster to physically reorder rows than create view, to keep @turbo happy
+				nrows(o.clust[c].order)>0 &&
+					(K = view(K,o.clust[c].order,:,:))
 				for d ∈ 1:o.dof
 					o.Kcd[c,d] = @panelsum(view(K,:,d,:), o.clust[c].info)
 				end
@@ -150,7 +150,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 			o.scorebs &&
 				(u✻XAR .-= o.ClustShare * colsum(u✻XAR))  # recenter if OLS
 			for c ∈ 1:o.NErrClustCombs
-				length(o.clust[c].order)>0 &&
+				nrows(o.clust[c].order)>0 &&
 					(u✻XAR = u✻XAR[o.clust[c].order,:])
 				tmp = @panelsum(u✻XAR, o.clust[c].info)
 				for d ∈ 1:o.dof
@@ -237,7 +237,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 		else  # build each replication's denominator from vectors that hold values for each position in denominator, all replications
 			tmp = Matrix{T}(undef, o.dof, o.dof)
 			@inbounds for k ∈ 1:ncols(o.v)
-				@turbo for i ∈ 1:o.dof, j ∈ 1:i
+				@inbounds @fastmath for i ∈ 1:o.dof, j ∈ 1:i
 					tmp[j,i] = o.denom[i,j][k]  # fill upper triangle, which is all invsym() looks at
 				end
 				numer_l = view(o.numerw,:,k)
