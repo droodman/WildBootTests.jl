@@ -121,7 +121,7 @@ function _wildboottest(T::DataType,
 					  A::AbstractMatrix=zeros(T,0,0),
 					  gridmin::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Number = T[],
 					  gridmax::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Number = T[],
-					  gridpoints::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Integer = Int64[],
+					  gridpoints::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Integer = Int32[],
 					  diststat::DistStatType=nodist,
 					  getCI::Bool=true,
 					  getplot::Bool=getCI,
@@ -152,9 +152,9 @@ function _wildboottest(T::DataType,
   M = StrBootTest{T}(R, r, R1, r1, resp, predexog, predendog, inst, obswt, fweights, LIML, Fuller, kappa, ARubin,
 	                   reps, auxwttype, rng, maxmatsize, ptype, imposenull, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, issorted, hetrobust, small,
 	                   feid, fedfadj, level, rtol, madjtype, NH0, ML, beta, A, scores, getplot,
-	                   map(x->ismissing(x) ? missing : T(x), gridmin),
-	                   map(x->ismissing(x) ? missing : T(x), gridmax),
-	                   map(x->ismissing(x) ? missing : Int32(x), gridpoints))
+	                   map(x->T(ismissing(x) ? NaN : x), gridmin),
+	                   map(x->T(ismissing(x) ? NaN : x), gridmax),
+	                   map(x->Float32(ismissing(x) ? NaN : x), gridpoints))
 
 	if getplot || (level<1 && getCI)
 		plot = getplot ? _getplot(M) : nothing
@@ -223,9 +223,9 @@ Function to perform wild-bootstrap-based hypothesis test
 * `scores::AbstractVecOrMat`: for ML, pre-computed scores
 * `beta::AbstractVector`: for ML, parameter estimates
 * `A::AbstractMatrix`: for ML, covariance estimates
-* `gridmin`: vector of graph lower bounds, max length 2, `missing` entries ask wildboottest() to choose
-* `gridmax`: vector of graph upper bounds
-* `gridpoints`: vector of number of sampling points
+* `gridmin`: vector of graph lower bounds; max length 2, `missing`/`NaN` entries ask wildboottest() to choose
+* `gridmax`: vector of graph upper bounds; `missing`/`NaN` entries ask wildboottest() to choose
+* `gridpoints`: vector of number of sampling points; `missing`/`NaN` entries ask wildboottest() to choose
 * `diststat::DistStatType=nodiststat`: t to save bootstrap distribution of t/z/F/χ² statistics; numer to save numerators thereof
 * `getCI::Bool=true`: whether to return CI
 * `getplot::Bool=getCI`: whether to generate plot data

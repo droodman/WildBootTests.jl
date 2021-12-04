@@ -39,7 +39,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   level::T; rtol::T
   madjtype::MAdjType; NH₀::Int16
   ML::Bool; β̂::Vector{T}; A::Matrix{T}; sc::Matrix{T}
-  willplot::Bool; gridmin::Vector{Union{T,Missing}}; gridmax::Vector{Union{T,Missing}}; gridpoints::Vector{Union{Int32,Missing}}
+  willplot::Bool; gridmin::Vector{T}; gridmax::Vector{T}; gridpoints::Vector{Float32}
 
   q::Int16; twotailed::Bool; scorebs::Bool; robust::Bool
 

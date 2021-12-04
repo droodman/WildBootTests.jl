@@ -40,11 +40,11 @@ function plot(o::StrBootTest{T}) where T
   _r = copy(o.r)
   α = one(T) - o.level
 
-	iszero(length(o.gridmin   )) && (o.gridmin    = fill(missing, o.q))
-	iszero(length(o.gridmax   )) && (o.gridmax    = fill(missing, o.q))
-	iszero(length(o.gridpoints)) && (o.gridpoints = fill(missing, o.q))
+	iszero(nrows(o.gridmin   )) && (o.gridmin    = fill(T(NaN), o.q))
+	iszero(nrows(o.gridmax   )) && (o.gridmax    = fill(T(NaN), o.q))
+	iszero(nrows(o.gridpoints)) && (o.gridpoints = fill(Float32(NaN), o.q))
 
-	o.gridpoints[ismissing.(o.gridpoints)] .= 25
+	o.gridpoints[isnan.(o.gridpoints)] .= 25
 
   boottest!(o)
   if !o.ARubin
@@ -62,14 +62,14 @@ function plot(o::StrBootTest{T}) where T
 		end
 
 		p_lo, p_hi = T(NaN), T(NaN)
-		if ismissing(o.gridmin[1]) || ismissing(o.gridmax[1])
+		if isnan(o.gridmin[1]) || isnan(o.gridmax[1])
 			if o.B>0  # initial guess based on classical distribution
-				lo = Vector{T}(ismissing(o.gridmin[1]) ? o.confpeak - halfwidth : o.gridmin)  # signal compiler that lo and hi cannot be missing now
-				hi = Vector{T}(ismissing(o.gridmax[1]) ? o.confpeak + halfwidth : o.gridmax)
+				lo = isnan(o.gridmin[1]) ? o.confpeak - halfwidth : o.gridmin
+				hi = isnan(o.gridmax[1]) ? o.confpeak + halfwidth : o.gridmax
 			else
-				tmp = vec(sqrtNaN.(o.statDenom)) * cquantile(o.small ? TDist(o.dof_r) : Normal(), α/2)
-				lo = Vector{T}(ismissing(o.gridmin[1]) ? o.confpeak - tmp : o.gridmin)
-				hi = Vector{T}(ismissing(o.gridmax[1]) ? o.confpeak + tmp : o.gridmax)
+				tmp = vec(sqrtNaN.(o.statDenom)) * T(cquantile(o.small ? TDist(o.dof_r) : Normal(), α/2))
+				lo = isnan(o.gridmin[1]) ? o.confpeak - tmp : o.gridmin
+				hi = isnan(o.gridmax[1]) ? o.confpeak + tmp : o.gridmax
 				if o.scorebs && !o.null && !o.willplot  # if doing simple Wald test with no graph, we're done
 					o.CI = [lo hi]
 					return
@@ -77,41 +77,41 @@ function plot(o::StrBootTest{T}) where T
 			end
 
 			if abs(lo[1] - o.r[1]) > abs(hi[1] - o.r[1])  # brute force way to ensure that first trial bound tested is the farther one from r, for better interpolation
-				if ismissing(o.gridmin[1]) && o.ptype≠lower  # unless lower-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
+				if isnan(o.gridmin[1]) && o.ptype≠lower  # unless lower-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
 					for _ ∈ 1:10
 						p_lo = r_to_p(o, lo)
 						p_lo < α && break
 						tmp = hi - lo
 						lo .-= tmp
-						ismissing(o.gridmax[1]) && o.twotailed && (hi .+= tmp)  # maintain rough symmetry unless user specified upper bound
+						isnan(o.gridmax[1]) && o.twotailed && (hi .+= tmp)  # maintain rough symmetry unless user specified upper bound
 					end
 				end
-				if ismissing(o.gridmax[1]) && o.ptype≠upper  # ditto for high side
+				if isnan(o.gridmax[1]) && o.ptype≠upper  # ditto for high side
 					for _ ∈ 1:10
 						p_hi = r_to_p(o, hi)
 						p_hi < α && break
 						tmp = hi - lo
-						ismissing(o.gridmin[1]) && o.twotailed && (lo .-= tmp)
+						isnan(o.gridmin[1]) && o.twotailed && (lo .-= tmp)
 						hi .+= tmp
 					end
 				end
 			else
-				if ismissing(o.gridmax[1]) && o.ptype≠upper  # ditto for high side
+				if isnan(o.gridmax[1]) && o.ptype≠upper  # ditto for high side
 					for _ ∈ 1:10
 						p_hi = r_to_p(o, hi)
 						p_hi < α && break
 						tmp = hi - lo
-						ismissing(o.gridmin[1]) && o.twotailed && (lo .-= tmp)
+						isnan(o.gridmin[1]) && o.twotailed && (lo .-= tmp)
 						hi .+= tmp
 					end
 				end
-				if ismissing(o.gridmin[1]) && o.ptype≠lower  # unless upper-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
+				if isnan(o.gridmin[1]) && o.ptype≠lower  # unless upper-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
 					for _ ∈ 1:10
 						p_lo = r_to_p(o, lo)
 						p_lo < α && break
 						tmp = hi - lo
 						lo .-= tmp
-						ismissing(o.gridmax[1]) && o.twotailed && (hi .+= tmp)  # maintain rough symmetry unless user specified upper bound
+						isnan(o.gridmax[1]) && o.twotailed && (hi .+= tmp)  # maintain rough symmetry unless user specified upper bound
 					end
 				end
 			end
@@ -120,27 +120,29 @@ function plot(o::StrBootTest{T}) where T
 			hi = [o.gridmax[1]]
 		end
 
-		o.plotX = (collect(range(lo[1], hi[1], length=o.gridpoints[1])),)  # store as 1-tuple since q=1
-		o.plotY = fill(T(NaN), o.gridpoints[1])
+		_gridpoints = round(Int32, o.gridpoints[1])
+		o.plotX = (collect(range(lo[1], hi[1], length=_gridpoints)),)  # store as 1-tuple since q=1
+		o.plotY = fill(T(NaN), _gridpoints)
 		o.plotY[1  ] = p_lo
 		o.plotY[end] = p_hi
 		p_confpeak = o.WREnonARubin ? T(NaN) : o.twotailed ? one(T) : T(.5)
 
-		c = clamp((floor(Int, (o.confpeak[1] - lo[1]) / (hi[1] - lo[1]) * (o.gridpoints[1] - 1)) + 2), 1, o.gridpoints[1]+1)  # insert original point estimate into grid
+		c = clamp((floor(Int, (o.confpeak[1] - lo[1]) / (hi[1] - lo[1]) * (_gridpoints[1] - 1)) + 2), 1, _gridpoints[1]+1)  # insert original point estimate into grid
 		insert!(o.plotX[1], c, o.confpeak[1])
 		insert!(o.plotY   , c, p_confpeak)
 
 	else  # 2D plot
+		_gridpoints = round.(Int32, o.gridpoints)
 
 		lo = Vector{T}(undef, 2)
 		hi = Vector{T}(undef, 2)
 		for d ∈ 1:o.dof
-			lo[d] = ismissing(o.gridmin[d]) ? o.confpeak[d] - halfwidth[d] : o.gridmin[d]
-			hi[d] = ismissing(o.gridmax[d]) ? o.confpeak[d] + halfwidth[d] : o.gridmax[d]
+			lo[d] = isnan(o.gridmin[d]) ? o.confpeak[d] - halfwidth[d] : o.gridmin[d]
+			hi[d] = isnan(o.gridmax[d]) ? o.confpeak[d] + halfwidth[d] : o.gridmax[d]
 		end
-		o.plotX = (collect(range(lo[1], hi[1], length=o.gridpoints[1])), 
-		           collect(range(lo[2], hi[2], length=o.gridpoints[2])))
-		o.plotY = fill(T(NaN), o.gridpoints[1]*o.gridpoints[2])
+		o.plotX = (collect(range(lo[1], hi[1], length=_gridpoints[1])), 
+		           collect(range(lo[2], hi[2], length=_gridpoints[2])))
+		o.plotY = fill(T(NaN), _gridpoints[1]*_gridpoints[2])
 	end
 
 	isnan(o.plotY[1]) && (o.plotY[1] = r_to_p(o, [o.plotX[i][1] for i in 1:o.q]))  # do in this order for widest interpolation
