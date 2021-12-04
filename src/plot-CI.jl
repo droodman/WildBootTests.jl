@@ -78,7 +78,7 @@ function plot(o::StrBootTest{T}) where T
 
 			if abs(lo[1] - o.r[1]) > abs(hi[1] - o.r[1])  # brute force way to ensure that first trial bound tested is the farther one from r, for better interpolation
 				if ismissing(o.gridmin[1]) && o.ptype≠lower  # unless lower-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
-					for i ∈ 1:10
+					for _ ∈ 1:10
 						p_lo = r_to_p(o, lo)
 						p_lo < α && break
 						tmp = hi - lo
@@ -87,7 +87,7 @@ function plot(o::StrBootTest{T}) where T
 					end
 				end
 				if ismissing(o.gridmax[1]) && o.ptype≠upper  # ditto for high side
-					for i ∈ 1:10
+					for _ ∈ 1:10
 						p_hi = r_to_p(o, hi)
 						p_hi < α && break
 						tmp = hi - lo
@@ -97,7 +97,7 @@ function plot(o::StrBootTest{T}) where T
 				end
 			else
 				if ismissing(o.gridmax[1]) && o.ptype≠upper  # ditto for high side
-					for i ∈ 1:10
+					for _ ∈ 1:10
 						p_hi = r_to_p(o, hi)
 						p_hi < α && break
 						tmp = hi - lo
@@ -106,7 +106,7 @@ function plot(o::StrBootTest{T}) where T
 					end
 				end
 				if ismissing(o.gridmin[1]) && o.ptype≠lower  # unless upper-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
-					for i ∈ 1:10
+					for _ ∈ 1:10
 						p_lo = r_to_p(o, lo)
 						p_lo < α && break
 						tmp = hi - lo
@@ -143,7 +143,6 @@ function plot(o::StrBootTest{T}) where T
 		o.plotY = fill(T(NaN), o.gridpoints[1]*o.gridpoints[2])
 	end
 
-	pts = length(o.plotY)
 	isnan(o.plotY[1]) && (o.plotY[1] = r_to_p(o, [o.plotX[i][1] for i in 1:o.q]))  # do in this order for widest interpolation
 	@views for (i,v) ∈ Iterators.reverse(enumerate(Iterators.product(o.plotX...)))
 		i>1 && isnan(o.plotY[i]) && (o.plotY[i] = r_to_p(o, [v...]))

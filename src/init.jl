@@ -408,6 +408,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			end
 		end
   end
+	o.initialized = true
 end
 
 

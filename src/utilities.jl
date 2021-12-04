@@ -64,22 +64,22 @@ import Base.*  # extend * to left- and right-multiply arrays by vec or mat
 
 function coldot!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)  # colsum(A .* B)
   s2 = axes(A,2)
-  @turbo for i ∈ s2
+  @tturbo for i ∈ s2
 	  dest[i] = A[1,i] * B[1,i]
   end
   if size(A,1)>1
-	  @turbo for i ∈ s2, j ∈ 2:size(A,1)
+	  @tturbo for i ∈ s2, j ∈ 2:size(A,1)
 	    dest[i] += A[j,i] * B[j,i]
 	  end
   end
 end
 function coldot!(dest::AbstractMatrix, A::AbstractMatrix)  # colsum(A .* A)
   s2 = axes(A,2)
-  @turbo for i ∈ s2
+  @tturbo for i ∈ s2
 	  dest[i] = A[1,i] ^ 2
   end
   if size(A,1)>1
-	  @turbo for i ∈ s2, j ∈ 2:size(A,1)
+	  @tturbo for i ∈ s2, j ∈ 2:size(A,1)
 	    dest[i] += A[j,i] ^ 2
 	  end
   end
@@ -87,11 +87,11 @@ end
 function coldot!(dest::AbstractArray, A::AbstractArray, B::AbstractArray)
   J = CartesianIndices(axes(A)[2:end])
   eachindexJ = eachindex(J)
-  @turbo for j ∈ eachindexJ
+  @tturbo for j ∈ eachindexJ
 	  dest[1,J[j]] = A[1,J[j]] * B[1,J[j]]
   end
   if size(A,1) > 1
-	  @turbo for j ∈ eachindexJ, i ∈ 2:size(A,1)
+	  @tturbo for j ∈ eachindexJ, i ∈ 2:size(A,1)
 	    dest[1,J[j]] += A[i,J[j]] * B[i,J[j]]
 	  end
   end
@@ -99,11 +99,11 @@ end
 function coldot!(dest::AbstractArray, A::AbstractArray)
   J = CartesianIndices(axes(A)[2:end])
   eachindexJ = eachindex(J)
-  @turbo for j ∈ eachindexJ
+  @tturbo for j ∈ eachindexJ
 	  dest[1,J[j]] = A[1,J[j]] ^ 2
   end
   if size(A,1) > 1
-	  @turbo for j ∈ eachindexJ, i ∈ 2:size(A,1)
+	  @tturbo for j ∈ eachindexJ, i ∈ 2:size(A,1)
 	    dest[1,J[j]] += A[i,J[j]] ^ 2
 	  end
   end
@@ -116,7 +116,7 @@ function coldot(args...)
 coldot(A::AbstractVector, B::AbstractVector) = [dot(A,B)]
 
 function coldotplus!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)  # colsum(A .* B)
-  @turbo for i ∈ axes(A,2), j ∈ axes(A,1)
+  @tturbo for i ∈ axes(A,2), j ∈ axes(A,1)
 	  dest[i] += A[j,i] * B[j,i]
   end
 end
@@ -124,7 +124,7 @@ end
 # compute the norm of each col of A using quadratic form Q
 function colquadform(Q::AbstractMatrix, A::AbstractMatrix) :: AbstractVector
   dest = zeros(promote_type(eltype(Q), eltype(A)), size(A,2))
-  @turbo for i ∈ axes(A,2), j ∈ axes(A,1), k ∈ axes(A,1)
+  @tturbo for i ∈ axes(A,2), j ∈ axes(A,1), k ∈ axes(A,1)
 	  dest[i] += A[j,i] * Q[k,j] * A[k,i]
   end
   dest
@@ -132,7 +132,7 @@ end
 
  # From given row of given matrix, substract inner products of corresponding cols of A & B with quadratic form Q
 function colquadformminus!(X::AbstractMatrix, row::Integer, Q::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)
-  @turbo for i ∈ axes(A,2), j ∈ axes(A,1), k ∈ axes(A,1)
+  @tturbo for i ∈ axes(A,2), j ∈ axes(A,1), k ∈ axes(A,1)
     X[row,i] -= A[j,i] * Q[k,j] * B[k,i]
   end
   X
@@ -140,23 +140,23 @@ end
 colquadformminus!(X::AbstractMatrix, Q::AbstractMatrix, A::AbstractMatrix) = colquadformminus!(X, 1, Q, A, A)
 
 function matmulminus!(A::Matrix, B::Matrix, C::AbstractMatrix)  # add B*C to A in place
-	@turbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
+	@tturbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
 		A[i,k] -= B[i,j] * C[j,k]
 	end
 end
 
 function matmulplus!(A::Matrix, B::Vector, C::Matrix)  # add B*C to A in place
-	@turbo for k ∈ eachindex(axes(A,2), axes(C,2)), i ∈ eachindex(axes(A,1),axes(B,1))
+	@tturbo for k ∈ eachindex(axes(A,2), axes(C,2)), i ∈ eachindex(axes(A,1),axes(B,1))
 		A[i,k] += B[i] * C[k]
 	end
 end
 function matmulplus!(A::Matrix, B::Matrix, C::Matrix)  # add B*C to A in place
-	@turbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
+	@tturbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
 		A[i,k] += B[i,j] * C[j,k]
 	end
 end
 function matmulplus!(A::Vector, B::Matrix, C::Vector)  # add B*C to A in place
-	@turbo for j ∈ eachindex(axes(B,2),axes(C,1)), i ∈ eachindex(axes(A,1),axes(B,1))
+	@tturbo for j ∈ eachindex(axes(B,2),axes(C,1)), i ∈ eachindex(axes(A,1),axes(B,1))
 		A[i] += B[i,j] * C[j]
 	end
 end
@@ -215,20 +215,20 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, info::Vector{UnitRange
 	iszero(length(X)) && return
 	J = CartesianIndices(axes(X)[2:end])
 	eachindexJ = eachindex(J)
-	@inbounds @simd for g in eachindex(info)
+	@inbounds for g in eachindex(info)
 		f, l = first(info[g]), last(info[g])
 		fl = f+1:l
 		if f<l
 			for j ∈ eachindexJ
 				Jj = J[j]
 				tmp = X[f,Jj]
-				@turbo for i ∈ fl
+				@tturbo for i ∈ fl
 					tmp += X[i,Jj]
 				end
 				dest[g,Jj] = tmp
 			end
 		else
-			for j ∈ eachindexJ
+			@simd for j ∈ eachindexJ
 				dest[g,J[j]] = X[f,J[j]]
 			end
 		end
@@ -251,13 +251,13 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractVector, in
 			for j ∈ eachindexJ
 				Jj = J[j]
 				tmp = X[f,Jj] * _wt
-				@turbo for i ∈ fl
+				@tturbo for i ∈ fl
 					tmp += X[i,Jj] * wt[i]
 				end
 				dest[g,Jj] = tmp
 			end
 		else
-			for j ∈ eachindexJ
+			@simd for j ∈ eachindexJ
 				dest[g,J[j]] = X[f,J[j]] * _wt
 			end
 		end
@@ -276,7 +276,7 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractMatrix, in
 	end
 	J = CartesianIndices(axes(X)[2:end])
 	eachindexJ = eachindex(J)
-	@inbounds @simd for g in eachindex(info)
+	@inbounds for g in eachindex(info)
 		f, l = first(info[g]), last(info[g])
 		fl = f+1:l
 		for k ∈ axes(wt,2)
@@ -285,13 +285,13 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractMatrix, in
 				for j ∈ eachindexJ
 					Jj = J[j]
 					tmp = X[f,Jj] * _wt
-					@turbo for i ∈ fl
+					@tturbo for i ∈ fl
 						tmp += X[i,Jj] * wt[i,k]
 					end
 					dest[g,k,Jj] = tmp
 				end
 			else
-				for j ∈ eachindexJ
+				@simd for j ∈ eachindexJ
 					dest[g,k,J[j]] = X[f,J[j]] * _wt
 				end
 			end

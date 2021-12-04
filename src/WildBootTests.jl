@@ -1,5 +1,6 @@
 module WildBootTests
-export BoottestResult, wildboottest, AuxWtType, PType, MAdjType, DistStatType, teststat, stattype, p, padj, reps, repsfeas, NBootClust, dof, dof_r, plotpoints, peak, CI, dist, statnumer, statvar, auxweights
+export BoottestResult, wildboottest, AuxWtType, PType, MAdjType, DistStatType, 
+       teststat, stattype, p, padj, reps, repsfeas, nbootclust, dof, dof_r, plotpoints, peak, CI, dist, statnumer, statvar, auxweights
 
 using LinearAlgebra, Random, Distributions, LoopVectorization, SortingAlgorithms
 
@@ -41,7 +42,6 @@ function boottest!(o::StrBootTest{T}) where T
   o.BFeas = isnan(o.dist[1]) ? 0 : sum(.!(isnan.(o.dist) .| isinf.(o.dist))) - 1
   o.distCDR = zeros(T,0,0)
   o.dirty = false
-  o.initialized = true
 end
 
 # if not imposing null and we have returned to boottest!(), then dof=1 or 2; we're plotting or finding CI, and only test stat, not distribution, changes with r

@@ -27,7 +27,7 @@ end
 @inline matconvert(T::DataType, X) = !isa(X, AbstractArray) || eltype(X)==T ? X : T.(X)
 
 mutable struct StrBootTest{T<:AbstractFloat}
-  R::Matrix{T}; r::Vector{T}; R₁::Matrix{T};r₁::Vector{T}
+  R::Matrix{T}; r::Vector{T}; R₁::Matrix{T}; r₁::Vector{T}
   y₁::Vector{T}; X₁::VecOrMat{T}; Y₂::VecOrMat{T}; X₂::VecOrMat{T}
   wt::Union{Vector{T}, UniformScaling}; fweights::Bool
   LIML::Bool; Fuller::T; κ::T; ARubin::Bool
