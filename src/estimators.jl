@@ -1,12 +1,7 @@
 # Logically, wild bootstrap tests perform estimation at two stages, once as part of the bootstrap DGP, once in each bootstrap replication
 # The StrEstimator "class" and its three "children" hold the estimation logic for the OLS, Anderson-Rubin, and IV/GMM cases
 
-abstract type Estimator end
-struct OLS<:Estimator end
-struct ARubin<:Estimator end
-struct IVGMM<:Estimator end
-
-mutable struct StrEstimator{T<:AbstractFloat, E<:Estimator}
+mutable struct StrEstimator{T<:AbstractFloat}
   parent
   isDGP::Bool; LIML::Bool; Fuller::T; κ::T
   R₁perp::Union{Matrix{T},UniformScaling{Bool}}; Rpar::Union{Matrix{T},UniformScaling}
@@ -34,7 +29,7 @@ mutable struct StrEstimator{T<:AbstractFloat, E<:Estimator}
   Rperp::Matrix{T}; ZR₁::Matrix{T}
   kX::Integer
 
-  StrEstimator{T,E}(parent) where T<:AbstractFloat where E<:Estimator = new(parent, true, E==IVGMM, false, T(E==IVGMM ? 1 : 0), Matrix{T}(undef,0,0), I)
+  StrEstimator{T}(parent, isDGP, LIML, Fuller, κ) where T<:AbstractFloat = new(parent, isDGP, LIML, Fuller, κ, Matrix{T}(undef,0,0), I)
 end
 
 function perp(A::AbstractMatrix)
@@ -45,7 +40,7 @@ end
 # R₁ is constraints. R is attack surface for null; only needed when using FWL for WRE
 # for DGP regression, R₁ is maintained constraints + null if imposed while R should have 0 nrows
 # for replication regressions R₁ is maintained constraints, R is null
-function setR!(o::StrEstimator{T,E}, R₁::AbstractMatrix{T}, R::Union{UniformScaling{Bool},AbstractMatrix{T}}=Matrix{T}(undef,0,0)) where {T,E}
+function setR!(o::StrEstimator{T}, R₁::AbstractMatrix{T}, R::Union{UniformScaling{Bool},AbstractMatrix{T}}=Matrix{T}(undef,0,0)) where {T,E}
   if nrows(R₁) > 0
 	  invR₁R₁ = invsym(R₁ * R₁')
 	  all(iszero.(diag(invR₁R₁))) && throw(ErrorException("Null hypothesis or model constraints are inconsistent or redundant."))
@@ -82,7 +77,7 @@ function setR!(o::StrEstimator{T,E}, R₁::AbstractMatrix{T}, R::Union{UniformSc
 end
 
 # stuff that can be done before r set, and depends only on exogenous variables, which are fixed throughout all bootstrap methods
-function InitVars!(o::StrEstimator{T,OLS}, Rperp::AbstractMatrix{T}) where T # Rperp is for replication regression--no null imposed
+function InitVarsOLS!(o::StrEstimator{T}, Rperp::AbstractMatrix{T}) where T # Rperp is for replication regression--no null imposed
   o.y₁par = o.parent.y₁
   H = symcross(o.parent.X₁, o.parent.wt)
   o.invH = inv(H)
@@ -97,7 +92,7 @@ function InitVars!(o::StrEstimator{T,OLS}, Rperp::AbstractMatrix{T}) where T # R
 	nothing
 end
 
-function InitVars!(o::StrEstimator{T,ARubin}, Rperp::AbstractMatrix{T} = Matrix{T}(undef,0,0)) where T
+function InitVarsARubin!(o::StrEstimator{T}) where T
   X₂X₁ = cross(o.parent.X₂, o.parent.wt, o.parent.X₁)
   H = Symmetric([symcross(o.parent.X₁, o.parent.wt) X₂X₁' ; X₂X₁ symcross(o.parent.X₂, o.parent.wt)])
   o.A = inv(H)
@@ -110,7 +105,7 @@ function InitVars!(o::StrEstimator{T,ARubin}, Rperp::AbstractMatrix{T} = Matrix{
 	nothing
 end
 
-function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where T
+function InitVarsIVGMM!(o::StrEstimator{T}, Rperp::AbstractMatrix{T}...) where T
   !isempty(Rperp) && (o.Rperp = Rperp[1])
 
   o.Zperp = o.parent.X₁ * o.RperpX
@@ -208,18 +203,18 @@ end
 # inconsistency: for replication regression of Anderson-Rubin, r₁ refers to the *null*, not the maintained constraints, because that's what affects the endogenous variables
 # For OLS, compute β̂₀ (β̂ when r=0) and ∂β̂∂r without knowing r₁, for efficiency
 # For WRE, should only be called once for the replication regressions, since for them r₁ is the unchanging model constraints
-function Estimate!(o::StrEstimator{T,OLS} where T, r₁::AbstractVector)
+function EstimateOLS!(o::StrEstimator{T} where T, r₁::AbstractVector)
   o.β̂ = o.β̂₀ - o.∂β̂∂r * r₁
 	nothing
 end
 
-function Estimate!(o::StrEstimator{T,ARubin} where T, r₁::AbstractVector)
+function EstimateARubin!(o::StrEstimator{T} where T, r₁::AbstractVector)
   o.β̂ = o.β̂₀ - o.∂β̂∂r * r₁
   o.y₁par = o.parent.y₁ - o.parent.Y₂ * r₁
 	nothing
 end
 
-function MakeH!(o::StrEstimator{T,IVGMM} where T, makeXAR::Bool=false)
+function MakeH!(o::StrEstimator{T} where T, makeXAR::Bool=false)
   H = isone(o.κ) ? o.H_2SLS : o.ZZ + o.κ * o.H_2SLSmZZ
   o.invH = invsym(H)
   if makeXAR  # for replication regression in score bootstrap of IV/GMM
@@ -230,7 +225,7 @@ function MakeH!(o::StrEstimator{T,IVGMM} where T, makeXAR::Bool=false)
 	nothing
 end
 
-function Estimate!(o::StrEstimator{T,IVGMM} where T, r₁::AbstractVector)
+function EstimateIVGMM!(o::StrEstimator{T} where T, r₁::AbstractVector)
   if ncols(o.R₁invR₁R₁)>0
     o.y₁pary₁par = o.y₁y₁ - (o.twoR₁Zy₁'r₁)[1] + r₁'o.ZR₁ZR₁ * r₁
 	  o.y₁par   = o.y₁ - o.ZR₁ * r₁
@@ -272,12 +267,12 @@ function Estimate!(o::StrEstimator{T,IVGMM} where T, r₁::AbstractVector)
 end
 
 
-@inline function MakeResiduals!(o::StrEstimator{T,<:Union{OLS,ARubin}} where T)
+@inline function MakeResidualsOLSARubin!(o::StrEstimator{T} where T)
   o.ü₁ = o.y₁par - X₁₂B(o.parent.X₁, o.parent.X₂, o.β̂)
 	nothing
 end
 
-function MakeResiduals!(o::StrEstimator{T,IVGMM} where T)
+function MakeResidualsIVGMM!(o::StrEstimator{T} where T)
   o.ü₁ = o.y₁par - o.Z * o.β̂
 
   if !o.parent.scorebs

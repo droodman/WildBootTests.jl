@@ -96,7 +96,7 @@ function _wildboottest(T::DataType,
 					  hetrobust::Bool=true,
 					  feid::AbstractVector{<:Integer}=Int8[],
 					  fedfadj::Bool=true,
-					  obswt::Union{AbstractVector{<:Real},UniformScaling{Bool}}=I,
+					  obswt::AbstractVector{<:Real}=T[],
 					  fweights::Bool=false,
 					  maxmatsize::Number=0,
 					  ptype::PType=symmetric,
@@ -132,7 +132,7 @@ function _wildboottest(T::DataType,
   @assert length(inst)==0 || nrows(inst)==nrows(resp) "All data vectors/matrices must have same height"
   @assert length(feid)==0 || nrows(feid)==nrows(resp) "feid vector must have same height as data matrices"
   @assert length(clustid)==0 || nrows(clustid)==nrows(resp) "clustid must have same height as data matrices"
-  @assert obswt==I || nrows(obswt)==nrows(resp) "obswt must have same height as data matrices"
+  @assert nrows(obswt)==0 || nrows(obswt)==nrows(resp) "obswt must have same height as data matrices"
   @assert nrows(R)==nrows(r) "Entries of H₀ tuple must have same height"
   @assert ncols(R)==ncols(predexog)+ncols(predendog) && isone(ncols(r)) "Wrong number of columns in null specification"
   @assert nrows(R1)==nrows(r1) "Entries of H₁ tuple must have same height"
@@ -200,7 +200,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `hetrobust::Bool=true`: true unless errors are treated as iid
 * `feid::AbstractVector{<:Integer}`: data vector for fixed effect group identifier
 * `fedfadj::Bool=true`: true if small-sample adjustment should reflect number of fixed effects (if any)
-* `obswt::AbstractVector`: observation weight vector; default is equal weighting
+* `obswt::AbstractVector=[]`: observation weight vector; default is equal weighting
 * `fweights::Bool=false`: true for frequency weights
 * `maxmatsize::Number`: maximum size of auxilliary weight matrix (v), in gigabytes
 * `ptype::PType=symmetric`: p value type (`symmetric`, `equaltail`, `lower`, `upper`)

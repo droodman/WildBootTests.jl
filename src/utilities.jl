@@ -4,43 +4,37 @@
 @inline invsym(X) = iszero(length(X)) ? X : inv(Symmetric(X))
 @inline eigensym(X) = eigen(Symmetric(X))  # does eigen recognize symmetric matrices?
 
-@inline symcross(X::AbstractVecOrMat, wt::Union{UniformScaling,AbstractVector}) = Symmetric(cross(X,wt,X))  # maybe bad name since it means cross product in Julia
+@inline symcross(X::AbstractVecOrMat, wt::AbstractVector) = Symmetric(cross(X,wt,X))  # maybe bad name since it means cross product in Julia
 @inline function cross(X::AbstractVecOrMat{T}, wt::AbstractVector{T}, Y::AbstractVecOrMat{T}) where T
   dest = Matrix{T}(undef, ncols(X), ncols(Y))
-  if ncols(X)>ncols(Y)
+  if iszero(nrows(wt))
+		mul!(dest, X', Y)
+	elseif ncols(X)>ncols(Y)
 		mul!(dest, X', wt.*Y)
 	else
 		mul!(dest, (X.*wt)', Y)
 	end
-end
-@inline function cross(X::AbstractVecOrMat{T}, wt::UniformScaling, Y::AbstractVecOrMat{T}) where T
-  dest = Matrix{T}(undef, ncols(X), ncols(Y))
-  mul!(dest, X', Y)
 end
 @inline function crossvec(X::AbstractMatrix{T}, wt::AbstractVector{T}, Y::AbstractVector{T}) where T
   dest = Vector{T}(undef, ncols(X))
-  if ncols(X)>ncols(Y)
+  if iszero(nrows(wt))
+		mul!(dest, X', Y)
+	elseif ncols(X)>ncols(Y)
 		mul!(dest, X', wt.*Y)
 	else
 		mul!(dest, (X.*wt)', Y)
 	end
 end
-@inline function crossvec(X::AbstractMatrix{T}, wt::UniformScaling, Y::AbstractVector{T}) where T
-  dest = Vector{T}(undef, ncols(X))
-  mul!(dest, X', Y)
-end
 
-@inline vHadw(v::AbstractArray, w::AbstractVector) = v .* w
-@inline vHadw(v::AbstractArray, w::UniformScaling) = v
+@inline vHadw(v::AbstractArray, w::AbstractVector) = iszero(nrows(w)) ? v : v .* w
 
 @inline nrows(X::AbstractArray) = size(X,1)
 @inline ncols(X::AbstractArray) = size(X,2)
 
-@inline colsum(X::AbstractArray) = iszero(length(X)) ? Matrix{eltype(X)}(undef,1,0) : isone(ncols(X)) ? hcat(sum(X)) : sum(X, dims=1)
+@inline colsum(X::AbstractArray) = iszero(length(X)) ? similar(X, 1, size(X)[2:end]...) : sum(X, dims=1)
 @inline rowsum(X::AbstractArray) = vec(sum(X, dims=2))
 
-@inline wtsum(wt::AbstractArray, X::AbstractMatrix) = reshape(X'wt,1,:)  # both definitions return 1xN Matrix's
-@inline wtsum(wt::UniformScaling, X::AbstractMatrix) = sum(X,dims=1)
+@inline wtsum(wt::AbstractVector, X::AbstractMatrix) = iszero(nrows(wt)) ? sum(X,dims=1) : reshape(X'wt,1,:)  # return 1xN Matrix
 
 function X₁₂B(X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractMatrix)
 	dest = X₁ * view(B,1:size(X₁,2),:)
@@ -299,9 +293,13 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractMatrix, in
 	end
 end
 function panelsum(X::AbstractArray, wt::AbstractVecOrMat, info::Vector{UnitRange{T}} where T<:Integer)
-	dest = similar(X, length(info), size(wt)[2:end]..., size(X)[2:end]...)
-	panelsum!(dest, X, wt, info)
-	dest
+	if iszero(nrows(wt))
+		panelsum(X, info)
+	else
+		dest = similar(X, length(info), size(wt)[2:end]..., size(X)[2:end]...)
+		panelsum!(dest, X, wt, info)
+		dest
+	end
 end
 function panelsum(X::AbstractArray, info::Vector{UnitRange{T}} where T<:Integer)
 	dest = similar(X, length(info), size(X)[2:end]...)
@@ -320,7 +318,6 @@ function panelsum2(X₁::AbstractArray, X₂::AbstractArray, wt::AbstractVecOrMa
 		dest
 	end
 end
-@inline panelsum(X::AbstractArray, wt::UniformScaling, info::Vector{UnitRange{T}} where T<:Integer) = panelsum(X, info)
 
 # macros to efficiently handle result = input
 macro panelsum(X, info)
@@ -348,10 +345,10 @@ selectify(X) = X==I ? I :
 											                                                 X
 size(X::SelectionMatrix) = X.size
 getindex(X::SelectionMatrix, i, j) = i==X.p[j]
-*(X::AbstractVector{T} where T, Y::SelectionMatrix)::SubArray{T, 1, Vector{T}, Tuple{Vector{Int}}, false} = view(X,Y.p)
-*(X::AbstractMatrix{T} where T, Y::SelectionMatrix)::SubArray{T, 2, Matrix{T}, Tuple{Base.Slice{Base.OneTo{Int64}}, Vector{Int}}, false} = view(X,:,Y.p)
-*(X::SelectionMatrix, Y::AbstractMatrix{T} where T)::SubArray{T, 2, Matrix{T}, Tuple{Vector{Int}, Base.Slice{Base.OneTo{Int}}}, false} = view(Y, X.p, :)
-*(X::SelectionMatrix, Y::AbstractVector{T} where T)::SubArray{T, 1, Vector{T}, Tuple{Vector{Int}}, false} = view(Y, X.p)
+*(X::AbstractVector{T} where T, Y::SelectionMatrix)::SubArray{T, 1, Vector{T}} = view(X,Y.p)
+*(X::AbstractMatrix{T} where T, Y::SelectionMatrix)::SubArray{T, 2, Matrix{T}} = view(X,:,Y.p)
+*(X::SelectionMatrix, Y::AbstractMatrix{T} where T)::SubArray{T, 2, Matrix{T}} = view(Y, X.p, :)
+*(X::SelectionMatrix, Y::AbstractVector{T} where T)::SubArray{T, 1, Vector{T}} = view(Y, X.p)
 
 struct FakeArray{N} <: AbstractArray{Bool,N}  # AbstractArray with almost no storage, just for LinearIndices() conversion         
 	size::Tuple{Vararg{Int64,N}}

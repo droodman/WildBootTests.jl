@@ -22,13 +22,8 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
   iszero(o.B) && (o.scorebs = true)
 
-  o.haswt = typeof(o.wt) <: AbstractVector
-  if o.haswt
-	  o.sumwt = sum(o.wt)
-  else
-	  o.wt = I
-	  o.sumwt = 1
-  end
+  o.haswt = !iszero(nrows(o.wt))
+  o.sumwt = o.haswt ? sum(o.wt) : 1
   o._Nobs = o.haswt && o.fweights ? o.sumwt : o.Nobs
 
   if !(iszero(o.NClustVar)  || o.issorted)
@@ -264,48 +259,43 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.dof = nrows(o.R)
 
 		if !o.WRE && iszero(o.κ)  # regular OLS
-			o.DGP = StrEstimator{T,OLS}(o)
-			o.Repl = StrEstimator{T,OLS}(o)
-			o.DGP.LIML = o.LIML; o.DGP.Fuller = o.Fuller; o.DGP.κ = o.κ
+			o.DGP = StrEstimator{T}(o, true, o.LIML, o.Fuller, o.κ)
+			o.Repl = StrEstimator{T}(o, true, false, zero(T), zero(T))  # XXX isDGP=1 for Repl? doesn't matter?
 			setR!(o.DGP, o.null ? [o.R₁ ; o.R] : o.R₁)  # DGP constraints: model constraints + null if imposed
 			setR!(o.Repl, o.R₁)  # model constraints only
-			InitVars!(o.DGP, o.Repl.R₁perp)
+			InitVarsOLS!(o.DGP, o.Repl.R₁perp)
 			InitTestDenoms!(o.DGP)
 			o.M = o.DGP  # StrEstimator object from which to get A, AR, XAR
 		elseif o.ARubin
 			if o.willplot  # for plotting/CI purposes get original point estimate since not normally generated
-				o.DGP = StrEstimator{T,IVGMM}(o)
-				o.DGP.LIML = o.LIML; o.DGP.Fuller = o.Fuller; o.DGP.κ = o.κ
+				o.DGP = StrEstimator{T}(o, true, o.LIML, o.Fuller, o.κ)
 				setR!(o.DGP, o.R₁, zeros(T,0,o.kZ))  # no-null model
-				InitVars!(o.DGP)
-				Estimate!(o.DGP, o.r₁)
+				InitVarsIVGMM!(o.DGP)
+				EstimateIVGMM!(o.DGP, o.r₁)
 				o.confpeak = o.DGP.β̂  # estimated coordinate of confidence peak
 			end
 
-			o.DGP = StrEstimator{T,ARubin}(o)
+			o.DGP = StrEstimator{T}(o, true, false, zero(T), zero(T))
 			setR!(o.DGP, o.R₁)
-			InitVars!(o.DGP)
+			InitVarsARubin!(o.DGP)
 			InitTestDenoms!(o.DGP)
 			o.M = o.DGP  # StrEstimator object from which to get A, AR, XAR
 			o.kZ = o.kX
 
 		elseif o.WREnonARubin
 
-			o.DGP = StrEstimator{T,IVGMM}(o)
-			o.DGP.LIML = o.kX₂ ≠ o.kY₂
+			o.DGP = StrEstimator{T}(o, true, T(o.kX₂ ≠ o.kY₂), zero(T), one(T))
 			setR!(o.DGP, o.null ? [o.R₁ ; o.R] : o.R₁, zeros(T,0,o.kZ))  # DGP constraints: model constraints + null if imposed
-			InitVars!(o.DGP)
+			InitVarsIVGMM!(o.DGP)
 			if !o.null  # if not imposing null, then DGP constraints, κ, Hessian, etc. do not vary with r and can be set now
-				Estimate!(o.DGP, o.r₁)
-				MakeResiduals!(o.DGP)
+				EstimateIVGMM!(o.DGP, o.r₁)
+				MakeResidualsIVGMM!(o.DGP)
 			end
 
-			o.Repl = StrEstimator{T,IVGMM}(o)
-			o.Repl.isDGP = false
-			o.Repl.LIML, o.Repl.Fuller, o.Repl.κ = o.LIML, o.Fuller, o.κ
+			o.Repl = StrEstimator{T}(o, false, o.LIML, o.Fuller, o.κ)
 			setR!(o.Repl, o.R₁, o.R)
-			InitVars!(o.Repl)
-			Estimate!(o.Repl, o.r₁)
+			InitVarsIVGMM!(o.Repl)
+			EstimateIVGMM!(o.Repl, o.r₁)
 
 			o.LIML && o.Repl.kZ==1 && o.Nw==1 && (o.As = o.β̂s = zeros(1, o.B+1))
 			o.S✻UZperpinvZperpZperp = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
@@ -333,20 +323,18 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
 		else  # the score bootstrap for IV/GMM uses a IV/GMM DGP but then masquerades as an OLS test because most factors are fixed during the bootstrap. To conform, need DGP and Repl objects with different R, R₁, one with FWL, one not
 
-			o.DGP = StrEstimator{T,IVGMM}(o)
-			o.DGP.LIML = o.LIML; o.DGP.Fuller = o.Fuller; o.DGP.κ = o.κ
+			o.DGP = StrEstimator{T}(o, true, o.LIML, o.Fuller, o.κ)
 			setR!(o.DGP, o.null ? [o.R₁ ; o.R] : o.R₁, zeros(T,0,o.kZ))  # DGP constraints: model constraints + null if imposed
-			InitVars!(o.DGP)
-			o.Repl = StrEstimator{T,IVGMM}(o)
-			o.Repl.LIML = o.LIML; o.Repl.Fuller = o.Fuller; o.Repl.κ = o.κ
+			InitVarsIVGMM!(o.DGP)
+			o.Repl = StrEstimator{T}(o, true, o.LIML, o.Fuller, o.κ)
 			setR!(o.Repl, o.R₁, I)  # process replication restraints = model constraints only
-			InitVars!(o.Repl, o.Repl.R₁perp)
-			Estimate!(o.Repl, o.r₁)  # bit inefficient to estimate in both objects, but maintains the conformity
+			InitVarsIVGMM!(o.Repl, o.Repl.R₁perp)
+			EstimateIVGMM!(o.Repl, o.r₁)  # bit inefficient to estimate in both objects, but maintains the conformity
 			InitTestDenoms!(o.Repl)
 			o.M = o.Repl  # StrEstimator object from which to get A, AR, XAR; DGP follows WRE convention of using FWL, Repl follows OLS convention of not; scorebs for IV/GMM mixes the two
 			if !o.null  # if not imposing null, then DGP constraints, κ, Hessian, etc. do not vary with r and can be set now
-				Estimate!(o.DGP, o.r₁)
-				MakeResiduals!(o.DGP)
+				EstimateIVGMM!(o.DGP, o.r₁)
+				MakeResidualsIVGMM!(o.DGP)
 			end
 		end
   end

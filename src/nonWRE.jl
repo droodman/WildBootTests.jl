@@ -101,15 +101,17 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 		o.uXAR = o.sc * (o.AR = o.A * o.R')
 	else
 		if o.ARubin
-			Estimate!(o.DGP, thisr)
+			EstimateARubin!(o.DGP, thisr)
+			MakeResidualsOLSARubin!(o.DGP)
 		elseif iszero(o.κ)  # regular OLS
-			Estimate!(o.DGP, o.null ? [o.r₁ ; thisr] : o.r₁)
+			EstimateOLS!(o.DGP, o.null ? [o.r₁ ; thisr] : o.r₁)
+			MakeResidualsOLSARubin!(o.DGP)
 		elseif o.null  # in score bootstrap for IV/GMM, if imposing null, then DGP constraints, κ, Hessian, etc. do vary with r and must be set now
-			Estimate!(o.DGP, [o.r₁ ; thisr])
+			EstimateIVGMM!(o.DGP, [o.r₁ ; thisr])
 			InitTestDenoms!(o.DGP)
+			MakeResidualsIVGMM!(o.DGP)
 		end
 
-		MakeResiduals!(o.DGP)
 		o.ü = o.DGP.ü₁
 
 		(o.scorebs || (o.robust && o.granular < o.NErrClustCombs)) &&

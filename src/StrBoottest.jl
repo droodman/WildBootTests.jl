@@ -30,7 +30,7 @@ end
 mutable struct StrBootTest{T<:AbstractFloat}
   R::Matrix{T}; r::Vector{T}; R₁::Matrix{T}; r₁::Vector{T}
   y₁::Vector{T}; X₁::Matrix{T}; Y₂::Matrix{T}; X₂::Matrix{T}
-  wt::Union{Vector{T}, UniformScaling}; fweights::Bool
+  wt::Vector{T}; fweights::Bool
   LIML::Bool; Fuller::T; κ::T; ARubin::Bool
   B::Int64; auxtwtype::AuxWtType; rng::AbstractRNG; maxmatsize::Float16
   ptype::PType; null::Bool; bootstrapt::Bool
@@ -64,7 +64,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	β̂s::Matrix{T}; As::Matrix{T}
 	infoAllData::Vector{UnitRange{Int64}}; info⋂Data::Vector{UnitRange{Int64}}; IDAll::Matrix{T}
 	ü::Vector{T}
-	DGP::StrEstimator{T,E} where E; Repl::StrEstimator{T,E} where E; M::StrEstimator{T,E} where E
+	DGP::StrEstimator{T}; Repl::StrEstimator{T}; M::StrEstimator{T}
 	clust::Vector{StrClust{T}}
 	denom::Matrix{Matrix{T}}; Kcd::Matrix{Matrix{T}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; SCT⋂uXinvXX::Matrix{Matrix{T}}; S✻UU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
 	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; IDCT⋂✻::Vector{Vector{Int64}}; infoCT⋂✻::Vector{Vector{UnitRange{Int64}}}; S✻UX::Vector{Matrix{T}}; S✻UXinvXX::Vector{Matrix{T}}; S✻UZperpinvZperpZperp::Vector{Matrix{T}}; S✻uY::Vector{Matrix{T}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻UZperp::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}

@@ -24,7 +24,7 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer
 		dest .= dest
 	else
 		if !iszero(κ)
-			_T1L = iszero(ind1) ? o.Repl.Xy₁par : @view o.Repl.XZ[:,ind1]
+			_T1L = iszero(ind1) ? view(o.Repl.Xy₁par,:) : view(o.Repl.XZ,:,ind1)
 			if o.Repl.Yendog[ind1+1]
 				T1L = o.T1L[isone(o.Nw) || w<o.Nw ? 1 : 2]
 				T1L .= o.S✻UX[ind1+1] * o.v
@@ -32,7 +32,7 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer
 			else
 				T1L = _T1L
 			end
-			_T1R = iszero(ind2) ? o.Repl.invXXXy₁par : @view o.Repl.invXXXZ[:,ind2]
+			_T1R = iszero(ind2) ? view(o.Repl.invXXXy₁par,:) : view(o.Repl.invXXXZ,:,ind2)
 			if o.Repl.Yendog[ind2+1]
 				T1R = o.T1R[isone(o.Nw) || w<o.Nw ? 1 : 2]
 				T1R .= o.S✻UXinvXX[ind2+1] * o.v
@@ -162,7 +162,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where 
 			if o.Repl.Yendog[ind1+1] && o.Repl.Yendog[ind2+1]
 				for i ∈ 1:o.clust[1].N
 					S = o.info⋂Data[i]
-					colquadformminus!(dest, i, cross(view(o.S✻UPX[ind1+1],S,:), o.haswt ? o.wt[S] : I, view(o.S✻UMZperp[ind2+1],S,:)), o.v, β̂v)
+					colquadformminus!(dest, i, cross(view(o.S✻UPX[ind1+1],S,:), o.haswt ? o.wt[S] : zeros(T,0), view(o.S✻UMZperp[ind2+1],S,:)), o.v, β̂v)
 				end
 			end
 		end
@@ -172,12 +172,12 @@ end
 
 
 function PrepWRE!(o::StrBootTest{T}) where T
-  Estimate!(o.DGP, o.null ? [o.r₁ ; o.r] : o.r₁)
-  MakeResiduals!(o.DGP)
-  Ü₂par = (o.DGP.Ü₂ * o.Repl.RparY)::Union{Matrix{T}, SubArray{T, 2, Matrix{T}, Tuple{Base.Slice{Base.OneTo{Int64}}, Vector{Int}}, false}}
+  EstimateIVGMM!(o.DGP, o.null ? [o.r₁ ; o.r] : o.r₁)
+  MakeResidualsIVGMM!(o.DGP)
+  Ü₂par = (o.DGP.Ü₂ * o.Repl.RparY)::Union{Matrix{T}, SubArray{T, 2, Matrix{T}}}
 
   for i ∈ 0:o.Repl.kZ  # precompute various clusterwise sums
-		uwt = vHadw(i>0 ? view(Ü₂par,:,i) : o.DGP.u⃛₁, o.wt)::Union{Vector{T}, SubArray{T, 1, Matrix{T}, Tuple{Base.Slice{Base.OneTo{Int}}, Int}, true}}
+		uwt = vHadw(i>0 ? view(Ü₂par,:,i) : view(o.DGP.u⃛₁,:), o.wt)::Union{Vector{T}, SubArray{T, 1}}
 
 		# S_✻(u .* X), S_✻(u .* Zperp) for residuals u for each endog var; store transposed
 		o.S✻UX[i+1]      = @panelsum2(o.Repl.X₁, o.Repl.X₂, uwt, o.infoBootData)'
@@ -192,7 +192,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 		if o.LIML || !o.robust || !isone(o.κ)
 			o.S✻uY[i+1] = @panelsum2(o.Repl.y₁par, o.Repl.Z, uwt, o.infoBootData)
 			for j ∈ 0:i
-				o.S✻UU[i+1,j+1] = @panelsum(j>0 ? view(Ü₂par,:,j) : o.DGP.u⃛₁, uwt, o.infoBootData)
+				o.S✻UU[i+1,j+1] = @panelsum(j>0 ? view(Ü₂par,:,j) : view(o.DGP.u⃛₁,:), uwt, o.infoBootData)
 			end
 		end
 
