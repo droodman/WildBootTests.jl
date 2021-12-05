@@ -36,7 +36,7 @@ end
 
 # derive wild bootstrap-based CI, for case of linear model with one-degree null imposed
 # and generate plot data
-function plot(o::StrBootTest{T}) where T
+function plot!(o::StrBootTest{T}) where T
   _r = copy(o.r)
   α = one(T) - o.level
 
@@ -180,6 +180,7 @@ function plot(o::StrBootTest{T}) where T
 				end
 			end
 		end
+		nothing
 	end
 
   if @isdefined c  # now that it's done helping 1-D graph look good, remove peak point from returned grid for evenness, for Bayesian sampling purposes
@@ -190,4 +191,5 @@ function plot(o::StrBootTest{T}) where T
 
 	o.r = _r; o.dirty = true  # restore backups
 	o.notplotted = false
+	nothing
 end

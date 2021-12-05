@@ -92,6 +92,7 @@ function MakeInterpolables!(o::StrBootTest{T} where T)
 	else  # non-interpolable cases
 		_MakeInterpolables!(o, o.r)
 	end
+	nothing
 end
 
 # Construct stuff that depends linearly or quadratically on r and doesn't depend on v. No interpolation.
@@ -141,7 +142,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 
 			for c ∈ 1+o.granular:o.NErrClustCombs
 				nrows(o.clust[c].order)>0 &&
-					(K = view(K,o.clust[c].order,:,:))
+					(K = K[o.clust[c].order,:,:])
 				for d ∈ 1:o.dof
 					o.Kcd[c,d] = @panelsum(view(K,:,d,:), o.clust[c].info)
 				end
@@ -160,6 +161,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 		end
 	end
 	MakeNumerAndJ!(o, 1, thisr)  # compute J = κ * v; if Nw > 1, then this is for 1st group; if interpolating, it is only group, and may be needed now to prep interpolation
+	nothing
 end
 
 # compute stuff depending linearly on v, needed to prep for interpolation
@@ -207,6 +209,7 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 			o.Jcd[c,d] = o.Kcd[c,d] * o.v
 		end
 	end
+	nothing
 end
 
 function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
@@ -298,4 +301,5 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 			end
 		end
 	end
+	nothing
 end

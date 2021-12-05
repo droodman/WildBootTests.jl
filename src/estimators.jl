@@ -20,7 +20,7 @@ mutable struct StrEstimator{T<:AbstractFloat, E<:Estimator}
 	invXX::Matrix{T}; Y₂::Matrix{T}; X₂::Matrix{T}; invH
 	y₁par::Vector{T}; Xy₁par::Vector{T}
 	A::Matrix{T}; Z::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
-	FillingT₀::Matrix{Vector{T}}
+	FillingT₀::Matrix{Matrix{T}}
 	WXAR::Matrix{T}; S⋂PXYZperp::Vector{Matrix{T}}; S⋂YX::Vector{Matrix{T}}; CT_XAR::Array{T,3}; CT_FE⋂PY::Vector{Matrix{T}}
 
   # IV/GMM only
@@ -78,6 +78,7 @@ function setR!(o::StrEstimator{T,E}, R₁::AbstractMatrix{T}, R::Union{UniformSc
 	  o.R₁invR₁R₁Y = o.R₁invR₁R₁[o.parent.kX₁+1:end,:]
 	  o.RR₁invR₁R₁ = R * o.R₁invR₁R₁
   end
+	nothing
 end
 
 # stuff that can be done before r set, and depends only on exogenous variables, which are fixed throughout all bootstrap methods
@@ -93,6 +94,7 @@ function InitVars!(o::StrEstimator{T,OLS}, Rperp::AbstractMatrix{T}) where T # R
   o.A = iszero(nrows(Rperp)) ? o.invH : Rperp * invsym(Rperp'H*Rperp) * Rperp'  # for replication regression
   o.AR = o.A * o.parent.R'
   (o.parent.scorebs || o.parent.robust) && (o.XAR = o.parent.X₁ * o.AR)
+	nothing
 end
 
 function InitVars!(o::StrEstimator{T,ARubin}, Rperp::AbstractMatrix{T} = Matrix{T}(undef,0,0)) where T
@@ -105,6 +107,7 @@ function InitVars!(o::StrEstimator{T,ARubin}, Rperp::AbstractMatrix{T} = Matrix{
   R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.A : o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp'
   o.β̂₀   = R₁AR₁ * [crossvec(o.parent.X₁, o.parent.wt, o.parent.y₁) ; crossvec(o.parent.X₂, o.parent.wt, o.parent.y₁)]
   o.∂β̂∂r = R₁AR₁ * [cross(o.parent.X₁, o.parent.wt, o.parent.Y₂) ; cross(o.parent.X₂, o.parent.wt, o.parent.Y₂)]
+	nothing
 end
 
 function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where T
@@ -186,7 +189,7 @@ function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where 
 					(o.CT_FE⋂PY[i+1] = crosstabFEt(o.parent, uwt, o.parent.info⋂Data) .* o.parent.invFEwt)
 				tmp = @panelsum(o.Z, uwt, o.parent.info⋂Data)
 				for j ∈ 1:o.kZ
-					o.FillingT₀[i+1,j+1] = view(tmp,:,j)
+					o.FillingT₀[i+1,j+1] = reshape(view(tmp,:,j),:,1)
 				end
 			end
 
@@ -197,6 +200,7 @@ function InitVars!(o::StrEstimator{T,IVGMM}, Rperp::AbstractMatrix{T}...) where 
 	    end
 	  end
   end
+	nothing
 end
 
 
@@ -206,11 +210,13 @@ end
 # For WRE, should only be called once for the replication regressions, since for them r₁ is the unchanging model constraints
 function Estimate!(o::StrEstimator{T,OLS} where T, r₁::AbstractVector)
   o.β̂ = o.β̂₀ - o.∂β̂∂r * r₁
+	nothing
 end
 
 function Estimate!(o::StrEstimator{T,ARubin} where T, r₁::AbstractVector)
   o.β̂ = o.β̂₀ - o.∂β̂∂r * r₁
   o.y₁par = o.parent.y₁ - o.parent.Y₂ * r₁
+	nothing
 end
 
 function MakeH!(o::StrEstimator{T,IVGMM} where T, makeXAR::Bool=false)
@@ -221,6 +227,7 @@ function MakeH!(o::StrEstimator{T,IVGMM} where T, makeXAR::Bool=false)
 	  o.AR = o.A * (o.Rpar'o.parent.R')
 	  o.XAR = X₁₂B(o.X₁, o.X₂, o.V * o.AR)
   end
+	nothing
 end
 
 function Estimate!(o::StrEstimator{T,IVGMM} where T, r₁::AbstractVector)
@@ -255,17 +262,19 @@ function Estimate!(o::StrEstimator{T,IVGMM} where T, r₁::AbstractVector)
 	    uwt = vHadw(o.y₁par, o.parent.wt)
 	    tmp = @panelsum(o.PXZ, uwt, o.parent.info⋂Data)
 	    for i ∈ 1:o.kZ
-	  	  o.FillingT₀[i+1,1] = view(tmp,:,i)
+	  	  o.FillingT₀[i+1,1] = reshape(view(tmp,:,i),:,1)
 	    end
 	    !o.parent.granular &&
 	  		(o.S⋂YX[1] = @panelsum2(o.X₁, o.X₂, uwt, o.parent.info⋂Data))  # S⋂(M_Zperp*y₁ .* P_(MZperpX)])
 	  end
   end
+	nothing
 end
 
 
 @inline function MakeResiduals!(o::StrEstimator{T,<:Union{OLS,ARubin}} where T)
   o.ü₁ = o.y₁par - X₁₂B(o.parent.X₁, o.parent.X₂, o.β̂)
+	nothing
 end
 
 function MakeResiduals!(o::StrEstimator{T,IVGMM} where T)
@@ -284,6 +293,7 @@ function MakeResiduals!(o::StrEstimator{T,IVGMM} where T)
 # Ü₂par = [o.y₁par - o.Z * o.β̂; o.Y₂ - X₁₂B(o.X₁, o.X₂, Π̂)] * [1                        o.DGP.Ü₂ * o.Repl.RparY
 # 			                                                       (o.t₁Y + o.RparY * o.β̂)  0                      ]
   end
+	nothing
 end
 
 
@@ -299,4 +309,5 @@ function InitTestDenoms!(o::StrEstimator)
 	    o.CT_XAR = crosstabFEt(o.parent, o.WXAR, o.parent.info⋂Data)
 	  end
   end
+	nothing
 end

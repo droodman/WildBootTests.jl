@@ -42,6 +42,7 @@ function boottest!(o::StrBootTest{T}) where T
   o.BFeas = isnan(o.dist[1]) ? 0 : sum(.!(isnan.(o.dist) .| isinf.(o.dist))) - 1
   o.distCDR = zeros(T,0,0)
   o.dirty = false
+	nothing
 end
 
 # if not imposing null and we have returned to boottest!(), then dof=1 or 2; we're plotting or finding CI, and only test stat, not distribution, changes with r
@@ -55,6 +56,7 @@ function NoNullUpdate!(o::StrBootTest{T} where T)
 		o.numer[:,1] = o.v_sd * (o.R * (o.ML ? o.β̂ : o.M.Rpar * o.M.β̂) - o.r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
   end
   o.dist[1] = isone(o.dof) ? o.numer[1] / sqrt(o.statDenom[1]) : o.numer[:,1]'invsym(o.statDenom)*o.numer[:,1]
+	nothing
 end
 
 # compute bootstrap-c denominator from all bootstrap numerators
@@ -75,6 +77,7 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T, w::Integer)
 			o.dist = colquadform(invsym(o.statDenom), o.numer)
 		end
   end
+	nothing
 end
 
 end

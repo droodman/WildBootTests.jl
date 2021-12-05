@@ -60,6 +60,7 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer
 			end
 		end
   end
+	nothing
 end
 
 
@@ -71,7 +72,7 @@ end
 function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where T
   if o.granular
    	if o.Nw == 1  # create or avoid NxB matrix?
-			PXY✻ = view(o.Repl.PXZ,:,ind1)
+			PXY✻ = reshape(o.Repl.PXZ[:,ind1], :, 1)  # store as matrix to reduce compiler confusion
 			o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ o.S✻UPX[ind1+1] * o.v)
 
 			dest = @panelsum(PXY✻ .* (o.Repl.y₁ .- o.S✻UMZperp[1] * o.v), o.wt, o.info⋂Data)
@@ -101,8 +102,8 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where 
 				else
 					for i ∈ 1:o.clust[1].N
 						S = o.info⋂Data[i]
-						PXY✻ = view(o.Repl.PXZ,S,ind1)
-						o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ view(o.S✻UPX[ind1+1],S,:) * o.v)
+						PXY✻ = o.Repl.Yendog[ind1+1] ? view(o.Repl.PXZ,S,ind1) .+ view(o.S✻UPX[ind1+1],S,:) * o.v :
+																					 reshape(o.Repl.PXZ[S,ind1], :, 1)
 
 						if iszero(ind2)
 							dest[i,:]   = wtsum(o.wt, PXY✻ .* (o.Repl.y₁[S] .- view(o.S✻UMZperp[1],S,:) * o.v))
@@ -125,9 +126,9 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where 
 				if o.NClustVar == o.nbootclustvar && iszero(o.subcluster)  # simple case of one clustering: full crosstab is diagonal
 					tmp = view(o.Repl.XZ,:,ind1)
 					if length(T₁)>0
-						T₁[diagind(T₁)] .+= o.S✻UXinvXX[ind2+1]'tmp
+						T₁[diagind(T₁)] .+=         o.S✻UXinvXX[ind2+1]'tmp
 					else
-						T₁                = o.S✻UXinvXX[ind2+1]'tmp  # keep T₁ as vector rather than Diagonal matrix; probably better for fusion loop
+						T₁                = reshape(o.S✻UXinvXX[ind2+1]'tmp, :, 1)  # keep T₁ as vector rather than Diagonal matrix; probably better for fusion loop
 					end
 				else
 					!o.Repl.Yendog[ind1+1] && (T₁ = o.JN⋂N✻)
@@ -139,7 +140,15 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where 
 				o.NFE               > 0 && (T₁ = T₁ .- o.Repl.CT_FE⋂PY[ind1+1] * o.CTFEU[ind2+1])
 			end
 
-			if ind2>0  # order-0 and -1 terms
+			if iszero(ind2)  # order-0 and -1 terms
+				if iszero(ncols(T₁))
+					dest = o.Repl.FillingT₀[ind1+1,1]
+				elseif isone(ncols(T₁))
+					dest = o.Repl.FillingT₀[ind1+1,1] .+ T₁ .* β̂v
+				else
+					dest = T₁ * o.v; dest .+= o.Repl.FillingT₀[ind1+1,1]
+				end
+			else  # y component
 				if iszero(ncols(T₁))  # - x*β̂ components
 					dest .+= o.Repl.FillingT₀[ind1+1,ind2+1] * _β̂
 				elseif isone(ncols(T₁))
@@ -147,14 +156,6 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where 
 				else
 					dest .+= o.Repl.FillingT₀[ind1+1,ind2+1] * _β̂
 					matmulplus!(dest, T₁, β̂v)
-				end
-			else  # y component
-				if iszero(ncols(T₁))
-					dest = o.Repl.FillingT₀[ind1+1,1]
-				elseif isone(ncols(T₁))
-					dest = o.Repl.FillingT₀[ind1+1,1] .+ T₁ .* β̂v
-				else
-					dest = T₁ * o.v; dest .+= o.Repl.FillingT₀[ind1+1,1]
 				end
 			end
 
@@ -170,13 +171,13 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where 
 end
 
 
-function PrepWRE!(o::StrBootTest)
+function PrepWRE!(o::StrBootTest{T}) where T
   Estimate!(o.DGP, o.null ? [o.r₁ ; o.r] : o.r₁)
   MakeResiduals!(o.DGP)
-  o.Ü₂par = o.DGP.Ü₂ * o.Repl.RparY
+  Ü₂par = (o.DGP.Ü₂ * o.Repl.RparY)::Union{Matrix{T}, SubArray{T, 2, Matrix{T}, Tuple{Base.Slice{Base.OneTo{Int64}}, Vector{Int}}, false}}
 
   for i ∈ 0:o.Repl.kZ  # precompute various clusterwise sums
-		uwt = vHadw(i>0 ? view(o.Ü₂par,:,i) : o.DGP.u⃛₁, o.wt)
+		uwt = vHadw(i>0 ? view(Ü₂par,:,i) : o.DGP.u⃛₁, o.wt)::Union{Vector{T}, SubArray{T, 1, Matrix{T}, Tuple{Base.Slice{Base.OneTo{Int}}, Int}, true}}
 
 		# S_✻(u .* X), S_✻(u .* Zperp) for residuals u for each endog var; store transposed
 		o.S✻UX[i+1]      = @panelsum2(o.Repl.X₁, o.Repl.X₂, uwt, o.infoBootData)'
@@ -191,7 +192,7 @@ function PrepWRE!(o::StrBootTest)
 		if o.LIML || !o.robust || !isone(o.κ)
 			o.S✻uY[i+1] = @panelsum2(o.Repl.y₁par, o.Repl.Z, uwt, o.infoBootData)
 			for j ∈ 0:i
-				o.S✻UU[i+1,j+1] = @panelsum(j>0 ? view(o.Ü₂par,:,j) : o.DGP.u⃛₁, uwt, o.infoBootData)
+				o.S✻UU[i+1,j+1] = @panelsum(j>0 ? view(Ü₂par,:,j) : o.DGP.u⃛₁, uwt, o.infoBootData)
 			end
 		end
 
@@ -208,13 +209,14 @@ function PrepWRE!(o::StrBootTest)
 			if iszero(i)  # subtract crosstab of observation by ∩-group of u
 				o.S✻UMZperp[  1][o.crosstabBootind] .-= o.DGP.u⃛₁
 			else
-				o.S✻UMZperp[i+1][o.crosstabBootind] .-= view(o.Ü₂par,:,i)
+				o.S✻UMZperp[i+1][o.crosstabBootind] .-= view(Ü₂par,:,i)
 			end
 
 			o.NFE>0 &&
 				(o.S✻UMZperp[i+1] .+= view(o.invFEwt .* o.CTFEU[i+1], o._FEID, :))  # CT_(*,FE) (U ̈_(parj) ) (S_FE S_FE^' )^(-1) S_FE
 		end
   end
+	nothing
 end
 
 function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
@@ -254,7 +256,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 				J⋂s = Filling(o, 1, β̂s) ./ o.As
 				for c ∈ 1:o.NErrClustCombs  # sum sandwich over error clusterings
 					nrows(o.clust[c].order)>0 && 
-						(J⋂s = view(J⋂s,o.clust[c].order,:))
+						(J⋂s = J⋂s[o.clust[c].order,:])
 					@clustAccum!(denom, c, coldot(@panelsum(J⋂s, o.clust[c].info)))
 				end
 			else
@@ -319,7 +321,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 
 					for c ∈ 1:o.NErrClustCombs
 						(!isone(o.NClustVar) && nrows(o.clust[c].order)>0) &&
-							(J⋂ = view(J⋂,o.clust[c].order,:))
+							(J⋂ = J⋂[o.clust[c].order,:])
 						J_b = @panelsum(J⋂, o.clust[c].info)
 						@clustAccum!(denom, c, J_b'J_b)
 					end
@@ -339,4 +341,5 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 		end
 	end
 	w==1 && o.bootstrapt && (o.statDenom = denom)  # original-sample denominator
+	nothing
 end

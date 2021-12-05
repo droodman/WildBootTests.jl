@@ -39,8 +39,8 @@ end
 @inline colsum(X::AbstractArray) = iszero(length(X)) ? Matrix{eltype(X)}(undef,1,0) : isone(ncols(X)) ? hcat(sum(X)) : sum(X, dims=1)
 @inline rowsum(X::AbstractArray) = vec(sum(X, dims=2))
 
-@inline wtsum(wt::AbstractArray, X::AbstractArray) = wt'X
-@inline wtsum(wt::UniformScaling, X::AbstractArray) = sum(X,dims=1)
+@inline wtsum(wt::AbstractArray, X::AbstractMatrix) = reshape(X'wt,1,:)  # both definitions return 1xN Matrix's
+@inline wtsum(wt::UniformScaling, X::AbstractMatrix) = sum(X,dims=1)
 
 function X₁₂B(X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractMatrix)
 	dest = X₁ * view(B,1:size(X₁,2),:)
@@ -348,10 +348,10 @@ selectify(X) = X==I ? I :
 											                                                 X
 size(X::SelectionMatrix) = X.size
 getindex(X::SelectionMatrix, i, j) = i==X.p[j]
-*(X::AbstractVector, Y::SelectionMatrix) = view(X,Y.p)
-*(X::AbstractMatrix, Y::SelectionMatrix) = view(X,:,Y.p)
-*(X::SelectionMatrix, Y::AbstractMatrix) = view(Y, X.p, :)
-*(X::SelectionMatrix, Y::AbstractVector) = view(Y, X.p)
+*(X::AbstractVector{T} where T, Y::SelectionMatrix)::SubArray{T, 1, Vector{T}, Tuple{Vector{Int}}, false} = view(X,Y.p)
+*(X::AbstractMatrix{T} where T, Y::SelectionMatrix)::SubArray{T, 2, Matrix{T}, Tuple{Base.Slice{Base.OneTo{Int64}}, Vector{Int}}, false} = view(X,:,Y.p)
+*(X::SelectionMatrix, Y::AbstractMatrix{T} where T)::SubArray{T, 2, Matrix{T}, Tuple{Vector{Int}, Base.Slice{Base.OneTo{Int}}}, false} = view(Y, X.p, :)
+*(X::SelectionMatrix, Y::AbstractVector{T} where T)::SubArray{T, 1, Vector{T}, Tuple{Vector{Int}}, false} = view(Y, X.p)
 
 struct FakeArray{N} <: AbstractArray{Bool,N}  # AbstractArray with almost no storage, just for LinearIndices() conversion         
 	size::Tuple{Vararg{Int64,N}}

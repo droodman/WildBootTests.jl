@@ -62,7 +62,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	distCDR::Matrix{T}; plotX::Tuple{Vararg{Vector{T}, N} where N}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
   numersum::Vector{T}; ü₀::Vector{T}; invFEwt::Vector{T}
 	β̂s::Matrix{T}; As::Matrix{T}
-	infoAllData::Vector{UnitRange{Int64}}; info⋂Data::Vector{UnitRange{Int64}}; IDAll::Matrix{T}; Ü₂par::Matrix{T}
+	infoAllData::Vector{UnitRange{Int64}}; info⋂Data::Vector{UnitRange{Int64}}; IDAll::Matrix{T}
 	ü::Vector{T}
 	DGP::StrEstimator{T,E} where E; Repl::StrEstimator{T,E} where E; M::StrEstimator{T,E} where E
 	clust::Vector{StrClust{T}}
@@ -78,7 +78,6 @@ mutable struct StrBootTest{T<:AbstractFloat}
   StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
 	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,
 								 β̂, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real =
-begin
 	  new(matconvert(T,R), vecconvert(T,r), matconvert(T,R₁), vecconvert(T,r₁), vecconvert(T,y₁), matconvert(T,X₁), matconvert(T,Y₂), matconvert(T,X₂), vecconvert(T,wt), fweights, LIML || !iszero(Fuller), 
 		    Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, matconvert(Int64,ID), nbootclustvar, nerrclustvar, issorted, small, vecconvert(Int64,FEID), FEdfadj, level, rtol, madjtype, NH₀, ML, 
 				vecconvert(T,β̂), matconvert(T,A), matconvert(T,sc), willplot, gridmin, gridmax, gridpoints,
@@ -95,7 +94,6 @@ begin
 		  (X = Vector{T}(undef,0), p = T(NaN)))
 
 end
-	end
 
 
 # cross-tab sum of a column vector w.r.t. given panel info and fixed-effect var
@@ -165,6 +163,7 @@ function partialFE!(o::StrBootTest, In::AbstractArray)
 	    tmp .-= f.wt'tmp
     end
   end
+	nothing
 end
 function partialFE(o::StrBootTest, In::AbstractArray)
   Out = similar(In)
@@ -331,14 +330,14 @@ function getdf_r(o::StrBootTest)
   o.dof_r
 end
 function _getplot(o::StrBootTest)
-  o.notplotted && plot(o)
+  o.notplotted && plot!(o)
   (X=o.plotX, p=o.plotY)
 end
 function getpeak(o::StrBootTest)  # x and y values of confidence curve peak (at least in OLS && ARubin)
-  o.notplotted && plot(o)
+  o.notplotted && plot!(o)
   o.peak
 end
 function _getCI(o::StrBootTest)
-  o.notplotted && plot(o)
+  o.notplotted && plot!(o)
   o.CI
 end

@@ -409,6 +409,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		end
   end
 	o.initialized = true
+	nothing
 end
 
 
@@ -442,4 +443,5 @@ function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) wher
   else
 		o.v = Matrix{T}(undef,0,1)  # in places, ncols(v) indicates B -- 1 for classical tests
   end
+	nothing
 end
