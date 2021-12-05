@@ -240,7 +240,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 		else  # build each replication's denominator from vectors that hold values for each position in denominator, all replications
 			tmp = Matrix{T}(undef, o.dof, o.dof)
 			@inbounds for k ∈ 1:ncols(o.v)
-				@inbounds @fastmath for i ∈ 1:o.dof, j ∈ 1:i
+				@tturbo for i ∈ 1:o.dof, j ∈ 1:i
 					tmp[j,i] = o.denom[i,j][k]  # fill upper triangle, which is all invsym() looks at
 				end
 				numer_l = view(o.numerw,:,k)
