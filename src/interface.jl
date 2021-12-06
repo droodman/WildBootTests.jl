@@ -14,7 +14,7 @@ struct BoottestResult{T}
   b::Vector{T}
   V::Matrix{T}
   auxweights::Union{Nothing,Matrix{T}}
-  M::StrBootTest
+  # M::StrBootTest
 end
 
 "Return test statistic subject to wild bootstrap test"
@@ -81,13 +81,13 @@ end
 
 
 function _wildboottest(T::DataType,
-					  R::AbstractMatrix,
+					  R::AbstractVecOrMat,
 						r::AbstractVecOrMat;
 					  resp::AbstractVector{<:Real},
 					  predexog::AbstractVecOrMat{<:Real}=zeros(T,0,0),
 					  predendog::AbstractVecOrMat{<:Real}=zeros(T,0,0),
 					  inst::AbstractVecOrMat{<:Real}=zeros(T,0,0),
-					  R1::AbstractMatrix=zeros(T,0,0),
+					  R1::AbstractVecOrMat=zeros(T,0,0),
 						r1::AbstractVector=zeros(T,0),
 					  clustid::AbstractVecOrMat{<:Integer}=zeros(Int,0,0),  # bootstrap-only clust vars, then boot&err clust vars, then err-only clust vars
 					  nbootclustvar::Integer=1,
@@ -133,10 +133,12 @@ function _wildboottest(T::DataType,
   @assert length(feid)==0 || nrows(feid)==nrows(resp) "feid vector must have same height as data matrices"
   @assert length(clustid)==0 || nrows(clustid)==nrows(resp) "clustid must have same height as data matrices"
   @assert nrows(obswt)==0 || nrows(obswt)==nrows(resp) "obswt must have same height as data matrices"
-  @assert nrows(R)==nrows(r) "Entries of H₀ tuple must have same height"
+  @assert nrows(R)==nrows(r) "R and r must have same height"
   @assert ncols(R)==ncols(predexog)+ncols(predendog) && isone(ncols(r)) "Wrong number of columns in null specification"
-  @assert nrows(R1)==nrows(r1) "Entries of H₁ tuple must have same height"
+  @assert nrows(R1)==nrows(r1) "R₁ and r₁ must have same height"
   @assert length(R1)==0 || ncols(R1)==ncols(predexog)+ncols(predendog) "Wrong number of columns in model constraint specification"
+	@assert ncols(r)==1 "r should have one column"
+	@assert length(R1)==0 || ncols(r1)==1 "r1 should have one column"
   @assert nbootclustvar ≤ ncols(clustid) "nbootclustvar > width of clustid"
   @assert nerrclustvar ≤ ncols(clustid) "nerrclustvar > width of clustid"
   @assert reps ≥ 0 "reps < 0"
@@ -169,11 +171,11 @@ function _wildboottest(T::DataType,
 	                  getp(M), getpadj(M), getreps(M), getrepsfeas(M), getNBootClust(M), getdf(M), getdf_r(M), plot, peak, CI,
 	                  getdist(M,diststat),
 	                  getb(M), getV(M),
-	                  getauxweights && reps>0 ? getauxweights(M) : nothing , M)
+	                  getauxweights && reps>0 ? getauxweights(M) : nothing #=, M=#)
 end
 
 _wildboottest(T::DataType, R, r::Number; kwargs...) = _wildboottest(T, R, [r]; kwargs...)
-_wildboottest(R::AbstractMatrix, r::Union{Number,AbstractVecOrMat}; kwargs...) = wildboottest(Float32, R, r; kwargs...)
+_wildboottest(R::AbstractVecOrMat, r::Union{Number,AbstractVecOrMat}; kwargs...) = wildboottest(Float32, R, r; kwargs...)
 
 
 """

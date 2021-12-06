@@ -1,7 +1,7 @@
 # core functions not referencing StrBootest or StrEstimator "classes"
 
 @inline sqrtNaN(x) = x<0 ? typeof(x)(NaN) : sqrt(x)
-@inline invsym(X) = iszero(length(X)) ? X : inv(Symmetric(X))
+@inline invsym(X) = iszero(length(X)) ? Symmetric(X) : inv(Symmetric(X))
 @inline eigensym(X) = eigen(Symmetric(X))  # does eigen recognize symmetric matrices?
 
 @inline symcross(X::AbstractVecOrMat, wt::AbstractVector) = Symmetric(cross(X,wt,X))  # maybe bad name since it means cross product in Julia

@@ -284,20 +284,35 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 				isone(w) && (o.statDenom = o.denom[1,1])  # original-sample denominator
 			else
 				invdenom = invsym(o.denom[1,1])
-				for k ∈ 1:ncols(o.v)
-					numer_l =view(o.numerw,:,k)
-					o.dist[k+first(o.WeightGrp[w])-1] = o.numer_l'invdenom*numer_l
-					o.u✻ = o.B>0 ? view(o.v,:,k) .* o.ü : o.ü
+				if o.B>0
+					for k ∈ 1:ncols(o.v)
+						numer_l = view(o.numerw,:,k)
+						o.dist[k+first(o.WeightGrp[w])-1] = o.numer_l'invdenom*numer_l
+						o.u✻ = view(o.v,:,k) .* o.ü
+						if o.scorebs
+							if o.haswt  # Center variance if interpolated
+								o.u✻ .-= o.wt'o.u✻ * o.ClustShare
+							else
+								o.u✻ .-= colsum(o.u✻) * o.ClustShare
+							end
+						else
+							minusX₁₂B(o.u✻, o.X₁, o.X₂, view(o.β̂dev,:,k))  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
+						end
+						o.dist[k+first(o.WeightGrp[w])-1] ./= (tmp = symcross(o.u✻, o.wt))
+					end
+				else
+					o.dist[1] = o.numerw'invdenom*o.numerw
+					o.u✻ = o.ü
 					if o.scorebs
 						if o.haswt  # Center variance if interpolated
 							o.u✻ .-= o.wt'o.u✻ * o.ClustShare
 						else
-							o.u✻ .-= colsum(o.u✻) * o.ClustShare  # Center variance if interpolated
+							o.u✻ .-= colsum(o.u✻) * o.ClustShare
 						end
 					else
-						minusX₁₂B(o.u✻, o.X₁, o.X₂, view(o.β̂dev,:,k))  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
+						minusX₁₂B(o.u✻, o.X₁, o.X₂, o.β̂dev)  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
 					end
-					o.dist[k+first(o.WeightGrp[w])-1] ./= (tmp = symcross(o.u✻, o.wt))
+					o.dist[1] /= (tmp = symcross(o.u✻, o.wt))
 				end
 				isone(w) && (o.statDenom = o.denom[1,1] * tmp)  # original-sample denominator
 			end
