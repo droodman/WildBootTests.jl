@@ -291,7 +291,7 @@ end
 # numerator for full-sample test stat
 function getb(o::StrBootTest)
   o.dirty && boottest!(o)
-  @views isone(o.v_sd) ? o.numer[:,1] : o.numer[:,1] / o.v_sd
+  isone(o.v_sd) ? o.numer[:,1] : o.numer[:,1] / o.v_sd
 end
 
 # denominator for full-sample test stat

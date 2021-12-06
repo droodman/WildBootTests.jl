@@ -292,29 +292,46 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractMatrix, in
 		end
 	end
 end
-function panelsum(X::AbstractArray, wt::AbstractVecOrMat, info::Vector{UnitRange{T}} where T<:Integer)
+function panelsum(X::AbstractVecOrMat{T}, wt::AbstractVector{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
 	if iszero(nrows(wt))
 		panelsum(X, info)
 	else
-		dest = similar(X, length(info), size(wt)[2:end]..., size(X)[2:end]...)
+		dest = Matrix{T}(undef, length(info), size(X,2))
 		panelsum!(dest, X, wt, info)
 		dest
 	end
+end
+function panelsum(X::AbstractVecOrMat{T}, wt::AbstractMatrix{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+	dest = Array{T,3}(undef, length(info), size(wt,2), size(X,2))
+	panelsum!(dest, X, wt, info)
+	dest
 end
 function panelsum(X::AbstractArray, info::Vector{UnitRange{T}} where T<:Integer)
 	dest = similar(X, length(info), size(X)[2:end]...)
 	panelsum!(dest, X, info)
 	dest
 end
-function panelsum2(X₁::AbstractArray, X₂::AbstractArray, wt::AbstractVecOrMat, info::Vector{UnitRange{T}} where T<:Integer)
+function panelsum2(X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, wt::AbstractVector{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
 	if iszero(length(X₁))
 		panelsum(X₂,wt,info)
 	elseif iszero(length(X₂))
 		panelsum(X₁,wt,info)
 	else
-		dest = similar(X₁, length(info), size(wt)[2:end]..., ncols(X₁)+ncols(X₂))
-		panelsum!(view(dest, Vector{Colon}(undef,ndims(wt))...,           1:ncols(X₁      )), X₁, wt, info)
-		panelsum!(view(dest, Vector{Colon}(undef,ndims(wt))..., ncols(X₁)+1:size(dest)[end]), X₂, wt, info)
+		dest = Matrix{T}(undef, length(info), ncols(X₁)+ncols(X₂))
+		panelsum!(view(dest, :,           1:ncols(X₁   )), X₁, wt, info)
+		panelsum!(view(dest, :, ncols(X₁)+1:size(dest,2)), X₂, wt, info)
+		dest
+	end
+end
+function panelsum2(X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, wt::AbstractMatrix{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+	if iszero(length(X₁))
+		panelsum(X₂,wt,info)
+	elseif iszero(length(X₂))
+		panelsum(X₁,wt,info)
+	else
+		dest = Array{T,3}(undef, length(info), ncols(wt), ncols(X₁)+ncols(X₂))
+		panelsum!(view(dest,:,:,           1:ncols(X₁   )), X₁, wt, info)
+		panelsum!(view(dest,:,:, ncols(X₁)+1:size(dest,3)), X₂, wt, info)
 		dest
 	end
 end

@@ -70,7 +70,7 @@ end
 # for all groups in the intersection of all error clusterings
 # return value has one row per ⋂ cluster, one col per bootstrap replication
 function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where T
-  if o.granular
+	if o.granular
    	if o.Nw == 1  # create or avoid NxB matrix?
 			PXY✻ = reshape(o.Repl.PXZ[:,ind1], :, 1)  # store as matrix to reduce compiler confusion
 			o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ o.S✻UPX[ind1+1] * o.v)
@@ -79,8 +79,8 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where 
 
 			for ind2 ∈ 1:o.Repl.kZ
 				_β̂ = view(β̂s,ind2,:)'
-				dest .-= @panelsum(PXY✻ .* (o.Repl.Yendog[ind2+1] ? view(o.Repl.Z,:,ind2) * _β̂ .- o.S✻UMZperp[ind2+1] * (o.v .* _β̂) :
-															                              view(o.Repl.Z,:,ind2) * _β̂                                        ), o.wt, o.info⋂Data)
+				dest .-= @panelsum(PXY✻ .* (o.Repl.Yendog[ind2+1] ?  view(o.Repl.Z,:,ind2) * _β̂ .- o.S✻UMZperp[ind2+1] * (o.v .* _β̂) :
+															                              (view(o.Repl.Z,:,ind2) * _β̂)                                      ), o.wt, o.info⋂Data)
 			end
 		else  # create pieces of each N x B matrix one at a time rather than whole thing at once
 			dest = Matrix{T}(undef, o.clust[1].N, ncols(o.v))  # XXX preallocate this & turn Filling into Filling! ?
@@ -174,7 +174,7 @@ end
 function PrepWRE!(o::StrBootTest{T}) where T
   EstimateIVGMM!(o.DGP, o.null ? [o.r₁ ; o.r] : o.r₁)
   MakeResidualsIVGMM!(o.DGP)
-  Ü₂par = (o.DGP.Ü₂ * o.Repl.RparY)::Union{Matrix{T}, SubArray{T, 2, Matrix{T}}}
+  Ü₂par = view(o.DGP.Ü₂ * o.Repl.RparY,:,:)
 
   for i ∈ 0:o.Repl.kZ  # precompute various clusterwise sums
 		uwt = vHadw(i>0 ? view(Ü₂par,:,i) : view(o.DGP.u⃛₁,:), o.wt)::Union{Vector{T}, SubArray{T, 1}}
@@ -192,7 +192,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 		if o.LIML || !o.robust || !isone(o.κ)
 			o.S✻uY[i+1] = @panelsum2(o.Repl.y₁par, o.Repl.Z, uwt, o.infoBootData)
 			for j ∈ 0:i
-				o.S✻UU[i+1,j+1] = @panelsum(j>0 ? view(Ü₂par,:,j) : view(o.DGP.u⃛₁,:), uwt, o.infoBootData)
+				o.S✻UU[i+1,j+1] = reshape(@panelsum(j>0 ? view(Ü₂par,:,j) : view(o.DGP.u⃛₁,:), uwt, o.infoBootData), :)
 			end
 		end
 

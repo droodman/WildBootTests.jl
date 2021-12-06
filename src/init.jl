@@ -349,9 +349,9 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		if o.robust && o.granular<o.NErrClustCombs && o.B>0
 			inds = o.subcluster>0 ?
 				        [CartesianIndex(j, d, i) for d ∈ 1:o.dof for (j,v) ∈ enumerate(o.infoErrAll) for i ∈ v] :  # crosstab c,c* is wide
-			       o.NClustVar == o.nbootclustvar ?
-				        [CartesianIndex(i, d, i) for d ∈ 1:o.dof for i ∈ 1:Nall] :  # crosstab c,c* is square
-			          [CartesianIndex(i, d, j) for d ∈ 1:o.dof for (j,v) ∈ enumerate(o.clust[o.BootClust].info) for i ∈ v]  # crosstab c,c* is tall
+								o.NClustVar == o.nbootclustvar ?
+										[CartesianIndex(i, d, i) for d ∈ 1:o.dof for i ∈ 1:Nall] :  # crosstab c,c* is square
+										[CartesianIndex(i, d, j) for d ∈ 1:o.dof for (j,v) ∈ enumerate(o.clust[o.BootClust].info) for i ∈ v]  # crosstab c,c* is tall
 			o.crosstab⋂✻ind = LinearIndices(FakeArray(Tuple(max(inds...))...))[inds]
 		end
 	end

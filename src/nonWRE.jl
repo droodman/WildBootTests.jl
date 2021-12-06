@@ -3,7 +3,7 @@
 # Construct stuff that depends linearly or quadratically on r, possibly by interpolation
 function MakeInterpolables!(o::StrBootTest{T} where T)
 	if o.interpolable
-		if iszero(length(o.anchor))  # first call? save current r as permanent anchor for interpolation
+		if iszero(nrows(o.anchor))  # first call? save current r as permanent anchor for interpolation
 			o.anchor = o.r
 			_MakeInterpolables!(o, o.anchor)
 			o.numer₀ = o.numer
@@ -12,10 +12,10 @@ function MakeInterpolables!(o::StrBootTest{T} where T)
 			return
 		end
 
-		if iszero(length(o.poles))  # second call: from anchor make set of orthogonal poles, which equal anchor except in one dimension
+		if iszero(nrows(o.poles))  # second call: from anchor make set of orthogonal poles, which equal anchor except in one dimension
 			o.poles = o.r - o.anchor
 			o.robust && (o.denom₀ = deepcopy(o.denom))  # grab quadratic denominator from *previous* (1st) evaluation
-			newPole = trues(o.q, 1)  # all poles new
+			newPole = trues(o.q)  # all poles new
 		else  # been here at least twice? interpolate unless current r stretches range > 2X in some dimension(s)
 			newPole = abs.(o.r - o.anchor) .> 2 * abs.(o.poles)
 		end
@@ -146,7 +146,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 				nrows(o.clust[c].order)>0 &&
 					(K = K[o.clust[c].order,:,:])
 				for d ∈ 1:o.dof
-					o.Kcd[c,d] = @panelsum(view(K,:,d,:), o.clust[c].info)
+					o.Kcd[c,d] = panelsum(view(K,:,d,:), o.clust[c].info)
 				end
 			end
 		else  # B = 0. In this case, only 1st term of (64) is non-zero after multiplying by v* (= all 1's), and it is then a one-way sum by c
@@ -255,7 +255,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 		if isone(o.dof)  # optimize for one null constraint
 			o.denom[1,1] = o.R * AR
 			if !o.ML
-				o.u✻ = o.B>0 ? o.v .* o.ü : o.ü
+				o.u✻ = o.B>0 ? o.v .* o.ü : reshape(o.ü,:,1)  # reshape for type stability
 				if o.scorebs
 					if o.haswt  # Center variance if interpolated
 						o.u✻ .-= o.ClustShare'o.u✻
