@@ -130,23 +130,29 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 		u✻XAR = @panelsum(o.uXAR, o.wt, o.infoAllData)  # collapse data to all-boot && error-cluster-var intersections. If no collapsing needed, panelsum() will still fold in any weights
 		if o.B>0
 			if o.scorebs
-				K = zeros(T, o.clust[1].N, o.dof, o.N✻)  # inefficient, but not optimizing for the score bootstrap
+				K = [zeros(T, o.clust[1].N, o.N✻) for _ in o.dof]::Vector{Matrix{T}}  # inefficient, but not optimizing for the score bootstrap
 			else
-				K = @panelsum2(o.X₁, o.X₂, vHadw(o.DGP.XAR, o.wt), o.info⋂Data) * o.SuwtXA  # overloaded def of * for >2D arrays
+				K = [@panelsum2(o.X₁, o.X₂, vHadw(view(o.DGP.XAR,:,d), o.wt), o.info⋂Data) * o.SuwtXA for d ∈ 1:o.dof]::Vector{Matrix{T}}
 			end
 
 			o.NFE>0 && !o.FEboot && (o.CT_WE = crosstabFE(o, vHadw(o.ü, o.wt), o.infoBootData))
 
-			o.NFE>0 && !o.FEboot &&
-				(K .+= o.M.CT_XAR * (o.invFEwt .* o.CT_WE))  # overloaded def of * for >2D arrays
-			K[o.crosstab⋂✻ind] .-= reshape(u✻XAR,:)  # subtract crosstab of u✻XAR wrt bootstrapping cluster and all-cluster-var intersections from M
-			o.scorebs && (K .-= o.ClustShare * colsum(K))  # recenter
+			if o.NFE>0 && !o.FEboot
+				tmp = o.invFEwt .* o.CT_WE
+				for d ∈ 1:o.dof
+					K[d] .+= o.M.CT_XAR[d] * tmp
+				end
+			end
+			for d ∈ 1:o.dof
+				K[d][o.crosstab⋂✻ind] .-= view(u✻XAR,:,d)  # subtract crosstab of u✻XAR wrt bootstrapping cluster and all-cluster-var intersections from M
+				o.scorebs && (K[d] .-= o.ClustShare * colsum(K[d]))  # recenter
+			end
 
 			for c ∈ 1+o.granular:o.NErrClustCombs
-				nrows(o.clust[c].order)>0 &&
-					(K = K[o.clust[c].order,:,:])
 				for d ∈ 1:o.dof
-					o.Kcd[c,d] = panelsum(view(K,:,d,:), o.clust[c].info)
+					nrows(o.clust[c].order)>0 &&
+						(K[d] = K[d][o.clust[c].order,:])
+					o.Kcd[c,d] = @panelsum(K[d], o.clust[c].info)
 				end
 			end
 		else  # B = 0. In this case, only 1st term of (64) is non-zero after multiplying by v* (= all 1's), and it is then a one-way sum by c
@@ -178,9 +184,9 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 
 	if isone(w)
 		if o.ARubin
-			o.numerw[:,1] = o.v_sd * (o.DGP.Rpar * o.DGP.β̂[o.kX₁+1:end])::Vector{T}  # coefficients on excluded instruments in ARubin OLS
+			o.numerw[:,1] = o.v_sd * o.DGP.β̂[o.kX₁+1:end]  # coefficients on excluded instruments in ARubin OLS
 		elseif !o.null
-			o.numerw[:,1] = o.v_sd * (o.R * (o.ML ? o.β̂ : (o.M.Rpar * o.M.β̂)::Vector{T}) - r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this.
+			o.numerw[:,1] = o.v_sd * (o.R * (o.ML ? o.β̂ : o.M.β̂)) - r  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this.
 		end
 	end
 
@@ -197,7 +203,7 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 					o.u✻ = o.ü .* view(o.v, o.IDBootData, :)
 					partialFE!(o, o.u✻)
 					for d ∈ 1:o.dof
-						o.Jcd[1,d] = @panelsum(o.u✻, view(o.M.WXAR,:,d), o.info⋂Data)                           - @panelsum2(o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂Data) * o.β̂dev
+						o.Jcd[1,d] = @panelsum(o.u✻, view(o.M.WXAR,:,d), o.info⋂Data)                                - @panelsum2(o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂Data) * o.β̂dev
 					end
 				else
 					_v = view(o.v,o.IDBootAll,:)
@@ -217,7 +223,6 @@ end
 function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 	w > 1 && MakeNumerAndJ!(o, w)
 	!o.bootstrapt && return
-
 	if o.robust
     if !o.interpolating  # these quadratic computation needed to *prepare* for interpolation but are superseded by interpolation once it is going
     	o.purerobust && (u✻2 = o.u✻ .^ 2)
@@ -242,8 +247,10 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 		else  # build each replication's denominator from vectors that hold values for each position in denominator, all replications
 			tmp = Matrix{T}(undef, o.dof, o.dof)
 			@inbounds for k ∈ 1:ncols(o.v)
-				@tturbo for i ∈ 1:o.dof, j ∈ 1:i
-					tmp[j,i] = o.denom[i,j][k]  # fill upper triangle, which is all invsym() looks at
+				for i ∈ 1:o.dof
+					for j ∈ 1:i
+						tmp[j,i] = o.denom[i,j][k]  # fill upper triangle, which is all invsym() looks at
+					end
 				end
 				numer_l = view(o.numerw,:,k)
 				o.dist[k+first(o.WeightGrp[w])-1] = numer_l'invsym(tmp)*numer_l  # in degenerate cases, cross() would turn cross(.,.) into 0

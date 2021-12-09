@@ -2,7 +2,7 @@
 function r_to_p(o::StrBootTest{T}, r::AbstractVector{T}) where T
   o.r = r
   o.dirty = true
-  getpadj(o)
+	getpadj(o)
 end
 
 
@@ -47,11 +47,11 @@ function plot!(o::StrBootTest{T}) where T
 	o.gridpoints[isnan.(o.gridpoints)] .= 25
 
   boottest!(o)
-  if !o.ARubin
+  if o.ARubin
+		halfwidth = abs.(o.confpeak) * T.(quantile(Normal(), getpadj(o, classical=true)/2) / quantile(Normal(), α/2))
+  else
 		halfwidth = T.(-1.5 * quantile(Normal(), α/2)) .* sqrtNaN.(diag(getV(o)))
 		o.confpeak = getb(o) + o.r
-  else
-		halfwidth = abs.(o.confpeak) * T.(quantile(Normal(), getpadj(o, classical=true)/2) / quantile(Normal(), α/2))
   end
 
 	if isone(o.q)  # 1D plot

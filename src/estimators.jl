@@ -4,19 +4,19 @@
 mutable struct StrEstimator{T<:AbstractFloat}
   parent
   isDGP::Bool; LIML::Bool; Fuller::T; κ::T
-  R₁perp::Union{Matrix{T},UniformScaling{Bool}}; Rpar::Union{Matrix{T},UniformScaling}
+  R₁perp::Matrix{T}; Rpar::Matrix{T}
 
   kZ::Int64
   y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β̂::Vector{T}; β̂₀::Vector{T}; invXXXy₁par::Vector{T}
   Yendog::Vector{Bool}
-  invZperpZperp::Matrix{T}; XZ::Matrix{T}; PXZ::Matrix{T}; YPXY::Matrix{T}; R₁invR₁R₁::Union{Matrix{T},UniformScaling}
+  invZperpZperp::Matrix{T}; XZ::Matrix{T}; PXZ::Matrix{T}; YPXY::Matrix{T}; R₁invR₁R₁::Matrix{T}
 	RperpX::Union{Matrix{T},UniformScaling,SelectionMatrix}; RperpXperp::Union{Matrix{T},UniformScaling,SelectionMatrix}; RRpar::Matrix{T}; RparY::Union{Matrix{T},UniformScaling,SelectionMatrix}; RR₁invR₁R₁::Matrix{T}
 	∂β̂∂r::Matrix{T}; YY::Matrix{T}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; XinvXX::Matrix{T}; Rt₁::Vector{T}
 	invXX::Matrix{T}; Y₂::Matrix{T}; X₂::Matrix{T}; invH
 	y₁par::Vector{T}; Xy₁par::Vector{T}
 	A::Matrix{T}; Z::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
 	FillingT₀::Matrix{Matrix{T}}
-	WXAR::Matrix{T}; S⋂PXYZperp::Vector{Matrix{T}}; S⋂YX::Vector{Matrix{T}}; CT_XAR::Array{T,3}; CT_FE⋂PY::Vector{Matrix{T}}
+	WXAR::Matrix{T}; S⋂PXYZperp::Vector{Matrix{T}}; S⋂YX::Vector{Matrix{T}}; CT_XAR::Vector{Matrix{T}}; CT_FE⋂PY::Vector{Matrix{T}}
 
   # IV/GMM only
   ZZ::Matrix{T}; XY₂::Matrix{T}; XX::Matrix{T}; H_2SLS::Matrix{T}; V::Matrix{T}; ZY₂::Matrix{T}; X₂Y₂::Matrix{T}; X₁Y₂::Matrix{T}; ZR₁ZR₁::Matrix{T}; X₂ZR₁::Matrix{T}; ZR₁Y₂::Matrix{T}; X₁ZR₁::Matrix{T}
@@ -29,7 +29,7 @@ mutable struct StrEstimator{T<:AbstractFloat}
   Rperp::Matrix{T}; ZR₁::Matrix{T}
   kX::Integer
 
-  StrEstimator{T}(parent, isDGP, LIML, Fuller, κ) where T<:AbstractFloat = new(parent, isDGP, LIML, Fuller, κ, Matrix{T}(undef,0,0), I)
+  StrEstimator{T}(parent, isDGP, LIML, Fuller, κ) where T<:AbstractFloat = new(parent, isDGP, LIML, Fuller, κ, Matrix{T}(undef,0,0))
 end
 
 function perp(A::AbstractMatrix)
@@ -166,7 +166,7 @@ function InitVarsIVGMM!(o::StrEstimator{T}, Rperp::AbstractMatrix{T}...) where T
 	  !o.LIML && MakeH!(o, !isempty(Rperp)) # DGP is LIML except possibly when getting confidence peak for A-R plot; but LIML=0 when exactly id'd, for then κ=1 always and Hessian doesn't depend on r₁ and can be computed now
   else
 	  o.kZ = ncols(o.Rpar)
-	  o.Yendog = [true; o.RparY==I ? fill(true, o.kZ) : vec(colsum(o.RparY.≠0)).>0]  # columns of Y = [y₁par Zpar] that are endogenous (normally all)
+	  o.Yendog = [true; isa(o.RparY, UniformScaling{Bool}) ? fill(true, o.kZ) : vec(colsum(o.RparY.≠0)).>0]  # columns of Y = [y₁par Zpar] that are endogenous (normally all)
 
 	  if o.parent.robust && o.parent.bootstrapt  # for WRE replication regression, prepare for CRVE
 			o.S⋂YX       = Vector{Matrix{T}}(undef, o.kZ+1)
@@ -301,7 +301,7 @@ function InitTestDenoms!(o::StrEstimator)
 
 	  if o.parent.robust && o.parent.NFE>0 && !(o.parent.FEboot || o.parent.scorebs) && o.parent.granular < o.parent.NErrClustCombs  # make first factor of second term of (64) for c=⋂ (c=1)
 	    !isdefined(o, :WXAR) && (o.WXAR = vHadw(o.XAR, o.parent.wt))
-	    o.CT_XAR = crosstabFEt(o.parent, o.WXAR, o.parent.info⋂Data)
+	    o.CT_XAR = [crosstabFEt(o.parent, view(o.WXAR,:,d), o.parent.info⋂Data) for d ∈ 1:o.parent.dof]
 	  end
   end
 	nothing

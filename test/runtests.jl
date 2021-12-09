@@ -66,6 +66,10 @@ test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.
 println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 plot(plotpoints(test)...)
 
+println(log, "\nboottest, ar nonull")
+test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, ARubin=true, reps=9999, rng=StableRNG(1231), imposenull=false)
+println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
+
 println(log, "\nscoretest tenure")
 test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, rng=StableRNG(1231))
 println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")

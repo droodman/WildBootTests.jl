@@ -50,10 +50,10 @@ function NoNullUpdate!(o::StrBootTest{T} where T)
   if o.WREnonARubin
 		o.numer[:,1] = o.R * o.DGP.Rpar * o.β̂s[1] - o.r
   elseif o.ARubin
-		o.DGP.Estimate(o.r)
-		o.numer[:,1] = o.v_sd * o.DGP.Rpar * @view o.DGP.β̂[o.kX₁+1:end,:]  # coefficients on excluded instruments in ARubin OLS
+		EstimateARubin!(o.DGP, o.r)
+		o.numer[:,1] = o.v_sd * @view o.DGP.β̂[o.kX₁+1:end,:]  # coefficients on excluded instruments in ARubin OLS
   else
-		o.numer[:,1] = o.v_sd * (o.R * (o.ML ? o.β̂ : o.M.Rpar * o.M.β̂) - o.r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
+		o.numer[:,1] = o.v_sd * (o.R * (o.ML ? o.β̂ : o.M.β̂) - o.r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
   end
   o.dist[1] = isone(o.dof) ? o.numer[1] / sqrt(o.statDenom[1]) : o.numer[:,1]'invsym(o.statDenom)*o.numer[:,1]
 	nothing

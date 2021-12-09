@@ -47,66 +47,18 @@ function X₁₂B(X₁::AbstractArray, X₂::AbstractArray, B::AbstractVector)
 	dest
 end
 
-function minusX₁₂B!(dest::AbstractVecOrMat, X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractMatrix)
-  matmulminus!(dest, X₁, view(B,           1:size(X₁,2),:))
-  matmulminus!(dest, X₂, view(B,size(X₁,2)+1:size(B ,1),:))
-end
-
-import Base.*  # extend * to left- and right-multiply arrays by vec or mat
-@inline *(A::AbstractArray, B::AbstractVecOrMat) = reshape(reshape(A,:,size(B,1)) * B, size(A)[1:end-1]..., size(B)[2:end]...)
-@inline *(A::AbstractVecOrMat, B::AbstractArray) = reshape(A * reshape(B,size(A,2),:), size(A)[1:end-1]..., size(B)[2:end]...)
-
-function coldot!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)  # colsum(A .* B)
-  s2 = axes(A,2)
-  @tturbo for i ∈ s2
-	  dest[i] = A[1,i] * B[1,i]
-  end
-  if size(A,1)>1
-	  @tturbo for i ∈ s2, j ∈ 2:size(A,1)
-	    dest[i] += A[j,i] * B[j,i]
-	  end
+function coldot!(dest::AbstractMatrix{T}, A::AbstractMatrix{T}, B::AbstractMatrix{T}) where T  # colsum(A .* B)
+  fill!(dest, zero(T))
+	@tturbo for i ∈ axes(A,2), j ∈ axes(A,1)
+		dest[i] += A[j,i] * B[j,i]
   end
 end
-function coldot!(dest::AbstractMatrix, A::AbstractMatrix)  # colsum(A .* A)
-  s2 = axes(A,2)
-  @tturbo for i ∈ s2
-	  dest[i] = A[1,i] ^ 2
-  end
-  if size(A,1)>1
-	  @tturbo for i ∈ s2, j ∈ 2:size(A,1)
-	    dest[i] += A[j,i] ^ 2
-	  end
-  end
-end
-function coldot!(dest::AbstractArray, A::AbstractArray, B::AbstractArray)
-  J = CartesianIndices(axes(A)[2:end])
-  eachindexJ = eachindex(J)
-  @tturbo for j ∈ eachindexJ
-	  dest[1,J[j]] = A[1,J[j]] * B[1,J[j]]
-  end
-  if size(A,1) > 1
-	  @tturbo for j ∈ eachindexJ, i ∈ 2:size(A,1)
-	    dest[1,J[j]] += A[i,J[j]] * B[i,J[j]]
-	  end
-  end
-end
-function coldot!(dest::AbstractArray, A::AbstractArray)
-  J = CartesianIndices(axes(A)[2:end])
-  eachindexJ = eachindex(J)
-  @tturbo for j ∈ eachindexJ
-	  dest[1,J[j]] = A[1,J[j]] ^ 2
-  end
-  if size(A,1) > 1
-	  @tturbo for j ∈ eachindexJ, i ∈ 2:size(A,1)
-	    dest[1,J[j]] += A[i,J[j]] ^ 2
-	  end
-  end
-end
-function coldot(args...)
-  dest = Array{promote_type(eltype.(args)...)}(undef, 1, size(args[1])[2:end]...)
-  coldot!(dest, args...)
+function coldot(A::AbstractMatrix{T}, B::AbstractMatrix{T}) where T
+  dest = Matrix{T}(undef, 1, size(A,2))
+  coldot!(dest, A, B)
   dest
- end
+end
+coldot(A::AbstractMatrix) = coldot(A, A)
 coldot(A::AbstractVector, B::AbstractVector) = [dot(A,B)]
 
 function coldotplus!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)  # colsum(A .* B)
@@ -116,8 +68,8 @@ function coldotplus!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)
 end
 
 # compute the norm of each col of A using quadratic form Q
-function colquadform(Q::AbstractMatrix, A::AbstractMatrix) :: AbstractVector
-  dest = zeros(promote_type(eltype(Q), eltype(A)), size(A,2))
+function colquadform(Q::AbstractMatrix{T}, A::AbstractMatrix{T}) where T
+  dest = zeros(T, size(A,2))
   @tturbo for i ∈ axes(A,2), j ∈ axes(A,1), k ∈ axes(A,1)
 	  dest[i] += A[j,i] * Q[k,j] * A[k,i]
   end
@@ -133,28 +85,16 @@ function colquadformminus!(X::AbstractMatrix, row::Integer, Q::AbstractMatrix, A
 end
 colquadformminus!(X::AbstractMatrix, Q::AbstractMatrix, A::AbstractMatrix) = colquadformminus!(X, 1, Q, A, A)
 
-function matmulminus!(A::Matrix, B::Matrix, C::AbstractMatrix)  # add B*C to A in place
-	@tturbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
-		A[i,k] -= B[i,j] * C[j,k]
-	end
-end
-
-function matmulplus!(A::Matrix, B::Vector, C::Matrix)  # add B*C to A in place
-	@tturbo for k ∈ eachindex(axes(A,2), axes(C,2)), i ∈ eachindex(axes(A,1),axes(B,1))
-		A[i,k] += B[i] * C[k]
-	end
-end
 function matmulplus!(A::Matrix, B::Matrix, C::Matrix)  # add B*C to A in place
 	@tturbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
 		A[i,k] += B[i,j] * C[j,k]
 	end
 end
 function matmulplus!(A::Vector, B::Matrix, C::Vector)  # add B*C to A in place
-	@tturbo for j ∈ eachindex(axes(B,2),axes(C,1)), i ∈ eachindex(axes(A,1),axes(B,1))
+	@tturbo for j ∈ eachindex(axes(B,2),C), i ∈ eachindex(axes(A,1),axes(B,1))
 		A[i] += B[i,j] * C[j]
 	end
 end
-
 # like Mata panelsetup() but can group on multiple columns, like sort(). But doesn't take minobs, maxobs arguments.
 function panelsetup(X::AbstractArray{S} where S, colinds::AbstractVector{T} where T<:Integer)
   N = nrows(X)
@@ -204,8 +144,8 @@ count_binary(N::Integer, lo::Number, hi::Number) = N≤1 ? [lo  hi] :
 														   [fill(lo, 1, ncols(tmp)) fill(hi, 1, ncols(tmp)) ;
 																			            tmp                     tmp     ])
 
-# unweighted panelsum!() along first axis of an Array
-function panelsum!(dest::AbstractArray, X::AbstractArray, info::Vector{UnitRange{T}} where T<:Integer)
+# unweighted panelsum!() along first axis of a VecOrMat
+function panelsum!(dest::AbstractVecOrMat, X::AbstractVecOrMat, info::Vector{UnitRange{T}} where T<:Integer)
 	iszero(length(X)) && return
 	J = CartesianIndices(axes(X)[2:end])
 	eachindexJ = eachindex(J)
@@ -228,8 +168,8 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, info::Vector{UnitRange
 		end
 	end
 end
-# single-weighted panelsum!() along first axis of an Array
-function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer)
+# single-weighted panelsum!() along first axis of a VecOrMat
+function panelsum!(dest::VecOrMat{T}, X::VecOrMat{T}, wt::Vector{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
 	iszero(length(X)) && return
 	if iszero(length(info)) || nrows(info)==nrows(X)
 		dest .= X .* wt
@@ -257,42 +197,16 @@ function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractVector, in
 		end
 	end
 end
-# multiple-weighted panelsum!() along first axis of an Array
-# *2nd* dimension of resulting 3-D array corresponds to cols of wt;
-# this facilitates reshape() to 2-D array in which results for each col of wt are stacked vertically
-function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractMatrix, info::Vector{UnitRange{T}} where T<:Integer)
-	iszero(length(X)) && return
-	if iszero(length(info)) || nrows(info)==nrows(X)
-		@inbounds @simd for i ∈ axes(wt,2)
-			dest[:,i,:] .= X .* view(wt,:,i)
-		end
-		return
-	end
-	J = CartesianIndices(axes(X)[2:end])
-	eachindexJ = eachindex(J)
-	@inbounds for g in eachindex(info)
-		f, l = first(info[g]), last(info[g])
-		fl = f+1:l
-		for k ∈ axes(wt,2)
-			_wt = wt[f,k]
-			if f<l
-				for j ∈ eachindexJ
-					Jj = J[j]
-					tmp = X[f,Jj] * _wt
-					@tturbo for i ∈ fl
-						tmp += X[i,Jj] * wt[i,k]
-					end
-					dest[g,k,Jj] = tmp
-				end
-			else
-				@simd for j ∈ eachindexJ
-					dest[g,k,J[j]] = X[f,J[j]] * _wt
-				end
-			end
-		end
+function panelsum(X::AbstractVector{T}, wt::AbstractVector{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+	if iszero(nrows(wt))
+		panelsum(X, info)
+	else
+		dest = Vector{T}(undef, length(info))
+		panelsum!(dest, X, wt, info)
+		dest
 	end
 end
-function panelsum(X::AbstractVecOrMat{T}, wt::AbstractVector{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+function panelsum(X::AbstractMatrix{T}, wt::AbstractVector{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
 	if iszero(nrows(wt))
 		panelsum(X, info)
 	else
@@ -301,12 +215,7 @@ function panelsum(X::AbstractVecOrMat{T}, wt::AbstractVector{T}, info::Vector{Un
 		dest
 	end
 end
-function panelsum(X::AbstractVecOrMat{T}, wt::AbstractMatrix{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
-	dest = Array{T,3}(undef, length(info), size(wt,2), size(X,2))
-	panelsum!(dest, X, wt, info)
-	dest
-end
-function panelsum(X::AbstractArray, info::Vector{UnitRange{T}} where T<:Integer)
+function panelsum(X::AbstractVecOrMat, info::Vector{UnitRange{T}} where T<:Integer)
 	dest = similar(X, length(info), size(X)[2:end]...)
 	panelsum!(dest, X, info)
 	dest
@@ -323,22 +232,10 @@ function panelsum2(X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, wt::Abs
 		dest
 	end
 end
-function panelsum2(X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, wt::AbstractMatrix{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
-	if iszero(length(X₁))
-		panelsum(X₂,wt,info)
-	elseif iszero(length(X₂))
-		panelsum(X₁,wt,info)
-	else
-		dest = Array{T,3}(undef, length(info), ncols(wt), ncols(X₁)+ncols(X₂))
-		panelsum!(view(dest,:,:,           1:ncols(X₁   )), X₁, wt, info)
-		panelsum!(view(dest,:,:, ncols(X₁)+1:size(dest,3)), X₂, wt, info)
-		dest
-	end
-end
 
 # macros to efficiently handle result = input
 macro panelsum(X, info)
-	:( iszero(length($(esc(info)))) || length($(esc(info)))==nrows($(esc(X))) ? $(esc(X)) : panelsum($(esc(X)), $(esc(info)) ) )
+	:(local _X = $(esc(X)); iszero(length($(esc(info)))) || length($(esc(info)))==nrows(_X) ? _X : panelsum(_X, $(esc(info)) ) )
 end
 macro panelsum(X, wt, info)
 	:( panelsum($(esc(X)), $(esc(wt)), $(esc(info))) )
@@ -347,8 +244,11 @@ macro panelsum2(X₁, X₂, wt, info)
 	:( panelsum2($(esc(X₁)), $(esc(X₂)), $(esc(wt)), $(esc(info))) )
 end
 
+@enum MatType identity selection regular
+
 # SelectionMatrix type to efficiently represent selection matrices
 import Base.size, Base.getindex, Base.*
+
 struct SelectionMatrix{T} <: AbstractMatrix{T}
 	p::Vector{Int64}
 	size::Tuple{Int64,Int64}
@@ -359,13 +259,48 @@ selectify(X) = X==I ? I :
 											  length(X) > 0 &&
 											  all(sum(isone.(X), dims=1) .== 1) &&
 												all(sum(iszero.(X), dims=1) .== size(X,1)-1) ? SelectionMatrix(X) :
-											                                                 X
+# selectify(X::UniformScaling{Bool}) = X==I ? I :
+# 												isa(X,AbstractMatrix) &&
+# 													length(X) > 0 &&
+# 													all(sum(isone.(X), dims=1) .== 1) &&
+# 													all(sum(iszero.(X), dims=1) .== size(X,1)-1) ? SelectionMatrix(X) :
+																																			 X
 size(X::SelectionMatrix) = X.size
 getindex(X::SelectionMatrix, i, j) = i==X.p[j]
 *(X::AbstractVector{T} where T, Y::SelectionMatrix)::SubArray{T, 1, Vector{T}} = view(X,Y.p)
 *(X::AbstractMatrix{T} where T, Y::SelectionMatrix)::SubArray{T, 2, Matrix{T}} = view(X,:,Y.p)
 *(X::SelectionMatrix, Y::AbstractMatrix{T} where T)::SubArray{T, 2, Matrix{T}} = view(Y, X.p, :)
 *(X::SelectionMatrix, Y::AbstractVector{T} where T)::SubArray{T, 1, Vector{T}} = view(Y, X.p)
+
+# struct UberMatrix{T} <: AbstractMatrix{T}
+# 	type::MatType
+# 	p::Vector{Int64}  # for selection matrix
+# 	size::Tuple{Int64,Int64}
+# 	M::Matrix{T}
+# end
+# UberMatrix(T::DataType, X::UniformScaling{Bool}) = UberMatrix{T}(identity, Int64p[], (0,0), zeros(T,0,0))
+# function UberMatrix(T::DataType, X::AbstractMatrix{T})
+	
+# end
+
+# SelectionMatrix(X::AbstractMatrix{T}) where T = SelectionMatrix{T}(X'collect(1:size(X,1)), size(X))
+# selectify(X) = X==I ? I :
+#                       isa(X,AbstractMatrix) &&
+# 											  length(X) > 0 &&
+# 											  all(sum(isone.(X), dims=1) .== 1) &&
+# 												all(sum(iszero.(X), dims=1) .== size(X,1)-1) ? SelectionMatrix(X) :
+# 											selectify(X::UniformScaling{Bool}) = X==I ? I :
+# 												isa(X,AbstractMatrix) &&
+# 													length(X) > 0 &&
+# 													all(sum(isone.(X), dims=1) .== 1) &&
+# 													all(sum(iszero.(X), dims=1) .== size(X,1)-1) ? SelectionMatrix(X) :
+# 																																			 X
+# size(X::SelectionMatrix) = X.size
+# getindex(X::SelectionMatrix, i, j) = i==X.p[j]
+# *(X::AbstractVector{T} where T, Y::SelectionMatrix)::SubArray{T, 1, Vector{T}} = view(X,Y.p)
+# *(X::AbstractMatrix{T} where T, Y::SelectionMatrix)::SubArray{T, 2, Matrix{T}} = view(X,:,Y.p)
+# *(X::SelectionMatrix, Y::AbstractMatrix{T} where T)::SubArray{T, 2, Matrix{T}} = view(Y, X.p, :)
+# *(X::SelectionMatrix, Y::AbstractVector{T} where T)::SubArray{T, 1, Vector{T}} = view(Y, X.p)
 
 struct FakeArray{N} <: AbstractArray{Bool,N}  # AbstractArray with almost no storage, just for LinearIndices() conversion         
 	size::Tuple{Vararg{Int64,N}}

@@ -98,11 +98,13 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		    if isone(c)
 		      if iszero(o.subcluster)
 		    	  order = Vector{Int64}(undef,0)
-		    	  info  = Vector{UnitRange{Int64}}(undef, Nall)  # causes no collapsing of data in panelsum() calls
+		    	  info  = Vector{UnitRange{Int64}}(undef, 0)  # causes no collapsing of data in panelsum() calls
+						N = Nall
 		      else
 		    	  order = _sortperm(@view ID⋂[:,ClustCols])
 		    	  ID⋂ = @view ID⋂[order, :]
 		    	  info  = panelsetup(ID⋂, ClustCols)
+						N = nrows(info)
 		      end
 		    else
 		      if any(combs[c, min(findall(view(combs,c,:) .≠ view(combs,c-1,:))...):end])  # if this sort ordering same as last to some point and missing thereafter, no need to re-sort
@@ -112,9 +114,9 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		    	  order = Vector{Int64}(undef,0)
 		      end
 		      info = panelsetup(ID⋂, ClustCols)
+					N = nrows(info)
 		    end
 
-		    N = nrows(info)
 		    sumN += N
 
 				if o.small
@@ -348,10 +350,10 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
 		if o.robust && o.granular<o.NErrClustCombs && o.B>0
 			inds = o.subcluster>0 ?
-				        [CartesianIndex(j, d, i) for d ∈ 1:o.dof for (j,v) ∈ enumerate(o.infoErrAll) for i ∈ v] :  # crosstab c,c* is wide
+				        [CartesianIndex(j, i) for (j,v) ∈ enumerate(o.infoErrAll) for i ∈ v] :  # crosstab c,c* is wide
 								o.NClustVar == o.nbootclustvar ?
-										[CartesianIndex(i, d, i) for d ∈ 1:o.dof for i ∈ 1:Nall] :  # crosstab c,c* is square
-										[CartesianIndex(i, d, j) for d ∈ 1:o.dof for (j,v) ∈ enumerate(o.clust[o.BootClust].info) for i ∈ v]  # crosstab c,c* is tall
+										[CartesianIndex(i, i) for i ∈ 1:Nall] :  # crosstab c,c* is square
+										[CartesianIndex(i, j) for (j,v) ∈ enumerate(o.clust[o.BootClust].info) for i ∈ v]  # crosstab c,c* is tall
 			o.crosstab⋂✻ind = LinearIndices(FakeArray(Tuple(max(inds...))...))[inds]
 		end
 	end
