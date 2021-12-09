@@ -127,6 +127,8 @@ function _wildboottest(T::DataType,
 					  getplot::Bool=getCI,
 					  getauxweights::Bool=false)
 
+	nrows(R)>2 && (getplot = getCI = false)
+
   @assert length(predexog)==0 || nrows(predexog)==nrows(resp) "All data vectors/matrices must have same height"
   @assert length(predendog)==0 || nrows(predendog)==nrows(resp) "All data vectors/matrices must have same height"
   @assert length(inst)==0 || nrows(inst)==nrows(resp) "All data vectors/matrices must have same height"
@@ -175,7 +177,8 @@ function _wildboottest(T::DataType,
 end
 
 _wildboottest(T::DataType, R, r::Number; kwargs...) = _wildboottest(T, R, [r]; kwargs...)
-_wildboottest(R::AbstractVecOrMat, r::Union{Number,AbstractVecOrMat}; kwargs...) = wildboottest(Float32, R, r; kwargs...)
+_wildboottest(T::DataType, R::UniformScaling{Bool}, r; kwargs...) = _wildboottest(T, diagm(fill(T(R.λ),nrows(r))), r; kwargs...)
+_wildboottest(R::Union{UniformScaling{Bool},AbstractVecOrMat}, r::Union{Number,AbstractVecOrMat}; kwargs...) = wildboottest(Float32, R, r; kwargs...)
 
 
 """
@@ -186,10 +189,10 @@ Function to perform wild-bootstrap-based hypothesis test
 
 # Positional arguments
 * `T::DataType`: data type for inputs, results, and computations: Float32 (default) or Float64
-* `R::AbstractMatrix` and `r::AbstractVector`: required matrix and vector expressesing the null Rβ=r; see Notes
+* `R::AbstractMatrix` and `r::AbstractVector`: required matrix and vector expressing the null Rβ=r; see notes below
 
 # Required keyword argument
-* `resp::AbstractVector`: response/dependent variable (y/y₁)
+* `resp::AbstractVector`: response/dependent variable (y or y₁ in Roodman et al. (2019))
 
 # Optional keyword arguments
 * `predexog::AbstractVecOrMat`: exogenous predictors, including constant term, if any (X/X₁)
@@ -208,7 +211,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `ptype::PType=symmetric`: p value type (`symmetric`, `equaltail`, `lower`, `upper`)
 * `bootstrapc::Bool=false`: true to request bootstrap-c instead of bootstrap-t
 * `LIML::Bool=false`: true for LIML or Fuller LIML
-* `Fuller::Number`: Fuller factor
+* `Fuller::Number`: Fuller LIML factor
 * `kappa::Number`: fixed κ for _k_-class estimation
 * `ARubin::Bool=false`: true for Anderson-Rubin test
 * `small::Bool=true`: true for small-sample corrections
