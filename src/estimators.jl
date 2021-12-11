@@ -10,7 +10,7 @@ mutable struct StrEstimator{T<:AbstractFloat}
   y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β̂::Vector{T}; β̂₀::Vector{T}; invXXXy₁par::Vector{T}
   Yendog::Vector{Bool}
   invZperpZperp::Matrix{T}; XZ::Matrix{T}; PXZ::Matrix{T}; YPXY::Matrix{T}; R₁invR₁R₁::Matrix{T}
-	RperpX::Union{Matrix{T},UniformScaling,SelectionMatrix}; RperpXperp::Union{Matrix{T},UniformScaling,SelectionMatrix}; RRpar::Matrix{T}; RparY::Union{Matrix{T},UniformScaling,SelectionMatrix}; RR₁invR₁R₁::Matrix{T}
+	RperpX::UberMatrix{T}; RperpXperp::UberMatrix{T}; RRpar::Matrix{T}; RparY::UberMatrix{T}; RR₁invR₁R₁::Matrix{T}
 	∂β̂∂r::Matrix{T}; YY::Matrix{T}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; XinvXX::Matrix{T}; Rt₁::Vector{T}
 	invXX::Matrix{T}; Y₂::Matrix{T}; X₂::Matrix{T}; invH
 	y₁par::Vector{T}; Xy₁par::Vector{T}
@@ -58,18 +58,18 @@ function setR!(o::StrEstimator{T}, R₁::AbstractMatrix{T}, R::Union{UniformScal
 
 	  F = eigensym(RR₁perp'pinv(RR₁perp * RR₁perp')*RR₁perp); val = abs.(F.values) .> 1000*eps(T)
 	  o.Rpar   = F.vectors[:,   val]  # perp and par of RR₁perp
-    o.RperpX = F.vectors[:, .!val]
+    _RperpX = F.vectors[:, .!val]
 
 	  if nrows(R₁) > 0  # fold model constraint factors into Rpar, RperpX
 	    o.Rpar   = o.R₁perp * o.Rpar
-	    o.RperpX = o.R₁perp * o.RperpX
+	    _RperpX = o.R₁perp * _RperpX
 	  end
 
 	  o.RRpar = R * o.Rpar
-	  o.RperpX = o.RperpX[1:o.parent.kX₁,:]  # Zperp=Z*RperpX; though formally a multiplier on Z, it will only extract exogenous components, in X₁, since all endogenous ones will be retained
-		o.RperpXperp = selectify(perp(o.RperpX))
-		o.RperpX = selectify(o.RperpX)
-	  o.RparY = selectify(o.Rpar[o.parent.kX₁+1:end,:])  # part of Rpar that refers to Y₂
+	  _RperpX = _RperpX[1:o.parent.kX₁,:]  # Zperp=Z*RperpX; though formally a multiplier on Z, it will only extract exogenous components, in X₁, since all endogenous ones will be retained
+		o.RperpXperp = UberMatrix(T, perp(_RperpX))
+		o.RperpX = UberMatrix(T, _RperpX)
+	  o.RparY = UberMatrix(T, o.Rpar[o.parent.kX₁+1:end,:])  # part of Rpar that refers to Y₂
 	  o.R₁invR₁R₁Y = o.R₁invR₁R₁[o.parent.kX₁+1:end,:]
 	  o.RR₁invR₁R₁ = R * o.R₁invR₁R₁
   end

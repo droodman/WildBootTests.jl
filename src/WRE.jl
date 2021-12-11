@@ -13,34 +13,51 @@ end
 
 function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer, ind2::Integer, κ::Number, w::Integer)
   if !(o.Repl.Yendog[ind1+1] || o.Repl.Yendog[ind2+1])  # if both vars exog, result = order-0 term only, same for all draws
-		!iszero(κ) && (@views coldot!(dest, o.Repl.XZ[:,ind1], o.Repl.invXXXZ[:,ind2]))
+		!iszero(κ) && 
+			coldot!(dest, view(o.Repl.XZ,:,ind1), view(o.Repl.invXXXZ,:,ind2))
 		if !isone(κ)
 			if iszero(κ)
-				dest = o.Repl.YY[ind1+1,ind2+1]
+				fill!(dest, o.Repl.YY[ind1+1,ind2+1])
 			else
 				dest .= κ .* dest .+ (1 - κ) .* o.Repl.YY[ind1+1,ind2+1]
 			end
 		end
-		dest .= dest
 	else
-		if !iszero(κ)
-			_T1L = iszero(ind1) ? view(o.Repl.Xy₁par,:) : view(o.Repl.XZ,:,ind1)
+		if !iszero(κ)  # repititiveness in this section to maintain type stability
 			if o.Repl.Yendog[ind1+1]
-				T1L = o.T1L[isone(o.Nw) || w<o.Nw ? 1 : 2]
-				T1L .= o.S✻UX[ind1+1] * o.v
-				T1L .+= _T1L
+				T1L = o.T1L[isone(o.Nw) || w<o.Nw ? 1 : 2]  # use preallocated destinations
+				mul!(T1L, o.S✻UX[ind1+1], o.v)
+				if iszero(ind1)
+					T1L .+= o.Repl.Xy₁par
+				else
+					T1L .+= view(o.Repl.XZ,:,ind1)
+				end
+				if o.Repl.Yendog[ind2+1]
+					T1R = o.T1R[isone(o.Nw) || w<o.Nw ? 1 : 2]  # use preallocated destinations
+					mul!(T1R, o.S✻UXinvXX[ind2+1], o.v)
+					if iszero(ind2)
+						T1R .+=  o.Repl.invXXXy₁par
+					else
+						T1R .+= view(o.Repl.invXXXZ,:,ind2)
+					end
+					coldot!(dest, T1L, T1R)
+				else
+					coldot!(dest, T1L, view(o.Repl.invXXXZ,:,ind2))
+				end
 			else
-				T1L = _T1L
+				if o.Repl.Yendog[ind2+1]
+					T1R = o.T1R[isone(o.Nw) || w<o.Nw ? 1 : 2]  # use preallocated destinations
+					mul!(T1R, o.S✻UXinvXX[ind2+1], o.v)
+					if iszero(ind2)
+						T1R .+=  o.Repl.invXXXy₁par
+					else
+						T1R .+= view(o.Repl.invXXXZ,:,ind2)
+					end
+					coldot!(dest, view(o.Repl.XZ,:,ind1), T1R)
+				else
+					dest .= coldot(view(o.Repl.XZ,:,ind1), view(o.Repl.invXXXZ,:,ind2))
+				end
 			end
-			_T1R = iszero(ind2) ? view(o.Repl.invXXXy₁par,:) : view(o.Repl.invXXXZ,:,ind2)
-			if o.Repl.Yendog[ind2+1]
-				T1R = o.T1R[isone(o.Nw) || w<o.Nw ? 1 : 2]
-				T1R .= o.S✻UXinvXX[ind2+1] * o.v
-				T1R .+= _T1R
-			else
-				T1R = _T1R  # right-side linear term
-			end
-			coldot!(dest, T1L, T1R)
 		end
 		if !isone(κ)
 			if o.Repl.Yendog[ind1+1]
@@ -94,9 +111,10 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where 
 
 						if iszero(ind2)
 							dest[i,:]   = wtsum(o.wt, PXY✻ .* (o.Repl.y₁[i] .- view(o.S✻UMZperp[1],i,:))'o.v)
+						elseif o.Repl.Yendog[ind2+1]
+							dest[i,:] .-= wtsum(o.wt, PXY✻ .* (o.Repl.Z[i,ind2] * _β̂ .- view(o.S✻UMZperp[ind2+1],i,:)'β̂v))
 						else
-							dest[i,:] .-= wtsum(o.wt, PXY✻ .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[i,ind2] * _β̂ .- view(o.S✻UMZperp[ind2+1],i,:)'β̂v :
-																						                             o.Repl.Z[i,ind2] * _β̂))
+							dest[i,:] .-= wtsum(o.wt, PXY✻ .* (o.Repl.Z[i,ind2] * _β̂))
 						end
 					end
 				else

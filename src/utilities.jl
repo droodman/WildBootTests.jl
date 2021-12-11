@@ -145,7 +145,7 @@ count_binary(N::Integer, lo::Number, hi::Number) = N≤1 ? [lo  hi] :
 																			            tmp                     tmp     ])
 
 # unweighted panelsum!() along first axis of a VecOrMat
-function panelsum!(dest::AbstractVecOrMat, X::AbstractVecOrMat, info::Vector{UnitRange{T}} where T<:Integer)
+function panelsum!(dest::AbstractVecOrMat, X::AbstractVecOrMat, info::AbstractVector{UnitRange{T}} where T<:Integer)
 	iszero(length(X)) && return
 	J = CartesianIndices(axes(X)[2:end])
 	eachindexJ = eachindex(J)
@@ -169,7 +169,7 @@ function panelsum!(dest::AbstractVecOrMat, X::AbstractVecOrMat, info::Vector{Uni
 	end
 end
 # single-weighted panelsum!() along first axis of a VecOrMat
-function panelsum!(dest::VecOrMat{T}, X::VecOrMat{T}, wt::Vector{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+function panelsum!(dest::AbstractVecOrMat{T}, X::AbstractVecOrMat{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	iszero(length(X)) && return
 	if iszero(length(info)) || nrows(info)==nrows(X)
 		dest .= X .* wt
@@ -197,7 +197,7 @@ function panelsum!(dest::VecOrMat{T}, X::VecOrMat{T}, wt::Vector{T}, info::Vecto
 		end
 	end
 end
-function panelsum(X::AbstractVector{T}, wt::AbstractVector{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+function panelsum(X::AbstractVector{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	if iszero(nrows(wt))
 		panelsum(X, info)
 	else
@@ -206,7 +206,7 @@ function panelsum(X::AbstractVector{T}, wt::AbstractVector{T}, info::Vector{Unit
 		dest
 	end
 end
-function panelsum(X::AbstractMatrix{T}, wt::AbstractVector{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+function panelsum(X::AbstractMatrix{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	if iszero(nrows(wt))
 		panelsum(X, info)
 	else
@@ -215,12 +215,12 @@ function panelsum(X::AbstractMatrix{T}, wt::AbstractVector{T}, info::Vector{Unit
 		dest
 	end
 end
-function panelsum(X::AbstractVecOrMat, info::Vector{UnitRange{T}} where T<:Integer)
+function panelsum(X::AbstractVecOrMat, info::AbstractVector{UnitRange{T}} where T<:Integer)
 	dest = similar(X, length(info), size(X)[2:end]...)
 	panelsum!(dest, X, info)
 	dest
 end
-function panelsum2(X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, wt::AbstractVector{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+function panelsum2(X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	if iszero(length(X₁))
 		panelsum(X₂,wt,info)
 	elseif iszero(length(X₂))
@@ -244,66 +244,30 @@ macro panelsum2(X₁, X₂, wt, info)
 	:( panelsum2($(esc(X₁)), $(esc(X₂)), $(esc(wt)), $(esc(info))) )
 end
 
+# UberMatrix type to efficiently represent selection matrices
 @enum MatType identity selection regular
-
-# SelectionMatrix type to efficiently represent selection matrices
 import Base.size, Base.getindex, Base.*
-
-struct SelectionMatrix{T} <: AbstractMatrix{T}
-	p::Vector{Int64}
+struct UberMatrix{T} <: AbstractMatrix{T}
+	type::MatType
 	size::Tuple{Int64,Int64}
+	p::Vector{Int64}  # for selection matrix
+	M::Matrix{T}
 end
-SelectionMatrix(X::AbstractMatrix{T}) where T = SelectionMatrix{T}(X'collect(1:size(X,1)), size(X))
-selectify(X) = X==I ? I :
-                      isa(X,AbstractMatrix) &&
-											  length(X) > 0 &&
-											  all(sum(isone.(X), dims=1) .== 1) &&
-												all(sum(iszero.(X), dims=1) .== size(X,1)-1) ? SelectionMatrix(X) :
-# selectify(X::UniformScaling{Bool}) = X==I ? I :
-# 												isa(X,AbstractMatrix) &&
-# 													length(X) > 0 &&
-# 													all(sum(isone.(X), dims=1) .== 1) &&
-# 													all(sum(iszero.(X), dims=1) .== size(X,1)-1) ? SelectionMatrix(X) :
-																																			 X
-size(X::SelectionMatrix) = X.size
-getindex(X::SelectionMatrix, i, j) = i==X.p[j]
-*(X::AbstractVector{T} where T, Y::SelectionMatrix)::SubArray{T, 1, Vector{T}} = view(X,Y.p)
-*(X::AbstractMatrix{T} where T, Y::SelectionMatrix)::SubArray{T, 2, Matrix{T}} = view(X,:,Y.p)
-*(X::SelectionMatrix, Y::AbstractMatrix{T} where T)::SubArray{T, 2, Matrix{T}} = view(Y, X.p, :)
-*(X::SelectionMatrix, Y::AbstractVector{T} where T)::SubArray{T, 1, Vector{T}} = view(Y, X.p)
-
-# struct UberMatrix{T} <: AbstractMatrix{T}
-# 	type::MatType
-# 	p::Vector{Int64}  # for selection matrix
-# 	size::Tuple{Int64,Int64}
-# 	M::Matrix{T}
-# end
-# UberMatrix(T::DataType, X::UniformScaling{Bool}) = UberMatrix{T}(identity, Int64p[], (0,0), zeros(T,0,0))
-# function UberMatrix(T::DataType, X::AbstractMatrix{T})
-	
-# end
-
-# SelectionMatrix(X::AbstractMatrix{T}) where T = SelectionMatrix{T}(X'collect(1:size(X,1)), size(X))
-# selectify(X) = X==I ? I :
-#                       isa(X,AbstractMatrix) &&
-# 											  length(X) > 0 &&
-# 											  all(sum(isone.(X), dims=1) .== 1) &&
-# 												all(sum(iszero.(X), dims=1) .== size(X,1)-1) ? SelectionMatrix(X) :
-# 											selectify(X::UniformScaling{Bool}) = X==I ? I :
-# 												isa(X,AbstractMatrix) &&
-# 													length(X) > 0 &&
-# 													all(sum(isone.(X), dims=1) .== 1) &&
-# 													all(sum(iszero.(X), dims=1) .== size(X,1)-1) ? SelectionMatrix(X) :
-# 																																			 X
-# size(X::SelectionMatrix) = X.size
-# getindex(X::SelectionMatrix, i, j) = i==X.p[j]
-# *(X::AbstractVector{T} where T, Y::SelectionMatrix)::SubArray{T, 1, Vector{T}} = view(X,Y.p)
-# *(X::AbstractMatrix{T} where T, Y::SelectionMatrix)::SubArray{T, 2, Matrix{T}} = view(X,:,Y.p)
-# *(X::SelectionMatrix, Y::AbstractMatrix{T} where T)::SubArray{T, 2, Matrix{T}} = view(Y, X.p, :)
-# *(X::SelectionMatrix, Y::AbstractVector{T} where T)::SubArray{T, 1, Vector{T}} = view(Y, X.p)
-
-struct FakeArray{N} <: AbstractArray{Bool,N}  # AbstractArray with almost no storage, just for LinearIndices() conversion         
-	size::Tuple{Vararg{Int64,N}}
+UberMatrix(T::DataType, X::UniformScaling{Bool}) = UberMatrix{T}(identity, (0,0), Int64[], zeros(T,0,0))
+function UberMatrix(T::DataType, X::AbstractMatrix)
+	if isa(X,AbstractMatrix) && length(X) > 0 && all(sum(isone.(X), dims=1) .== 1) && all(sum(iszero.(X), dims=1) .== size(X,1)-1)
+		UberMatrix{T}(selection, size(X), Base.:*(X',collect(1:size(X,1))), zeros(T,0,0))
+	else
+		UberMatrix{T}(regular, size(X), Int64[], X)
+	end
 end
+size(X::UberMatrix) = X.size
+getindex(X::UberMatrix, i, j) = X.type==identity ? i==j : X.type==selection ? i==X.p[j] : X.M[i,j]
+*(X::AbstractVector, Y::UberMatrix) = Y.type==identity ? view(X,:) : Y.type==selection ? view(X,Y.p) : view(Base.:*(X,Y.M),:)
+*(X::AbstractMatrix, Y::UberMatrix) = Y.type==identity ? view(X,:,:) : Y.type==selection ? view(X,:,Y.p) : view(Base.:*(X,Y.M),:,:)
+*(X::UberMatrix, Y::AbstractMatrix) = X.type==identity ? view(Y,:,:) : X.type==selection ? view(Y, X.p, :) : view(Base.:*(X.M,Y),:,:)
+*(X::UberMatrix, Y::AbstractVector) = X.type==identity ? view(Y,:) : X.type==selection ? view(Y, X.p) : view(Base.:*(X.M,Y),:)
+
+struct FakeArray{N} <: AbstractArray{Bool,N} size::Tuple{Vararg{Int64,N}} end # AbstractArray with almost no storage, just for LinearIndices() conversion         
 FakeArray(size...) = FakeArray{length(size)}(size)
 size(X::FakeArray) = X.size

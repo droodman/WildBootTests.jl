@@ -80,4 +80,5 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T, w::Integer)
 	nothing
 end
 
+include("precompile.jl")
 end

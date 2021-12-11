@@ -1,3 +1,4 @@
+push!(LOAD_PATH, ".")
 using WildBootTests
 using StatFiles, StatsModels, DataFrames, DataFramesMeta, BenchmarkTools, Plots, CategoricalArrays, Random, StableRNGs
 
