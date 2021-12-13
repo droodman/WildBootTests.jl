@@ -16,6 +16,6 @@ resp, predexog = modelcols(f, df);                   # extract response & (exoge
 clustid = df.firm;                                   # extract clustering variable
 R = [0 1]; r = [1];                                  # put null in Rβ = r form, where β is parameter vector
 
-test = wildboottest(R, r; resp, predexog, clustid);  # same, using Julia syntactic sugar
+test = wildboottest(R, r; resp, predexog, clustid);  # run test
 plot(plotpoints(test)...)                            # plot confidence curve
 ```
