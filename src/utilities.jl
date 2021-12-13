@@ -1,13 +1,12 @@
 # core functions not referencing StrBootest or StrEstimator "classes"
 
 @inline sqrtNaN(x) = x<0 ? typeof(x)(NaN) : sqrt(x)
-@inline invsym(X) = iszero(length(X)) ? Symmetric(X) : inv(Symmetric(X))
-@inline eigensym(X) = eigen(Symmetric(X))  # does eigen recognize symmetric matrices?
+@inline invsym(X) = iszero(nrows(X)) ? Symmetric(X) : inv(Symmetric(X))
 
 @inline symcross(X::AbstractVecOrMat, wt::AbstractVector) = Symmetric(cross(X,wt,X))  # maybe bad name since it means cross product in Julia
-@inline function cross(X::AbstractVecOrMat{T}, wt::AbstractVector{T}, Y::AbstractVecOrMat{T}) where T
-  dest = Matrix{T}(undef, ncols(X), ncols(Y))
-  if iszero(nrows(wt))
+function cross(X::AbstractVecOrMat{T}, wt::AbstractVector{T}, Y::AbstractVecOrMat{T}) where T
+	dest = Matrix{T}(undef, ncols(X), ncols(Y))
+	if iszero(nrows(wt))
 		mul!(dest, X', Y)
 	elseif ncols(X)>ncols(Y)
 		mul!(dest, X', wt.*Y)
@@ -15,7 +14,7 @@
 		mul!(dest, (X.*wt)', Y)
 	end
 end
-@inline function crossvec(X::AbstractMatrix{T}, wt::AbstractVector{T}, Y::AbstractVector{T}) where T
+function crossvec(X::AbstractMatrix{T}, wt::AbstractVector{T}, Y::AbstractVector{T}) where T
   dest = Vector{T}(undef, ncols(X))
   if iszero(nrows(wt))
 		mul!(dest, X', Y)
@@ -26,15 +25,13 @@ end
 	end
 end
 
-@inline vHadw(v::AbstractArray, w::AbstractVector) = iszero(nrows(w)) ? v : v .* w
+@inline vHadw(v::AbstractArray, w::AbstractVector) = iszero(nrows(w)) ? v : v .* w  # not type-stable
 
 @inline nrows(X::AbstractArray) = size(X,1)
 @inline ncols(X::AbstractArray) = size(X,2)
 
 @inline colsum(X::AbstractArray) = iszero(length(X)) ? similar(X, 1, size(X)[2:end]...) : sum(X, dims=1)
 @inline rowsum(X::AbstractArray) = vec(sum(X, dims=2))
-
-@inline wtsum(wt::AbstractVector, X::AbstractMatrix) = iszero(nrows(wt)) ? sum(X,dims=1) : reshape(X'wt,1,:)  # return 1xN Matrix
 
 function X₁₂B(X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractMatrix)
 	dest = X₁ * view(B,1:size(X₁,2),:)
@@ -244,30 +241,31 @@ macro panelsum2(X₁, X₂, wt, info)
 	:( panelsum2($(esc(X₁)), $(esc(X₂)), $(esc(wt)), $(esc(info))) )
 end
 
-# UberMatrix type to efficiently represent selection matrices
-@enum MatType identity selection regular
-import Base.size, Base.getindex, Base.*
-struct UberMatrix{T} <: AbstractMatrix{T}
-	type::MatType
-	size::Tuple{Int64,Int64}
-	p::Vector{Int64}  # for selection matrix
-	M::Matrix{T}
-end
-UberMatrix(T::DataType, X::UniformScaling{Bool}) = UberMatrix{T}(identity, (0,0), Int64[], zeros(T,0,0))
-function UberMatrix(T::DataType, X::AbstractMatrix)
-	if isa(X,AbstractMatrix) && length(X) > 0 && all(sum(isone.(X), dims=1) .== 1) && all(sum(iszero.(X), dims=1) .== size(X,1)-1)
-		UberMatrix{T}(selection, size(X), Base.:*(X',collect(1:size(X,1))), zeros(T,0,0))
-	else
-		UberMatrix{T}(regular, size(X), Int64[], X)
-	end
-end
-size(X::UberMatrix) = X.size
-getindex(X::UberMatrix, i, j) = X.type==identity ? i==j : X.type==selection ? i==X.p[j] : X.M[i,j]
-*(X::AbstractVector, Y::UberMatrix) = Y.type==identity ? view(X,:) : Y.type==selection ? view(X,Y.p) : view(Base.:*(X,Y.M),:)
-*(X::AbstractMatrix, Y::UberMatrix) = Y.type==identity ? view(X,:,:) : Y.type==selection ? view(X,:,Y.p) : view(Base.:*(X,Y.M),:,:)
-*(X::UberMatrix, Y::AbstractMatrix) = X.type==identity ? view(Y,:,:) : X.type==selection ? view(Y, X.p, :) : view(Base.:*(X.M,Y),:,:)
-*(X::UberMatrix, Y::AbstractVector) = X.type==identity ? view(Y,:) : X.type==selection ? view(Y, X.p) : view(Base.:*(X.M,Y),:)
+# # UberMatrix type to efficiently represent selection matrices
+# @enum MatType identity selection regular
+# import Base.size, Base.getindex, Base.*
+# struct UberMatrix{T} <: AbstractMatrix{T}
+# 	type::MatType
+# 	size::Tuple{Int64,Int64}
+# 	p::Vector{Int64}  # for selection matrix
+# 	M::Matrix{T}
+# end
+# UberMatrix(T::DataType, X::UniformScaling{Bool}) = UberMatrix{T}(identity, (0,0), Int64[], zeros(T,0,0))
+# function UberMatrix(T::DataType, X::AbstractMatrix)
+# 	if isa(X,AbstractMatrix) && length(X) > 0 && all(sum(isone.(X), dims=1) .== 1) && all(sum(iszero.(X), dims=1) .== size(X,1)-1)
+# 		UberMatrix{T}(selection, size(X), Base.:*(X',collect(1:size(X,1))), zeros(T,0,0))
+# 	else
+# 		UberMatrix{T}(regular, size(X), Int64[], X)
+# 	end
+# end
+# size(X::UberMatrix) = X.size
+# getindex(X::UberMatrix, i, j) = X.type==identity ? i==j : X.type==selection ? i==X.p[j] : X.M[i,j]
+# *(X::AbstractVector, Y::UberMatrix) = Y.type==identity ? view(X,:) : Y.type==selection ? view(X,Y.p) : view(Base.:*(X,Y.M),:)
+# function *(X::AbstractMatrix{T}, Y::UberMatrix{T})::SubArray{T,2,Matrix{T}} where T Y.type==identity ? view(X,:,:) : Y.type==selection ? view(X,:,Y.p) : view(Base.:*(X,Y.M),:,:) end
+# *(X::UberMatrix, Y::AbstractMatrix) = X.type==identity ? view(Y,:,:) : X.type==selection ? view(Y, X.p, :) : view(Base.:*(X.M,Y),:,:)
+# *(X::UberMatrix, Y::AbstractVector) = X.type==identity ? view(Y,:) : X.type==selection ? view(Y, X.p) : view(Base.:*(X.M,Y),:)
 
+import Base.size
 struct FakeArray{N} <: AbstractArray{Bool,N} size::Tuple{Vararg{Int64,N}} end # AbstractArray with almost no storage, just for LinearIndices() conversion         
 FakeArray(size...) = FakeArray{length(size)}(size)
 size(X::FakeArray) = X.size

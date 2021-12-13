@@ -1,7 +1,7 @@
 # OLS, ML (score bootstrap), and Anderson-Rubin tests
 
 # Construct stuff that depends linearly or quadratically on r, possibly by interpolation
-function MakeInterpolables!(o::StrBootTest{T} where T)
+function MakeInterpolables!(o::StrBootTest{T}) where T
 	if o.interpolable
 		if iszero(nrows(o.anchor))  # first call? save current r as permanent anchor for interpolation
 			o.anchor = o.r
@@ -17,7 +17,7 @@ function MakeInterpolables!(o::StrBootTest{T} where T)
 			o.robust && (o.denom₀ = deepcopy(o.denom))  # grab quadratic denominator from *previous* (1st) evaluation
 			newPole = trues(o.q)  # all poles new
 		else  # been here at least twice? interpolate unless current r stretches range > 2X in some dimension(s)
-			newPole = abs.(o.r - o.anchor) .> 2 * abs.(o.poles)
+			newPole = abs.(o.r - o.anchor) .> T(2) * abs.(o.poles)
 		end
 
 		if any(newPole)  # prep interpolation
@@ -101,15 +101,15 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 		o.uXAR = o.sc * (o.AR = o.A * o.R')
 	else
 		if o.ARubin
-			EstimateARubin!(o.DGP, thisr)
-			MakeResidualsOLSARubin!(o.DGP)
+			EstimateARubin!(o.DGP, o, thisr)
+			MakeResidualsOLSARubin!(o.DGP, o)
 		elseif iszero(o.κ)  # regular OLS
 			EstimateOLS!(o.DGP, o.null ? [o.r₁ ; thisr] : o.r₁)
-			MakeResidualsOLSARubin!(o.DGP)
+			MakeResidualsOLSARubin!(o.DGP, o)
 		elseif o.null  # in score bootstrap for IV/GMM, if imposing null, then DGP constraints, κ, Hessian, etc. do vary with r and must be set now
-			EstimateIVGMM!(o.DGP, [o.r₁ ; thisr])
-			InitTestDenoms!(o.DGP)
-			MakeResidualsIVGMM!(o.DGP)
+			EstimateIV!(o.DGP, o, [o.r₁ ; thisr])
+			InitTestDenoms!(o.DGP, o)
+			MakeResidualsIV!(o.DGP, o)
 		end
 
 		o.ü = o.DGP.ü₁
@@ -123,7 +123,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 					 o.NClustVar ?
 				          @panelsum(o.uXAR, o.wt, o.infoBootData) :
 					      vHadw(o.uXAR, o.wt)                    :
-				        wtsum(o.wt, o.uXAR)                      :
+				        o.haswt ? reshape(o.uXAR'o.wt,1,:) : sum(o.uXAR,dims=1)  :
 			  o.DGP.A * @panelsum2(o.X₁, o.X₂, vHadw(o.ü, o.wt), o.infoBootData)'  # same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined; X₂ empty except in Anderson-Rubin
 
 	if o.robust && o.bootstrapt && o.granular < o.NErrClustCombs

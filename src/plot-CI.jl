@@ -48,26 +48,22 @@ function plot!(o::StrBootTest{T}) where T
 
   boottest!(o)
   if o.ARubin
-		halfwidth = abs.(o.confpeak) * T.(quantile(Normal(), getpadj(o, classical=true)/2) / quantile(Normal(), α/2))
+		halfwidth = abs.(o.confpeak) * quantile(Normal{T}(zero(T),one(T)), getpadj(o, classical=true)/2) / quantile(Normal{T}(zero(T),one(T)), α/2)
   else
 		halfwidth = T.(-1.5 * quantile(Normal(), α/2)) .* sqrtNaN.(diag(getV(o)))
 		o.confpeak = getb(o) + o.r
   end
-
+# println("o.confpeak=$(o.confpeak)")
 	if isone(o.q)  # 1D plot
 		α≤0 && (α = T(.05))  # if level=100, no CI constructed, but we need a reasonable α to choose graphing bounds
-
-		if α > 0 && ncols(o.v)-1 ≤ 1/α-1e6
-			throw(ErrorException("need at least $(ceil(1/α)) replications to resolve a $(o.level)% two-sided confidence interval."))
-		end
-
-		p_lo, p_hi = T(NaN), T(NaN)
+# println("gridmin=$(o.gridmin) gridmax=$(o.gridmax) 1")
+		p_lo = p_hi = T(NaN)
 		if isnan(o.gridmin[1]) || isnan(o.gridmax[1])
 			if o.B>0  # initial guess based on classical distribution
 				lo = isnan(o.gridmin[1]) ? o.confpeak - halfwidth : o.gridmin
 				hi = isnan(o.gridmax[1]) ? o.confpeak + halfwidth : o.gridmax
 			else
-				tmp = vec(sqrtNaN.(o.statDenom)) * T(o.small ? cquantile(TDist(o.dof_r), α/2) : cquantile(Normal(), α/2))
+				tmp = vec(sqrtNaN.(o.statDenom)) * (o.small ? cquantile(TDist(o.dof_r), α/2) : cquantile(Normal{T}(zero(T),one(T)), α/2))
 				lo = isnan(o.gridmin[1]) ? o.confpeak - tmp : o.gridmin
 				hi = isnan(o.gridmax[1]) ? o.confpeak + tmp : o.gridmax
 				if o.scorebs && !o.null && !o.willplot  # if doing simple Wald test with no graph, we're done
@@ -75,24 +71,24 @@ function plot!(o::StrBootTest{T}) where T
 					return
 				end
 			end
-
+# println("lo=$lo hi=$hi")
 			if abs(lo[1] - o.r[1]) > abs(hi[1] - o.r[1])  # brute force way to ensure that first trial bound tested is the farther one from r, for better interpolation
 				if isnan(o.gridmin[1]) && o.ptype≠lower  # unless lower-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
 					for _ ∈ 1:10
 						p_lo = r_to_p(o, lo)
 						p_lo < α && break
-						tmp = hi - lo
-						lo .-= tmp
-						isnan(o.gridmax[1]) && o.twotailed && (hi .+= tmp)  # maintain rough symmetry unless user specified upper bound
+						diff = hi - lo
+						lo .-= diff
+						isnan(o.gridmax[1]) && o.twotailed && (hi .+= diff)  # maintain rough symmetry unless user specified upper bound
 					end
 				end
 				if isnan(o.gridmax[1]) && o.ptype≠upper  # ditto for high side
 					for _ ∈ 1:10
 						p_hi = r_to_p(o, hi)
 						p_hi < α && break
-						tmp = hi - lo
-						isnan(o.gridmin[1]) && o.twotailed && (lo .-= tmp)
-						hi .+= tmp
+						diff = hi - lo
+						isnan(o.gridmin[1]) && o.twotailed && (lo .-= diff)
+						hi .+= diff
 					end
 				end
 			else
@@ -100,18 +96,18 @@ function plot!(o::StrBootTest{T}) where T
 					for _ ∈ 1:10
 						p_hi = r_to_p(o, hi)
 						p_hi < α && break
-						tmp = hi - lo
-						isnan(o.gridmin[1]) && o.twotailed && (lo .-= tmp)
-						hi .+= tmp
+						diff = hi - lo
+						isnan(o.gridmin[1]) && o.twotailed && (lo .-= diff)
+						hi .+= diff
 					end
 				end
 				if isnan(o.gridmin[1]) && o.ptype≠lower  # unless upper-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
 					for _ ∈ 1:10
 						p_lo = r_to_p(o, lo)
 						p_lo < α && break
-						tmp = hi - lo
-						lo .-= tmp
-						isnan(o.gridmax[1]) && o.twotailed && (hi .+= tmp)  # maintain rough symmetry unless user specified upper bound
+						diff = hi - lo
+						lo .-= diff
+						isnan(o.gridmax[1]) && o.twotailed && (hi .+= diff)  # maintain rough symmetry unless user specified upper bound
 					end
 				end
 			end
@@ -119,10 +115,11 @@ function plot!(o::StrBootTest{T}) where T
 			lo = [o.gridmin[1]]
 			hi = [o.gridmax[1]]
 		end
+println("lo=$lo hi=$hi after")
 
-		_gridpoints = round(Int32, o.gridpoints[1])
-		o.plotX = (collect(range(lo[1], hi[1], length=_gridpoints)),)  # store as 1-tuple since q=1
-		o.plotY = fill(T(NaN), _gridpoints)
+		_gridpoints = round.(Int32, o.gridpoints)
+		o.plotX = [collect(range(lo[1], hi[1], length=_gridpoints[1]))]  # store as 1-vector since q=1
+		o.plotY = fill(T(NaN), _gridpoints[1])
 		o.plotY[1  ] = p_lo
 		o.plotY[end] = p_hi
 		p_confpeak = o.WREnonARubin ? T(NaN) : o.twotailed ? one(T) : T(.5)
@@ -130,6 +127,11 @@ function plot!(o::StrBootTest{T}) where T
 		c = clamp((floor(Int, (o.confpeak[1] - lo[1]) / (hi[1] - lo[1]) * (_gridpoints[1] - 1)) + 2), 1, _gridpoints[1]+1)  # insert original point estimate into grid
 		insert!(o.plotX[1], c, o.confpeak[1])
 		insert!(o.plotY   , c, p_confpeak)
+
+		isnan(o.plotY[1]) && (o.plotY[1] = r_to_p(o, [o.plotX[1][1]]))  # do in this order for widest interpolation base range
+		for (i,v) ∈ Iterators.reverse(enumerate(o.plotX[1]))
+			i>1 && isnan(o.plotY[i]) && (o.plotY[i] = r_to_p(o, [v]))
+		end
 
 	else  # 2D plot
 		_gridpoints = round.(Int32, o.gridpoints)
@@ -140,14 +142,14 @@ function plot!(o::StrBootTest{T}) where T
 			lo[d] = isnan(o.gridmin[d]) ? o.confpeak[d] - halfwidth[d] : o.gridmin[d]
 			hi[d] = isnan(o.gridmax[d]) ? o.confpeak[d] + halfwidth[d] : o.gridmax[d]
 		end
-		o.plotX = (collect(range(lo[1], hi[1], length=_gridpoints[1])), 
-		           collect(range(lo[2], hi[2], length=_gridpoints[2])))
+		o.plotX = [collect(range(lo[1], hi[1], length=_gridpoints[1])), 
+		           collect(range(lo[2], hi[2], length=_gridpoints[2]))]
 		o.plotY = fill(T(NaN), _gridpoints[1]*_gridpoints[2])
-	end
 
-	isnan(o.plotY[1]) && (o.plotY[1] = r_to_p(o, [o.plotX[i][1] for i in 1:o.q]))  # do in this order for widest interpolation
-	@views for (i,v) ∈ Iterators.reverse(enumerate(Iterators.product(o.plotX...)))
-		i>1 && isnan(o.plotY[i]) && (o.plotY[i] = r_to_p(o, [v...]))
+		isnan(o.plotY[1]) && (o.plotY[1] = r_to_p(o, [o.plotX[i][1] for i in 1:o.q]))  # do in this order for widest interpolation base range
+		for (i,v) ∈ Iterators.reverse(enumerate(Iterators.product(o.plotX[1],o.plotX[2])))
+			i>1 && isnan(o.plotY[i]) && (o.plotY[i] = r_to_p(o, [v...]))
+		end
 	end
 
 	if any(isnan.(o.plotY))

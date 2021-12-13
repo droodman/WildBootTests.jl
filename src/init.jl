@@ -23,8 +23,8 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   iszero(o.B) && (o.scorebs = true)
 
   o.haswt = !iszero(nrows(o.wt))
-  o.sumwt = o.haswt ? sum(o.wt) : 1
-  o._Nobs = o.haswt && o.fweights ? o.sumwt : o.Nobs
+  o.sumwt = o.haswt ? sum(o.wt) : one(T)
+  o._Nobs = o.haswt && o.fweights ? o.sumwt : T(o.Nobs)
 
   if !(iszero(o.NClustVar)  || o.issorted)
 		o.subcluster = o.NClustVar - o.nerrclustvar
@@ -53,7 +53,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
   if o.bootstrapt
     if o.NClustVar>0
-	    minN = Inf; sumN = 0
+	    minN = T(Inf)
 
 	    combs = [x & 2^y > 0 for x in 2^o.nerrclustvar-1:-1:1, y in o.nerrclustvar-1:-1:0]  # represent all error clustering combinations. First is intersection of all error clustering vars
 	    o.clust = Vector{StrClust{T}}(undef, nrows(combs))  # leave out no-cluster combination
@@ -81,12 +81,12 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		    else
 		      o.info⋂Data            = panelsetup(o.ID, o.subcluster+1:o.NClustVar)
 		    end
-		    ID⋂ = length(o.info⋂Data)==o.Nobs ? o.ID : @views o.ID[first.(o.info⋂Data),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
-		    o.IDAll = Nall==o.Nobs ? o.ID : @view o.ID[first.(o.infoAllData),:]  # version of ID matrix with one row for each all-bootstrap && error cluster-var intersection instead of 1 row for each obs
+		    ID⋂ = length(o.info⋂Data)==o.Nobs ? o.ID : o.ID[first.(o.info⋂Data),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
+		    o.IDAll = Nall==o.Nobs ? o.ID : o.ID[first.(o.infoAllData),:]  # version of ID matrix with one row for each all-bootstrap && error cluster-var intersection instead of 1 row for each obs
 	    else
 		    o.info⋂Data = o.infoAllData  # info for intersections of error clustering wrt data
 		    o.WREnonARubin && !o.granular && (ID⋂Data = IDAllData)
-		    o.IDAll = ID⋂ = nrows(o.info⋂Data)==o.Nobs ? o.ID : @views o.ID[first.(o.info⋂Data),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
+		    o.IDAll = ID⋂ = nrows(o.info⋂Data)==o.Nobs ? o.ID : o.ID[first.(o.info⋂Data),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
 	    end
 
 	    o.BootClust = 2^(o.NClustVar - o.nbootclustvar)  # location of bootstrap clustering within list of cluster combinations
@@ -102,26 +102,23 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 						N = Nall
 		      else
 		    	  order = _sortperm(@view ID⋂[:,ClustCols])
-		    	  ID⋂ = @view ID⋂[order, :]
-		    	  info  = panelsetup(ID⋂, ClustCols)
+		    	  info  = panelsetup(view(ID⋂,order,:), ClustCols)
 						N = nrows(info)
 		      end
 		    else
-		      if any(combs[c, min(findall(view(combs,c,:) .≠ view(combs,c-1,:))...):end])  # if this sort ordering same as last to some point and missing thereafter, no need to re-sort
+		      if any(combs[c, minimum(findall(combs[c,:] .≠ combs[c-1,:])):end])  # if this sort ordering same as last to some point and missing thereafter, no need to re-sort
 		    	  order = _sortperm(@view ID⋂[:,ClustCols])
-		    	  ID⋂ = @view ID⋂[order,:]
+		    	  info = panelsetup(view(ID⋂,order,:), ClustCols)
 		      else
 		    	  order = Vector{Int64}(undef,0)
+						info = panelsetup(ID⋂, ClustCols)
 		      end
-		      info = panelsetup(ID⋂, ClustCols)
 					N = nrows(info)
 		    end
 
-		    sumN += N
-
-				if o.small
+		    if o.small
 					multiplier = T(N / (N-1))
-					N < minN && (minN = N)
+					minN = min(minN,N)
 				else
 					multiplier = one(T)
 				end
@@ -129,14 +126,13 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	    end
 
 	    (o.scorebs || !o.WREnonARubin) &&
-		  	(o.ClustShare = o.haswt ? @panelsum(o.wt, o.info⋂Data)/o.sumwt : length.(o.info⋂Data)./o.Nobs) # share of observations by group
+		  	(o.ClustShare = o.haswt ? @panelsum(o.wt, o.info⋂Data)/o.sumwt : T.(length.(o.info⋂Data)./o.Nobs)) # share of observations by group
 
     else  # if no clustering, cast "robust" as clustering by observation
-      o.clust = StrClust{T}(Nobs, small ? _Nobs / (_Nobs - 1) : 1, true, Vector{Int64}(undef,0), Vector{UnitRange{Int64}}(undef,0))
-      sumN = o.Nobs
-      o.NErrClustCombs = 1
+      o.clust = StrClust{T}(Nobs, small ? o._Nobs / (o._Nobs - one(T)) : one(T), true, Vector{Int64}(undef,0), Vector{UnitRange{Int64}}(undef,0))
+      o.NErrClustCombs = one(Int16)
       (o.scorebs || !o.WREnonARubin) &&
-    		(o.ClustShare = o.haswt ? o.wt/o.sumwt : 1/o._Nobs)
+    		(o.ClustShare = o.haswt ? o.wt/o.sumwt : fill(one(T)/o._Nobs,o._Nobs))
     end
 
 		o.purerobust = o.robust && !o.scorebs && iszero(o.subcluster) && o.N✻==o.Nobs  # do we ever error-cluster *and* bootstrap-cluster by individual?
@@ -164,7 +160,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			end
 		end
   else
-	  minN = nrows(o.infoBootData)
+	  minN = T(nrows(o.infoBootData))
 	end
 
 	if isdefined(o, :FEID) && nrows(o.FEID)>0
@@ -180,12 +176,12 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 					tmp  = o.wt[is]
 					wt = tmp / (sumFEwt = sum(tmp))
 				else
-					sumFEwt = j - i
+					sumFEwt = T(j - i)
 					wt = fill(1/sumFEwt, j-i)
 				end
 				o.FEs[i_FE] = StrFE{T}(is, wt)
 				if (o.B>0 && o.robust && o.granular < o.nerrclustvar) || (o.WREnonARubin && o.robust && o.granular && o.bootstrapt)
-					o.invFEwt[i_FE] = 1 / sumFEwt
+					o.invFEwt[i_FE] = one(T) / sumFEwt
 				end
 
 				j = i
@@ -203,7 +199,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			tmp = o.wt[is]
 			wt = tmp / (sumFEwt = sum(tmp))
 		else
-			sumFEwt = j
+			sumFEwt = T(j)
 			wt = fill(1/sumFEwt, j)
 		end
 		o.FEs[i_FE] = StrFE{T}(is, wt)
@@ -211,7 +207,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			(o.invFEwt[i_FE] = 1 / sumFEwt)
 		o.NFE = i_FE
 		resize!(o.invFEwt, o.NFE)
-		resize!(o.FEs, o.NFE)
+		resize!(o.FEs    , o.NFE)
 		if o.FEboot  # are all of this FE's obs in same bootstrapping cluster?
 			tmp = o.ID[is, 1:o.nbootclustvar]
 			o.FEboot = all(tmp .== @view tmp[1,:])
@@ -238,13 +234,13 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	o.enumerate = o.B>0 && o.auxtwtype==rademacher && o.N✻*log(2) < log(o.B)+1e-6  # generate full Rademacher set?
 	o.enumerate && (o.maxmatsize = 0)
 
-	o.Nw = iszero(o.maxmatsize) ? 1 : ceil((o.B+1) * Float64(max(nrows(o.IDBootData), length(o.IDBootAll), o.N✻) * sizeof(T)) / o.maxmatsize / 1073741824) # 1073741824 = giga(byte)
+	o.Nw = iszero(o.maxmatsize) ? one(Int64) : ceil(Int64, (o.B+1) * Float64(max(nrows(o.IDBootData), length(o.IDBootAll), o.N✻) * sizeof(T)) / o.maxmatsize / 1073741824) # 1073741824 = giga(byte)
 	if isone(o.Nw)
 		MakeWildWeights!(o, o.B, first=true)  # make all wild weights, once
 		o.enumerate && (o.B = ncols(o.v) - 1)  # replications reduced to 2^G
 		o.WeightGrp = [1:ncols(o.v)]
 	else
-    o.seed = rand(o.rng,UInt64)
+    o.seed = rand(o.rng, UInt64)
 		_B = ceil(Int64, (o.B+1) / o.Nw)
 		o.Nw = ceil(Int64, (o.B+1) / _B)
 		o.WeightGrp = [(i-1)*_B+1:i*_B for i ∈ 1:o.Nw]
@@ -256,48 +252,48 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	else
 		if o.ARubin
 			o.R = hcat(zeros(o.kX₂,o.kX₁), Matrix(I(o.kX₂)))  # attack surface is all endog vars
-			o.R₁ = o.kX₁>0 && nrows(o.R₁)>0 ? hcat(o.R₁[:,1:kX₁], zeros(nrows(o.R₁),o.kX₂)) : zeros(0, o.kX)  # and convert model constraints from referring to X₁, Y₂ to X₁, X₂
+			o.R₁ = o.kX₁>0 && nrows(o.R₁)>0 ? hcat(o.R₁[:,1:o.kX₁], zeros(nrows(o.R₁),o.kX₂)) : zeros(0, o.kX)  # and convert model constraints from referring to X₁, Y₂ to X₁, X₂
 		end
 		o.dof = nrows(o.R)
 
 		if !o.WRE && iszero(o.κ)  # regular OLS
-			o.DGP = StrEstimator{T}(o, true, o.LIML, o.Fuller, o.κ)
-			o.Repl = StrEstimator{T}(o, true, false, zero(T), zero(T))  # XXX isDGP=1 for Repl? doesn't matter?
-			setR!(o.DGP, o.null ? [o.R₁ ; o.R] : o.R₁)  # DGP constraints: model constraints + null if imposed
-			setR!(o.Repl, o.R₁)  # model constraints only
-			InitVarsOLS!(o.DGP, o.Repl.R₁perp)
-			InitTestDenoms!(o.DGP)
+			o.DGP = StrEstimator{T}(true, o.LIML, o.Fuller, o.κ)
+			o.Repl = StrEstimator{T}(true, false, zero(T), zero(T))  # XXX isDGP=1 for Repl? doesn't matter?
+			setR!(o.DGP, o, o.null ? [o.R₁ ; o.R] : o.R₁)  # DGP constraints: model constraints + null if imposed
+			setR!(o.Repl, o, o.R₁)  # model constraints only
+			InitVarsOLS!(o.DGP, o, o.Repl.R₁perp)
+			InitTestDenoms!(o.DGP, o)
 			o.M = o.DGP  # StrEstimator object from which to get A, AR, XAR
 		elseif o.ARubin
 			if o.willplot  # for plotting/CI purposes get original point estimate since not normally generated
-				o.DGP = StrEstimator{T}(o, true, o.LIML, o.Fuller, o.κ)
-				setR!(o.DGP, o.R₁, zeros(T,0,o.kZ))  # no-null model
-				InitVarsIVGMM!(o.DGP)
-				EstimateIVGMM!(o.DGP, o.r₁)
+				o.DGP = StrEstimator{T}(true, o.LIML, o.Fuller, o.κ)
+				setR!(o.DGP, o, o.R₁, zeros(T,0,o.kZ))  # no-null model
+				InitVarsIV!(o.DGP, o)
+				EstimateIV!(o.DGP, o, o.r₁)
 				o.confpeak = o.DGP.β̂  # estimated coordinate of confidence peak
 			end
 
-			o.DGP = StrEstimator{T}(o, true, false, zero(T), zero(T))
-			setR!(o.DGP, o.R₁)
-			InitVarsARubin!(o.DGP)
-			InitTestDenoms!(o.DGP)
+			o.DGP = StrEstimator{T}(true, false, zero(T), zero(T))
+			setR!(o.DGP, o, o.R₁)
+			InitVarsARubin!(o.DGP, o)
+			InitTestDenoms!(o.DGP, o)
 			o.M = o.DGP  # StrEstimator object from which to get A, AR, XAR
 			o.kZ = o.kX
 
 		elseif o.WREnonARubin
 
-			o.DGP = StrEstimator{T}(o, true, T(o.kX₂ ≠ o.kY₂), zero(T), one(T))
-			setR!(o.DGP, o.null ? [o.R₁ ; o.R] : o.R₁, zeros(T,0,o.kZ))  # DGP constraints: model constraints + null if imposed
-			InitVarsIVGMM!(o.DGP)
+			o.DGP = StrEstimator{T}(true, T(o.kX₂ ≠ o.kY₂), zero(T), one(T))
+			setR!(o.DGP, o, o.null ? [o.R₁ ; o.R] : o.R₁, zeros(T,0,o.kZ))  # DGP constraints: model constraints + null if imposed
+			InitVarsIV!(o.DGP, o)
 			if !o.null  # if not imposing null, then DGP constraints, κ, Hessian, etc. do not vary with r and can be set now
-				EstimateIVGMM!(o.DGP, o.r₁)
-				MakeResidualsIVGMM!(o.DGP)
+				EstimateIV!(o.DGP, o, o.r₁)
+				MakeResidualsIV!(o.DGP, o)
 			end
 
-			o.Repl = StrEstimator{T}(o, false, o.LIML, o.Fuller, o.κ)
-			setR!(o.Repl, o.R₁, o.R)
-			InitVarsIVGMM!(o.Repl)
-			EstimateIVGMM!(o.Repl, o.r₁)
+			o.Repl = StrEstimator{T}(false, o.LIML, o.Fuller, o.κ)
+			setR!(o.Repl, o, o.R₁, o.R)
+			InitVarsIV!(o.Repl, o)
+			EstimateIV!(o.Repl, o, o.r₁)
 
 			o.LIML && o.Repl.kZ==1 && o.Nw==1 && (o.As = o.β̂s = zeros(1, o.B+1))
 			o.S✻UZperpinvZperpZperp = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
@@ -325,18 +321,18 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
 		else  # the score bootstrap for IV/GMM uses a IV/GMM DGP but then masquerades as an OLS test because most factors are fixed during the bootstrap. To conform, need DGP and Repl objects with different R, R₁, one with FWL, one not
 
-			o.DGP = StrEstimator{T}(o, true, o.LIML, o.Fuller, o.κ)
-			setR!(o.DGP, o.null ? [o.R₁ ; o.R] : o.R₁, zeros(T,0,o.kZ))  # DGP constraints: model constraints + null if imposed
-			InitVarsIVGMM!(o.DGP)
-			o.Repl = StrEstimator{T}(o, true, o.LIML, o.Fuller, o.κ)
-			setR!(o.Repl, o.R₁, I)  # process replication restraints = model constraints only
-			InitVarsIVGMM!(o.Repl, o.Repl.R₁perp)
-			EstimateIVGMM!(o.Repl, o.r₁)  # bit inefficient to estimate in both objects, but maintains the conformity
-			InitTestDenoms!(o.Repl)
+			o.DGP = StrEstimator{T}(true, o.LIML, o.Fuller, o.κ)
+			setR!(o.DGP, o, o.null ? [o.R₁ ; o.R] : o.R₁, zeros(T,0,o.kZ))  # DGP constraints: model constraints + null if imposed
+			InitVarsIV!(o.DGP, o)
+			o.Repl = StrEstimator{T}(true, o.LIML, o.Fuller, o.κ)
+			setR!(o.Repl, o, o.R₁, I)  # process replication restraints = model constraints only
+			InitVarsIV!(o.Repl, o, o.Repl.R₁perp)
+			EstimateIV!(o.Repl, o, o.r₁)  # bit inefficient to estimate in both objects, but maintains the conformity
+			InitTestDenoms!(o.Repl, o)
 			o.M = o.Repl  # StrEstimator object from which to get A, AR, XAR; DGP follows WRE convention of using FWL, Repl follows OLS convention of not; scorebs for IV/GMM mixes the two
 			if !o.null  # if not imposing null, then DGP constraints, κ, Hessian, etc. do not vary with r and can be set now
-				EstimateIVGMM!(o.DGP, o.r₁)
-				MakeResidualsIVGMM!(o.DGP)
+				EstimateIV!(o.DGP, o, o.r₁)
+				MakeResidualsIV!(o.DGP, o)
 			end
 		end
   end
@@ -358,7 +354,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		end
 	end
 
-  o.small && (o.dof_r = o.NClustVar>0 ? minN - 1 : o._Nobs - o.kZ - o.NFE)
+  o.small && (o.dof_r = o.NClustVar>0 ? minN - one(T) : o._Nobs - (o.kZ + o.NFE))  # floating-point dof_r allows for fractional fweights, FWIW...
 
   o.sqrt = isone(o.dof)  # work with t/z stats instead of F/chi2?
 
@@ -382,7 +378,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			o.numer_b = Vector{T}(undef,nrows(o.Repl.RRpar))
 		end
 		o.bootstrapt && o.robust &&
-    	(o.crosstabBootind = o.Nobs==o.N✻ ? diagind(FakeArray(o.N✻,o.N✻)) : 
+    	(o.crosstabBootind = o.Nobs==o.N✻ ? Vector(diagind(FakeArray(o.N✻,o.N✻))) : 
 			                                    LinearIndices(FakeArray(o.Nobs,o.N✻))[CartesianIndex.(1:o.Nobs, o.IDBootData)])
 	else
 		o.poles = o.anchor = zeros(T,0)

@@ -5,8 +5,8 @@ export BoottestResult, wildboottest, AuxWtType, PType, MAdjType, DistStatType,
 using LinearAlgebra, Random, Distributions, SortingAlgorithms, LoopVectorization
 
 include("utilities.jl")
-include("estimators.jl")
 include("StrBoottest.jl")
+include("estimators.jl")
 include("init.jl")
 include("WRE.jl")
 include("nonWRE.jl")
@@ -50,7 +50,7 @@ function NoNullUpdate!(o::StrBootTest{T} where T)
   if o.WREnonARubin
 		o.numer[:,1] = o.R * o.DGP.Rpar * o.β̂s[1] - o.r
   elseif o.ARubin
-		EstimateARubin!(o.DGP, o.r)
+		EstimateARubin!(o.DGP, o, o.r)
 		o.numer[:,1] = o.v_sd * @view o.DGP.β̂[o.kX₁+1:end,:]  # coefficients on excluded instruments in ARubin OLS
   else
 		o.numer[:,1] = o.v_sd * (o.R * (o.ML ? o.β̂ : o.M.β̂) - o.r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
@@ -80,5 +80,9 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T, w::Integer)
 	nothing
 end
 
-include("precompile.jl")
+if Base.VERSION >= v"1.4.2"  # source: https://timholy.github.io/SnoopCompile.jl/stable/snoopi_deep_parcel/#SnoopCompile.write
+	include("../src/precompile_WildBootTests.jl")
+	_precompile_()
+end
+ 
 end

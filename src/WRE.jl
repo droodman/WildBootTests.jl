@@ -92,12 +92,12 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where 
 			PXY✻ = reshape(o.Repl.PXZ[:,ind1], :, 1)  # store as matrix to reduce compiler confusion
 			o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ o.S✻UPX[ind1+1] * o.v)
 
-			dest = @panelsum(PXY✻ .* (o.Repl.y₁ .- o.S✻UMZperp[1] * o.v), o.wt, o.info⋂Data)
+			dest = @panelsum(PXY✻ .* (o.Repl.y₁ .- o.S✻UMZperp[1] * o.v), o.info⋂Data)
 
 			for ind2 ∈ 1:o.Repl.kZ
 				_β̂ = view(β̂s,ind2,:)'
 				dest .-= @panelsum(PXY✻ .* (o.Repl.Yendog[ind2+1] ?  view(o.Repl.Z,:,ind2) * _β̂ .- o.S✻UMZperp[ind2+1] * (o.v .* _β̂) :
-															                              (view(o.Repl.Z,:,ind2) * _β̂)                                      ), o.wt, o.info⋂Data)
+															                              (view(o.Repl.Z,:,ind2) * _β̂)                                      ), o.info⋂Data)
 			end
 		else  # create pieces of each N x B matrix one at a time rather than whole thing at once
 			dest = Matrix{T}(undef, o.clust[1].N, ncols(o.v))  # XXX preallocate this & turn Filling into Filling! ?
@@ -110,11 +110,11 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where 
 						o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ view(o.S✻UPX[ind1+1],i,:)'o.v)
 
 						if iszero(ind2)
-							dest[i,:]   = wtsum(o.wt, PXY✻ .* (o.Repl.y₁[i] .- view(o.S✻UMZperp[1],i,:))'o.v)
+							dest[i,:]   = colsum(PXY✻ .* (o.Repl.y₁[i] .- view(o.S✻UMZperp[1],i,:))'o.v)
 						elseif o.Repl.Yendog[ind2+1]
-							dest[i,:] .-= wtsum(o.wt, PXY✻ .* (o.Repl.Z[i,ind2] * _β̂ .- view(o.S✻UMZperp[ind2+1],i,:)'β̂v))
+							dest[i,:] .-= colsum(PXY✻ .* (o.Repl.Z[i,ind2] * _β̂ .- view(o.S✻UMZperp[ind2+1],i,:)'β̂v))
 						else
-							dest[i,:] .-= wtsum(o.wt, PXY✻ .* (o.Repl.Z[i,ind2] * _β̂))
+							dest[i,:] .-= colsum(PXY✻ .* (o.Repl.Z[i,ind2] * _β̂))
 						end
 					end
 				else
@@ -124,9 +124,9 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where 
 																					 reshape(o.Repl.PXZ[S,ind1], :, 1)
 
 						if iszero(ind2)
-							dest[i,:]   = wtsum(o.wt, PXY✻ .* (o.Repl.y₁[S] .- view(o.S✻UMZperp[1],S,:) * o.v))
+							dest[i,:]   = colsum(PXY✻ .* (o.Repl.y₁[S] .- view(o.S✻UMZperp[1],S,:) * o.v))
 						else
-							dest[i,:] .-= wtsum(o.wt, PXY✻ .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[S,ind2] * _β̂ .- view(o.S✻UMZperp[ind2+1],S,:) * β̂v :
+							dest[i,:] .-= colsum(PXY✻ .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[S,ind2] * _β̂ .- view(o.S✻UMZperp[ind2+1],S,:) * β̂v :
 																						                             o.Repl.Z[S,ind2] * _β̂                                       ))
 						end
 					end
@@ -180,7 +180,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where 
 			if o.Repl.Yendog[ind1+1] && o.Repl.Yendog[ind2+1]
 				for i ∈ 1:o.clust[1].N
 					S = o.info⋂Data[i]
-					colquadformminus!(dest, i, cross(view(o.S✻UPX[ind1+1],S,:), o.haswt ? o.wt[S] : zeros(T,0), view(o.S✻UMZperp[ind2+1],S,:)), o.v, β̂v)
+					colquadformminus!(dest, i, view(o.S✻UPX[ind1+1],S,:)'view(o.S✻UMZperp[ind2+1],S,:), o.v, β̂v)
 				end
 			end
 		end
@@ -190,12 +190,13 @@ end
 
 
 function PrepWRE!(o::StrBootTest{T}) where T
-  EstimateIVGMM!(o.DGP, o.null ? [o.r₁ ; o.r] : o.r₁)
-  MakeResidualsIVGMM!(o.DGP)
+  EstimateIV!(o.DGP, o, o.null ? [o.r₁ ; o.r] : o.r₁)
+  MakeResidualsIV!(o.DGP, o)
   Ü₂par = view(o.DGP.Ü₂ * o.Repl.RparY,:,:)
 
   for i ∈ 0:o.Repl.kZ  # precompute various clusterwise sums
-		uwt = vHadw(i>0 ? view(Ü₂par,:,i) : view(o.DGP.u⃛₁,:), o.wt)::Union{Vector{T}, SubArray{T, 1}}
+		u = i>0 ? view(Ü₂par,:,i) : view(o.DGP.u⃛₁,:)
+		uwt = vHadw(u, o.wt)::Union{Vector{T}, SubArray{T, 1}}
 
 		# S_✻(u .* X), S_✻(u .* Zperp) for residuals u for each endog var; store transposed
 		o.S✻UX[i+1]      = @panelsum2(o.Repl.X₁, o.Repl.X₂, uwt, o.infoBootData)'
@@ -217,7 +218,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 		if o.robust && o.bootstrapt
 			if !o.granular  # Within each bootstrap cluster, groupwise sum by all-error-cluster-intersections of u.*X and u.Zperp (and times invXX or invZperpZperp)
 				for g ∈ 1:o.N✻
-					o.SCT⋂uXinvXX[i+1,g] = @panelsum(o.Repl.XinvXX, uwt, o.infoCT⋂✻[g])
+					o.SCT⋂uXinvXX[i+1,g] = @panelsum(o.Repl.XinvXX, u, o.infoCT⋂✻[g])
 				end
 			end
 

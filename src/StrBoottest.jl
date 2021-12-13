@@ -1,4 +1,4 @@
-# Definition of StrBoottest "class" for holding intermediate results, with associated utilities and get functions
+# Definition of StrBootTest "class" for holding intermediate results, with associated utilities and get functions
 
 "Auxilliary weight types: `rademacher`, `mammen`, `webb`, `normal`, `gamma`"
 @enum AuxWtType rademacher mammen webb normal gamma
@@ -23,9 +23,35 @@ struct StrFE{T<:Real}
   wt::Vector{T}
 end
 
+mutable struct StrEstimator{T<:AbstractFloat}
+  isDGP::Bool; LIML::Bool; Fuller::T; κ::T
+  R₁perp::Matrix{T}; Rpar::Matrix{T}
 
-@inline vecconvert(T::DataType, X) = isa(X, AbstractArray) ? reshape(eltype(X)==T ? X : T.(X), size(X,1)           ) : X
-@inline matconvert(T::DataType, X) = isa(X, AbstractArray) ? reshape(eltype(X)==T ? X : T.(X), size(X,1), size(X,2)) : X
+  kZ::Int64
+  y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β̂::Vector{T}; β̂₀::Vector{T}; invXXXy₁par::Vector{T}
+  Yendog::Vector{Bool}
+  invZperpZperp::Symmetric{T,Matrix{T}}; XZ::Matrix{T}; PXZ::Matrix{T}; YPXY::Symmetric{T,Matrix{T}}; R₁invR₁R₁::Matrix{T}
+	RperpX::#=Uber=#Matrix{T}; RperpXperp::#=Uber=#Matrix{T}; RRpar::Matrix{T}; RparY::#=Uber=#Matrix{T}; RR₁invR₁R₁::Matrix{T}
+	∂β̂∂r::Matrix{T}; YY::Symmetric{T,Matrix{T}}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; XinvXX::Matrix{T}; Rt₁::Vector{T}
+	invXX::Symmetric{T,Matrix{T}}; Y₂::Matrix{T}; X₂::Matrix{T}; invH::Symmetric{T,Matrix{T}}
+	y₁par::Vector{T}; Xy₁par::Vector{T}
+	A::Symmetric{T,Matrix{T}}; Z::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
+	FillingT₀::Matrix{Matrix{T}}
+	WXAR::Matrix{T}; S⋂PXYZperp::Vector{Matrix{T}}; S⋂YX::Vector{Matrix{T}}; CT_XAR::Vector{Matrix{T}}; CT_FE⋂PY::Vector{Matrix{T}}
+
+  # IV/GMM only
+  ZZ::Symmetric{T,Matrix{T}}; XY₂::Matrix{T}; XX::Symmetric{T,Matrix{T}}; H_2SLS::Symmetric{T,Matrix{T}}; V::Matrix{T}; ZY₂::Matrix{T}; X₂Y₂::Matrix{T}; X₁Y₂::Matrix{T}; ZR₁ZR₁::Symmetric{T,Matrix{T}}; X₂ZR₁::Matrix{T}; ZR₁Y₂::Matrix{T}; X₁ZR₁::Matrix{T}
+  ZZR₁::Matrix{T}; X₂y₁::Vector{T}; X₁y₁::Vector{T}; Zy₁::Vector{T}; ZXinvXXXZ::Matrix{T}; H_2SLSmZZ::Symmetric{T,Matrix{T}}
+  ZXinvXXXy₁par::Vector{T}; t₁Y::Vector{T}
+  Y₂y₁::Vector{T}; twoR₁Zy₁::Vector{T}
+  y₁y₁::T; y₁pary₁par::T
+  X₂y₁par::Vector{T}; X₁y₁par::Vector{T}; Zy₁par::Vector{T}
+  Y₂y₁par::Vector{T}
+  Rperp::Matrix{T}; ZR₁::Matrix{T}
+  kX::Int64
+
+  StrEstimator{T}(isDGP, LIML, Fuller, κ) where T<:AbstractFloat = new(isDGP, LIML, Fuller, κ, Matrix{T}(undef,0,0))
+end
 
 mutable struct StrBootTest{T<:AbstractFloat}
   R::Matrix{T}; r::Vector{T}; R₁::Matrix{T}; r₁::Vector{T}
@@ -34,11 +60,11 @@ mutable struct StrBootTest{T<:AbstractFloat}
   LIML::Bool; Fuller::T; κ::T; ARubin::Bool
   B::Int64; auxtwtype::AuxWtType; rng::AbstractRNG; maxmatsize::Float16
   ptype::PType; null::Bool; bootstrapt::Bool
-	ID::Matrix{Int64}; nbootclustvar::Int8; nerrclustvar::Int64; issorted::Bool; small::Bool
+	ID::Matrix{Int64}; nbootclustvar::Int8; nerrclustvar::Int8; issorted::Bool; small::Bool
   FEID::Vector{Int64}; FEdfadj::Bool
   level::T; rtol::T
   madjtype::MAdjType; NH₀::Int16
-  ML::Bool; β̂::Vector{T}; A::Matrix{T}; sc::Matrix{T}
+  ML::Bool; β̂::Vector{T}; A::Symmetric{T,Matrix{T}}; sc::Matrix{T}
   willplot::Bool; gridmin::Vector{T}; gridmax::Vector{T}; gridpoints::Vector{Float32}
 
   q::Int16; twotailed::Bool; scorebs::Bool; robust::Bool
@@ -52,14 +78,14 @@ mutable struct StrBootTest{T<:AbstractFloat}
   peak::NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
 
   sqrt::Bool; Nobs::Int64; _Nobs::T; kZ::Int64; kY₂::Int64; kX₁::Int64; sumwt::T; NClustVar::Int8; haswt::Bool; REst::Bool; multiplier::T; smallsample::T
-		WREnonARubin::Bool; dof::Int64; dof_r::Int64; p::T; BootClust::Int8
+		WREnonARubin::Bool; dof::Int64; dof_r::T; p::T; BootClust::Int8
 		purerobust::Bool; N✻::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX₂::Int64; kX::Int64
   _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; u✻::Matrix{T}; CT_WE::Matrix{T}
   infoBootData::Vector{UnitRange{Int64}}; infoBootAll::Vector{UnitRange{Int64}}; infoErrAll::Vector{UnitRange{Int64}}
   JN⋂N✻::Matrix{T}; statDenom::Matrix{T}; uXAR::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; β̂dev::Matrix{T}; δdenom_b::Matrix{T}
 	_J⋂::Matrix{T}; YY✻_b::Matrix{T}; YPXY✻_b::Matrix{T}; numerw::Matrix{T}; Zyg::Vector{Matrix{T}}; numer_b::Vector{T}
 		
-	distCDR::Matrix{T}; plotX::Tuple{Vararg{Vector{T}, N} where N}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
+	distCDR::Matrix{T}; plotX::Vector{Vector{T}}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
   numersum::Vector{T}; ü₀::Vector{T}; invFEwt::Vector{T}
 	β̂s::Matrix{T}; As::Matrix{T}
 	infoAllData::Vector{UnitRange{Int64}}; info⋂Data::Vector{UnitRange{Int64}}; IDAll::Matrix{T}
@@ -78,9 +104,9 @@ mutable struct StrBootTest{T<:AbstractFloat}
   StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
 	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,
 								 β̂, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real =
-	  new(matconvert(T,R), vecconvert(T,r), matconvert(T,R₁), vecconvert(T,r₁), vecconvert(T,y₁), matconvert(T,X₁), matconvert(T,Y₂), matconvert(T,X₂), vecconvert(T,wt), fweights, LIML || !iszero(Fuller), 
-		    Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, matconvert(Int64,ID), nbootclustvar, nerrclustvar, issorted, small, vecconvert(Int64,FEID), FEdfadj, level, rtol, madjtype, NH₀, ML, 
-				vecconvert(T,β̂), matconvert(T,A), matconvert(T,sc), willplot, gridmin, gridmax, gridpoints,
+	  new(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML || !iszero(Fuller), 
+		    Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML, 
+				β̂, A, sc, willplot, gridmin, gridmax, gridpoints,
 		  nrows(R),
 		  ptype==symmetric || ptype==equaltail,
 		  scorebs || iszero(B) || ML,
@@ -92,7 +118,6 @@ mutable struct StrBootTest{T<:AbstractFloat}
 		  Vector{T}(undef,0), Vector{T}(undef,0), Matrix{T}(undef,0,0), Vector{T}(undef,0),
 		  Matrix{T}(undef,0,0),
 		  (X = Vector{T}(undef,0), p = T(NaN)))
-
 end
 
 
@@ -334,7 +359,7 @@ function getdf_r(o::StrBootTest)
 end
 function _getplot(o::StrBootTest)
   o.notplotted && plot!(o)
-  (X=o.plotX, p=o.plotY)
+  (X=Tuple(o.plotX), p=o.plotY)
 end
 function getpeak(o::StrBootTest)  # x and y values of confidence curve peak (at least in OLS && ARubin)
   o.notplotted && plot!(o)

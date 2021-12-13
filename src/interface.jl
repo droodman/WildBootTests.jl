@@ -6,7 +6,7 @@ struct BoottestResult{T}
   p::T; padj::T
   reps::Int64; repsfeas::Int64
   NBootClust::Int64
-  dof::Int64; dof_r::Int64
+  dof::Int64; dof_r::T
   plot::Union{Nothing, NamedTuple{(:X, :p), Tuple{Tuple{Vararg{Vector{T}, N} where N},Vector{T}}}}
   peak::Union{Nothing, NamedTuple{(:X, :p), Tuple{Vector{T}, T}}}
   CI::Union{Nothing, Matrix{T}}
@@ -79,6 +79,77 @@ function Base.show(io::IO, o::BoottestResult{T}) where T
 	isdefined(o, :CI) && !isnothing(o.CI) && length(o.CI)>0 && print(io, "CI = $(CI(o))\n")
 end
 
+# single entry point with arguments already converted to standardized types, to allow a small set of precompile() calls
+function __wildboottest(
+	R::Matrix{T},
+	r::Vector{T};
+	resp::Vector{T},
+	predexog::Matrix{T},
+	predendog::Matrix{T},
+	inst::Matrix{T},
+	R1::Matrix{T},
+	r1::Vector{T},
+	clustid::Matrix{Int64},
+	nbootclustvar::Int8,
+	nerrclustvar::Int8,
+	issorted::Bool,
+	hetrobust::Bool,
+	feid::Vector{Int64},
+	fedfadj::Bool,
+	obswt::Vector{T},
+	fweights::Bool,
+	maxmatsize::Float16,
+	ptype::PType,
+	bootstrapc::Bool,
+	LIML::Bool,
+	Fuller::T,
+	kappa::T,
+	ARubin::Bool,
+	small::Bool,
+	scorebs::Bool,
+	reps::Int64,
+	imposenull::Bool,
+	auxwttype::AuxWtType,
+	rng::AbstractRNG,
+	level::T,
+	rtol::T,
+	madjtype::MAdjType,
+	NH0::Int16,
+	ML::Bool,
+	scores::Matrix{T},
+	beta::Vector{T},
+	A::Symmetric{T,Matrix{T}},
+	gridmin::Vector{T},
+	gridmax::Vector{T},
+	gridpoints::Vector{Float32},
+	diststat::DistStatType,
+	getCI::Bool,
+	getplot::Bool,
+	getauxweights::Bool) where T
+
+	M = StrBootTest{T}(R, r, R1, r1, resp, predexog, predendog, inst, obswt, fweights, LIML, Fuller, kappa, ARubin,
+	                   reps, auxwttype, rng, maxmatsize, ptype, imposenull, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, issorted, hetrobust, small,
+	                   feid, fedfadj, level, rtol, madjtype, NH0, ML, beta, A, scores, getplot,
+	                   gridmin, gridmax, gridpoints)
+
+	if getplot || (level<1 && getCI)
+		plot = getplot ? _getplot(M) : nothing
+		peak = getpeak(M)
+		CI = level<1 & getCI ? _getCI(M) : nothing
+	else
+		CI = plot = peak = nothing
+	end
+
+	BoottestResult{T}(getstat(M),
+	                  isone(nrows(R)) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
+	                  getp(M), getpadj(M), getreps(M), getrepsfeas(M), getNBootClust(M), getdf(M), getdf_r(M), plot, peak, CI,
+	                  getdist(M,diststat),
+	                  getb(M), getV(M),
+	                  getauxweights && reps>0 ? getauxweights(M) : nothing , M)
+end
+
+@inline vecconvert(T::DataType, X) = isa(X, AbstractArray) ? reshape(eltype(X)==T ? X : T.(X), size(X,1)           ) : X
+@inline matconvert(T::DataType, X) = isa(X, AbstractArray) ? reshape(eltype(X)==T ? X : T.(X), size(X,1), size(X,2)) : X
 
 function _wildboottest(T::DataType,
 					  R::AbstractVecOrMat,
@@ -153,27 +224,65 @@ function _wildboottest(T::DataType,
 		@assert iszero(length(gridpoints)) || length(gridpoints)==nrows(R) "Length of gridpoints doesn't match number of hypotheses being jointly tested"
 	end
 
-  M = StrBootTest{T}(R, r, R1, r1, resp, predexog, predendog, inst, obswt, fweights, LIML, Fuller, kappa, ARubin,
-	                   reps, auxwttype, rng, maxmatsize, ptype, imposenull, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, issorted, hetrobust, small,
-	                   feid, fedfadj, level, rtol, madjtype, NH0, ML, beta, A, scores, getplot,
-	                   map(x->T(ismissing(x) ? NaN : x), gridmin),
-	                   map(x->T(ismissing(x) ? NaN : x), gridmax),
-	                   map(x->Float32(ismissing(x) ? NaN : x), gridpoints))
+	_gridmin = Vector{T}(undef, length(gridmin))
+	_gridmax = Vector{T}(undef, length(gridmax))
+	_gridpoints = Vector{Float32}(undef, length(gridpoints))
+	for i ∈ 1:length(gridmin)  # cumbersome loops because map() and list comprehensions mess up type inference(?!)
+		_gridmin[i] = T(ismissing(gridmin[i]) ? NaN : gridmin[i])
+	end
+	for i ∈ 1:length(gridmax)
+		_gridmax[i] = T(ismissing(gridmax[i]) ? NaN : gridmax[i])
+	end
+	for i ∈ 1:length(gridpoints)
+		_gridpoints[i] = T(ismissing(gridpoints[i]) ? NaN : gridpoints[i])
+	end
 
-	if getplot || (level<1 && getCI)
-		plot = getplot ? _getplot(M) : nothing
-		peak = getpeak(M)
-		CI = level<1 & getCI ? _getCI(M) : nothing
-  else
-		CI = plot = peak = nothing
-  end
-
-  BoottestResult{T}(getstat(M),
-	                  isone(nrows(R)) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
-	                  getp(M), getpadj(M), getreps(M), getrepsfeas(M), getNBootClust(M), getdf(M), getdf_r(M), plot, peak, CI,
-	                  getdist(M,diststat),
-	                  getb(M), getV(M),
-	                  getauxweights && reps>0 ? getauxweights(M) : nothing , M)
+	__wildboottest(
+		matconvert(T,R),
+		vecconvert(T,r);
+		resp=vecconvert(T,resp),
+		predexog=matconvert(T,predexog),
+		predendog=matconvert(T,predendog),
+		inst=matconvert(T,inst),
+		R1=matconvert(T,R1),
+		r1=vecconvert(T,r1),
+		clustid=matconvert(Int64,clustid),  # bootstrap-only clust vars, then boot&err clust vars, then err-only clust vars
+		nbootclustvar=Int8(nbootclustvar),
+		nerrclustvar=Int8(nerrclustvar),
+		issorted,
+		hetrobust,
+		feid=vecconvert(Int64,feid),
+		fedfadj,
+		obswt=vecconvert(T,obswt),
+		fweights,
+		maxmatsize=Float16(maxmatsize),
+		ptype,
+		bootstrapc,
+		LIML,
+		Fuller=T(Fuller),
+		kappa=T(kappa),
+		ARubin,
+		small,
+		scorebs,
+		reps=Int64(reps),
+		imposenull,
+		auxwttype,
+		rng,
+		level=T(level),
+		rtol=T(rtol),
+		madjtype,
+		NH0=Int16(NH0),
+		ML,
+		scores=matconvert(T,scores),
+		beta=vecconvert(T,beta),
+		A=Symmetric(matconvert(T,A)),
+		gridmin=_gridmin,
+		gridmax=_gridmax,
+		gridpoints=_gridpoints,
+		diststat,
+		getCI,
+		getplot,
+		getauxweights)
 end
 
 _wildboottest(T::DataType, R, r::Number; kwargs...) = _wildboottest(T, R, [r]; kwargs...)
