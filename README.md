@@ -7,7 +7,7 @@ WildBootTests.jl performs wild bootstrap-based hypothesis tests at extreme speed
 ## Example
 
 ```
-using WildBootTests, CSV, DataFrames, Plots
+using WildBootTests, CSV, DataFrames, StatsModels, Plots
 d = download("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv");
 df = CSV.read(d, DataFrame);
 f = @formula(y ~ 1 + x);                             # state OLS model
