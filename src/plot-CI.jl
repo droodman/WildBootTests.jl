@@ -115,7 +115,7 @@ function plot!(o::StrBootTest{T}) where T
 			lo = [o.gridmin[1]]
 			hi = [o.gridmax[1]]
 		end
-println("lo=$lo hi=$hi after")
+# println("lo=$lo hi=$hi after")
 
 		_gridpoints = round.(Int32, o.gridpoints)
 		o.plotX = [collect(range(lo[1], hi[1], length=_gridpoints[1]))]  # store as 1-vector since q=1
