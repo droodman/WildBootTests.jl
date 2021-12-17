@@ -72,9 +72,9 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T, w::Integer)
   if w == o.Nw  # last weight group?
 		o.statDenom .= (o.statDenom - o.numersum * o.numersum' / o.B) / o.B
 		if o.sqrt
-			o.dist[:,:] .= o.numer' ./ sqrtNaN.(o.statDenom)
+			o.dist .= o.numer ./ sqrtNaN.(o.statDenom)
 		else
-			o.dist = colquadform(invsym(o.statDenom), o.numer)
+			colquadform!(o.dist, invsym(o.statDenom), o.numer)
 		end
   end
 	nothing

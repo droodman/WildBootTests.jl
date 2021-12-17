@@ -3,11 +3,11 @@
 # Construct stuff that depends linearly or quadratically on r, possibly by interpolation
 function MakeInterpolables!(o::StrBootTest{T}) where T
 	if o.interpolable
-		if iszero(nrows(o.anchor))  # first call? save current r as permanent anchor for interpolation
+		if iszero(nrows(o.anchor))  # first call? save current r as anchor for interpolation
 			o.anchor = o.r
 			_MakeInterpolables!(o, o.anchor)
 			o.numer₀ = o.numer
-			o.interpolate_u && (o.ü₀ = o.ü)  # XXX would need to copy() if o.ü were not allocated from scratch on each construction
+			o.interpolate_u && (o.ü₀ = copy(o.ü))
 			o.robust && (o.Jcd₀ = deepcopy(o.Jcd))
 			return
 		end
@@ -17,7 +17,7 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 			o.robust && (o.denom₀ = deepcopy(o.denom))  # grab quadratic denominator from *previous* (1st) evaluation
 			newPole = trues(o.q)  # all poles new
 		else  # been here at least twice? interpolate unless current r stretches range > 2X in some dimension(s)
-			newPole = abs.(o.r - o.anchor) .> T(2) * abs.(o.poles)
+			newPole = abs.(o.r .- o.anchor) .> T(2) .* abs.(o.poles)
 		end
 
 		if any(newPole)  # prep interpolation
@@ -27,19 +27,19 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 					thisr = copy(o.anchor); thisr[h₁] = o.r[h₁]  # if q>1 this creates anchor points that are not graphed, an inefficiency. But simpler to make the deviations from 1st point orthogonal
 					_MakeInterpolables!(o, thisr)  # calculate linear stuff at new anchor
 
-					o.∂numer∂r[h₁] = (o.numer - o.numer₀) / o.poles[h₁]
-					o.interpolate_u && (o.∂u∂r[h₁] = (o.ü - o.ü₀) / o.poles[h₁])
+					o.∂numer∂r[h₁] = (o.numer .- o.numer₀) ./ o.poles[h₁]
+					o.interpolate_u && (o.∂u∂r[h₁] = (o.ü .- o.ü₀) ./ o.poles[h₁])
 					if o.robust  # dof > 1 for an ARubin test with >1 instruments.
 						for d₁ ∈ 1:o.dof
 							for c ∈ 1:o.NErrClustCombs
-								o.∂Jcd∂r[h₁][c,d₁] = (o.Jcd[c,d₁] - o.Jcd₀[c,d₁]) / o.poles[h₁]
+								o.∂Jcd∂r[h₁][c,d₁] = (o.Jcd[c,d₁] .- o.Jcd₀[c,d₁]) ./ o.poles[h₁]
 								for d₂ ∈ 1:d₁
 									tmp = coldot(o.Jcd₀[c,d₁], o.∂Jcd∂r[h₁][c,d₂])
 									d₁ ≠ d₂ && (coldotplus!(tmp, o.Jcd₀[c,d₂], o.∂Jcd∂r[h₁][c,d₁]))  # for diagonal items, faster to just double after the c loop
 									@clustAccum!(o.∂denom∂r[h₁][d₁,d₂], c, tmp)
 								end
 							end
-							o.∂denom∂r[h₁][d₁,d₁] .*= 2  # double diagonal terms
+							o.∂denom∂r[h₁][d₁,d₁] .*= T(2)  # double diagonal terms
 						end
 					end
 				end
@@ -56,36 +56,36 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 			Δ = o.poles
 			o.interpolating = true
 
-			if o.q==2  # in this case we haven't yet actually computed interpolables at *pr, so interpolate them
+			if o.q==2  # in this case we haven't yet actually computed interpolables at r, so interpolate them
 				o.numerw .= o.numer₀ .+ o.∂numer∂r[1] .* Δ[1] .+ o.∂numer∂r[2] .* Δ[2]
 				if o.interpolate_u
-					o.ü .= o.ü₀ .+ o.∂u∂r[1] .* Δ[1] .+ o.∂u∂r[2] .* Δ[2]
+					o.ü = o.ü₀ .+ o.∂u∂r[1] .* Δ[1] .+ o.∂u∂r[2] .* Δ[2]
 				end
 			end
 
 		else  # routine linear interpolation if the anchors not moved
 			Δ = o.r - o.anchor
-			o.numerw = o.numer₀ + o.∂numer∂r[1] * Δ[1]
-			o.q > 1 && (o.numerw .+= o.∂numer∂r[2] * Δ[2])
+			o.numerw .= o.numer₀ .+ o.∂numer∂r[1] .* Δ[1]
+			o.q > 1 && (o.numerw .+= o.∂numer∂r[2] .* Δ[2])
 			if o.interpolate_u
-				o.ü = o.ü₀ + o.∂u∂r * Δ[1]
-				o.q > 1 && (o.ü .+= o.∂u∂r[2] * Δ[2])
+				o.ü .= o.ü₀ .+ o.∂u∂r .* Δ[1]
+				o.q > 1 && (o.ü .+= o.∂u∂r[2] .* Δ[2])
 			end
 		end
 
 		if o.robust  # even if an anchor was just moved, and linear components just computed from scratch, do the quadratic interpolation now, from the updated linear factors
 			if isone(o.q)
 				for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁
-					o.denom[d₁,d₂] = o.denom₀[d₁,d₂] .+ o.∂denom∂r[d₁,d₂][1,1] .* Δ .+ o.∂²denom∂r²[d₁,d₂][1,1] .* Δ.^2
+					o.denom[d₁,d₂] .= o.denom₀[d₁,d₂] .+ o.∂denom∂r[d₁,d₂][1,1] .* Δ .+ o.∂²denom∂r²[d₁,d₂][1,1] .* Δ.^2
 				end
 			else  # q==2
 				for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁
-					o.denom[d₁,d₂] = o.denom₀[d₁,d₂] +
-									 o.∂denom∂r[1][d₁,d₂] * Δ[1] +
-									 o.∂denom∂r[2][d₁,d₂] * Δ[2] +
-									 o.∂²denom∂r²[1,1][d₁,d₂] * (Δ[1] ^ 2) +
-									 o.∂²denom∂r²[2,1][d₁,d₂] * (Δ[1] * Δ[2]) +
-									 o.∂²denom∂r²[2,2][d₁,d₂] * (Δ[2] ^ 2)
+					o.denom[d₁,d₂] .= o.denom₀[d₁,d₂] .+
+										        o.∂denom∂r[1][d₁,d₂] .* Δ[1] .+
+										        o.∂denom∂r[2][d₁,d₂] .* Δ[2] .+
+										        o.∂²denom∂r²[1,1][d₁,d₂] .* (Δ[1] .^ 2) .+
+										        o.∂²denom∂r²[2,1][d₁,d₂] .* (Δ[1] .* Δ[2]) .+
+										        o.∂²denom∂r²[2,2][d₁,d₂] .* (Δ[2] .^ 2)
 				end
 			end
 		end
@@ -223,6 +223,7 @@ end
 function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 	w > 1 && MakeNumerAndJ!(o, w)
 	!o.bootstrapt && return
+
 	if o.robust
     if !o.interpolating  # these quadratic computation needed to *prepare* for interpolation but are superseded by interpolation once it is going
     	o.purerobust && (u✻2 = o.u✻ .^ 2)
@@ -236,12 +237,12 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
    	end
 
 		if isone(o.dof)
-			@storeWtGrpResults!(o.dist, vec(o.numerw ./ sqrtNaN.(o.denom[1,1])))
+			@storeWtGrpResults!(o.dist, o.numerw ./ sqrtNaN.(o.denom[1,1]))
 			isone(w) &&
 				(o.statDenom = hcat(o.denom[1,1][1]))  # original-sample denominator
 		elseif o.dof==2  # hand-code 2D numer'inv(denom)*numer
 			t1 = view(o.numerw,1,:)'; t2 = view(o.numerw,2,:)'; t12 = t1.*t2
-			@storeWtGrpResults!(o.dist, vec((t1.^2 .* o.denom[2,2] .- 2 .* t12 .* o.denom[2,1] .+ t2.^2 .* o.denom[1,1]) ./ (o.denom[1,1].*o.denom[2,2] .- o.denom[2,1].^2)))
+			@storeWtGrpResults!(o.dist, (t1.^2 .* o.denom[2,2] .- 2 .* t12 .* o.denom[2,1] .+ t2.^2 .* o.denom[1,1]) ./ (o.denom[1,1].*o.denom[2,2] .- o.denom[2,1].^2))
 			isone(w) &&
 				(o.statDenom = [o.denom[1,1][1] o.denom[2,1][1] ; o.denom[2,1][1] o.denom[2,2][1]])  # original-sample denominator
 		else  # build each replication's denominator from vectors that hold values for each position in denominator, all replications
@@ -279,7 +280,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 				end
 			end
 
-			@storeWtGrpResults!(o.dist, vec(o.numerw ./ sqrtNaN.(o.denom[1,1])))
+			@storeWtGrpResults!(o.dist, o.numerw ./ sqrtNaN.(o.denom[1,1]))
 			isone(w) && (o.statDenom = o.denom[1,1])  # original-sample denominator
 		else
 			o.denom[1,1] = o.R * AR

@@ -73,7 +73,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   dirty::Bool; v_sd::T; notplotted::Bool
   confpeak::Vector{T}
   IDBootData::Vector{Int64}; IDBootAll::Vector{Int64}
-  anchor::Vector{T}; poles::Vector{T}; numer::Matrix{T}; dist::Vector{T}
+  anchor::Vector{T}; poles::Vector{T}; numer::Matrix{T}
   CI::Matrix{T}
   peak::NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
 
@@ -83,7 +83,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; u✻::Matrix{T}; CT_WE::Matrix{T}
   infoBootData::Vector{UnitRange{Int64}}; infoBootAll::Vector{UnitRange{Int64}}; infoErrAll::Vector{UnitRange{Int64}}
   JN⋂N✻::Matrix{T}; statDenom::Matrix{T}; uXAR::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; β̂dev::Matrix{T}; δdenom_b::Matrix{T}
-	_J⋂::Matrix{T}; YY✻_b::Matrix{T}; YPXY✻_b::Matrix{T}; numerw::Matrix{T}; Zyg::Vector{Matrix{T}}; numer_b::Vector{T}
+	_J⋂::Matrix{T}; YY✻_b::Matrix{T}; YPXY✻_b::Matrix{T}; numerw::Matrix{T}; Zyg::Vector{Matrix{T}}; numer_b::Vector{T}; dist::Matrix{T}
 		
 	distCDR::Matrix{T}; plotX::Vector{Vector{T}}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
   numersum::Vector{T}; ü₀::Vector{T}; invFEwt::Vector{T}
@@ -115,7 +115,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 		  true, one(T), true,
 		  [T(0)],
 		  Vector{Int64}(undef,0), Vector{Int64}(undef,0),
-		  Vector{T}(undef,0), Vector{T}(undef,0), Matrix{T}(undef,0,0), Vector{T}(undef,0),
+		  Vector{T}(undef,0), Vector{T}(undef,0), Matrix{T}(undef,0,0),
 		  Matrix{T}(undef,0,0),
 		  (X = Vector{T}(undef,0), p = T(NaN)))
 end
@@ -204,11 +204,10 @@ end
 macro storeWtGrpResults!(dest, content)  # poor hygiene in referencing caller's o and w
   if dest == :(o.dist)
 		return quote
-			local _content = $(esc(content))
 			if isone($(esc(:o)).Nw)
-				$(esc(dest)) = _content
+				$(esc(dest)) .= $(esc(content))
 			else
-				$(esc(dest))[$(esc(:o)).WeightGrp[$(esc(:w))]] = _content
+				$(esc(dest))[$(esc(:o)).WeightGrp[$(esc(:w))]] .= $(esc(content))
 			end
 		end
   else
@@ -254,7 +253,7 @@ function getdist(o::StrBootTest, diststat::DistStatType=nodist)
 	  sort!(o.distCDR)
   elseif nrows(o.distCDR)==0  # return test stats
     if length(o.dist) > 1
-	    o.distCDR = reshape((@view o.dist[2:end]), :, 1) * o.multiplier
+	    o.distCDR = (@view o.dist[2:end])' * o.multiplier
 	    sort!(o.distCDR, dims=1)
 	  else
 	    o.distCDR = zeros(0,1)
@@ -334,7 +333,7 @@ getv(o::StrBootTest) = @views isone(o.v_sd) ? o.v[:,2:end] : o.v[:,2:end] / o.v_
 # Return number of bootstrap replications with feasible results
 # Returns 0 if getp() not yet accessed, or doing non-bootstrapping tests
 getrepsfeas(o::StrBootTest) = o.BFeas
-getNBootClust(o::StrBootTest) = o.N✻
+getnbootclust(o::StrBootTest) = o.N✻
 getreps(o::StrBootTest) = o.B  # return number of replications, possibly reduced to 2^G
 
 function getpadj(o::StrBootTest{T}; classical::Bool=false) where T

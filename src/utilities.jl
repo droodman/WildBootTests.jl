@@ -58,20 +58,20 @@ end
 coldot(A::AbstractMatrix) = coldot(A, A)
 coldot(A::AbstractVector, B::AbstractVector) = [dot(A,B)]
 
-function coldotplus!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)  # colsum(A .* B)
+# colsum(A .* B); dest should be a one-row matrix
+function coldotplus!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)
   @tturbo for i ∈ axes(A,2), j ∈ axes(A,1)
 	  dest[i] += A[j,i] * B[j,i]
   end
 end
 
-# compute the norm of each col of A using quadratic form Q
-function colquadform(Q::AbstractMatrix{T}, A::AbstractMatrix{T}) where T
-  dest = zeros(T, size(A,2))
+# compute the norm of each col of A using quadratic form Q; dest should be a one-row matrix
+function colquadform!(dest::AbstractMatrix{T}, Q::AbstractMatrix{T}, A::AbstractMatrix{T}) where T
   @tturbo for i ∈ axes(A,2), j ∈ axes(A,1), k ∈ axes(A,1)
 	  dest[i] += A[j,i] * Q[k,j] * A[k,i]
   end
-  dest
 end
+
 
  # From given row of given matrix, substract inner products of corresponding cols of A & B with quadratic form Q
 function colquadformminus!(X::AbstractMatrix, row::Integer, Q::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)

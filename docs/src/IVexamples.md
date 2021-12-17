@@ -1,4 +1,6 @@
 ```
+using WildBootTests, CSV, DataFrames, StatsModels, GLM, Plots
+
 # specify exactly identified model: regress wage on on tenure, instrumented by union,
 # controlling for ttl_exp and collgrad
 d = download("http://www.stata-press.com/data/r8/nlsw88.dta", tempname() * ".dta")

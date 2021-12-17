@@ -54,7 +54,7 @@ function _precompile_()
     Base.precompile(Tuple{Core.kwftype(typeof(wildboottest)),NamedTuple{(:resp, :predexog, :clustid, :nbootclustvar, :nerrclustvar, :feid, :reps), Tuple{Vector{Float32}, Matrix{Float32}, Matrix{Int16}, Int64, Int64, Vector{Int16}, Int64}},typeof(wildboottest),Matrix{Float64},Vector{Int64}})   # time: 29.61254
     let fbody = try __lookup_kwbody__(which(wildboottest, (Type,Matrix{Float64},Vector{Int64},))) catch missing end
         if !ismissing(fbody)
-            precompile(fbody, (Base.Pairs{Symbol, Any, NTuple{7, Symbol}, NamedTuple{(:resp, :clustid, :reps, :feid, :nbootclustvar, :predexog, :nerrclustvar), Tuple{Vector{Float32}, Matrix{Int16}, Int64, Vector{Int16}, Int64, Matrix{Float32}, Int64}}},typeof(wildboottest),Type,Matrix{Float64},Vector{Int64},))
+            precompile(fbody, (Base.Iterators.Pairs{Symbol, Any, NTuple{7, Symbol}, NamedTuple{(:resp, :clustid, :reps, :feid, :nbootclustvar, :predexog, :nerrclustvar), Tuple{Vector{Float32}, Matrix{Int16}, Int64, Vector{Int16}, Int64, Matrix{Float32}, Int64}}},typeof(wildboottest),Type,Matrix{Float64},Vector{Int64},))
         end
     end   # time: 28.634747
     Base.precompile(Tuple{Core.kwftype(typeof(_wildboottest)),NamedTuple{(:resp, :clustid, :reps, :feid, :nbootclustvar, :predexog, :nerrclustvar), Tuple{Vector{Float32}, Matrix{Int16}, Int64, Vector{Int16}, Int64, Matrix{Float32}, Int64}},typeof(_wildboottest),DataType,Matrix{Float64},Vector{Int64}})   # time: 0.1897423

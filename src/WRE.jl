@@ -281,7 +281,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			else
 				denom = (HessianFixedkappa(o, [0], 0, zero(T), w) .- 2 .* β̂s .* HessianFixedkappa(o, [0], 1, zero(T), w) .+ β̂s.^2 .* HessianFixedkappa(o, [1], 1, zero(T), w)) ./ o._Nobs ./ o.As  # classical error variance
 			end
-			@storeWtGrpResults!(o.dist, view(o.sqrt ? o.numerw ./ sqrt.(denom) : o.numerw .^ 2 ./ denom, 1, :))
+			@storeWtGrpResults!(o.dist, o.sqrt ? o.numerw ./ sqrt.(denom) : o.numerw .^ 2 ./ denom)
 			denom *= o.Repl.RRpar[1]^2
 		end
 

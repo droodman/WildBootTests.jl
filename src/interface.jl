@@ -1,11 +1,11 @@
 # low-level interface, meaning works with vectors and matrices, not data frames and estimation objects
 
-"Structure to store wild bootstrap test results"
+"Structure to store test results"
 struct BoottestResult{T}
   stat::T; stattype::String
   p::T; padj::T
   reps::Int64; repsfeas::Int64
-  NBootClust::Int64
+  nbootclust::Int64
   dof::Int64; dof_r::T
   plot::Union{Nothing, NamedTuple{(:X, :p), Tuple{Tuple{Vararg{Vector{T}, N} where N},Vector{T}}}}
   peak::Union{Nothing, NamedTuple{(:X, :p), Tuple{Vector{T}, T}}}
@@ -17,41 +17,41 @@ struct BoottestResult{T}
   M::StrBootTest
 end
 
-"Return test statistic subject to wild bootstrap test"
+"Return test statistic"
 teststat(o::BoottestResult) = o.stat
 
-"Return numerator of test statistic in wild bootstrap test"
+"Return numerator of test statistic"
 statnumer(o::BoottestResult) = o.b
 
-"Return denominator of test statistic in wild bootstrap test"
+"Return denominator of test statistic"
 statvar(o::BoottestResult) = o.V
 
-"""Return type of test statistic subject to wild bootstrap test: "t", "z", "F", or "χ²" """
+"""Return type of test statistic subject: "t", "z", "F", or "χ²" """
 stattype(o::BoottestResult) = o.stattype
 
-"Return p value from wild bootstrap test"
+"Return p value"
 p(o::BoottestResult) = o.p
 
-"Returnp p value from wild bootstrap test after multiple-hypothesis adjustment, if any"
+"Returnp p value after multiple-hypothesis adjustment, if any"
 padj(o::BoottestResult) = o.padj
 
-"Return requested number of replications in wild bootstrap test"
+"Return requested number of replications"
 reps(o::BoottestResult) = o.reps
 
-"Return actual number of replications in wild bootstrap test, subject to enumeration of Rademacher draws"
+"Return actual number of replications, subject to enumeration of Rademacher draws"
 repsfeas(o::BoottestResult) = o.repsfeas
 
-"Return number of bootstrapping clusters in wild bootstrap test"
-nbootclust(o::BoottestResult) = o.NBootClust
+"Return number of bootstrapping clusters in test"
+nbootclust(o::BoottestResult) = o.nbootclust
 
-"Return degrees of freedom wild bootstrap test"
+"Return degrees of freedom test"
 dof(o::BoottestResult) = o.dof
 
-"Return residual degrees of freedom wild bootstrap test"
+"Return residual degrees of freedom test"
 dof_r(o::BoottestResult) = o.dof_r
 
 """
-Return data for confidence plot of wild bootstrap test.
+Return data for confidence plot of test.
 Return value is a 2-tuple with named entries `X` and `p` holding
 the confidence sampling locations and p values respectively. `X` is in turn
 a 1- or 2-tuple of vectors of sampling coordinates for each 
@@ -59,13 +59,13 @@ dimension of the tested hypothesis.
 """
 plotpoints(o::BoottestResult) = o.plot
 
-"Return parameter value with peak p value in wild bootstrap test"
+"Return parameter value with peak p value in test"
 peak(o::BoottestResult) = o.peak
 
-"Return confidence interval matrix from wild bootstrap test, one row per disjoint piece"
+"Return confidence interval matrix from test, one row per disjoint piece"
 CI(o::BoottestResult) = o.CI
 
-"Return bootstrap distribution of statistic or statistic numerator in wild bootstrap test"
+"Return bootstrap distribution of statistic or statistic numerator in bootstrap test"
 dist(o::BoottestResult) = o.dist
 
 "Return auxilliary weight matrix for wild bootstrap"
@@ -142,14 +142,14 @@ function __wildboottest(
 
 	BoottestResult{T}(getstat(M),
 	                  isone(nrows(R)) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
-	                  getp(M), getpadj(M), getreps(M), getrepsfeas(M), getNBootClust(M), getdf(M), getdf_r(M), plot, peak, CI,
+	                  getp(M), getpadj(M), getreps(M), getrepsfeas(M), getnbootclust(M), getdf(M), getdf_r(M), plot, peak, CI,
 	                  getdist(M,diststat),
 	                  getb(M), getV(M),
 	                  getauxweights && reps>0 ? getauxweights(M) : nothing , M)
 end
 
-@inline vecconvert(T::DataType, X) = isa(X, AbstractArray) ? reshape(eltype(X)==T ? X : T.(X), size(X,1)           ) : X
-@inline matconvert(T::DataType, X) = isa(X, AbstractArray) ? reshape(eltype(X)==T ? X : T.(X), size(X,1), size(X,2)) : X
+vecconvert(T::DataType, X) = Vector(isa(X, AbstractArray) ? reshape(eltype(X)==T ? X : T.(X), size(X,1)           ) : X)
+matconvert(T::DataType, X) = Matrix(isa(X, AbstractArray) ? reshape(eltype(X)==T ? X : T.(X), size(X,1), size(X,2)) : X)
 
 function _wildboottest(T::DataType,
 					  R::AbstractVecOrMat,
@@ -246,7 +246,7 @@ function _wildboottest(T::DataType,
 		inst=matconvert(T,inst),
 		R1=matconvert(T,R1),
 		r1=vecconvert(T,r1),
-		clustid=matconvert(Int64,clustid),  # bootstrap-only clust vars, then boot&err clust vars, then err-only clust vars
+		clustid=matconvert(Int64,clustid),
 		nbootclustvar=Int8(nbootclustvar),
 		nerrclustvar=Int8(nerrclustvar),
 		issorted,
@@ -287,7 +287,7 @@ end
 
 _wildboottest(T::DataType, R, r::Number; kwargs...) = _wildboottest(T, R, [r]; kwargs...)
 _wildboottest(T::DataType, R::UniformScaling{Bool}, r; kwargs...) = _wildboottest(T, diagm(fill(T(R.λ),nrows(r))), r; kwargs...)
-_wildboottest(R::Union{UniformScaling{Bool},AbstractVecOrMat}, r::Union{Number,AbstractVecOrMat}; kwargs...) = wildboottest(Float32, R, r; kwargs...)
+_wildboottest(R::Union{UniformScaling{Bool},AbstractVecOrMat}, r::Union{Number,AbstractVecOrMat}; kwargs...) = _wildboottest(Float32, R, r; kwargs...)
 
 
 """

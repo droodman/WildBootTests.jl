@@ -1,6 +1,6 @@
 ## Basic OLS example
 ```
-julia> using WildBootTests, CSV, DataFrames, GLM, Plots
+julia> using WildBootTests, CSV, DataFrames, StatsModels, GLM, Plots
 
 julia> d = download("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv");
 
@@ -48,6 +48,8 @@ julia> plot(plotpoints(test)...)  # plot confidence curve
 ```
 ## Further examples
 ```
+using WildBootTests, CSV, DataFrames, StatsModels, GLM, Plots
+
 # use Webb instead of Rademacher weights, 99,999 bootstrap replications instead of 999
 wildboottest(R, r; resp, predexog, clustid, reps=99999, auxwttype=WildBootTests.webb)
 

@@ -367,8 +367,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   !(o.robust || o.ML) && (o.multiplier *= o._Nobs)  # will turn sum of squared errors in denom of t/z into mean
   o.sqrt && (o.multiplier = √o.multiplier)
 
-  ((!o.bootstrapt && o.dof==1) || o.bootstrapt && (o.WREnonARubin || o.dof>1+o.robust || !isnan(o.maxmatsize))) &&  # unless nonWRE or dof=1 or splitting weight matrix, code will create dist element-by-element, so pre-allocate vector now
-		(o.dist = fill(T(NaN), o.B+1))
+  o.dist = fill(T(NaN), 1, o.B+1)
   (o.Nw>1 || o.WREnonARubin || (!o.null && o.dof≤2)) && (o.numer = fill(T(NaN), o.dof, o.B+1))
 
   if o.WREnonARubin

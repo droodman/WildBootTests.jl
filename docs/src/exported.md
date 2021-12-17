@@ -10,7 +10,7 @@ p
 padj
 reps
 repsfeas
-NBootClust
+nbootclust
 dof
 dof_r
 plotpoints
