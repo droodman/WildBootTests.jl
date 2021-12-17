@@ -46,7 +46,7 @@ end
 
 function coldot!(dest::AbstractMatrix{T}, A::AbstractMatrix{T}, B::AbstractMatrix{T}) where T  # colsum(A .* B)
   fill!(dest, zero(T))
-	@tturbo for i ∈ axes(A,2), j ∈ axes(A,1)
+	@tturbo for i ∈ eachindex(axes(A,2),axes(B,2)), j ∈ eachindex(axes(A,1),axes(B,1))
 		dest[i] += A[j,i] * B[j,i]
   end
 end
@@ -153,7 +153,7 @@ function panelsum!(dest::AbstractVecOrMat, X::AbstractVecOrMat, info::AbstractVe
 			for j ∈ eachindexJ
 				Jj = J[j]
 				tmp = X[f,Jj]
-				@tturbo for i ∈ fl
+				for i ∈ fl
 					tmp += X[i,Jj]
 				end
 				dest[g,Jj] = tmp
@@ -166,33 +166,33 @@ function panelsum!(dest::AbstractVecOrMat, X::AbstractVecOrMat, info::AbstractVe
 	end
 end
 # single-weighted panelsum!() along first axis of a VecOrMat
-function panelsum!(dest::AbstractVecOrMat{T}, X::AbstractVecOrMat{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
-	iszero(length(X)) && return
-	if iszero(length(info)) || nrows(info)==nrows(X)
-		dest .= X .* wt
-		return
-	end
-	J = CartesianIndices(axes(X)[2:end])
-	eachindexJ = eachindex(J)
-	@inbounds for g in eachindex(info)
-		f, l = first(info[g]), last(info[g])
+function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer)
+  iszero(length(X)) && return
+  if iszero(length(info)) || nrows(info)==nrows(X)
+    dest .= X .* wt
+    return
+  end
+  J = CartesianIndices(axes(X)[2:end])
+  eachindexJ = eachindex(J)
+  @inbounds for g in eachindex(info)
+    f, l = first(info[g]), last(info[g])
     fl = f+1:l
 		_wt = wt[f]
-		if f<l
-			for j ∈ eachindexJ
-				Jj = J[j]
-				tmp = X[f,Jj] * _wt
-				@tturbo for i ∈ fl
-					tmp += X[i,Jj] * wt[i]
-				end
-				dest[g,Jj] = tmp
-			end
-		else
-			@simd for j ∈ eachindexJ
-				dest[g,J[j]] = X[f,J[j]] * _wt
-			end
-		end
-	end
+    if f<l
+      for j ∈ eachindexJ
+        Jj = J[j]
+        tmp = X[f,Jj] * _wt
+        for i ∈ fl
+          tmp += X[i,Jj] * wt[i]
+        end
+        dest[g,Jj] = tmp
+      end
+    else
+      for j ∈ eachindexJ
+        dest[g,J[j]] = X[f,J[j]] * _wt
+      end
+    end
+  end
 end
 function panelsum(X::AbstractVector{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	if iszero(nrows(wt))
@@ -240,30 +240,6 @@ end
 macro panelsum2(X₁, X₂, wt, info)
 	:( panelsum2($(esc(X₁)), $(esc(X₂)), $(esc(wt)), $(esc(info))) )
 end
-
-# # UberMatrix type to efficiently represent selection matrices
-# @enum MatType identity selection regular
-# import Base.size, Base.getindex, Base.*
-# struct UberMatrix{T} <: AbstractMatrix{T}
-# 	type::MatType
-# 	size::Tuple{Int64,Int64}
-# 	p::Vector{Int64}  # for selection matrix
-# 	M::Matrix{T}
-# end
-# UberMatrix(T::DataType, X::UniformScaling{Bool}) = UberMatrix{T}(identity, (0,0), Int64[], zeros(T,0,0))
-# function UberMatrix(T::DataType, X::AbstractMatrix)
-# 	if isa(X,AbstractMatrix) && length(X) > 0 && all(sum(isone.(X), dims=1) .== 1) && all(sum(iszero.(X), dims=1) .== size(X,1)-1)
-# 		UberMatrix{T}(selection, size(X), Base.:*(X',collect(1:size(X,1))), zeros(T,0,0))
-# 	else
-# 		UberMatrix{T}(regular, size(X), Int64[], X)
-# 	end
-# end
-# size(X::UberMatrix) = X.size
-# getindex(X::UberMatrix, i, j) = X.type==identity ? i==j : X.type==selection ? i==X.p[j] : X.M[i,j]
-# *(X::AbstractVector, Y::UberMatrix) = Y.type==identity ? view(X,:) : Y.type==selection ? view(X,Y.p) : view(Base.:*(X,Y.M),:)
-# function *(X::AbstractMatrix{T}, Y::UberMatrix{T})::SubArray{T,2,Matrix{T}} where T Y.type==identity ? view(X,:,:) : Y.type==selection ? view(X,:,Y.p) : view(Base.:*(X,Y.M),:,:) end
-# *(X::UberMatrix, Y::AbstractMatrix) = X.type==identity ? view(Y,:,:) : X.type==selection ? view(Y, X.p, :) : view(Base.:*(X.M,Y),:,:)
-# *(X::UberMatrix, Y::AbstractVector) = X.type==identity ? view(Y,:) : X.type==selection ? view(Y, X.p) : view(Base.:*(X.M,Y),:)
 
 import Base.size
 struct FakeArray{N} <: AbstractArray{Bool,N} size::Tuple{Vararg{Int64,N}} end # AbstractArray with almost no storage, just for LinearIndices() conversion         

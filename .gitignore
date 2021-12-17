@@ -9,3 +9,5 @@ src/WRE2.jl
 docs/build/
 profile.pb.gz
 src/precompiler.jl
+JuliaConnector test.R
+JuliaConnector test.R

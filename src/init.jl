@@ -1,4 +1,4 @@
-@inline _sortperm(X::AbstractVecOrMat) = size(X,2)==1 ? sortperm(ndims(X)==1 ? X : reshape(X,length(X)), alg=RadixSort) : sortperm(collect(eachrow(X)))  # sort a data matrix
+@inline _sortperm(X::AbstractVecOrMat) = size(X,2)==1 ? sortperm(ndims(X)==1 ? X : vec(X), alg=RadixSort) : sortperm(collect(eachrow(X)))  # sort a data matrix
 
 function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repeatedly to make CI, do stuff once that doesn't depend on r
   o.Nobs = nrows(o.X₁)

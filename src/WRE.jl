@@ -211,7 +211,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 		if o.LIML || !o.robust || !isone(o.κ)
 			o.S✻uY[i+1] = @panelsum2(o.Repl.y₁par, o.Repl.Z, uwt, o.infoBootData)
 			for j ∈ 0:i
-				o.S✻UU[i+1,j+1] = reshape(@panelsum(j>0 ? view(Ü₂par,:,j) : view(o.DGP.u⃛₁,:), uwt, o.infoBootData), :)
+				o.S✻UU[i+1,j+1] = vec(@panelsum(j>0 ? view(Ü₂par,:,j) : view(o.DGP.u⃛₁,:), uwt, o.infoBootData))
 			end
 		end
 
@@ -296,7 +296,8 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 
 			for b ∈ axes(o.v,2)
 				for i ∈ 0:o.Repl.kZ
-					o.YY✻_b[1:i+1,i+1]   = YY✻[i+1][:,b]  # fill uppper triangles, which is all that invsym() looks a					o.YPXY✻_b[1:i+1,i+1] = o.YPXY✻[i+1][:,b]
+					o.YY✻_b[1:i+1,i+1]   = YY✻[i+1][:,b]  # fill uppper triangles, which is all that invsym() looks at
+					o.YPXY✻_b[1:i+1,i+1] = o.YPXY✻[i+1][:,b]
 				end
 				o.κ = 1/(1 - eigvals(invsym(o.YY✻_b) * Symmetric(o.YPXY✻_b))[1])
 				!iszero(o.Fuller) && (o.κ -= o.Fuller / (o._Nobs - o.kX))
@@ -320,7 +321,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 					o.Zyg[i] = Filling(o, i, β̂s)
 				end
 			else
-				o.YY✻ = [HessianFixedkappa(o, collect(i:o.Repl.kZ), i, zero(T), w) for i ∈ 0:o.Repl.kZ]  # κ=0 => Y*MZperp*Y
+				YY✻ = [HessianFixedkappa(o, collect(i:o.Repl.kZ), i, zero(T), w) for i ∈ 0:o.Repl.kZ]  # κ=0 => Y*MZperp*Y
 			end
 		end
 
@@ -346,7 +347,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 					end
 				else  # non-robust
 					for i ∈ 0:o.Repl.kZ
-						o.YY✻_b[i+1,i+1:o.Repl.kZ+1] = view(YY✻[i+1],b,:)  # fill upper triangle
+						o.YY✻_b[i+1,i+1:o.Repl.kZ+1] = view(YY✻[i+1],:,b)  # fill upper triangle
 					end
 					denom = (o.Repl.RRpar * A[b] * o.Repl.RRpar') * [-one(T) ; β̂s[:,b]]'Symmetric(o.YY✻_b) * [-one(T) ; β̂s[:,b]] / o._Nobs  # 2nd half is sig2 of errors
 				end
