@@ -12,11 +12,11 @@ F=0.33827585 p=0.82128215
 constraint 1 ttl_exp = .2
 cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(industry)
 boottest tenure
-t=2.1249485 p=0.0 CI=Float32[0.008769164 0.18435656]
+t=2.1249483 p=0.0 CI=Float32[0.008769166 0.18435661]
 
 ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
 boottest tenure, ptype(equaltail)
-t=2.6039627 p=0.044433594 CI=Float32[0.11879453 2.2101414]
+t=2.603962 p=0.044433594 CI=Float32[0.118794456 2.210142]
 
 boottest tenure, ptype(equaltail) reps(99999) weight(webb) stat(c)
 z=1.6443632 p=0.11061106 CI=Float32[-Inf Inf]
@@ -28,14 +28,14 @@ boottest, ar nonull
 z=2.4454045 p=0.030273438 CI=Float32[0.056094516 1.4158134]
 
 scoretest tenure
-z=2.3278728 p=0.01991886 CI=Float32[0.13671672 1.3236711]
+z=2.327873 p=0.01991885 CI=Float32[0.13671674 1.3236712]
 
 waldtest tenure
-z=2.604013 p=0.009213928 CI=Float32[0.1820237 1.2898893]
+z=2.6040125 p=0.00921394 CI=Float32[0.18202364 1.2898895]
 
 ivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)
 boottest tenure
-z=7.584672 p=0.003003003 CI=Float32[0.3354117 0.8054973]
+z=7.5846868 p=0.003003003 CI=Float32[0.33541209 0.8054967]
 
 ivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)
 boottest tenure, nograph weight(webb) reps(9999)
@@ -43,7 +43,7 @@ z=4.0268483 p=0.0250025 CI=Float32[-0.89367354 -0.3875849; 0.30943295 1.2528456]
 
 areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)
 boottest tenure, cluster(age occupation) bootcluster(occupation)
-t=0.4873999 p=0.6596597 CI=Float32[-0.041599624 0.114947945]
+t=0.48740065 p=0.6596597 CI=Float32[-0.0415996 0.11494795]
 
 global pix lnkm pixpetro pixdia pixwaterd pixcapdist pixmal pixsead pixsuit pixelev pixbdist
 global geo lnwaterkm lnkm2split mean_elev mean_suit malariasuit petroleum diamondd
@@ -53,9 +53,9 @@ qui areg lnl0708s centr_tribe lnpd0 $pix $geo $poly, absorb(ccode)
 boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode)
 boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(pixcluster)
 boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode pixcluster)
-t=3.5211513 p=0.00210021 CI=Float32[0.05592348 0.25092924]
-t=3.5211344 p=0.00260026 CI=Float32[0.045336455 0.2612295]
-t=3.5211346 p=0.0033003301 CI=Float32[0.054486457 0.24806121]
+t=3.5211523 p=0.00210021 CI=Float32[0.05588541 0.25092924]
+t=3.5211356 p=0.00260026 CI=Float32[0.045336507 0.2612295]
+t=3.5211332 p=0.0033003301 CI=Float32[0.0544864 0.24806118]
 
 infile coll merit male black asian year state chst using regm.raw, clear
 qui regress coll merit male black asian i.year i.state if !inlist(state,34,57,59,61,64,71,72,85,88), cluster(state)	
@@ -66,9 +66,9 @@ boottest merit, nogr reps(9999) gridpoints(10) bootcluster(state year)
 boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(state year)
 boottest merit, nogr reps(9999) gridpoints(10) bootcluster(individual)
 boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual)
-t=6.712663 p=0.49184918 CI=Float32[-2.8158534 1.2845849]
-t=6.7127156 p=0.0 CI=Float32[0.049524896 0.0948111]
-t=6.7126627 p=0.29282928 CI=Float32[-5.339361 4.5325885]
-t=6.7127147 p=0.08940894 CI=Float32[-0.011595309 0.15593131]
-t=6.712662 p=0.37383738 CI=Float32[-0.09999681 0.24192892]
-t=6.7127175 p=0.37593758 CI=Float32[-0.0941135 0.2384495]
+t=6.7126546 p=0.49184918 CI=Float32[-2.815858 1.2845871]
+t=6.7127285 p=0.0 CI=Float32[0.04952494 0.09481105]
+t=6.7126613 p=0.29282928 CI=Float32[-5.341605 4.532589]
+t=6.7127123 p=0.08940894 CI=Float32[-0.011595332 0.15593134]
+t=6.7126617 p=0.37383738 CI=Float32[-0.09999686 0.24192896]
+t=6.712716 p=0.37593758 CI=Float32[-0.0941135 0.2384495]

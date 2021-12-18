@@ -53,10 +53,9 @@ function plot!(o::StrBootTest{T}) where T
 		halfwidth = T.(-1.5 * quantile(Normal(), α/2)) .* sqrtNaN.(diag(getV(o)))
 		o.confpeak = getb(o) + o.r
   end
-# println("o.confpeak=$(o.confpeak)")
+
 	if isone(o.q)  # 1D plot
 		α≤0 && (α = T(.05))  # if level=100, no CI constructed, but we need a reasonable α to choose graphing bounds
-# println("gridmin=$(o.gridmin) gridmax=$(o.gridmax) 1")
 		p_lo = p_hi = T(NaN)
 		if isnan(o.gridmin[1]) || isnan(o.gridmax[1])
 			if o.B>0  # initial guess based on classical distribution
@@ -71,7 +70,7 @@ function plot!(o::StrBootTest{T}) where T
 					return
 				end
 			end
-# println("lo=$lo hi=$hi")
+
 			if abs(lo[1] - o.r[1]) > abs(hi[1] - o.r[1])  # brute force way to ensure that first trial bound tested is the farther one from r, for better interpolation
 				if isnan(o.gridmin[1]) && o.ptype≠lower  # unless lower-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
 					for _ ∈ 1:10
@@ -115,7 +114,6 @@ function plot!(o::StrBootTest{T}) where T
 			lo = [o.gridmin[1]]
 			hi = [o.gridmax[1]]
 		end
-# println("lo=$lo hi=$hi after")
 
 		_gridpoints = round.(Int32, o.gridpoints)
 		o.plotX = [collect(range(lo[1], hi[1], length=_gridpoints[1]))]  # store as 1-vector since q=1

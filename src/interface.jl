@@ -14,7 +14,7 @@ struct BoottestResult{T}
   b::Vector{T}
   V::Matrix{T}
   auxweights::Union{Nothing,Matrix{T}}
-  M::StrBootTest
+  # M::StrBootTest
 end
 
 "Return test statistic"
@@ -133,19 +133,22 @@ function __wildboottest(
 	                   gridmin, gridmax, gridpoints)
 
 	if getplot || (level<1 && getCI)
+		plot!(M)
 		plot = getplot ? _getplot(M) : nothing
 		peak = getpeak(M)
 		CI = level<1 & getCI ? _getCI(M) : nothing
 	else
 		CI = plot = peak = nothing
 	end
+	
+	boottest!(M)
 
 	BoottestResult{T}(getstat(M),
 	                  isone(nrows(R)) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
 	                  getp(M), getpadj(M), getreps(M), getrepsfeas(M), getnbootclust(M), getdf(M), getdf_r(M), plot, peak, CI,
-	                  getdist(M,diststat),
+	                  getdist(M, diststat),
 	                  getb(M), getV(M),
-	                  getauxweights && reps>0 ? getauxweights(M) : nothing , M)
+	                  getauxweights && reps>0 ? getauxweights(M) : nothing #=, M=#)
 end
 
 vecconvert(T::DataType, X) = Vector(isa(X, AbstractArray) ? vec(    eltype(X)==T ? X : T.(X)                      ) : X)

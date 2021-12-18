@@ -246,7 +246,6 @@ macro clustAccum!(X, c, Y)  # efficiently add a cluster combination-specific ter
 end
 
 function getdist(o::StrBootTest, diststat::DistStatType=nodist)
-  o.dirty && boottest!(o)
   if diststat == numer
 	  _numer = isone(o.v_sd) ? o.numer : o.numer / o.v_sd
 	  o.distCDR = (@view _numer[:,2:end]) .+ o.r
@@ -315,27 +314,6 @@ function getp(o::StrBootTest{T}; classical::Bool=false) where T
   o.p
 end
 
-# numerator for full-sample test stat
-function getb(o::StrBootTest)
-  o.dirty && boottest!(o)
-  isone(o.v_sd) ? o.numer[:,1] : o.numer[:,1] / o.v_sd
-end
-
-# denominator for full-sample test stat
-function getV(o::StrBootTest)
-  o.dirty && boottest!(o)
-  o.statDenom / ((isone(o.v_sd) ? o.smallsample : o.v_sd^2 * o.smallsample) * (o.sqrt ? o.multiplier^2 : o.multiplier) * o.dof)
-end
-
-# wild weights
-getv(o::StrBootTest) = @views isone(o.v_sd) ? o.v[:,2:end] : o.v[:,2:end] / o.v_sd
-
-# Return number of bootstrap replications with feasible results
-# Returns 0 if getp() not yet accessed, or doing non-bootstrapping tests
-getrepsfeas(o::StrBootTest) = o.BFeas
-getnbootclust(o::StrBootTest) = o.N✻
-getreps(o::StrBootTest) = o.B  # return number of replications, possibly reduced to 2^G
-
 function getpadj(o::StrBootTest{T}; classical::Bool=false) where T
   _p = o.dirty || classical ? getp(o, classical=classical) : o.p
   if o.madjtype==bonferroni min(one(T), o.NH₀ * _p)
@@ -344,27 +322,15 @@ function getpadj(o::StrBootTest{T}; classical::Bool=false) where T
   end
 end
 
-function getstat(o::StrBootTest)
-  o.dirty && boottest!(o)
-  o.multiplier * o.dist[1]
-end
-function getdf(o::StrBootTest)
-  o.dirty && boottest!(o)
-  o.dof
-end
-function getdf_r(o::StrBootTest)
-  o.dirty && boottest!(o)
-  o.dof_r
-end
-function _getplot(o::StrBootTest)
-  o.notplotted && plot!(o)
-  (X=Tuple(o.plotX), p=o.plotY)
-end
-function getpeak(o::StrBootTest)  # x and y values of confidence curve peak (at least in OLS && ARubin)
-  o.notplotted && plot!(o)
-  o.peak
-end
-function _getCI(o::StrBootTest)
-  o.notplotted && plot!(o)
-  o.CI
-end
+getb(o::StrBootTest) = isone(o.v_sd) ? o.numer[:,1] : o.numer[:,1] / o.v_sd  # numerator for full-sample test stat
+getV(o::StrBootTest) = o.statDenom / ((isone(o.v_sd) ? o.smallsample : o.v_sd^2 * o.smallsample) * (o.sqrt ? o.multiplier^2 : o.multiplier) * o.dof)  # denominator for full-sample test stat
+getv(o::StrBootTest) = @views isone(o.v_sd) ? o.v[:,2:end] : o.v[:,2:end] / o.v_sd  # wild weights
+@inline getrepsfeas(o::StrBootTest) = o.BFeas  # Return number of bootstrap replications with feasible results--0 if getp() not yet accessed, or doing non-bootstrapping tests
+@inline getnbootclust(o::StrBootTest) = o.N✻
+@inline getreps(o::StrBootTest) = o.B  # return number of replications, possibly reduced to 2^G
+@inline getstat(o::StrBootTest) = o.multiplier * o.dist[1]
+@inline getdf(o::StrBootTest) = o.dof
+@inline getdf_r(o::StrBootTest) = o.dof_r
+@inline _getplot(o::StrBootTest) = (X=Tuple(o.plotX), p=o.plotY)
+@inline getpeak(o::StrBootTest) = o.peak # x and y values of confidence curve peak (at least in OLS && ARubin)
+@inline _getCI(o::StrBootTest) = o.CI
