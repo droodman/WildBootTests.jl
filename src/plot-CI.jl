@@ -1,8 +1,7 @@
 # given a pre-configured boottest linear model with one-degree null imposed, compute boostrapped p value associated with r
 function r_to_p(o::StrBootTest{T}, r::AbstractVector{T}) where T
   o.r = r
-  o.dirty = true
-	getpadj(o)
+  getpadj(o)
 end
 
 
@@ -47,10 +46,14 @@ function plot!(o::StrBootTest{T}) where T
 	o.gridpoints[isnan.(o.gridpoints)] .= 25
 
   boottest!(o)
+
+	Phi = quantile(Normal{T}(zero(T),one(T)), α/2)
   if o.ARubin
-		halfwidth = abs.(o.confpeak) * quantile(Normal{T}(zero(T),one(T)), getpadj(o, classical=true)/2) / quantile(Normal{T}(zero(T),one(T)), α/2)
+		p = o.dist[1] * o.multiplier
+		p = ccdf(Chisq{T}(T(o.dof)), o.sqrt ? p^2 : p)
+		halfwidth = abs.(o.confpeak) * quantile(Normal{T}(zero(T),one(T)), p/2) / Phi
   else
-		halfwidth = T.(-1.5 * quantile(Normal(), α/2)) .* sqrtNaN.(diag(getV(o)))
+		halfwidth = T(-1.5) * Phi .* sqrtNaN.(diag(getV(o)))
 		o.confpeak = getb(o) + o.r
   end
 
@@ -62,7 +65,7 @@ function plot!(o::StrBootTest{T}) where T
 				lo = isnan(o.gridmin[1]) ? o.confpeak - halfwidth : o.gridmin
 				hi = isnan(o.gridmax[1]) ? o.confpeak + halfwidth : o.gridmax
 			else
-				tmp = vec(sqrtNaN.(o.statDenom)) * (o.small ? cquantile(TDist(o.dof_r), α/2) : cquantile(Normal{T}(zero(T),one(T)), α/2))
+				tmp = vec(sqrtNaN.(o.statDenom)) * (o.small ? cquantile(TDist{T}(o.dof_r), α/2) : cquantile(Normal{T}(zero(T),one(T)), α/2))
 				lo = isnan(o.gridmin[1]) ? o.confpeak - tmp : o.gridmin
 				hi = isnan(o.gridmax[1]) ? o.confpeak + tmp : o.gridmax
 				if o.scorebs && !o.null && !o.willplot  # if doing simple Wald test with no graph, we're done
@@ -189,7 +192,7 @@ function plot!(o::StrBootTest{T}) where T
 		deleteat!(o.plotY   , c)
   end
 
-	o.r = _r; o.dirty = true  # restore backups
+	o.r = _r  # restore backup
 	o.notplotted = false
 	nothing
 end

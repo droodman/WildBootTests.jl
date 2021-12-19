@@ -57,8 +57,8 @@ predendog, inst = modelcols(ivf, df)
 test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, ptype=WildBootTests.equaltail, rng=StableRNG(1231))
 println(log, "t=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
-println(log, "\nboottest tenure, ptype(equaltail) reps(99999) weight(webb) stat(c)")
-test = wildboottest([0 0 0 1], [.0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, auxwttype=WildBootTests.webb, bootstrapc=true, ptype=WildBootTests.equaltail, rng=StableRNG(1231))
+println(log, "\nboottest tenure, ptype(equaltail) reps(9999) weight(webb) stat(c)")
+test = wildboottest([0 0 0 1], [.0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, auxwttype=WildBootTests.webb, bootstrapc=true, ptype=WildBootTests.equaltail, rng=StableRNG(1231), gridmin=[-5], gridmax=[5], gridpoints=[100])
 println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 plot(plotpoints(test)...)
 

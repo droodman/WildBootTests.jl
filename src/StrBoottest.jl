@@ -70,7 +70,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   q::Int16; twotailed::Bool; scorebs::Bool; robust::Bool
 
   WRE::Bool; initialized::Bool; NFE::Int64; FEboot::Bool; granular::Bool; NErrClustCombs::Int16; subcluster::Int8; BFeas::Int64; interpolating::Bool
-  dirty::Bool; v_sd::T; notplotted::Bool
+  v_sd::T; notplotted::Bool
   confpeak::Vector{T}
   IDBootData::Vector{Int64}; IDBootAll::Vector{Int64}
   anchor::Vector{T}; poles::Vector{T}; numer::Matrix{T}
@@ -107,13 +107,10 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	  new(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML || !iszero(Fuller), 
 		    Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML, 
 				β̂, A, sc, willplot, gridmin, gridmax, gridpoints,
-		  nrows(R),
-		  ptype==symmetric || ptype==equaltail,
-		  scorebs || iszero(B) || ML,
-		  robust || nerrclustvar>0,
+		  nrows(R), ptype==symmetric || ptype==equaltail, scorebs || iszero(B) || ML, robust || nerrclustvar>0,
 		  false, false, 0, false, false, 0, 0, 0, false,
-		  true, one(T), true,
-		  [T(0)],
+		  one(T), true,
+		  [zero(T)],
 		  Vector{Int64}(undef,0), Vector{Int64}(undef,0),
 		  Vector{T}(undef,0), Vector{T}(undef,0), Matrix{T}(undef,0,0),
 		  Matrix{T}(undef,0,0),
@@ -284,11 +281,11 @@ function sumlessabs(x, v)
 end
 
 # get p valuo. Robust to missing bootstrapped values interpreted as +infinity.
-function getp(o::StrBootTest{T}; classical::Bool=false) where T
-  o.dirty && boottest!(o)
+function getp!(o::StrBootTest{T}) where T
+  boottest!(o)
   tmp = o.dist[1]
   isnan(tmp) && return tmp
-  if o.B>0 && !classical
+  if o.B>0
   	if o.sqrt && o.ptype ≠ upper
   	  if o.ptype==symmetric
   	    n = sumlessabs(abs(tmp), o.dist)   # symmetric p value; do so as not to count missing entries in *dist
@@ -302,30 +299,28 @@ function getp(o::StrBootTest{T}; classical::Bool=false) where T
     end
     o.p = n / o.BFeas |> T
   else
-  	tmp *= o.multiplier
-    _p = ccdf(o.small ? FDist(o.dof, o.dof_r) : Chisq(o.dof), Float64(o.sqrt ? tmp^2 : tmp))  |> T
-  	if o.sqrt && !o.twotailed
-  	  _p /= 2
-  	  (ptype==upper) == (tmp<0) && (_p = 1 - _p)
-  	end
-    classical && return _p
-    o.p = _p
+		tmp *= o.multiplier
+		o.p = ccdf(o.small ? FDist{T}(T(o.dof), o.dof_r) : Chisq{T}(T(o.dof)), o.sqrt ? tmp^2 : tmp)
+		if o.sqrt && !o.twotailed
+			o.p /= 2
+			(o.ptype==upper) == (tmp<0) && (o.p = 1 - o.p)
+		end
   end
-  o.p
+  nothing
 end
 
-function getpadj(o::StrBootTest{T}; classical::Bool=false) where T
-  _p = o.dirty || classical ? getp(o, classical=classical) : o.p
-  if o.madjtype==bonferroni min(one(T), o.NH₀ * _p)
-  elseif o.madjtype==sidak  one(T) - (one(T) - _p) ^ o.NH₀
-  else _p
+function getpadj(o::StrBootTest{T}) where T
+  getp!(o)
+  if o.madjtype==bonferroni min(one(T), o.NH₀ * o.p)
+  elseif o.madjtype==sidak  one(T) - (one(T) - o.p) ^ o.NH₀
+  else o.p
   end
 end
 
 getb(o::StrBootTest) = isone(o.v_sd) ? o.numer[:,1] : o.numer[:,1] / o.v_sd  # numerator for full-sample test stat
 getV(o::StrBootTest) = o.statDenom / ((isone(o.v_sd) ? o.smallsample : o.v_sd^2 * o.smallsample) * (o.sqrt ? o.multiplier^2 : o.multiplier) * o.dof)  # denominator for full-sample test stat
 getv(o::StrBootTest) = @views isone(o.v_sd) ? o.v[:,2:end] : o.v[:,2:end] / o.v_sd  # wild weights
-@inline getrepsfeas(o::StrBootTest) = o.BFeas  # Return number of bootstrap replications with feasible results--0 if getp() not yet accessed, or doing non-bootstrapping tests
+@inline getrepsfeas(o::StrBootTest) = o.BFeas  # Return number of bootstrap replications with feasible results--0 if getp!() not yet accessed, or doing non-bootstrapping tests
 @inline getnbootclust(o::StrBootTest) = o.N✻
 @inline getreps(o::StrBootTest) = o.B  # return number of replications, possibly reduced to 2^G
 @inline getstat(o::StrBootTest) = o.multiplier * o.dist[1]

@@ -41,8 +41,7 @@ function boottest!(o::StrBootTest{T}) where T
 
   o.BFeas = isnan(o.dist[1]) ? 0 : sum(.!(isnan.(o.dist) .| isinf.(o.dist))) - 1
   o.distCDR = zeros(T,0,0)
-  o.dirty = false
-	nothing
+  nothing
 end
 
 # if not imposing null and we have returned to boottest!(), then dof=1 or 2; we're plotting or finding CI, and only test stat, not distribution, changes with r
@@ -86,3 +85,11 @@ if Base.VERSION >= v"1.4.2"  # source: https://timholy.github.io/SnoopCompile.jl
 end
  
 end
+
+# using StatFiles, StatsModels, DataFrames, DataFramesMeta, CategoricalArrays
+# df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\collapsed.dta"))
+# dropmissing!(df)
+# f = @formula(hasinsurance ~ 1 + selfemployed + post + post_self)
+# f = apply_schema(f, schema(f, df, Dict(:hasinsurance => ContinuousTerm)))
+# resp, predexog = modelcols(f, df)
+# test = WildBootTests.wildboottest([0 0 0 1], [.04]; resp, predexog, clustid=Int32.(df.year), reps=2)

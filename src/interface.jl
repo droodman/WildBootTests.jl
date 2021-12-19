@@ -141,14 +141,14 @@ function __wildboottest(
 		CI = plot = peak = nothing
 	end
 	
-	boottest!(M)
+	padj = getpadj(M)  # trigger central (re)computation
 
 	BoottestResult{T}(getstat(M),
 	                  isone(nrows(R)) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
-	                  getp(M), getpadj(M), getreps(M), getrepsfeas(M), getnbootclust(M), getdf(M), getdf_r(M), plot, peak, CI,
+	                  M.p, padj, getreps(M), getrepsfeas(M), getnbootclust(M), getdf(M), getdf_r(M), plot, peak, CI,
 	                  getdist(M, diststat),
 	                  getb(M), getV(M),
-	                  getauxweights && reps>0 ? getauxweights(M) : nothing #=, M=#)
+	                  getauxweights && reps>0 ? getv(M) : nothing #=, M=#)
 end
 
 vecconvert(T::DataType, X) = Vector(isa(X, AbstractArray) ? vec(    eltype(X)==T ? X : T.(X)                      ) : X)
