@@ -46,9 +46,7 @@ end
 
 function coldot!(dest::AbstractMatrix{T}, A::AbstractMatrix{T}, B::AbstractMatrix{T}) where T  # colsum(A .* B)
   fill!(dest, zero(T))
-	@tturbo for i ∈ eachindex(axes(A,2),axes(B,2)), j ∈ eachindex(axes(A,1),axes(B,1))
-		dest[i] += A[j,i] * B[j,i]
-  end
+	coldotplus!(dest, A, B)
 end
 function coldot(A::AbstractMatrix{T}, B::AbstractMatrix{T}) where T
   dest = Matrix{T}(undef, 1, size(A,2))
@@ -60,18 +58,16 @@ coldot(A::AbstractVector, B::AbstractVector) = [dot(A,B)]
 
 # colsum(A .* B); dest should be a one-row matrix
 function coldotplus!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)
-  @tturbo for i ∈ axes(A,2), j ∈ axes(A,1)
+  @tturbo for i ∈ eachindex(axes(A,2),axes(B,2)), j ∈ eachindex(axes(A,1),axes(B,1))
 	  dest[i] += A[j,i] * B[j,i]
   end
 end
 
-# compute the norm of each col of A using quadratic form Q; dest should be a one-row matrix
-function colquadform!(dest::AbstractMatrix{T}, Q::AbstractMatrix{T}, A::AbstractMatrix{T}) where T
-  @tturbo for i ∈ axes(A,2), j ∈ axes(A,1), k ∈ axes(A,1)
-	  dest[i] += A[j,i] * Q[k,j] * A[k,i]
-  end
+# compute negative of the norm of each col of A using quadratic form Q; dest should be a one-row matrix
+function negcolquadform!(dest::AbstractMatrix{T}, Q::AbstractMatrix{T}, A::AbstractMatrix{T}) where T
+  fill!(dest, zero(T))
+	colquadformminus!(dest,Q,A)
 end
-
 
  # From given row of given matrix, substract inner products of corresponding cols of A & B with quadratic form Q
 function colquadformminus!(X::AbstractMatrix, row::Integer, Q::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)
@@ -92,6 +88,7 @@ function matmulplus!(A::Vector, B::Matrix, C::Vector)  # add B*C to A in place
 		A[i] += B[i,j] * C[j]
 	end
 end
+
 # like Mata panelsetup() but can group on multiple columns, like sort(). But doesn't take minobs, maxobs arguments.
 function panelsetup(X::AbstractArray{S} where S, colinds::AbstractVector{T} where T<:Integer)
   N = nrows(X)

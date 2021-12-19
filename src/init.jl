@@ -159,65 +159,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	  minN = T(nrows(o.infoBootData))
 	end
 
-	if isdefined(o, :FEID) && nrows(o.FEID)>0
-		p = _sortperm(o.FEID)
-		sortID = o.FEID[p]
-		i_FE = 1; o.FEboot = o.B>0 && !o.WREnonARubin && o.NClustVar>0; j = o.Nobs; o._FEID = ones(Int64, o.Nobs)
-		o.invFEwt = zeros(T, o.NFE>0 ? o.NFE : o.Nobs)
-		o.FEs = Vector{StrFE{T}}(undef, o.NFE>0 ? o.NFE : o.Nobs)
-		@inbounds for i ∈ o.Nobs-1:-1:1
-			if sortID[i] ≠ sortID[i+1]
-				is = @view p[i+1:j]
-				if o.haswt
-					tmp  = o.wt[is]
-					wt = tmp / (sumFEwt = sum(tmp))
-				else
-					sumFEwt = T(j - i)
-					wt = fill(1/sumFEwt, j-i)
-				end
-				o.FEs[i_FE] = StrFE{T}(is, wt)
-				if (o.B>0 && o.robust && o.granular < o.nerrclustvar) || (o.WREnonARubin && o.robust && o.granular && o.bootstrapt)
-					o.invFEwt[i_FE] = one(T) / sumFEwt
-				end
-
-				j = i
-
-				if o.FEboot  # are all of this FE's obs in same bootstrapping cluster? (But no need to check if B=0 for then CT_WE in 2nd term of (62) orthogonal to v = col of 1's)
-					tmp = o.ID[is, 1:o.nbootclustvar]
-					o.FEboot = all(tmp .== view(tmp, 1,:)')
-				end
-				i_FE += 1
-			end
-			o._FEID[p[i]] = i_FE
-		end
-		is = @view p[1:j]
-		if o.haswt
-			tmp = o.wt[is]
-			wt = tmp / (sumFEwt = sum(tmp))
-		else
-			sumFEwt = T(j)
-			wt = fill(1/sumFEwt, j)
-		end
-		o.FEs[i_FE] = StrFE{T}(is, wt)
-		o.robust && ((o.B>0 && o.granular < o.nerrclustvar) || (o.WREnonARubin && o.granular && o.bootstrapt)) &&
-			(o.invFEwt[i_FE] = 1 / sumFEwt)
-		o.NFE = i_FE
-		resize!(o.invFEwt, o.NFE)
-		resize!(o.FEs    , o.NFE)
-		if o.FEboot  # are all of this FE's obs in same bootstrapping cluster?
-			tmp = o.ID[is, 1:o.nbootclustvar]
-			o.FEboot = all(tmp .== @view tmp[1,:])
-		end
-
-		if o.robust && o.B>0 && o.bootstrapt && !o.FEboot && o.granular < o.nerrclustvar
-			o.infoBootAll = panelsetup(o.IDAll, 1:o.nbootclustvar)  # info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping && error clusters
-		end
-
-		o.X₁ = partialFE(o, o.X₁)  # don't overwrite caller's data
-		o.X₂ = partialFE(o, o.X₂)
-		o.y₁ = partialFE(o, o.y₁)
-		o.Y₂ = partialFE(o, o.Y₂)
-	end
+	InitFEs(o)
 
 	if o.B>0 && o.robust && o.granular && !o.purerobust && o.bootstrapt && !o.WREnonARubin
 		if o.NFE>0 && !o.FEboot
@@ -393,6 +335,68 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	nothing
 end
 
+function InitFEs(o::StrBootTest{T}) where T
+	if isdefined(o, :FEID) && nrows(o.FEID)>0
+		p = _sortperm(o.FEID)
+		sortID = o.FEID[p]
+		i_FE = 1; o.FEboot = o.B>0 && !o.WREnonARubin && o.NClustVar>0; j = o.Nobs; o._FEID = ones(Int64, o.Nobs)
+		o.invFEwt = zeros(T, o.NFE>0 ? o.NFE : o.Nobs)
+		o.FEs = Vector{StrFE{T}}(undef, o.NFE>0 ? o.NFE : o.Nobs)
+		@inbounds for i ∈ o.Nobs-1:-1:1
+			if sortID[i] ≠ sortID[i+1]
+				is = @view p[i+1:j]
+				if o.haswt
+					tmp  = o.wt[is]
+					wt = tmp / (sumFEwt = sum(tmp))
+				else
+					sumFEwt = T(j - i)
+					wt = fill(1/sumFEwt, j-i)
+				end
+				o.FEs[i_FE] = StrFE{T}(is, wt)
+				if (o.B>0 && o.robust && o.granular < o.nerrclustvar) || (o.WREnonARubin && o.robust && o.granular && o.bootstrapt)
+					o.invFEwt[i_FE] = one(T) / sumFEwt
+				end
+
+				j = i
+
+				if o.FEboot  # are all of this FE's obs in same bootstrapping cluster? (But no need to check if B=0 for then CT_WE in 2nd term of (62) orthogonal to v = col of 1's)
+					tmp = o.ID[is, 1:o.nbootclustvar]
+					o.FEboot = all(tmp .== view(tmp, 1,:)')
+				end
+				i_FE += 1
+			end
+			o._FEID[p[i]] = i_FE
+		end
+		is = @view p[1:j]
+		if o.haswt
+			tmp = o.wt[is]
+			wt = tmp / (sumFEwt = sum(tmp))
+		else
+			sumFEwt = T(j)
+			wt = fill(1/sumFEwt, j)
+		end
+		o.FEs[i_FE] = StrFE{T}(is, wt)
+		o.robust && ((o.B>0 && o.granular < o.nerrclustvar) || (o.WREnonARubin && o.granular && o.bootstrapt)) &&
+			(o.invFEwt[i_FE] = 1 / sumFEwt)
+		o.NFE = i_FE
+		resize!(o.invFEwt, o.NFE)
+		resize!(o.FEs    , o.NFE)
+		if o.FEboot  # are all of this FE's obs in same bootstrapping cluster?
+			tmp = o.ID[is, 1:o.nbootclustvar]
+			o.FEboot = all(tmp .== @view tmp[1,:])
+		end
+
+		if o.robust && o.B>0 && o.bootstrapt && !o.FEboot && o.granular < o.nerrclustvar
+			o.infoBootAll = panelsetup(o.IDAll, 1:o.nbootclustvar)  # info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping && error clusters
+		end
+
+		o.X₁ = partialFE(o, o.X₁)  # don't overwrite caller's data
+		o.X₂ = partialFE(o, o.X₂)
+		o.y₁ = partialFE(o, o.y₁)
+		o.Y₂ = partialFE(o, o.Y₂)
+	end
+	nothing
+end
 
 # draw wild weight matrix of width _B. If first=true, insert column of 1s at front. For non-Anderson-Rubin WRE, subtract 1 from all
 const ϕ = (1 + √5)/2
