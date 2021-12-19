@@ -11,3 +11,5 @@ profile.pb.gz
 src/precompiler.jl
 JuliaConnector test.R
 JuliaConnector test.R
+data.dta
+compilation tests.jl
