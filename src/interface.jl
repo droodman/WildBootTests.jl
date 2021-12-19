@@ -151,7 +151,7 @@ function __wildboottest(
 	                  getauxweights && reps>0 ? getv(M) : nothing #=, M=#)
 end
 
-vecconvert(T::DataType, X) = Vector(isa(X, AbstractArray) ? vec(    eltype(X)==T ? X : T.(X)                      ) : X)
+vecconvert(T::DataType, X) = Vector(isa(X, AbstractArray) ? vec(    eltype(X)==T ? X : T.(X)) : X)
 matconvert(T::DataType, X) = Matrix(isa(X, AbstractArray) ? reshape(eltype(X)==T ? X : T.(X), size(X,1), size(X,2)) : X)
 
 function _wildboottest(T::DataType,

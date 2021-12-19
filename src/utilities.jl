@@ -150,7 +150,7 @@ function panelsum!(dest::AbstractVecOrMat, X::AbstractVecOrMat, info::AbstractVe
 			for j ∈ eachindexJ
 				Jj = J[j]
 				tmp = X[f,Jj]
-				for i ∈ fl
+				@tturbo for i ∈ fl
 					tmp += X[i,Jj]
 				end
 				dest[g,Jj] = tmp
@@ -162,35 +162,86 @@ function panelsum!(dest::AbstractVecOrMat, X::AbstractVecOrMat, info::AbstractVe
 		end
 	end
 end
+# function panelsum!(dest::AbstractVecOrMat, X::AbstractVecOrMat, info::AbstractVector{UnitRange{T}} where T<:Integer)
+# 	iszero(length(X)) && return
+# 	J = CartesianIndices(axes(X)[2:end])
+# 	eachindexJ = eachindex(J)
+# 	@inbounds for g in eachindex(info)
+# 		f, l = first(info[g]), last(info[g])
+# 		fl = f+1:l
+# 		if f<l
+# 			for j ∈ eachindexJ
+# 				Jj = J[j]
+# 				tmp = X[f,Jj]
+# 				for i ∈ fl
+# 					tmp += X[i,Jj]
+# 				end
+# 				dest[g,Jj] = tmp
+# 			end
+# 		else
+# 			@simd for j ∈ eachindexJ
+# 				dest[g,J[j]] = X[f,J[j]]
+# 			end
+# 		end
+# 	end
+# end
 # single-weighted panelsum!() along first axis of a VecOrMat
-function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer)
-  iszero(length(X)) && return
-  if iszero(length(info)) || nrows(info)==nrows(X)
-    dest .= X .* wt
-    return
-  end
-  J = CartesianIndices(axes(X)[2:end])
-  eachindexJ = eachindex(J)
-  @inbounds for g in eachindex(info)
-    f, l = first(info[g]), last(info[g])
+function panelsum!(dest::AbstractVecOrMat{T}, X::AbstractVecOrMat{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	iszero(length(X)) && return
+	if iszero(length(info)) || nrows(info)==nrows(X)
+		dest .= X .* wt
+		return
+	end
+	J = CartesianIndices(axes(X)[2:end])
+	eachindexJ = eachindex(J)
+	@inbounds for g in eachindex(info)
+		f, l = first(info[g]), last(info[g])
     fl = f+1:l
 		_wt = wt[f]
-    if f<l
-      for j ∈ eachindexJ
-        Jj = J[j]
-        tmp = X[f,Jj] * _wt
-        for i ∈ fl
-          tmp += X[i,Jj] * wt[i]
-        end
-        dest[g,Jj] = tmp
-      end
-    else
-      for j ∈ eachindexJ
-        dest[g,J[j]] = X[f,J[j]] * _wt
-      end
-    end
-  end
+		if f<l
+			for j ∈ eachindexJ
+				Jj = J[j]
+				tmp = X[f,Jj] * _wt
+				@tturbo for i ∈ fl
+					tmp += X[i,Jj] * wt[i]
+				end
+				dest[g,Jj] = tmp
+			end
+		else
+			@simd for j ∈ eachindexJ
+				dest[g,J[j]] = X[f,J[j]] * _wt
+			end
+		end
+	end
 end
+# function panelsum!(dest::AbstractArray, X::AbstractArray, wt::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer)
+#   iszero(length(X)) && return
+#   if iszero(length(info)) || nrows(info)==nrows(X)
+#     dest .= X .* wt
+#     return
+#   end
+#   J = CartesianIndices(axes(X)[2:end])
+#   eachindexJ = eachindex(J)
+#   @inbounds for g in eachindex(info)
+#     f, l = first(info[g]), last(info[g])
+#     fl = f+1:l
+# 		_wt = wt[f]
+#     if f<l
+#       for j ∈ eachindexJ
+#         Jj = J[j]
+#         tmp = X[f,Jj] * _wt
+#         for i ∈ fl
+#           tmp += X[i,Jj] * wt[i]
+#         end
+#         dest[g,Jj] = tmp
+#       end
+#     else
+#       for j ∈ eachindexJ
+#         dest[g,J[j]] = X[f,J[j]] * _wt
+#       end
+#     end
+#   end
+# end
 function panelsum(X::AbstractVector{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	if iszero(nrows(wt))
 		panelsum(X, info)
