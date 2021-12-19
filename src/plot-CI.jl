@@ -1,7 +1,7 @@
 # given a pre-configured boottest linear model with one-degree null imposed, compute boostrapped p value associated with r
 function r_to_p(o::StrBootTest{T}, r::AbstractVector{T}) where T
   o.r = r
-  getpadj(o)
+  getp(o)
 end
 
 
@@ -45,7 +45,7 @@ function plot!(o::StrBootTest{T}) where T
 
 	o.gridpoints[isnan.(o.gridpoints)] .= 25
 
-  boottest!(o)
+  o.boottest!(o)
 
 	Phi = quantile(Normal{T}(zero(T),one(T)), α/2)
   if o.ARubin

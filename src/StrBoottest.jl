@@ -77,9 +77,11 @@ mutable struct StrBootTest{T<:AbstractFloat}
   CI::Matrix{T}
   peak::NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
 
-  sqrt::Bool; Nobs::Int64; _Nobs::T; kZ::Int64; kY₂::Int64; kX₁::Int64; sumwt::T; NClustVar::Int8; haswt::Bool; REst::Bool; multiplier::T; smallsample::T
-		WREnonARubin::Bool; dof::Int64; dof_r::T; p::T; BootClust::Int8
-		purerobust::Bool; N✻::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX₂::Int64; kX::Int64
+	Nobs::Int64; NClustVar::Int8; kX₁::Int64; kX₂::Int64; kY₂::Int64; WREnonARubin::Bool; boottest!::Function
+
+  sqrt::Bool; _Nobs::T; kZ::Int64; sumwt::T; haswt::Bool; REst::Bool; multiplier::T; smallsample::T
+		dof::Int64; dof_r::T; p::T; BootClust::Int8
+		purerobust::Bool; N✻::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX::Int64
   _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; u✻::Matrix{T}; CT_WE::Matrix{T}
   infoBootData::Vector{UnitRange{Int64}}; infoBootAll::Vector{UnitRange{Int64}}; infoErrAll::Vector{UnitRange{Int64}}
   JN⋂N✻::Matrix{T}; statDenom::Matrix{T}; uXAR::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; β̂dev::Matrix{T}; δdenom_b::Matrix{T}
@@ -104,17 +106,25 @@ mutable struct StrBootTest{T<:AbstractFloat}
   StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
 	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,
 								 β̂, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real =
-	  new(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML || !iszero(Fuller), 
-		    Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML, 
-				β̂, A, sc, willplot, gridmin, gridmax, gridpoints,
-		  nrows(R), ptype==symmetric || ptype==equaltail, scorebs || iszero(B) || ML, robust || nerrclustvar>0,
-		  false, false, 0, false, false, 0, 0, 0, false,
-		  one(T), true,
-		  [zero(T)],
-		  Vector{Int64}(undef,0), Vector{Int64}(undef,0),
-		  Vector{T}(undef,0), Vector{T}(undef,0), Matrix{T}(undef,0,0),
-		  Matrix{T}(undef,0,0),
-		  (X = Vector{T}(undef,0), p = T(NaN)))
+
+		begin
+			kX₂ = ncols(X₂)
+			scorebs = scorebs || iszero(B) || ML
+			WREnonARubin = !(iszero(kX₂) || scorebs) && !ARubin
+
+			new(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML || !iszero(Fuller), 
+					Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML, 
+					β̂, A, sc, willplot, gridmin, gridmax, gridpoints,
+				nrows(R), ptype==symmetric || ptype==equaltail, scorebs, robust || nerrclustvar>0,
+				false, false, 0, false, false, 0, 0, 0, false,
+				one(T), true,
+				[zero(T)],
+				Vector{Int64}(undef,0), Vector{Int64}(undef,0),
+				Vector{T}(undef,0), Vector{T}(undef,0), Matrix{T}(undef,0,0),
+				Matrix{T}(undef,0,0),
+				(X = Vector{T}(undef,0), p = T(NaN)),
+				nrows(X₁), ncols(ID), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!)
+		end
 end
 
 
@@ -280,9 +290,9 @@ function sumlessabs(x, v)
   dest
 end
 
-# get p valuo. Robust to missing bootstrapped values interpreted as +infinity.
-function getp!(o::StrBootTest{T}) where T
-  boottest!(o)
+# store p value in o.p. Return optionally-multiple-hypothesis-adjusted p value. Robust to missing bootstrapped values interpreted as +infinity.
+function getp(o::StrBootTest{T}) where T
+  o.boottest!(o)
   tmp = o.dist[1]
   isnan(tmp) && return tmp
   if o.B>0
@@ -306,12 +316,8 @@ function getp!(o::StrBootTest{T}) where T
 			(o.ptype==upper) == (tmp<0) && (o.p = 1 - o.p)
 		end
   end
-  nothing
-end
-
-function getpadj(o::StrBootTest{T}) where T
-  getp!(o)
-  if o.madjtype==bonferroni min(one(T), o.NH₀ * o.p)
+	
+	if o.madjtype==bonferroni min(one(T), o.NH₀ * o.p)
   elseif o.madjtype==sidak  one(T) - (one(T) - o.p) ^ o.NH₀
   else o.p
   end
@@ -320,12 +326,4 @@ end
 getb(o::StrBootTest) = isone(o.v_sd) ? o.numer[:,1] : o.numer[:,1] / o.v_sd  # numerator for full-sample test stat
 getV(o::StrBootTest) = o.statDenom / ((isone(o.v_sd) ? o.smallsample : o.v_sd^2 * o.smallsample) * (o.sqrt ? o.multiplier^2 : o.multiplier) * o.dof)  # denominator for full-sample test stat
 getv(o::StrBootTest) = @views isone(o.v_sd) ? o.v[:,2:end] : o.v[:,2:end] / o.v_sd  # wild weights
-@inline getrepsfeas(o::StrBootTest) = o.BFeas  # Return number of bootstrap replications with feasible results--0 if getp!() not yet accessed, or doing non-bootstrapping tests
-@inline getnbootclust(o::StrBootTest) = o.N✻
-@inline getreps(o::StrBootTest) = o.B  # return number of replications, possibly reduced to 2^G
 @inline getstat(o::StrBootTest) = o.multiplier * o.dist[1]
-@inline getdf(o::StrBootTest) = o.dof
-@inline getdf_r(o::StrBootTest) = o.dof_r
-@inline _getplot(o::StrBootTest) = (X=Tuple(o.plotX), p=o.plotY)
-@inline getpeak(o::StrBootTest) = o.peak # x and y values of confidence curve peak (at least in OLS && ARubin)
-@inline _getCI(o::StrBootTest) = o.CI

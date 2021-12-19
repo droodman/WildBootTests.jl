@@ -13,8 +13,8 @@ include("nonWRE.jl")
 include("plot-CI.jl")
 include("interface.jl")
 
-# main routine
-function boottest!(o::StrBootTest{T}) where T
+# top-level computation routine for OLS/ARubin (and score BS on IV/2SLS); split off to reduce latency when just doing WRE
+function boottestOLSARubin!(o::StrBootTest{T}) where T
   if !o.initialized
 		Init!(o)
 	elseif !o.null
@@ -27,14 +27,41 @@ function boottest!(o::StrBootTest{T}) where T
 		MakeWildWeights!(o, last(o.WeightGrp[1])-1, first=true)
 	end
 
-  o.WREnonARubin ? PrepWRE!(o) :
-				           MakeInterpolables!(o)  # make stuff that depends linearly on r, possibly by interpolating, for first weight group
+  MakeInterpolables!(o)  # make stuff that depends linearly on r, possibly by interpolating, for first weight group
 
   for w ∈ 1:o.Nw  # do group 1 first because it includes col 1, which is all that might need updating in constructing CI in WCU
 		w > 1 && MakeWildWeights!(o, length(o.WeightGrp[w]), first=false)
 
-		o.WREnonARubin ? MakeWREStats!(o, w) :
-										 MakeNonWREStats!(o, w)
+		MakeNonWREStats!(o, w)
+
+		!o.bootstrapt && UpdateBootstrapcDenom!(o, w)
+  end
+
+  o.BFeas = isnan(o.dist[1]) ? 0 : sum(.!(isnan.(o.dist) .| isinf.(o.dist))) - 1
+  o.distCDR = zeros(T,0,0)
+  nothing
+end
+
+# top-level computation routine for non-ARubin WRE; split off to reduce latency when just doing other tests
+function boottestWRE!(o::StrBootTest{T}) where T
+  if !o.initialized
+		Init!(o)
+	elseif !o.null
+		NoNullUpdate!(o)
+		return
+  end
+
+  if o.Nw > 1  # if more than one weight group to save memory, make on every call to boottest(), not just once in Init!()
+		Random.seed!(o.rng,o.seed)
+		MakeWildWeights!(o, last(o.WeightGrp[1])-1, first=true)
+	end
+
+  PrepWRE!(o)
+
+  for w ∈ 1:o.Nw  # do group 1 first because it includes col 1, which is all that might need updating in constructing CI in WCU
+		w > 1 && MakeWildWeights!(o, length(o.WeightGrp[w]), first=false)
+
+		MakeWREStats!(o, w)
 
 		!o.bootstrapt && UpdateBootstrapcDenom!(o, w)
   end
@@ -87,9 +114,13 @@ end
 end
 
 # using StatFiles, StatsModels, DataFrames, DataFramesMeta, CategoricalArrays
-# df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\collapsed.dta"))
+# df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\nlsw88.dta"))
+# df = df[:, [:wage; :tenure; :ttl_exp; :collgrad; :industry; :union]]
 # dropmissing!(df)
-# f = @formula(hasinsurance ~ 1 + selfemployed + post + post_self)
-# f = apply_schema(f, schema(f, df, Dict(:hasinsurance => ContinuousTerm)))
+# f = @formula(wage ~ 1 + ttl_exp + collgrad)
+# f = apply_schema(f, schema(f, df))
 # resp, predexog = modelcols(f, df)
-# test = WildBootTests.wildboottest([0 0 0 1], [.04]; resp, predexog, clustid=Int32.(df.year), reps=2)
+# ivf = @formula(tenure ~ union)
+# ivf = apply_schema(ivf, schema(ivf, df))
+# predendog, inst = modelcols(ivf, df)
+# test = WildBootTests.wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0)

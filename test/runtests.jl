@@ -72,11 +72,11 @@ test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.
 println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
 println(log, "\nscoretest tenure")
-test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, rng=StableRNG(1231))
+test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0)
 println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
 println(log, "\nwaldtest tenure")
-test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, imposenull=false, rng=StableRNG(1231))
+test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, imposenull=false)
 println(log, "z=$(teststat(test)) p=$(p(test)) CI=$(CI(test))")
 
 println(log, "\nivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)")

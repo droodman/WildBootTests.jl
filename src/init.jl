@@ -1,11 +1,8 @@
 @inline _sortperm(X::AbstractVecOrMat) = size(X,2)==1 ? sortperm(ndims(X)==1 ? X : vec(X), alg=RadixSort) : sortperm(collect(eachrow(X)))  # sort a data matrix
 
 function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repeatedly to make CI, do stuff once that doesn't depend on r
-  o.Nobs = nrows(o.X₁)
-  o.NClustVar = ncols(o.ID)
-  o.kX = (o.kX₁ = ncols(o.X₁)) + (o.kX₂ = ncols(o.X₂))
-  o.kX₂==0 && (o.X₂ = zeros(T,o.Nobs,0))
-  o.kY₂ = ncols(o.Y₂)
+	o.kX = o.kX₁ + o.kX₂
+	o.kX₂==0 && (o.X₂ = zeros(T,o.Nobs,0))
   iszero(o.kY₂) && (o.Y₂ = zeros(T,o.Nobs,0))
   o.kZ = o.kX₁ + o.kY₂
   if o.LIML && o.kX₂==o.kY₂  # exactly identified LIML = 2SLS
@@ -18,7 +15,6 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   end
   isnan(o.κ) && (o.κ = o.kX₂>0 ? one(T) : zero(T))  # if κ in κ-class estimation not specified, it's 0 or 1 for OLS or 2SLS
   o.WRE = !(iszero(o.κ) || o.scorebs) || o.ARubin
-  o.WREnonARubin = o.WRE && !o.ARubin
 
   iszero(o.B) && (o.scorebs = true)
 

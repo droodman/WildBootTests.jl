@@ -134,18 +134,18 @@ function __wildboottest(
 
 	if getplot || (level<1 && getCI)
 		plot!(M)
-		plot = getplot ? _getplot(M) : nothing
-		peak = getpeak(M)
-		CI = level<1 & getCI ? _getCI(M) : nothing
+		plot = getplot ? (X=Tuple(M.plotX), p=M.plotY) : nothing
+		peak = M.peak
+		CI = level<1 & getCI ? M.CI : nothing
 	else
 		CI = plot = peak = nothing
 	end
 	
-	padj = getpadj(M)  # trigger central (re)computation
+	padj = getp(M)  # trigger central (re)computation
 
 	BoottestResult{T}(getstat(M),
 	                  isone(nrows(R)) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
-	                  M.p, padj, getreps(M), getrepsfeas(M), getnbootclust(M), getdf(M), getdf_r(M), plot, peak, CI,
+	                  M.p, padj, M.B, M.BFeas, M.N✻, M.dof, M.dof_r, plot, peak, CI,
 	                  getdist(M, diststat),
 	                  getb(M), getV(M),
 	                  getauxweights && reps>0 ? getv(M) : nothing #=, M=#)
