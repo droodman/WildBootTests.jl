@@ -21,7 +21,7 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 		end
 
 		if any(newPole)  # prep interpolation
-			for h₁ ∈ 1:o.q
+			@inbounds for h₁ ∈ 1:o.q
 				if newPole[h₁]
 					o.poles[h₁] = o.r[h₁] - o.anchor[h₁]
 					thisr = copy(o.anchor); thisr[h₁] = o.r[h₁]  # if q>1 this creates anchor points that are not graphed, an inefficiency. But simpler to make the deviations from 1st point orthogonal
@@ -45,7 +45,7 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 				end
 			end
 			if o.robust  # quadratic interaction terms
-				for h₁ ∈ 1:o.q, h₂ ∈ 1:h₁
+				@inbounds for h₁ ∈ 1:o.q, h₂ ∈ 1:h₁
 					if newPole[h₁] || newPole[h₂]
 						for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁, c ∈ 1:o.NErrClustCombs
 							@clustAccum!(o.∂²denom∂r²[h₁,h₂][d₁,d₂], c, coldot(o.∂Jcd∂r[h₁][c,d₁], o.∂Jcd∂r[h₂][c,d₂]))
@@ -75,17 +75,17 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 
 		if o.robust  # even if an anchor was just moved, and linear components just computed from scratch, do the quadratic interpolation now, from the updated linear factors
 			if isone(o.q)
-				for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁
+				@inbounds for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁
 					o.denom[d₁,d₂] .= o.denom₀[d₁,d₂] .+ o.∂denom∂r[d₁,d₂][1,1] .* Δ .+ o.∂²denom∂r²[d₁,d₂][1,1] .* Δ.^2
 				end
 			else  # q==2
-				for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁
+				@inbounds for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁
 					o.denom[d₁,d₂] .= o.denom₀[d₁,d₂] .+
-										        o.∂denom∂r[1][d₁,d₂] .* Δ[1] .+
-										        o.∂denom∂r[2][d₁,d₂] .* Δ[2] .+
-										        o.∂²denom∂r²[1,1][d₁,d₂] .* (Δ[1] .^ 2) .+
-										        o.∂²denom∂r²[2,1][d₁,d₂] .* (Δ[1] .* Δ[2]) .+
-										        o.∂²denom∂r²[2,2][d₁,d₂] .* (Δ[2] .^ 2)
+														o.∂denom∂r[1][d₁,d₂] .* Δ[1] .+
+														o.∂denom∂r[2][d₁,d₂] .* Δ[2] .+
+														o.∂²denom∂r²[1,1][d₁,d₂] .* (Δ[1] .^ 2) .+
+														o.∂²denom∂r²[2,1][d₁,d₂] .* (Δ[1] .* Δ[2]) .+
+														o.∂²denom∂r²[2,2][d₁,d₂] .* (Δ[2] .^ 2)
 				end
 			end
 		end
@@ -139,16 +139,16 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 
 			if o.NFE>0 && !o.FEboot
 				tmp = o.invFEwt .* o.CT_WE
-				for d ∈ 1:o.dof
+				@inbounds for d ∈ 1:o.dof
 					K[d] .+= o.M.CT_XAR[d] * tmp
 				end
 			end
-			for d ∈ 1:o.dof
+			@inbounds for d ∈ 1:o.dof
 				K[d][o.crosstab⋂✻ind] .-= view(u✻XAR,:,d)  # subtract crosstab of u✻XAR wrt bootstrapping cluster and all-cluster-var intersections from M
 				o.scorebs && (K[d] .-= o.ClustShare * colsum(K[d]))  # recenter
 			end
 
-			for c ∈ 1+o.granular:o.NErrClustCombs
+			@inbounds for c ∈ 1+o.granular:o.NErrClustCombs
 				for d ∈ 1:o.dof
 					nrows(o.clust[c].order)>0 &&
 						(K[d] = K[d][o.clust[c].order,:])
@@ -158,7 +158,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 		else  # B = 0. In this case, only 1st term of (64) is non-zero after multiplying by v* (= all 1's), and it is then a one-way sum by c
 			o.scorebs &&
 				(u✻XAR .-= o.ClustShare * colsum(u✻XAR))  # recenter if OLS
-			for c ∈ 1:o.NErrClustCombs
+			@inbounds for c ∈ 1:o.NErrClustCombs
 				nrows(o.clust[c].order)>0 &&
 					(u✻XAR = u✻XAR[o.clust[c].order,:])
 				tmp = @panelsum(u✻XAR, o.clust[c].info)
@@ -202,18 +202,18 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 				if o.NFE>0 && !o.FEboot
 					o.u✻ = o.ü .* view(o.v, o.IDBootData, :)
 					partialFE!(o, o.u✻)
-					for d ∈ 1:o.dof
+					@inbounds for d ∈ 1:o.dof
 						o.Jcd[1,d] = @panelsum(o.u✻, view(o.M.WXAR,:,d), o.info⋂Data)                                - @panelsum2(o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂Data) * o.β̂dev
 					end
 				else
 					_v = view(o.v,o.IDBootAll,:)
-					for d ∈ 1:o.dof
+					@inbounds for d ∈ 1:o.dof
 						o.Jcd[1,d] = panelsum( panelsum(o.ü, view(o.M.WXAR,:,d), o.infoAllData) .* _v, o.infoErrAll) - @panelsum2(o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂Data) * o.β̂dev
 					end
 				end
 			end
 		end
-		for c ∈ o.granular+1:o.NErrClustCombs, d ∈ eachindex(axes(o.Jcd, 2), axes(o.Kcd, 2))
+		@inbounds	for c ∈ o.granular+1:o.NErrClustCombs, d ∈ eachindex(axes(o.Jcd, 2), axes(o.Kcd, 2))
 			o.Jcd[c,d] = o.Kcd[c,d] * o.v
 		end
 	end
@@ -227,7 +227,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 	if o.robust
     if !o.interpolating  # these quadratic computation needed to *prepare* for interpolation but are superseded by interpolation once it is going
     	o.purerobust && (u✻2 = o.u✻ .^ 2)
-    	for i ∈ 1:o.dof, j ∈ 1:i
+    	@inbounds for i ∈ 1:o.dof, j ∈ 1:i
     		o.purerobust &&
   	   		(o.denom[i,j] = cross(view(o.M.WXAR,:,i), view(o.M.WXAR,:,j), u✻2) * (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier))
 				for c ∈ o.purerobust+1:o.NErrClustCombs
@@ -247,7 +247,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 				(o.statDenom = [o.denom[1,1][1] o.denom[2,1][1] ; o.denom[2,1][1] o.denom[2,2][1]])  # original-sample denominator
 		else  # build each replication's denominator from vectors that hold values for each position in denominator, all replications
 			tmp = Matrix{T}(undef, o.dof, o.dof)
-			@inbounds for k ∈ 1:ncols(o.v)
+			@inbounds Threads.@threads for k ∈ 1:ncols(o.v)
 				for i ∈ 1:o.dof
 					for j ∈ 1:i
 						tmp[j,i] = o.denom[i,j][k]  # fill upper triangle, which is all invsym() looks at

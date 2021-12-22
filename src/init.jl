@@ -87,7 +87,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
 	    o.BootClust = 2^(o.NClustVar - o.nbootclustvar)  # location of bootstrap clustering within list of cluster combinations
 
-	    for c ∈ 1:o.NErrClustCombs  # for each error clustering combination
+	    @inbounds for c ∈ 1:o.NErrClustCombs  # for each error clustering combination
 		    ClustCols = o.subcluster .+ findall(@view combs[c,:])
 		    even = isodd(length(ClustCols))  # not a typo
 

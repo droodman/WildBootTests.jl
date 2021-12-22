@@ -5,7 +5,7 @@
 # (only really the Hessian when we narrow Y to Z)
 function HessianFixedkappa(o::StrBootTest{T}, ind1::Vector{S} where S<:Integer, ind2::Integer, κ::Number, w::Integer) where T
   dest = Matrix{T}(undef, length(ind1), ncols(o.v))
-  for i ∈ eachindex(ind1, axes(dest,1))
+  @inbounds for i ∈ eachindex(ind1, axes(dest,1))
 		_HessianFixedkappa!(o, view(dest,i:i,:), ind1[i], ind2, κ, w)
   end
   dest
@@ -80,6 +80,43 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer
 	nothing
 end
 
+# put threaded loops in functions to prevent type instability https://discourse.julialang.org/t/type-inference-with-threads/2004/3
+function FillingLoop1!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::Integer, _β̂::AbstractMatrix{T}) where T
+	Threads.@threads for i ∈ 1:o.clust[1].N
+		PXY✻ = hcat(o.Repl.PXZ[i,ind1])
+		o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ view(o.S✻UPX[ind1+1],i,:)'o.v)
+
+		if iszero(ind2)
+			dest[i,:]   = colsum(PXY✻ .* (o.Repl.y₁[i] .- view(o.S✻UMZperp[1],i,:))'o.v)
+		elseif o.Repl.Yendog[ind2+1]
+			dest[i,:] .-= colsum(PXY✻ .* (o.Repl.Z[i,ind2] * _β̂ .- view(o.S✻UMZperp[ind2+1],i,:)'β̂v))
+		else
+			dest[i,:] .-= colsum(PXY✻ .* (o.Repl.Z[i,ind2] * _β̂))
+		end
+	end
+	nothing
+end
+function FillingLoop2!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::Integer, _β̂::AbstractMatrix{T}) where T
+	Threads.@threads for i ∈ 1:o.clust[1].N
+		S = o.info⋂Data[i]
+		PXY✻ = o.Repl.Yendog[ind1+1] ? view(o.Repl.PXZ,S,ind1) .+ view(o.S✻UPX[ind1+1],S,:) * o.v :
+																	reshape(o.Repl.PXZ[S,ind1], :, 1)
+
+		if iszero(ind2)
+			dest[i,:]   = colsum(PXY✻ .* (o.Repl.y₁[S] .- view(o.S✻UMZperp[1],S,:) * o.v))
+		else
+			dest[i,:] .-= colsum(PXY✻ .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[S,ind2] * _β̂ .- view(o.S✻UMZperp[ind2+1],S,:) * β̂v :
+																																o.Repl.Z[S,ind2] * _β̂                                       ))
+		end
+	end
+	nothing
+end
+function FillingLoop3!(o::StrBootTest{T}, T₁::Matrix{T}, ind1::Integer, ind2::Integer) where T
+	Threads.@threads for i ∈ 1:o.N✻
+		T₁[o.IDCT⋂✻[i], i] .+= o.SCT⋂uXinvXX[ind2+1,i] * view(o.Repl.XZ,:,ind1)
+	end
+	nothing
+end
 
 # Workhorse for WRE CRVE sandwich filling
 # Given a column index within it, ind1, and a matrix β̂s of all the bootstrap estimates, 
@@ -94,47 +131,25 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where 
 
 			dest = @panelsum(PXY✻ .* (o.Repl.y₁ .- o.S✻UMZperp[1] * o.v), o.info⋂Data)
 
-			for ind2 ∈ 1:o.Repl.kZ
+			@inbounds for ind2 ∈ 1:o.Repl.kZ
 				_β̂ = view(β̂s,ind2,:)'
 				dest .-= @panelsum(PXY✻ .* (o.Repl.Yendog[ind2+1] ?  view(o.Repl.Z,:,ind2) * _β̂ .- o.S✻UMZperp[ind2+1] * (o.v .* _β̂) :
 															                              (view(o.Repl.Z,:,ind2) * _β̂)                                      ), o.info⋂Data)
 			end
 		else  # create pieces of each N x B matrix one at a time rather than whole thing at once
 			dest = Matrix{T}(undef, o.clust[1].N, ncols(o.v))  # XXX preallocate this & turn Filling into Filling! ?
-			for ind2 ∈ 0:o.Repl.kZ
+			@inbounds for ind2 ∈ 0:o.Repl.kZ
 				ind2>0 && (β̂v = o.v .* (_β̂ = view(β̂s,ind2,:)'))
 
 				if o.purerobust
-					for i ∈ 1:o.clust[1].N
-						PXY✻ = hcat(o.Repl.PXZ[i,ind1])
-						o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ view(o.S✻UPX[ind1+1],i,:)'o.v)
-
-						if iszero(ind2)
-							dest[i,:]   = colsum(PXY✻ .* (o.Repl.y₁[i] .- view(o.S✻UMZperp[1],i,:))'o.v)
-						elseif o.Repl.Yendog[ind2+1]
-							dest[i,:] .-= colsum(PXY✻ .* (o.Repl.Z[i,ind2] * _β̂ .- view(o.S✻UMZperp[ind2+1],i,:)'β̂v))
-						else
-							dest[i,:] .-= colsum(PXY✻ .* (o.Repl.Z[i,ind2] * _β̂))
-						end
-					end
+					FillingLoop1!(o, dest, ind1, ind2, _β̂)
 				else
-					for i ∈ 1:o.clust[1].N
-						S = o.info⋂Data[i]
-						PXY✻ = o.Repl.Yendog[ind1+1] ? view(o.Repl.PXZ,S,ind1) .+ view(o.S✻UPX[ind1+1],S,:) * o.v :
-																					 reshape(o.Repl.PXZ[S,ind1], :, 1)
-
-						if iszero(ind2)
-							dest[i,:]   = colsum(PXY✻ .* (o.Repl.y₁[S] .- view(o.S✻UMZperp[1],S,:) * o.v))
-						else
-							dest[i,:] .-= colsum(PXY✻ .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[S,ind2] * _β̂ .- view(o.S✻UMZperp[ind2+1],S,:) * β̂v :
-																						                             o.Repl.Z[S,ind2] * _β̂                                       ))
-						end
-					end
+					FillingLoop2!(o, dest, ind1, ind2, _β̂)
 				end
 			end
     end
   else  # coarse error clustering
-		for ind2 ∈ 0:o.Repl.kZ
+		@inbounds for ind2 ∈ 0:o.Repl.kZ
 			β̂v = iszero(ind2) ? o.v : o.v .* (_β̂ = -view(β̂s,ind2,:)')
 
 			# T1 * o.v will be 1st-order terms
@@ -150,9 +165,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where 
 					end
 				else
 					!o.Repl.Yendog[ind1+1] && (T₁ = o.JN⋂N✻)
-					for i ∈ 1:o.N✻
-						T₁[o.IDCT⋂✻[i], i] .+= o.SCT⋂uXinvXX[ind2+1,i] * view(o.Repl.XZ,:,ind1)
-					end
+					FillingLoop3(o, T₁, ind1, ind2)
 				end
 				ncols(o.Repl.Zperp) > 0 && (T₁ = T₁ .- o.Repl.S⋂PXYZperp[ind1+1] * o.S✻UZperpinvZperpZperp[ind2+1])  # subtract S_∩ (P_(X_∥ ) Y_(∥i):*Z_⊥ ) (Z_⊥^' Z_⊥ )^(-1) [S_* (U ̈_(∥j):*Z_⊥ )]^'
 				o.NFE               > 0 && (T₁ = T₁ .- o.Repl.CT_FE⋂PY[ind1+1] * o.CTFEU[ind2+1])
@@ -180,7 +193,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where 
 			if o.Repl.Yendog[ind1+1] && o.Repl.Yendog[ind2+1]
 				for i ∈ 1:o.clust[1].N
 					S = o.info⋂Data[i]
-					colquadformminus!(dest, i, view(o.S✻UPX[ind1+1],S,:)'view(o.S✻UMZperp[ind2+1],S,:), o.v, β̂v)
+					colquadformminus!(dest, i, o.v, view(o.S✻UPX[ind1+1],S,:)'view(o.S✻UMZperp[ind2+1],S,:), β̂v)
 				end
 			end
 		end
@@ -194,7 +207,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
   MakeResidualsIV!(o.DGP, o)
   Ü₂par = view(o.DGP.Ü₂ * o.Repl.RparY,:,:)
 
-  for i ∈ 0:o.Repl.kZ  # precompute various clusterwise sums
+  @inbounds for i ∈ 0:o.Repl.kZ  # precompute various clusterwise sums
 		u = i>0 ? view(Ü₂par,:,i) : view(o.DGP.u⃛₁,:)
 		uwt = vHadw(u, o.wt)::Union{Vector{T}, SubArray{T, 1}}
 
@@ -255,31 +268,31 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			κs = (x₁₁ .+ x₂₂)./2; κs = 1 ./ (1 .- (κs .- sqrt.(κs.^2 .- x₁₁ .* x₂₂ .+ x₁₂ .* x₂₁)) ./ (YY₁₁ .* YY₂₂ .- YY₁₂ .* YY₁₂))  # solve quadratic equation for smaller eignenvalue; last term is det(YY✻)
 			!iszero(o.Fuller) && (κs .-= o.Fuller / (o._Nobs - o.kX))
 			o.As = κs .* (YPXY₂₂ .- YY₂₂) .+ YY₂₂
-			β̂s = (κs .* (YPXY₁₂ .- YY₁₂) .+ YY₁₂) ./ o.As
+			_β̂s = (κs .* (YPXY₁₂ .- YY₁₂) .+ YY₁₂) ./ o.As
 		else
 			o.As = HessianFixedkappa(o, [1], 1, o.κ, w)
-			β̂s   = HessianFixedkappa(o, [1], 0, o.κ, w) ./ o.As
+			_β̂s   = #=HessianFixedkappa(o, [1], 0, o.κ, w) ./ =#o.As
 		end
 
 		if o.null
-			o.numerw = β̂s .+ (o.Repl.Rt₁ - o.r) / o.Repl.RRpar
+			o.numerw = _β̂s .+ (o.Repl.Rt₁ - o.r) / o.Repl.RRpar
 		else
-			o.numerw = β̂s .- o.DGP.β̂₀
-			isone(w) && (o.numerw[1] = β̂s[1] + (o.Repl.Rt₁ - o.r) / o.Repl.RRpar)
+			o.numerw = _β̂s .- o.DGP.β̂₀
+			isone(w) && (o.numerw[1] = _β̂s[1] + (o.Repl.Rt₁ - o.r) / o.Repl.RRpar)
 		end
 
 		@storeWtGrpResults!(o.numer, o.numerw)
 
 		if o.bootstrapt
 			if o.robust
-				J⋂s = Filling(o, 1, β̂s) ./ o.As
-				for c ∈ 1:o.NErrClustCombs  # sum sandwich over error clusterings
+				J⋂s = Filling(o, 1, _β̂s) ./ o.As
+				@inbounds for c ∈ 1:o.NErrClustCombs  # sum sandwich over error clusterings
 					nrows(o.clust[c].order)>0 && 
 						(J⋂s = J⋂s[o.clust[c].order,:])
 					@clustAccum!(denom, c, coldot(@panelsum(J⋂s, o.clust[c].info)))
 				end
 			else
-				denom = (HessianFixedkappa(o, [0], 0, zero(T), w) .- 2 .* β̂s .* HessianFixedkappa(o, [0], 1, zero(T), w) .+ β̂s.^2 .* HessianFixedkappa(o, [1], 1, zero(T), w)) ./ o._Nobs ./ o.As  # classical error variance
+				denom = (HessianFixedkappa(o, [0], 0, zero(T), w) .- 2 .* _β̂s .* HessianFixedkappa(o, [0], 1, zero(T), w) .+ _β̂s.^2 .* HessianFixedkappa(o, [1], 1, zero(T), w)) ./ o._Nobs ./ o.As  # classical error variance
 			end
 			@storeWtGrpResults!(o.dist, o.sqrt ? o.numerw ./ sqrt.(denom) : o.numerw .^ 2 ./ denom)
 			denom *= o.Repl.RRpar[1]^2
@@ -294,7 +307,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			YY✻   = [HessianFixedkappa(o, collect(0:i), i, zero(T), w) for i ∈ 0:o.Repl.kZ] # κ=0 => Y*MZperp*Y
 			o.YPXY✻ = [HessianFixedkappa(o, collect(0:i), i,  one(T), w) for i ∈ 0:o.Repl.kZ] # κ=1 => Y*PXpar*Y
 
-			for b ∈ axes(o.v,2)
+			@inbounds for b ∈ axes(o.v,2)
 				for i ∈ 0:o.Repl.kZ
 					o.YY✻_b[1:i+1,i+1]   = YY✻[i+1][:,b]  # fill uppper triangles, which is all that invsym() looks at
 					o.YPXY✻_b[1:i+1,i+1] = o.YPXY✻[i+1][:,b]
@@ -307,7 +320,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			δnumer =  HessianFixedkappa(o, collect(1:o.Repl.kZ), 0, o.κ, w)
 			δdenom = [HessianFixedkappa(o, collect(1:i), i, o.κ, w) for i ∈ 1:o.Repl.kZ]
 			
-			for b ∈ axes(o.v,2)
+			@inbounds Threads.@threads for b ∈ axes(o.v,2)
 				for i ∈ 1:o.Repl.kZ
 					o.δdenom_b[1:i,i] = view(δdenom[i],:,b)  # fill uppper triangle
 				end
@@ -317,7 +330,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 
 		if o.bootstrapt
 			if o.robust
-				for i ∈ 1:o.Repl.kZ  # avoid list comprehension construction because of compiler type detection issue
+				@inbounds for i ∈ 1:o.Repl.kZ  # avoid list comprehension construction because of compiler type detection issue
 					o.Zyg[i] = Filling(o, i, β̂s)
 				end
 			else

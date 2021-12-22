@@ -150,7 +150,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			o.FillingT₀ = Matrix{Matrix{T}}(undef, o.kZ+1, o.kZ+1)  # fixed component of groupwise term in sandwich filling
 			parent.NFE>0 &&
 				(o.CT_FE⋂PY = Vector{Matrix{T}}(undef, o.kZ+1))
-			for i ∈ 1:o.kZ
+			@inbounds for i ∈ 1:o.kZ
 				u = view(o.PXZ,:,i)
 				parent.NFE>0 &&
 					(o.CT_FE⋂PY[i+1] = crosstabFEt(parent, u, parent.info⋂Data) .* parent.invFEwt)
@@ -159,7 +159,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 					o.FillingT₀[i+1,j+1] = reshape(view(tmp,:,j),:,1)
 				end
 			end
-			for i ∈ 1:o.kZ  # precompute various clusterwise sums
+			@inbounds for i ∈ 1:o.kZ  # precompute various clusterwise sums
 				o.S⋂PXYZperp[i+1] = @panelsum(o.Zperp, view(o.PXZ,:,i), parent.info⋂Data)  # S⋂(P_(MZperpX) * Z .* Zperp)
 				if !parent.granular
 					if parent.haswt

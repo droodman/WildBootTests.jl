@@ -4,8 +4,8 @@ export BoottestResult, wildboottest, AuxWtType, PType, MAdjType, DistStatType,
 
 using LinearAlgebra, Random, Distributions, SortingAlgorithms, LoopVectorization
 
-include("utilities.jl")
 include("StrBoottest.jl")
+include("utilities.jl")
 include("estimators.jl")
 include("init.jl")
 include("WRE.jl")
