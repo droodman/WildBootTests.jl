@@ -122,7 +122,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	    end
 
 	    (o.scorebs || !o.WREnonARubin) &&
-		  	(o.ClustShare = o.haswt ? @panelsum(o.wt, o.info⋂Data)/o.sumwt : T.(length.(o.info⋂Data)./o.Nobs)) # share of observations by group
+		  	(o.ClustShare = o.haswt ? @panelsum(o, o.wt, o.info⋂Data)/o.sumwt : T.(length.(o.info⋂Data)./o.Nobs)) # share of observations by group
 
     else  # if no clustering, cast "robust" as clustering by observation
       o.clust = StrClust{T}(Nobs, small ? o._Nobs / (o._Nobs - one(T)) : one(T), true, Vector{Int64}(undef,0), Vector{UnitRange{Int64}}(undef,0))

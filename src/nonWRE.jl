@@ -34,8 +34,8 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 							for c ∈ 1:o.NErrClustCombs
 								o.∂Jcd∂r[h₁][c,d₁] = (o.Jcd[c,d₁] .- o.Jcd₀[c,d₁]) ./ o.poles[h₁]
 								for d₂ ∈ 1:d₁
-									tmp = coldot(o.Jcd₀[c,d₁], o.∂Jcd∂r[h₁][c,d₂])
-									d₁ ≠ d₂ && (coldotplus!(tmp, o.Jcd₀[c,d₂], o.∂Jcd∂r[h₁][c,d₁]))  # for diagonal items, faster to just double after the c loop
+									tmp = coldot(o, o.Jcd₀[c,d₁], o.∂Jcd∂r[h₁][c,d₂])
+									d₁ ≠ d₂ && (o.coldotplus!(tmp, o.Jcd₀[c,d₂], o.∂Jcd∂r[h₁][c,d₁]))  # for diagonal items, faster to just double after the c loop
 									@clustAccum!(o.∂denom∂r[h₁][d₁,d₂], c, tmp)
 								end
 							end
@@ -48,7 +48,7 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 				@inbounds for h₁ ∈ 1:o.q, h₂ ∈ 1:h₁
 					if newPole[h₁] || newPole[h₂]
 						for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁, c ∈ 1:o.NErrClustCombs
-							@clustAccum!(o.∂²denom∂r²[h₁,h₂][d₁,d₂], c, coldot(o.∂Jcd∂r[h₁][c,d₁], o.∂Jcd∂r[h₂][c,d₂]))
+							@clustAccum!(o.∂²denom∂r²[h₁,h₂][d₁,d₂], c, coldot(o, o.∂Jcd∂r[h₁][c,d₁], o.∂Jcd∂r[h₂][c,d₂]))
 						end
 					end
 				end
@@ -121,18 +121,18 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 	o.SuwtXA = o.scorebs ?
 				o.B>0 ?
 					 o.NClustVar ?
-				          @panelsum(o.uXAR, o.wt, o.infoBootData) :
+				          @panelsum(o, o.uXAR, o.wt, o.infoBootData) :
 					      vHadw(o.uXAR, o.wt)                    :
 				        o.haswt ? reshape(o.uXAR'o.wt,1,:) : sum(o.uXAR,dims=1)  :
-			  o.DGP.A * @panelsum2(o.X₁, o.X₂, vHadw(o.ü, o.wt), o.infoBootData)'  # same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined; X₂ empty except in Anderson-Rubin
+			  o.DGP.A * @panelsum2(o, o.X₁, o.X₂, vHadw(o.ü, o.wt), o.infoBootData)'  # same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined; X₂ empty except in Anderson-Rubin
 
 	if o.robust && o.bootstrapt && o.granular < o.NErrClustCombs
-		u✻XAR = @panelsum(o.uXAR, o.wt, o.infoAllData)  # collapse data to all-boot && error-cluster-var intersections. If no collapsing needed, panelsum() will still fold in any weights
+		u✻XAR = @panelsum(o, o.uXAR, o.wt, o.infoAllData)  # collapse data to all-boot && error-cluster-var intersections. If no collapsing needed, panelsum() will still fold in any weights
 		if o.B>0
 			if o.scorebs
 				K = [zeros(T, o.clust[1].N, o.N✻) for _ in o.dof]::Vector{Matrix{T}}  # inefficient, but not optimizing for the score bootstrap
 			else
-				K = [@panelsum2(o.X₁, o.X₂, vHadw(view(o.DGP.XAR,:,d), o.wt), o.info⋂Data) * o.SuwtXA for d ∈ 1:o.dof]::Vector{Matrix{T}}
+				K = [@panelsum2(o, o.X₁, o.X₂, vHadw(view(o.DGP.XAR,:,d), o.wt), o.info⋂Data) * o.SuwtXA for d ∈ 1:o.dof]::Vector{Matrix{T}}
 			end
 
 			o.NFE>0 && !o.FEboot && (o.CT_WE = crosstabFE(o, vHadw(o.ü, o.wt), o.infoBootData))
@@ -152,7 +152,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 				for d ∈ 1:o.dof
 					nrows(o.clust[c].order)>0 &&
 						(K[d] = K[d][o.clust[c].order,:])
-					o.Kcd[c,d] = @panelsum(K[d], o.clust[c].info)
+					o.Kcd[c,d] = @panelsum(o, K[d], o.clust[c].info)
 				end
 			end
 		else  # B = 0. In this case, only 1st term of (64) is non-zero after multiplying by v* (= all 1's), and it is then a one-way sum by c
@@ -161,7 +161,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 			@inbounds for c ∈ 1:o.NErrClustCombs
 				nrows(o.clust[c].order)>0 &&
 					(u✻XAR = u✻XAR[o.clust[c].order,:])
-				tmp = @panelsum(u✻XAR, o.clust[c].info)
+				tmp = @panelsum(o, u✻XAR, o.clust[c].info)
 				for d ∈ 1:o.dof
 					o.Kcd[c,d] = reshape(view(tmp,:,d),:,1)
 				end
@@ -203,12 +203,12 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 					o.u✻ = o.ü .* view(o.v, o.IDBootData, :)
 					partialFE!(o, o.u✻)
 					@inbounds for d ∈ 1:o.dof
-						o.Jcd[1,d] = @panelsum(o.u✻, view(o.M.WXAR,:,d), o.info⋂Data)                                - @panelsum2(o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂Data) * o.β̂dev
+						o.Jcd[1,d] = @panelsum(o, o.u✻, view(o.M.WXAR,:,d), o.info⋂Data)                                - @panelsum2(o, o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂Data) * o.β̂dev
 					end
 				else
 					_v = view(o.v,o.IDBootAll,:)
 					@inbounds for d ∈ 1:o.dof
-						o.Jcd[1,d] = panelsum( panelsum(o.ü, view(o.M.WXAR,:,d), o.infoAllData) .* _v, o.infoErrAll) - @panelsum2(o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂Data) * o.β̂dev
+						o.Jcd[1,d] = panelsum(o, panelsum(o, o.ü, view(o.M.WXAR,:,d), o.infoAllData) .* _v, o.infoErrAll) - @panelsum2(o, o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂Data) * o.β̂dev
 					end
 				end
 			end
@@ -244,7 +244,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
     		o.purerobust &&
   	   		(o.denom[i,j] = cross(view(o.M.WXAR,:,i), view(o.M.WXAR,:,j), u✻2) * (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier))
 				for c ∈ o.purerobust+1:o.NErrClustCombs
-					@clustAccum!(o.denom[i,j], c, j==i ? coldot(o.Jcd[c,i]) : coldot(o.Jcd[c,i],o.Jcd[c,j]))
+					@clustAccum!(o.denom[i,j], c, j==i ? coldot(o, o.Jcd[c,i]) : coldot(o, o.Jcd[c,i],o.Jcd[c,j]))
 				end
   		end
    	end
@@ -281,7 +281,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 				if o.haswt
 					o.denom[1,1] .*= o.wt'(o.u✻ .^ 2)
 				else
-					o.denom[1,1] .*= coldot(o.u✻)
+					o.denom[1,1] .*= coldot(o,o.u✻)
 				end
 			end
 

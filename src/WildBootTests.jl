@@ -107,20 +107,23 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T, w::Integer)
 end
 
 if Base.VERSION >= v"1.4.2"  # source: https://timholy.github.io/SnoopCompile.jl/stable/snoopi_deep_parcel/#SnoopCompile.write
-	include("../src/precompile_WildBootTests.jl")
+	include("precompile_WildBootTests.jl")
 	_precompile_()
 end
  
 end
 
-# using StatFiles, StatsModels, DataFrames, DataFramesMeta, CategoricalArrays
-# df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\nlsw88.dta"))
-# df = df[:, [:wage; :tenure; :ttl_exp; :collgrad; :industry; :union]]
-# dropmissing!(df)
-# f = @formula(wage ~ 1 + ttl_exp + collgrad)
-# f = apply_schema(f, schema(f, df))
-# resp, predexog = modelcols(f, df)
-# ivf = @formula(tenure ~ union)
-# ivf = apply_schema(ivf, schema(ivf, df))
-# predendog, inst = modelcols(ivf, df)
-# test = WildBootTests.wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0)
+# N=1000000; G=40; k=12; l=40
+
+# β=rand(); γ=rand(k); Π=rand(l)
+
+# W = rand(N,l)
+# u₂ = randn(N)
+# y₂ = W * Π + u₂
+# u₁ = u₂ + randn(N)
+# Z = rand(N,k)
+# y₁ = y₂ * β + Z * γ + u₁
+# ID = floor.(Int8, collect(0:N-1) / (N/G))
+# R = [zeros(1,k) 1]; r = [0]
+
+# WildBootTests.wildboottest(Float32, R,r; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9, getCI=false, issorted=true)

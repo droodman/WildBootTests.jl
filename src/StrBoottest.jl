@@ -78,6 +78,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   peak::NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
 
 	Nobs::Int64; NClustVar::Int8; kX₁::Int64; kX₂::Int64; kY₂::Int64; WREnonARubin::Bool; boottest!::Function
+	coldotplus!::Function; colquadformminus!::Function; matmulplus!::Function; panelsum!::Function
 
   sqrt::Bool; _Nobs::T; kZ::Int64; sumwt::T; haswt::Bool; REst::Bool; multiplier::T; smallsample::T
 		dof::Int64; dof_r::T; p::T; BootClust::Int8
@@ -105,7 +106,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 
   StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
 	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,
-								 β̂, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real =
+								 β̂, A, sc, willplot, gridmin, gridmax, gridpoints, turbo) where T<:Real =
 
 		begin
 			kX₂ = ncols(X₂)
@@ -123,7 +124,8 @@ mutable struct StrBootTest{T<:AbstractFloat}
 				Vector{T}(undef,0), Vector{T}(undef,0), Matrix{T}(undef,0,0),
 				Matrix{T}(undef,0,0),
 				(X = Vector{T}(undef,0), p = T(NaN)),
-				nrows(X₁), ncols(ID), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!)
+				nrows(X₁), ncols(ID), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!, 
+				turbo ? coldotplus_turbo! : coldotplus_nonturbo!, turbo ? colquadformminus_turbo! : colquadformminus_nonturbo!, turbo ? matmulplus_turbo! : matmulplus_nonturbo!, turbo ? panelsum_turbo! : panelsum_nonturbo!)
 		end
 end
 

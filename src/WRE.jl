@@ -14,7 +14,7 @@ end
 function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer, ind2::Integer, κ::Number, w::Integer)
   if !(o.Repl.Yendog[ind1+1] || o.Repl.Yendog[ind2+1])  # if both vars exog, result = order-0 term only, same for all draws
 		!iszero(κ) && 
-			coldot!(dest, view(o.Repl.XZ,:,ind1), view(o.Repl.invXXXZ,:,ind2))
+			coldot!(o, dest, view(o.Repl.XZ,:,ind1), view(o.Repl.invXXXZ,:,ind2))
 		if !isone(κ)
 			if iszero(κ)
 				fill!(dest, o.Repl.YY[ind1+1,ind2+1])
@@ -40,9 +40,9 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer
 					else
 						T1R .+= view(o.Repl.invXXXZ,:,ind2)
 					end
-					coldot!(dest, T1L, T1R)
+					coldot!(o, dest, T1L, T1R)
 				else
-					coldot!(dest, T1L, view(o.Repl.invXXXZ,:,ind2))
+					coldot!(o, dest, T1L, view(o.Repl.invXXXZ,:,ind2))
 				end
 			else
 				if o.Repl.Yendog[ind2+1]
@@ -53,9 +53,9 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer
 					else
 						T1R .+= view(o.Repl.invXXXZ,:,ind2)
 					end
-					coldot!(dest, view(o.Repl.XZ,:,ind1), T1R)
+					coldot!(o, dest, view(o.Repl.XZ,:,ind1), T1R)
 				else
-					dest .= coldot(view(o.Repl.XZ,:,ind1), view(o.Repl.invXXXZ,:,ind2))
+					dest .= coldot(o, view(o.Repl.XZ,:,ind1), view(o.Repl.invXXXZ,:,ind2))
 				end
 			end
 		end
@@ -66,9 +66,9 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer
 				o.NFE>0 &&
 					(T2 .+= o.CTFEU[ind1+1]'(o.invFEwt .* o.CTFEU[ind2+1]))
 				if iszero(κ)
-					dest .= o.Repl.YY[ind1+1,ind2+1] .+ colquadformminus!((                            @views o.S✻uY[ind2+1][:,ind1+1] .+ o.S✻uY[ind1+1][:,ind2+1])'o.v, T2, o.v)
+					dest .= o.Repl.YY[ind1+1,ind2+1] .+ colquadformminus!(o, (                            @views o.S✻uY[ind2+1][:,ind1+1] .+ o.S✻uY[ind1+1][:,ind2+1])'o.v, T2, o.v)
 				else
-					dest .=   κ .* dest .+ (1 - κ)   .* colquadformminus!((o.Repl.YY[ind1+1,ind2+1] .+ @views o.S✻uY[ind2+1][:,ind1+1] .+ o.S✻uY[ind1+1][:,ind2+1])'o.v, T2, o.v)
+					dest .=   κ .* dest .+ (1 - κ)   .* colquadformminus!(o, (o.Repl.YY[ind1+1,ind2+1] .+ @views o.S✻uY[ind2+1][:,ind1+1] .+ o.S✻uY[ind1+1][:,ind2+1])'o.v, T2, o.v)
 				end
 			elseif iszero(κ)
 				dest .= o.Repl.YY[ind1+1,ind2+1]
@@ -129,11 +129,11 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where 
 			PXY✻ = reshape(o.Repl.PXZ[:,ind1], :, 1)  # store as matrix to reduce compiler confusion
 			o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ o.S✻UPX[ind1+1] * o.v)
 
-			dest = @panelsum(PXY✻ .* (o.Repl.y₁ .- o.S✻UMZperp[1] * o.v), o.info⋂Data)
+			dest = @panelsum(o, PXY✻ .* (o.Repl.y₁ .- o.S✻UMZperp[1] * o.v), o.info⋂Data)
 
 			@inbounds for ind2 ∈ 1:o.Repl.kZ
 				_β̂ = view(β̂s,ind2,:)'
-				dest .-= @panelsum(PXY✻ .* (o.Repl.Yendog[ind2+1] ?  view(o.Repl.Z,:,ind2) * _β̂ .- o.S✻UMZperp[ind2+1] * (o.v .* _β̂) :
+				dest .-= @panelsum(o, PXY✻ .* (o.Repl.Yendog[ind2+1] ?  view(o.Repl.Z,:,ind2) * _β̂ .- o.S✻UMZperp[ind2+1] * (o.v .* _β̂) :
 															                              (view(o.Repl.Z,:,ind2) * _β̂)                                      ), o.info⋂Data)
 			end
 		else  # create pieces of each N x B matrix one at a time rather than whole thing at once
@@ -186,14 +186,14 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where 
 					dest .+= o.Repl.FillingT₀[ind1+1,ind2+1] * _β̂ .+ T₁ .* β̂v
 				else
 					dest .+= o.Repl.FillingT₀[ind1+1,ind2+1] * _β̂
-					matmulplus!(dest, T₁, β̂v)
+					o.matmulplus!(dest, T₁, β̂v)
 				end
 			end
 
 			if o.Repl.Yendog[ind1+1] && o.Repl.Yendog[ind2+1]
 				for i ∈ 1:o.clust[1].N
 					S = o.info⋂Data[i]
-					colquadformminus!(dest, i, o.v, view(o.S✻UPX[ind1+1],S,:)'view(o.S✻UMZperp[ind2+1],S,:), β̂v)
+					o.colquadformminus!(dest, i, o.v, view(o.S✻UPX[ind1+1],S,:)'view(o.S✻UMZperp[ind2+1],S,:), β̂v)
 				end
 			end
 		end
@@ -212,26 +212,26 @@ function PrepWRE!(o::StrBootTest{T}) where T
 		uwt = vHadw(u, o.wt)::Union{Vector{T}, SubArray{T, 1}}
 
 		# S_✻(u .* X), S_✻(u .* Zperp) for residuals u for each endog var; store transposed
-		o.S✻UX[i+1]      = @panelsum2(o.Repl.X₁, o.Repl.X₂, uwt, o.infoBootData)'
+		o.S✻UX[i+1]      = @panelsum2(o, o.Repl.X₁, o.Repl.X₂, uwt, o.infoBootData)'
 		o.S✻UXinvXX[i+1] = o.Repl.invXX * o.S✻UX[i+1]
 
 		if o.LIML || o.bootstrapt || !isone(o.κ)
-			o.S✻UZperp[i+1]              = @panelsum(o.Repl.Zperp, uwt, o.infoBootData)'
+			o.S✻UZperp[i+1]              = @panelsum(o, o.Repl.Zperp, uwt, o.infoBootData)'
 			o.S✻UZperpinvZperpZperp[i+1] = o.Repl.invZperpZperp * o.S✻UZperp[i+1]
 			o.NFE>0 && (o.CTFEU[i+1] = crosstabFE(o, uwt, o.infoBootData))
 		end
 
 		if o.LIML || !o.robust || !isone(o.κ)
-			o.S✻uY[i+1] = @panelsum2(o.Repl.y₁par, o.Repl.Z, uwt, o.infoBootData)
+			o.S✻uY[i+1] = @panelsum2(o, o.Repl.y₁par, o.Repl.Z, uwt, o.infoBootData)
 			for j ∈ 0:i
-				o.S✻UU[i+1,j+1] = vec(@panelsum(j>0 ? view(Ü₂par,:,j) : view(o.DGP.u⃛₁,:), uwt, o.infoBootData))
+				o.S✻UU[i+1,j+1] = vec(@panelsum(o, j>0 ? view(Ü₂par,:,j) : view(o.DGP.u⃛₁,:), uwt, o.infoBootData))
 			end
 		end
 
 		if o.robust && o.bootstrapt
 			if !o.granular  # Within each bootstrap cluster, groupwise sum by all-error-cluster-intersections of u.*X and u.Zperp (and times invXX or invZperpZperp)
 				for g ∈ 1:o.N✻
-					o.SCT⋂uXinvXX[i+1,g] = @panelsum(o.Repl.XinvXX, u, o.infoCT⋂✻[g])
+					o.SCT⋂uXinvXX[i+1,g] = @panelsum(o, o.Repl.XinvXX, u, o.infoCT⋂✻[g])
 				end
 			end
 
@@ -289,7 +289,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 				@inbounds for c ∈ 1:o.NErrClustCombs  # sum sandwich over error clusterings
 					nrows(o.clust[c].order)>0 && 
 						(J⋂s = J⋂s[o.clust[c].order,:])
-					@clustAccum!(denom, c, coldot(@panelsum(J⋂s, o.clust[c].info)))
+					@clustAccum!(denom, c, coldot(o, @panelsum(o, J⋂s, o.clust[c].info)))
 				end
 			else
 				denom = (HessianFixedkappa(o, [0], 0, zero(T), w) .- 2 .* _β̂s .* HessianFixedkappa(o, [0], 1, zero(T), w) .+ _β̂s.^2 .* HessianFixedkappa(o, [1], 1, zero(T), w)) ./ o._Nobs ./ o.As  # classical error variance
@@ -355,7 +355,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 					for c ∈ 1:o.NErrClustCombs
 						(!isone(o.NClustVar) && nrows(o.clust[c].order)>0) &&
 							(J⋂ = J⋂[o.clust[c].order,:])
-						J_b = @panelsum(J⋂, o.clust[c].info)
+						J_b = @panelsum(o, J⋂, o.clust[c].info)
 						@clustAccum!(denom, c, J_b'J_b)
 					end
 				else  # non-robust

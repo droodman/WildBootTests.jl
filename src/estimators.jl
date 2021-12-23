@@ -36,9 +36,8 @@ function setR!(o::StrEstimator{T}, parent::StrBootTest{T}, R₁::AbstractMatrix{
 
 	  o.RRpar = R * o.Rpar
 	  o.RperpX = o.RperpX[1:parent.kX₁,:]  # Zperp=Z*RperpX; though formally a multiplier on Z, it will only extract exogenous components, in X₁, since all endogenous ones will be retained
-		o.RperpXperp = perp(o.RperpX)  # UberMatrix(T, perp(_RperpX))
-		# o.RperpX = UberMatrix(T, _RperpX)
-	  o.RparY = o.Rpar[parent.kX₁+1:end,:]  # UberMatrix(T, o.Rpar[parent.kX₁+1:end,:])  # part of Rpar that refers to Y₂
+		o.RperpXperp = perp(o.RperpX)
+		o.RparY = o.Rpar[parent.kX₁+1:end,:]  # part of Rpar that refers to Y₂
 	  o.R₁invR₁R₁Y = o.R₁invR₁R₁[parent.kX₁+1:end,:]
 	  o.RR₁invR₁R₁ = R * o.R₁invR₁R₁
   end
@@ -66,7 +65,7 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
   H = Symmetric([symcross(parent.X₁, parent.wt) X₂X₁' ; X₂X₁ symcross(parent.X₂, parent.wt)])
   o.A = inv(H)
   o.AR = o.A * parent.R'
-  (parent.scorebs || parent.robust) && (o.XAR = X₁₂B(parent.X₁, parent.X₂, o.AR))
+  (parent.scorebs || parent.robust) && (o.XAR = X₁₂B(parent, parent.X₁, parent.X₂, o.AR))
 
   R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.A : Symmetric(o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')
   o.β̂₀   = R₁AR₁ * [crossvec(parent.X₁, parent.wt, parent.y₁) ; crossvec(parent.X₂, parent.wt, parent.y₁)]
@@ -80,14 +79,19 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
   o.Zperp = parent.X₁ * o.RperpX
   o.invZperpZperp = iszero(length(o.Zperp)) ? Symmetric(Matrix{T}(undef,0,0)) : inv(symcross(o.Zperp, parent.wt))
 
-  o.X₁ = parent.X₁ * o.RperpXperp; o.X₁ .-= o.Zperp * (o.invZperpZperp * cross(o.Zperp, parent.wt, o.X₁))  # FWL-process X₁
-  o.X₂ = o.Zperp * (o.invZperpZperp * cross(o.Zperp, parent.wt, parent.X₂)); o.X₂ .= parent.X₂ .- o.X₂   # FWL-process X₂
+  o.X₁ = parent.X₁ * o.RperpXperp
+		o.X₁ .-= o.Zperp * (o.invZperpZperp * cross(o.Zperp, parent.wt, o.X₁))  # FWL-process X₁
+	tmp1 = cross(o.Zperp, parent.wt, parent.X₂)
+		tmp2 = o.invZperpZperp * tmp1
+		tmp3 = o.Zperp * tmp2
+		o.X₂ = parent.X₂ .- tmp3   # FWL-process X₂ parent.X₂ .- o.Zperp * o.invZperpZperp * cross(o.Zperp, parent.wt, parent.X₂)
+println("typeof(tmp1)=$(typeof(tmp1)) typeof(tmp2)=$(typeof(tmp2)) typeof(tmp3)=$(typeof(tmp3)) ")
   X₂X₁ = cross(o.X₂, parent.wt, o.X₁)
   o.XX = Symmetric([symcross(o.X₁, parent.wt) X₂X₁' ; X₂X₁ symcross(o.X₂, parent.wt)])
   o.kX = ncols(o.XX)
   o.invXX = invsym(o.XX)
-  o.Z   = X₁₂B(parent.X₁, parent.Y₂, o.Rpar     )  # Z∥
-  o.ZR₁ = X₁₂B(parent.X₁, parent.Y₂, o.R₁invR₁R₁)
+  o.Z   = X₁₂B(parent, parent.X₁, parent.Y₂, o.Rpar     )  # Z∥
+  o.ZR₁ = X₁₂B(parent, parent.X₁, parent.Y₂, o.R₁invR₁R₁)
 
   o.Z   .-= o.Zperp * (o.invZperpZperp * cross(o.Zperp, parent.wt, o.Z))  # partialling out
   o.ZR₁ .-= o.Zperp * (o.invZperpZperp * cross(o.Zperp, parent.wt, o.ZR₁))
@@ -141,7 +145,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			o.S⋂YX       = Vector{Matrix{T}}(undef, o.kZ+1)
 			o.S⋂PXYZperp = Vector{Matrix{T}}(undef, o.kZ+1)
 
-			o.XinvXX = X₁₂B(o.X₁, o.X₂, o.invXX); o.PXZ = X₁₂B(o.X₁, o.X₂, o.invXXXZ)
+			o.XinvXX = X₁₂B(parent, o.X₁, o.X₂, o.invXX); o.PXZ = X₁₂B(parent, o.X₁, o.X₂, o.invXXXZ)
 			if parent.haswt
 				o.PXZ .*= parent.wt
 				o.XinvXX .*= parent.wt
@@ -154,18 +158,18 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 				u = view(o.PXZ,:,i)
 				parent.NFE>0 &&
 					(o.CT_FE⋂PY[i+1] = crosstabFEt(parent, u, parent.info⋂Data) .* parent.invFEwt)
-				tmp = @panelsum(o.Z, u, parent.info⋂Data)
+				tmp = @panelsum(parent, o.Z, u, parent.info⋂Data)
 				for j ∈ 1:o.kZ
 					o.FillingT₀[i+1,j+1] = reshape(view(tmp,:,j),:,1)
 				end
 			end
 			@inbounds for i ∈ 1:o.kZ  # precompute various clusterwise sums
-				o.S⋂PXYZperp[i+1] = @panelsum(o.Zperp, view(o.PXZ,:,i), parent.info⋂Data)  # S⋂(P_(MZperpX) * Z .* Zperp)
+				o.S⋂PXYZperp[i+1] = @panelsum(parent, o.Zperp, view(o.PXZ,:,i), parent.info⋂Data)  # S⋂(P_(MZperpX) * Z .* Zperp)
 				if !parent.granular
 					if parent.haswt
-						(o.S⋂YX[i+1] = @panelsum2(o.X₁, o.X₂, view(o.Z,:,i) .* parent.wt, parent.info⋂Data))  # S⋂(M_Zperp[Z or y₁] .* P_(MZperpX)])
+						(o.S⋂YX[i+1] = @panelsum2(parent, o.X₁, o.X₂, view(o.Z,:,i) .* parent.wt, parent.info⋂Data))  # S⋂(M_Zperp[Z or y₁] .* P_(MZperpX)])
 					else
-						(o.S⋂YX[i+1] = @panelsum2(o.X₁, o.X₂, view(o.Z,:,i), parent.info⋂Data))  # S⋂(M_Zperp[Z or y₁] .* P_(MZperpX)])
+						(o.S⋂YX[i+1] = @panelsum2(parent, o.X₁, o.X₂, view(o.Z,:,i), parent.info⋂Data))  # S⋂(M_Zperp[Z or y₁] .* P_(MZperpX)])
 					end
 				end
 	    end
@@ -196,7 +200,7 @@ function MakeH!(o::StrEstimator{T}, parent::StrBootTest{T}, makeXAR::Bool=false)
   if makeXAR  # for replication regression in score bootstrap of IV/GMM
 	  o.A = ncols(o.Rperp)>0 ? Symmetric(o.Rperp * invsym(o.Rperp'H*o.Rperp) * o.Rperp') : o.invH
 	  o.AR = o.A * (o.Rpar'parent.R')
-	  o.XAR = X₁₂B(o.X₁, o.X₂, o.V * o.AR)
+	  o.XAR = X₁₂B(parent, o.X₁, o.X₂, o.V * o.AR)
   end
 	nothing
 end
@@ -230,12 +234,12 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, r₁::AbstractV
 	  o.Rt₁ = o.RR₁invR₁R₁ * r₁
 
 	  if parent.robust && parent.bootstrapt  # prepare WRE replication regressions
-	    tmp = @panelsum(o.PXZ, o.y₁par, parent.info⋂Data)
+	    tmp = @panelsum(parent, o.PXZ, o.y₁par, parent.info⋂Data)
 	    for i ∈ 1:o.kZ
 	  	  o.FillingT₀[i+1,1] = reshape(view(tmp,:,i),:,1)
 	    end
 	    !parent.granular &&
-	  		(o.S⋂YX[1] = @panelsum2(o.X₁, o.X₂, vHadw(o.y₁par, parent.wt), parent.info⋂Data))  # S⋂(M_Zperp*y₁ .* P_(MZperpX)])
+	  		(o.S⋂YX[1] = @panelsum2(parent, o.X₁, o.X₂, vHadw(o.y₁par, parent.wt), parent.info⋂Data))  # S⋂(M_Zperp*y₁ .* P_(MZperpX)])
 	  end
   end
 	nothing
@@ -243,7 +247,7 @@ end
 
 
 @inline function MakeResidualsOLSARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
-  o.ü₁ = o.y₁par - X₁₂B(parent.X₁, parent.X₂, o.β̂)
+  o.ü₁ = o.y₁par - X₁₂B(parent, parent.X₁, parent.X₂, o.β̂)
 	nothing
 end
 
@@ -257,10 +261,10 @@ function MakeResidualsIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	  Xu = o.Xy₁par - o.XZ * o.β̂  # after DGP regression, compute Y₂ residuals by regressing Y₂ on X while controlling for y₁ residuals, done through FWL
 	  negXuinvuu = Xu / -uu
 	  Π̂ = invsym(o.XX + negXuinvuu * Xu') * (negXuinvuu * (o.Y₂y₁par - o.ZY₂'o.β̂)' + o.XY₂)
-		o.Ü₂ = X₁₂B(o.X₁, o.X₂, Π̂); o.Ü₂ .= o.Y₂ .- o.Ü₂
+		o.Ü₂ = X₁₂B(parent, o.X₁, o.X₂, Π̂); o.Ü₂ .= o.Y₂ .- o.Ü₂
 
 	  o.u⃛₁ = o.Ü₂ * (o.t₁Y + o.RparY * o.β̂); o.u⃛₁ .+= o.ü₁
-# Ü₂par = [o.y₁par - o.Z * o.β̂; o.Y₂ - X₁₂B(o.X₁, o.X₂, Π̂)] * [1                        o.DGP.Ü₂ * o.Repl.RparY
+# Ü₂par = [o.y₁par - o.Z * o.β̂; o.Y₂ - X₁₂B(parent, o.X₁, o.X₂, Π̂)] * [1                        o.DGP.Ü₂ * o.Repl.RparY
 # 			                                                       (o.t₁Y + o.RparY * o.β̂)  0                      ]
   end
 	nothing
