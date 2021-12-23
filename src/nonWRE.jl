@@ -220,6 +220,19 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 	nothing
 end
 
+function MakeNonWRELoop1!(o::StrBootTest, tmp::Matrix)
+	@inbounds Threads.@threads for k ∈ 1:ncols(o.v)
+		for i ∈ 1:o.dof
+			for j ∈ 1:i
+				tmp[j,i] = o.denom[i,j][k]  # fill upper triangle, which is all invsym() looks at
+			end
+		end
+		numer_l = view(o.numerw,:,k)
+		o.dist[k+first(o.WeightGrp[w])-1] = numer_l'invsym(tmp)*numer_l  # in degenerate cases, cross() would turn cross(.,.) into 0
+	end
+	nothing
+end
+
 function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 	w > 1 && MakeNumerAndJ!(o, w)
 	!o.bootstrapt && return
@@ -247,15 +260,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 				(o.statDenom = [o.denom[1,1][1] o.denom[2,1][1] ; o.denom[2,1][1] o.denom[2,2][1]])  # original-sample denominator
 		else  # build each replication's denominator from vectors that hold values for each position in denominator, all replications
 			tmp = Matrix{T}(undef, o.dof, o.dof)
-			@inbounds Threads.@threads for k ∈ 1:ncols(o.v)
-				for i ∈ 1:o.dof
-					for j ∈ 1:i
-						tmp[j,i] = o.denom[i,j][k]  # fill upper triangle, which is all invsym() looks at
-					end
-				end
-				numer_l = view(o.numerw,:,k)
-				o.dist[k+first(o.WeightGrp[w])-1] = numer_l'invsym(tmp)*numer_l  # in degenerate cases, cross() would turn cross(.,.) into 0
-			end
+			MakeNonWRELoop1!(o,tmp)
 			isone(w) && (o.statDenom = tmp)  # original-sample denominator
 		end
 	else  # non-robust

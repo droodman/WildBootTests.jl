@@ -16,10 +16,10 @@ t=2.1249485 p=0.0 CI=Float32[0.0087691825 0.1843565]
 
 ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
 boottest tenure, ptype(equaltail)
-t=2.2146614 p=0.13964844 CI=Float32[-480.70502 -6.1035843]
+t=2.6039627 p=0.044433594 CI=Float32[0.11879466 2.2101412]
 
 boottest tenure, ptype(equaltail) reps(9999) weight(webb) stat(c)
-z=2.7751274 p=0.8008801 CI=Float32[-Inf -1.0755614; -0.24053293 1.4511191]
+z=1.6443632 p=0.11061106 CI=Float32[-Inf Inf]
 
 boottest, ar
 z=2.4454045 p=0.030273438 CI=Float32[0.0699562 1.2517973]
