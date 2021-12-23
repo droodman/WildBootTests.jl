@@ -79,14 +79,10 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
   o.Zperp = parent.X₁ * o.RperpX
   o.invZperpZperp = iszero(length(o.Zperp)) ? Symmetric(Matrix{T}(undef,0,0)) : inv(symcross(o.Zperp, parent.wt))
 
-  o.X₁ = parent.X₁ * o.RperpXperp
-		o.X₁ .-= o.Zperp * (o.invZperpZperp * cross(o.Zperp, parent.wt, o.X₁))  # FWL-process X₁
-	tmp1 = cross(o.Zperp, parent.wt, parent.X₂)
-		tmp2 = o.invZperpZperp * tmp1
-		tmp3 = o.Zperp * tmp2
-		o.X₂ = parent.X₂ .- tmp3   # FWL-process X₂ parent.X₂ .- o.Zperp * o.invZperpZperp * cross(o.Zperp, parent.wt, parent.X₂)
-println("typeof(tmp1)=$(typeof(tmp1)) typeof(tmp2)=$(typeof(tmp2)) typeof(tmp3)=$(typeof(tmp3)) ")
-  X₂X₁ = cross(o.X₂, parent.wt, o.X₁)
+  o.X₁ = parent.X₁ * o.RperpXperp; o.X₁ .-= o.Zperp * (o.invZperpZperp * cross(o.Zperp, parent.wt, o.X₁))  # FWL-process X₁
+	o.X₂ = o.Zperp * (o.invZperpZperp * cross(o.Zperp, parent.wt, parent.X₂)); o.X₂ .= parent.X₂ .- o.X₂   # FWL-process X₂
+
+	X₂X₁ = cross(o.X₂, parent.wt, o.X₁)
   o.XX = Symmetric([symcross(o.X₁, parent.wt) X₂X₁' ; X₂X₁ symcross(o.X₂, parent.wt)])
   o.kX = ncols(o.XX)
   o.invXX = invsym(o.XX)

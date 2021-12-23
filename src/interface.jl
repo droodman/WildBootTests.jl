@@ -14,7 +14,7 @@ struct BoottestResult{T}
   b::Vector{T}
   V::Matrix{T}
   auxweights::Union{Nothing,Matrix{T}}
-  M::StrBootTest
+  # M::StrBootTest
 end
 
 "Return test statistic"
@@ -149,7 +149,7 @@ function __wildboottest(
 	                  M.p, padj, M.B, M.BFeas, M.N✻, M.dof, M.dof_r, plot, peak, CI,
 	                  getdist(M, diststat),
 	                  getb(M), getV(M),
-	                  getauxweights && reps>0 ? getv(M) : nothing, M)
+	                  getauxweights && reps>0 ? getv(M) : nothing #=, M=#)
 end
 
 vecconvert(T::DataType, X) = Vector(isa(X, AbstractArray) ? vec(    eltype(X)==T ? X : T.(X)) : X)
@@ -350,6 +350,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `getCI::Bool=true`: whether to return CI
 * `getplot::Bool=getCI`: whether to generate plot data
 * `getauxweights::Bool=false`: whether to save auxilliary weight matrix (v)
+* `turbo::Bool=false`: whether to exploit acceleration of the LoopVectorization package: slower on first use in a session, faster after
 
 # Notes
 `T`, `ptype`, `auxwttype`, `madjtype`, and `diststat` may also be strings. Examples: `"Float32"` and `"webb"`.

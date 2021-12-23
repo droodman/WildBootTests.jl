@@ -112,18 +112,3 @@ if Base.VERSION >= v"1.4.2"  # source: https://timholy.github.io/SnoopCompile.jl
 end
  
 end
-
-# N=1000000; G=40; k=12; l=40
-
-# β=rand(); γ=rand(k); Π=rand(l)
-
-# W = rand(N,l)
-# u₂ = randn(N)
-# y₂ = W * Π + u₂
-# u₁ = u₂ + randn(N)
-# Z = rand(N,k)
-# y₁ = y₂ * β + Z * γ + u₁
-# ID = floor.(Int8, collect(0:N-1) / (N/G))
-# R = [zeros(1,k) 1]; r = [0]
-
-# WildBootTests.wildboottest(Float32, R,r; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9, getCI=false, issorted=true)
