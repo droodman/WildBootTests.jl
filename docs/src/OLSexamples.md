@@ -30,7 +30,7 @@ julia> clustid = df.firm;  # extract clustering variable
 julia> R = [0 1]; r = [1];  # put null that coefficient on x = 1 in Rβ̂ = r form, where β̂ is parameter vector
 
 julia> test = wildboottest(R, r; resp=resp, predexog=predexog, clustid=clustid)
-WildBootTests.BoottestResult{Float32}
+WildBootTests.BootTestResult{Float32}
 
 p  = 0.492
 CI = Float32[0.93461335 1.1347668]

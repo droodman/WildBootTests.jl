@@ -1,7 +1,7 @@
 # low-level interface, meaning works with vectors and matrices, not data frames and estimation objects
 
 "Structure to store test results"
-struct BoottestResult{T}
+struct BootTestResult{T}
   stat::T; stattype::String
   p::T; padj::T
   reps::Int64; repsfeas::Int64
@@ -18,37 +18,37 @@ struct BoottestResult{T}
 end
 
 "Return test statistic"
-teststat(o::BoottestResult) = o.stat
+teststat(o::BootTestResult) = o.stat
 
 "Return numerator of test statistic"
-statnumer(o::BoottestResult) = o.b
+statnumer(o::BootTestResult) = o.b
 
 "Return denominator of test statistic"
-statvar(o::BoottestResult) = o.V
+statvar(o::BootTestResult) = o.V
 
 """Return type of test statistic subject: "t", "z", "F", or "χ²" """
-stattype(o::BoottestResult) = o.stattype
+stattype(o::BootTestResult) = o.stattype
 
 "Return p value"
-p(o::BoottestResult) = o.p
+p(o::BootTestResult) = o.p
 
 "Returnp p value after multiple-hypothesis adjustment, if any"
-padj(o::BoottestResult) = o.padj
+padj(o::BootTestResult) = o.padj
 
 "Return requested number of replications"
-reps(o::BoottestResult) = o.reps
+reps(o::BootTestResult) = o.reps
 
 "Return actual number of replications, subject to enumeration of Rademacher draws"
-repsfeas(o::BoottestResult) = o.repsfeas
+repsfeas(o::BootTestResult) = o.repsfeas
 
 "Return number of bootstrapping clusters in test"
-nbootclust(o::BoottestResult) = o.nbootclust
+nbootclust(o::BootTestResult) = o.nbootclust
 
 "Return degrees of freedom test"
-dof(o::BoottestResult) = o.dof
+dof(o::BootTestResult) = o.dof
 
 "Return residual degrees of freedom test"
-dof_r(o::BoottestResult) = o.dof_r
+dof_r(o::BootTestResult) = o.dof_r
 
 """
 Return data for confidence plot of test.
@@ -57,23 +57,23 @@ the confidence sampling locations and p values respectively. `X` is in turn
 a 1- or 2-tuple of vectors of sampling coordinates for each 
 dimension of the tested hypothesis.
 """
-plotpoints(o::BoottestResult) = o.plot
+plotpoints(o::BootTestResult) = o.plot
 
 "Return parameter value with peak p value in test"
-peak(o::BoottestResult) = o.peak
+peak(o::BootTestResult) = o.peak
 
 "Return confidence interval matrix from test, one row per disjoint piece"
-CI(o::BoottestResult) = o.CI
+CI(o::BootTestResult) = o.CI
 
 "Return bootstrap distribution of statistic or statistic numerator in bootstrap test"
-dist(o::BoottestResult) = o.dist
+dist(o::BootTestResult) = o.dist
 
 "Return auxilliary weight matrix for wild bootstrap"
-auxweights(o::BoottestResult) = o.auxweights
+auxweights(o::BootTestResult) = o.auxweights
 
 using Printf
-function Base.show(io::IO, o::BoottestResult{T}) where T
-	print(io, "WildBootTests.BoottestResult{$T}\n\n")
+function Base.show(io::IO, o::BootTestResult{T}) where T
+	print(io, "WildBootTests.BootTestResult{$T}\n\n")
 	Printf.@printf(io, "%s = %5.3f\n", stattype(o)*repeat(' ',2-length(stattype(o))), teststat(o))
 	Printf.@printf(io, "p  = %5.3f\n", p(o))
 	isdefined(o, :CI) && !isnothing(o.CI) && length(o.CI)>0 && print(io, "CI = $(CI(o))\n")
@@ -144,7 +144,7 @@ function __wildboottest(
 	
 	padj = getp(M)  # trigger central (re)computation
 
-	BoottestResult{T}(getstat(M),
+	BootTestResult{T}(getstat(M),
 	                  isone(nrows(R)) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
 	                  M.p, padj, M.B, M.BFeas, M.N✻, M.dof, M.dof_r, plot, peak, CI,
 	                  getdist(M, diststat),
@@ -298,7 +298,7 @@ _wildboottest(R::Union{UniformScaling{Bool},AbstractVecOrMat}, r::Union{Number,A
 
 """
 wildboottest([T::DataType=Float32,] R::AbstractMatrix, r::AbstractVector; 
-             resp, <optional keyword arguments>) -> WildBootTests.BoottestResult
+             resp, <optional keyword arguments>) -> WildBootTests.BootTestResult
 
 Function to perform wild-bootstrap-based hypothesis test
 
