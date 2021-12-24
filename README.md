@@ -17,6 +17,7 @@ clustid = df.firm;                                   # extract clustering variab
 R = [0 1]; r = [1];                                  # put null in Rβ = r form, where β is parameter vector
 
 test = wildboottest(R, r; resp, predexog, clustid);  # run test
+test                                                 # display results summary
 plot(plotpoints(test)...)                            # plot confidence curve
 ```
 
