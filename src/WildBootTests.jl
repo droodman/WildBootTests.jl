@@ -106,9 +106,7 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T, w::Integer)
 	nothing
 end
 
-if Base.VERSION >= v"1.4.2"  # source: https://timholy.github.io/SnoopCompile.jl/stable/snoopi_deep_parcel/#SnoopCompile.write
-	include("precompile_WildBootTests.jl")
-	_precompile_()
-end
+include("precompile_WildBootTests.jl")  # source: https://timholy.github.io/SnoopCompile.jl/stable/snoopi_deep_parcel/#SnoopCompile.write
+_precompile_()
  
 end
