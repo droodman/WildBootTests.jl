@@ -27,7 +27,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-df = pd.read_csv (r'https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv')
+df = pd.read_csv(r'https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv')
 R = np.array([[0, 1]]); r = np.array([1])
 resp = df.y.values
 predexog = np.c_[np.ones(df.firm.size), df.x]
