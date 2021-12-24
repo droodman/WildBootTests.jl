@@ -4,7 +4,7 @@ WildBootTests.jl performs wild bootstrap-based hypothesis tests at extreme speed
 ## Documentation
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://droodman.github.io/WildBootTests.jl/dev)
 
-## Example
+## Julia example
 
 ```
 using WildBootTests, CSV, DataFrames, StatsModels, Plots
@@ -18,4 +18,17 @@ R = [0 1]; r = [1];                                  # put null in Rβ = r form,
 
 test = wildboottest(R, r; resp, predexog, clustid);  # run test
 plot(plotpoints(test)...)                            # plot confidence curve
+```
+
+## Python example, via PyJulia
+```
+from julia import WildBootTests as wbt
+import pandas as pd
+import numpy as np
+df = pd.read_csv (r'https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv')
+R = np.array([[0, 1]]); r = np.array([1])
+resp = df.y.values
+predexog = np.c_[np.ones(df.firm.size), df.x]
+clustid = df.firm.values
+wbt.wildboottest(R, r, resp=resp, predexog=predexog, clustid=clustid)
 ```
