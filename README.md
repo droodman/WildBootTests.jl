@@ -36,10 +36,8 @@ startJuliaServer()
 WildBootTests <- juliaImport("WildBootTests")
 data <- read.csv(file = 'https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv')
 R <- matrix(c(0,1), nrow=1); r <- c(1)
-resp <- data$y
-predexog <- cbind(1, as.matrix(data[,"x"]))
-clustid <- data$firm
-test <- WildBootTests$wildboottest(R, r, resp=resp, predexog=predexog, clustid=clustid)
+test <- WildBootTests$wildboottest(R, r, resp=data$y, predexog=cbind(1, data$x), clustid=data$firm)
+test
 WildBootTests$teststat(test)
 WildBootTests$p(test)
 WildBootTests$CI(test)
