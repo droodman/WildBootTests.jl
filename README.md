@@ -25,10 +25,16 @@ plot(plotpoints(test)...)                            # plot confidence curve
 from julia import WildBootTests as wbt
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+
 df = pd.read_csv (r'https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv')
 R = np.array([[0, 1]]); r = np.array([1])
 resp = df.y.values
 predexog = np.c_[np.ones(df.firm.size), df.x]
 clustid = df.firm.values
-wbt.wildboottest(R, r, resp=resp, predexog=predexog, clustid=clustid)
+test = wbt.wildboottest(R, r, resp=resp, predexog=predexog, clustid=clustid)
+wbt.p(test)
+wbt.CI(test)
+plotpoints = wbt.plotpoints(test)
+plt.plot(plotpoints.X[0], plotpoints.p)
 ```
