@@ -65,7 +65,7 @@ plotpoints = wbt.plotpoints(test)
 plt.plot(plotpoints.X[0], plotpoints.p)
 ```
 
-## Stata example, vi Python and PyJulia
+## Stata example, via Python and PyJulia
 ```
 import delimited https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv
 python
