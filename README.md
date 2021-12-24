@@ -20,6 +20,15 @@ test = wildboottest(R, r; resp, predexog, clustid);  # run test
 plot(plotpoints(test)...)                            # plot confidence curve
 ```
 
+## R example, via wildboottestjlr
+```
+library(wildboottestjlr)
+d <- read.csv("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv")
+lm_fit <- lm(y ~ x, data = d)
+boot_lm <- boottest(lm_fit, clustid = "firm", param = "x", beta0 = 1, B = 999)
+summary(boot_lm)
+```
+
 ## R example, via JuliaConnectoR
 ```
 library(JuliaConnectoR)
