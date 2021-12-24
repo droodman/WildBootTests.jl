@@ -135,7 +135,7 @@ function __wildboottest(
 
 	if getplot || (level<1 && getCI)
 		plot!(M)
-		plot = getplot ? (X=Tuple(M.plotX), p=M.plotY) : nothing
+		plot = getplot & isdefined(M, :plotX) ? (X=Tuple(M.plotX), p=M.plotY) : nothing
 		peak = M.peak
 		CI = level<1 & getCI ? M.CI : nothing
 	else

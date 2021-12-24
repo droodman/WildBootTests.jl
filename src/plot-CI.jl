@@ -54,6 +54,7 @@ function plot!(o::StrBootTest{T}) where T
 		halfwidth = abs.(o.confpeak) * quantile(Normal{T}(zero(T),one(T)), p/2) / Phi
   else
 		halfwidth = T(-1.5) * Phi .* sqrtNaN.(diag(getV(o)))
+		any(isnan.(halfwidth)) && return
 		o.confpeak = getb(o) + o.r
   end
 

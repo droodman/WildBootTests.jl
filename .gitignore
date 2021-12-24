@@ -7,9 +7,7 @@ voters.dta
 test/profiling.jl
 src/WRE2.jl
 docs/build/
-profile.pb.gz
 src/precompiler.jl
-JuliaConnector test.R
-JuliaConnector test.R
-data.dta
 compilation tests.jl
+Stata examples.do
+
