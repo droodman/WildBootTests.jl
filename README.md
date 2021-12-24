@@ -1,5 +1,5 @@
 # WildBootTests.jl
-WildBootTests.jl performs wild bootstrap-based hypothesis tests at extreme speed. It is intended mainly for linear models: ordinary least squares (OLS) and instrumental variables/two-stage least squares (IV/2SLS). For an introduction to the wild bootstrap and the algorithms deployed here, see [Roodman et al. (2019)](https://www.econ.queensu.ca/sites/econ.queensu.ca/files/qed_wp_1406.pdf).
+WildBootTests.jl performs wild bootstrap-based hypothesis tests at extreme speed. It is intended mainly for linear models: ordinary least squares (OLS) and instrumental variables/two-stage least squares (IV/2SLS). For an introduction to the wild bootstrap and the algorithms deployed here, see [Roodman et al. (2019)](https://www.econ.queensu.ca/sites/econ.queensu.ca/files/qed_wp_1406.pdf). It is a Julia program, but can be accessed from other environments as demonstrated below.
 
 ## Documentation
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://droodman.github.io/WildBootTests.jl/dev)
@@ -17,6 +17,7 @@ clustid = df.firm;                                   # extract clustering variab
 R = [0 1]; r = [1];                                  # put null in Rβ = r form, where β is parameter vector
 
 test = wildboottest(R, r; resp, predexog, clustid);  # run test
+test                                                 # display results summary
 plot(plotpoints(test)...)                            # plot confidence curve
 ```
 
@@ -36,13 +37,13 @@ startJuliaServer()
 WildBootTests <- juliaImport("WildBootTests")
 data <- read.csv(file = 'https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv')
 R <- matrix(c(0,1), nrow=1); r <- c(1)
-resp = data$y
-predexog = cbind(1, as.matrix(data[,"x"]))
-clustid = data$firm
-test <- WildBootTests$wildboottest(R, r, resp=resp, predexog=predexog, clustid=clustid)
+test <- WildBootTests$wildboottest(R, r, resp=data$y, predexog=cbind(1, data$x), clustid=data$firm)
+test
 WildBootTests$teststat(test)
 WildBootTests$p(test)
 WildBootTests$CI(test)
+plotpoints <- WildBootTests$plotpoints(test)
+plot(plotpoints$X[[1]], plotpoints$p, type="l")
 ```
 
 ## Python example, via PyJulia
