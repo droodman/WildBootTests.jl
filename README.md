@@ -20,6 +20,22 @@ test = wildboottest(R, r; resp, predexog, clustid);  # run test
 plot(plotpoints(test)...)                            # plot confidence curve
 ```
 
+## R example, via JuliaConnectoR
+```
+library(JuliaConnectoR)
+startJuliaServer()
+data <- read.csv(file = 'https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv')
+R <- matrix(c(0,1), nrow=1); r <- c(1)
+resp = data$y
+predexog = cbind(1, as.matrix(data[,"x"]))
+clustid = data$firm
+WildBootTests <- juliaImport("WildBootTests")
+test <- WildBootTests$wildboottest(R, r, resp=resp, predexog=predexog, clustid=clustid)
+WildBootTests$teststat(test)
+WildBootTests$p(test)
+WildBootTests$CI(test)
+```
+
 ## Python example, via PyJulia
 ```
 from julia import WildBootTests as wbt
@@ -33,8 +49,28 @@ resp = df.y.values
 predexog = np.c_[np.ones(df.firm.size), df.x]
 clustid = df.firm.values
 test = wbt.wildboottest(R, r, resp=resp, predexog=predexog, clustid=clustid)
+wbt.teststat(test)
 wbt.p(test)
 wbt.CI(test)
 plotpoints = wbt.plotpoints(test)
 plt.plot(plotpoints.X[0], plotpoints.p)
+```
+
+## Stata example, vi Python and PyJulia
+```
+import delimited https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv
+python
+from julia import WildBootTests as wbt
+import numpy as np
+from sfi import Data
+
+R = np.array([[0, 1]]); r = np.array([1])
+resp = np.asarray(Data.get('y'))
+predexog = np.c_[np.ones(resp.size), np.asarray(Data.get('x'))]
+clustid = np.asarray(Data.get('firm'))
+test = wbt.wildboottest(R, r, resp=resp, predexog=predexog, clustid=clustid)
+wbt.p(test)
+wbt.teststat(test)
+wbt.CI(test)
+end
 ```
