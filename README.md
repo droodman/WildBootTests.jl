@@ -36,13 +36,15 @@ startJuliaServer()
 WildBootTests <- juliaImport("WildBootTests")
 data <- read.csv(file = 'https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv')
 R <- matrix(c(0,1), nrow=1); r <- c(1)
-resp = data$y
-predexog = cbind(1, as.matrix(data[,"x"]))
-clustid = data$firm
+resp <- data$y
+predexog <- cbind(1, as.matrix(data[,"x"]))
+clustid <- data$firm
 test <- WildBootTests$wildboottest(R, r, resp=resp, predexog=predexog, clustid=clustid)
 WildBootTests$teststat(test)
 WildBootTests$p(test)
 WildBootTests$CI(test)
+plotpoints <- WildBootTests$plotpoints(test)
+plot(plotpoints$X[[1]], plotpoints$p, type="l")
 ```
 
 ## Python example, via PyJulia
