@@ -24,8 +24,8 @@ plot(plotpoints(test)...)                            # plot confidence curve
 ## R example, via wildboottestjlr
 ```
 library(wildboottestjlr)
-d <- read.csv("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv")
-lm_fit <- lm(y ~ x, data = d)
+df <- read.csv("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv")
+lm_fit <- lm(y ~ x, data = fd)
 boot_lm <- boottest(lm_fit, clustid = "firm", param = "x", beta0 = 1, B = 999)
 summary(boot_lm)
 ```
@@ -35,9 +35,9 @@ summary(boot_lm)
 library(JuliaConnectoR)
 startJuliaServer()
 WildBootTests <- juliaImport("WildBootTests")
-data <- read.csv(file = 'https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv')
+df <- read.csv(file = 'https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv')
 R <- matrix(c(0,1), nrow=1); r <- c(1)
-test <- WildBootTests$wildboottest(R, r, resp=data$y, predexog=cbind(1, data$x), clustid=data$firm)
+test <- WildBootTests$wildboottest(R, r, resp=df$y, predexog=cbind(1, df$x), clustid=df$firm)
 test
 WildBootTests$teststat(test)
 WildBootTests$p(test)
