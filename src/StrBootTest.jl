@@ -31,7 +31,7 @@ mutable struct StrEstimator{T<:AbstractFloat}
   y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β̂::Vector{T}; β̂₀::Vector{T}; invXXXy₁par::Vector{T}
   Yendog::Vector{Bool}
   invZperpZperp::Symmetric{T,Matrix{T}}; XZ::Matrix{T}; PXZ::Matrix{T}; YPXY::Symmetric{T,Matrix{T}}; R₁invR₁R₁::Matrix{T}
-	RperpX::#=Uber=#Matrix{T}; RperpXperp::#=Uber=#Matrix{T}; RRpar::Matrix{T}; RparY::#=Uber=#Matrix{T}; RR₁invR₁R₁::Matrix{T}
+	RperpX::Matrix{T}; RperpXperp::Matrix{T}; RRpar::Matrix{T}; RparY::Matrix{T}; RR₁invR₁R₁::Matrix{T}
 	∂β̂∂r::Matrix{T}; YY::Symmetric{T,Matrix{T}}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; XinvXX::Matrix{T}; Rt₁::Vector{T}
 	invXX::Symmetric{T,Matrix{T}}; Y₂::Matrix{T}; X₂::Matrix{T}; invH::Symmetric{T,Matrix{T}}
 	y₁par::Vector{T}; Xy₁par::Vector{T}
@@ -49,6 +49,7 @@ mutable struct StrEstimator{T<:AbstractFloat}
   Y₂y₁par::Vector{T}
   Rperp::Matrix{T}; ZR₁::Matrix{T}
   kX::Int64
+	S⋂y₁X₁::Matrix{T}; S⋂y₁X₂::Matrix{T}
 
   StrEstimator{T}(isDGP, LIML, Fuller, κ) where T<:AbstractFloat = new(isDGP, LIML, Fuller, κ, Matrix{T}(undef,0,0))
 end
@@ -138,7 +139,7 @@ function crosstabFE(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitRa
 		@inbounds for i ∈ 1:nrows(info)
 	    FEIDi = @view o._FEID[info[i]]
 	    vi    = @view       v[info[i]]
-	    @inbounds @simd for j in eachindex(vi, FEIDi)
+	    @simd for j in eachindex(vi, FEIDi)
 	  	  dest[FEIDi[j],i] += vi[j]
 	    end
 	  end

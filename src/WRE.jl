@@ -153,7 +153,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̂s::AbstractMatrix) where 
 			β̂v = iszero(ind2) ? o.v : o.v .* (_β̂ = -view(β̂s,ind2,:)')
 
 			# T1 * o.v will be 1st-order terms
-			T₁ = o.Repl.Yendog[ind1+1] ? o.Repl.S⋂YX[ind2+1] * o.S✻UXinvXX[ind1+1] : Matrix{T}(undef,0,0)  #  S_∩ (Y_(∥j):*X_∥ ) (X_∥^' X_∥ )^(-1) [S_* (U ̈_(∥i):*X_∥ )]^'
+			T₁ = o.Repl.Yendog[ind1+1] ? o.Repl.S⋂YX[ind2+1]'o.S✻UXinvXX[ind1+1] : Matrix{T}(undef,0,0)  #  S_∩ (Y_(∥j):*X_∥) (X_∥^' X_∥)^(-1) [S_* (U ̈_(∥i):*X_∥)]^' 
 
 			if o.Repl.Yendog[ind2+1]  # add CT_(⋂,*) (P_(X_par ) Y_(pari).*U ̈_(parj) )
 				if o.NClustVar == o.nbootclustvar && iszero(o.subcluster)  # simple case of one clustering: full crosstab is diagonal
