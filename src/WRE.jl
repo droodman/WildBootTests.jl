@@ -83,7 +83,7 @@ end
 # put threaded loops in functions to prevent type instability https://discourse.julialang.org/t/type-inference-with-threads/2004/3
 function FillingLoop1!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::Integer, _β̂::AbstractMatrix{T}) where T
 	Threads.@threads for i ∈ 1:o.clust[1].N
-		PXY✻ = hcat(o.Repl.PXZ[i,ind1])
+		PXY✻ = reshape(o.Repl.PXZ[i,ind1], :, 1)
 		o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ view(o.S✻UPX[ind1+1],i,:)'o.v)
 
 		if iszero(ind2)

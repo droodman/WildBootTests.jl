@@ -267,7 +267,7 @@ function panelsum_nonturbo!(dest::AbstractArray, X::AbstractArray, wt::AbstractV
 end
 # panelsum!() of two data matrices
 # 1st dimension of result corresponds to columns of X, second to rowse of both, third to columns of Y
-function panelsum_nonturbo!(dest::AbstractArray{T,3}, X::AbstractMatrix{T}, Y::AbstractMatrix{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+function panelcross_nonturbo!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
 	iszero(length(X)) && return
 	if iszero(length(info)) || nrows(info)==nrows(X)
 		@inbounds for i ∈ axes(Y,2)
@@ -275,7 +275,7 @@ function panelsum_nonturbo!(dest::AbstractArray{T,3}, X::AbstractMatrix{T}, Y::A
 		end
 		return
 	end
-	#=@inbounds Threads.@threads=# for g in eachindex(info)
+	@inbounds Threads.@threads for g in eachindex(info)
 		f, l = first(info[g]), last(info[g])
 		fl = f+1:l
 		for k ∈ axes(Y,2)
@@ -314,14 +314,10 @@ function panelsum(o::StrBootTest, X::AbstractMatrix{T}, wt::AbstractVector{T}, i
 		dest
 	end
 end
-function panelsum(o::StrBootTest, X::AbstractMatrix{T}, Y::AbstractMatrix{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
-	if iszero(nrows(Y))
-		panelsum(o, X, info)
-	else
-		dest = Array{T,3}(undef, size(X,2), length(info), size(Y,2))
-		o.panelsum!(dest, X, Y, info)
-		dest
-	end
+function panelcross(o::StrBootTest, X::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	dest = Array{T,3}(undef, size(X,2), length(info), size(Y,2))
+	#=o.=# panelcross_nonturbo!(dest, X, Y, info)
+	dest
 end
 function panelsum(o::StrBootTest, X::AbstractVecOrMat, info::AbstractVector{UnitRange{T}} where T<:Integer)
 	dest = similar(X, length(info), size(X)[2:end]...)
@@ -340,15 +336,15 @@ function panelsum2(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecO
 		dest
 	end
 end
-function panelsum2(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, Y::AbstractMatrix{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
-	if iszero(length(X₁))
-		panelsum(o,X₂,Y,info)
-	elseif iszero(length(X₂))
-		panelsum(o,X₁,Y,info)
+function panelcross2(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	if iszero(ncols(X₁))
+		panelcross(o,X₂,Y,info)
+	elseif iszero(ncols(X₂))
+		panelcross(o,X₁,Y,info)
 	else
-		dest = Array{T}(undef, ncols(X₁)+ncols(X₂), length(info), ncols(Y))
-		o.panelsum!(view(dest,           1:ncols(X₁   ), :, :), X₁, Y, info)
-		o.panelsum!(view(dest, ncols(X₁)+1:size(dest,2), :, :), X₂, Y, info)
+		dest = Array{T,3}(undef, ncols(X₁)+ncols(X₂), length(info), ncols(Y))
+		#=o.=#panelcross_nonturbo!(view(dest,           1:ncols(X₁   ), :, :), X₁, Y, info)
+		#=o.=#panelcross_nonturbo!(view(dest, ncols(X₁)+1:size(dest,2), :, :), X₂, Y, info)
 		dest
 	end
 end
@@ -363,6 +359,12 @@ end
 macro panelsum2(o, X₁, X₂, Y, info)
 	:( panelsum2($(esc(o)), $(esc(X₁)), $(esc(X₂)), $(esc(Y)), $(esc(info))) )
 end
+macro panelcross(o, X, Y, info)
+	:( panelcross($(esc(o)), $(esc(X)), $(esc(Y)), $(esc(info))) )
+end
+macro panelcross2(o, X₁, X₂, Y, info)
+	:( panelcross2($(esc(o)), $(esc(X₁)), $(esc(X₂)), $(esc(Y)), $(esc(info))) )
+end
 
 import Base.size
 struct FakeArray{N} <: AbstractArray{Bool,N} size::Tuple{Vararg{Int64,N}} end # AbstractArray with almost no storage, just for LinearIndices() conversion         
@@ -371,4 +373,4 @@ size(X::FakeArray) = X.size
 
 import Base.*  # extend * to left- and right-multiply 3-arrays by vec or mat, 2nd index of 3-array corresponds to left and 3rd index to right
 @inline *(A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T = reshape(reshape(A, :, size(A,3)) * B, size(A,1), size(A,2), size(B,2))
-@inline *(A::AbstractVecOrMat, B::AbstractArray) = reshape(A * reshape(B,size(A,2),:), size(A)[1:end-1]..., size(B)[2:end]...)
+@inline *(A::AbstractVecOrMat, B::AbstractArray) = reshape(A * reshape(B,size(A,2),:), size(A,1), size(B,2), size(B,3))

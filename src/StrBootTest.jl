@@ -49,7 +49,8 @@ mutable struct StrEstimator{T<:AbstractFloat}
   Y₂y₁par::Vector{T}
   Rperp::Matrix{T}; ZR₁::Matrix{T}
   kX::Int64
-	S⋂y₁X₁::Matrix{T}; S⋂y₁X₂::Matrix{T}
+	S⋂y₁X₁::Matrix{T}; S⋂y₁X₂::Matrix{T}; invZperpZperpZperpy₁::Vector{T}; S⋂XZperp::Array{T,3}; S⋂Xy₁::Array{T,3}; S⋂ZperpZperp::Array{T,3}; ZperpX::Matrix{T}; S⋂Zperpy₁::Array{T,3}; S⋂X_ZR₁::Array{T,3}
+	Zperp_ZR₁::Matrix{T}; S⋂Zperp_ZR₁::Array{T,3}; FillingT₀₀::Array{T,3}; ∂FillingT₀∂r::Array{T,3}; S⋂y₁X₀::Matrix{T}; ∂S⋂y₁X∂r::Matrix{T}
 
   StrEstimator{T}(isDGP, LIML, Fuller, κ) where T<:AbstractFloat = new(isDGP, LIML, Fuller, κ, Matrix{T}(undef,0,0))
 end
