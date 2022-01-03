@@ -77,9 +77,9 @@ function NoNullUpdate!(o::StrBootTest{T} where T)
 		o.numer[:,1] = o.R * o.DGP.Rpar * o.β̂s[1] - o.r
   elseif o.ARubin
 		EstimateARubin!(o.DGP, o, o.r)
-		o.numer[:,1] = o.v_sd * @view o.DGP.β̂[o.kX₁+1:end,:]  # coefficients on excluded instruments in ARubin OLS
+		o.numer[:,1] = o.v_sd * @view o.DGP.β̈[o.kX₁+1:end,:]  # coefficients on excluded instruments in ARubin OLS
   else
-		o.numer[:,1] = o.v_sd * (o.R * (o.ML ? o.β̂ : o.M.β̂) - o.r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
+		o.numer[:,1] = o.v_sd * (o.R * (o.ML ? o.β̈ : o.M.β̈) - o.r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
   end
   o.dist[1] = isone(o.dof) ? o.numer[1] / sqrt(o.statDenom[1]) : o.numer[:,1]'invsym(o.statDenom)*o.numer[:,1]
 	nothing
@@ -106,12 +106,12 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T, w::Integer)
 	nothing
 end
 
-include("precompile_WildBootTests.jl")  # source: https://timholy.github.io/SnoopCompile.jl/stable/snoopi_deep_parcel/#SnoopCompile.write
-_precompile_()
+# include("precompile_WildBootTests.jl")  # source: https://timholy.github.io/SnoopCompile.jl/stable/snoopi_deep_parcel/#SnoopCompile.write
+# _precompile_()
  
 end
 
-using StableRNGs, Random
+using StableRNGs, Random, BenchmarkTools
 N=1_000_00; G=40; k=2; l=4
 Random.seed!(1231)
 β=rand(); γ=rand(k); Π=rand(l)
@@ -124,3 +124,18 @@ y₁ = y₂ * β + Z * γ + u₁
 ID = floor.(Int8, collect(0:N-1) / (N/G))
 R = [zeros(1,k) 1]; r = [0]
 WildBootTests.wildboottest(Float32, R,.4; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=999, issorted=true, rng=StableRNG(1231))
+
+N=1_000_00; G=40; k=12; l=40
+Random.seed!(1231)
+β=rand(); γ=rand(k); Π=rand(l)
+W = rand(N,l)
+u₂ = randn(N)
+y₂ = W * Π + u₂
+u₁ = u₂ + randn(N)
+Z = rand(N,k)
+y₁ = y₂ * β + Z * γ + u₁
+ID = floor.(Int8, collect(0:N-1) / (N/G))
+R = [zeros(1,k) 1]; r = [0]
+@btime WildBootTests.wildboottest(Float32, R,.4; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=false);
+
+@btime WildBootTests.wildboottest(Float32, R,.4; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=true);
