@@ -314,7 +314,7 @@ function panelsum(o::StrBootTest, X::AbstractMatrix{T}, wt::AbstractVector{T}, i
 		dest
 	end
 end
-function panelcross(o::StrBootTest, X::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+function panelcross11(o::StrBootTest, X::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	dest = Array{T,3}(undef, size(X,2), length(info), size(Y,2))
 	#=o.=# panelcross_nonturbo!(dest, X, Y, info)
 	dest
@@ -338,9 +338,9 @@ function panelsum2(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecO
 end
 function panelcross21(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	if iszero(ncols(X₁))
-		panelcross(o,X₂,Y,info)
+		panelcross11(o,X₂,Y,info)
 	elseif iszero(ncols(X₂))
-		panelcross(o,X₁,Y,info)
+		panelcross11(o,X₁,Y,info)
 	else
 		dest = Array{T,3}(undef, ncols(X₁)+ncols(X₂), length(info), ncols(Y))
 		#=o.=#panelcross_nonturbo!(view(dest,           1:ncols(X₁   ), :, :), X₁, Y, info)
@@ -350,9 +350,9 @@ function panelcross21(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractV
 end
 function panelcross12(o::StrBootTest, X::AbstractVecOrMat{T}, Y₁::AbstractVecOrMat{T}, Y₂::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	if iszero(ncols(Y₁))
-		panelcross(o,X,Y₂,info)
+		panelcross11(o,X,Y₂,info)
 	elseif iszero(ncols(Y₂))
-		panelcross(o,X,Y₁,info)
+		panelcross11(o,X,Y₁,info)
 	else
 		dest = Array{T,3}(undef, ncols(X), length(info), ncols(Y₁)+ncols(Y₂))
 		#=o.=#panelcross_nonturbo!(view(dest, :, :,           1:ncols(Y₁   )), X, Y₁, info)

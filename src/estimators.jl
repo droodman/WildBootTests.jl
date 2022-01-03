@@ -80,17 +80,17 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
   !isempty(Rperp) && (o.Rperp = Rperp[1])
 
   o.Zperp = parent.X₁ * o.RperpX
-	o.S⋂ZperpZperp = panelcross(parent, o.Zperp, o.Zperp, parent.info⋂)  #  XXX exploit symmetry?  XXX missing weights
+	o.S⋂ZperpZperp = panelcross11(parent, o.Zperp, o.Zperp, parent.info⋂)  #  XXX exploit symmetry?  XXX missing weights
   o.invZperpZperp = iszero(length(o.Zperp)) ? Symmetric(Matrix{T}(undef,0,0)) : inv(Symmetric(sumpanelsum(o.S⋂ZperpZperp)))
 	#=o.X₁=# _X₁ = parent.X₁ * o.RperpXperp
-	S⋂X₁Zperp = panelcross(parent, _X₁, o.Zperp, parent.info⋂)
+	S⋂X₁Zperp = panelcross11(parent, _X₁, o.Zperp, parent.info⋂)
 	ZperpX₁ = sumpanelsum(S⋂X₁Zperp)'
 	
 	invZperpZperpZperpX₁ = o.invZperpZperp * ZperpX₁
 	o.X₁ = _X₁ - o.Zperp * invZperpZperpZperpX₁  # shrink and FWL-process X₁; do it as an O(N) operation because it can be so size-reducing
 
-	S⋂X₂X₁ = panelcross(parent, parent.X₂, _X₁, parent.info⋂)  # S⋂(X₂:*M_(Z⟂)X₁∥)
-	S⋂X₂Zperp = panelcross(parent, parent.X₂, o.Zperp, parent.info⋂)
+	S⋂X₂X₁ = panelcross11(parent, parent.X₂, _X₁, parent.info⋂)  # S⋂(X₂:*M_(Z⟂)X₁∥)
+	S⋂X₂Zperp = panelcross11(parent, parent.X₂, o.Zperp, parent.info⋂)
 	ZperpX₂ = sumpanelsum(S⋂X₂Zperp)'
 	o.ZperpX = [ZperpX₁ ZperpX₂]
 
@@ -107,24 +107,24 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 
   #=o.Z=# _Z   = X₁₂B(parent, parent.X₁, parent.Y₂, o.Rpar     )  # Z∥
 
-	S⋂X₁Z = panelcross(parent,       _X₁, _Z, parent.info⋂)
-	S⋂X₂Z = panelcross(parent, parent.X₂, _Z, parent.info⋂)
+	S⋂X₁Z = panelcross11(parent,       _X₁, _Z, parent.info⋂)
+	S⋂X₂Z = panelcross11(parent, parent.X₂, _Z, parent.info⋂)
 	S⋂XZ  = [S⋂X₁Z; S⋂X₂Z]
 	X₁Z = sumpanelsum(S⋂X₁Z)
 	X₂Z = sumpanelsum(S⋂X₂Z)
-	S⋂X₂Zperp = panelcross(parent, parent.X₂, o.Zperp, parent.info⋂)
+	S⋂X₂Zperp = panelcross11(parent, parent.X₂, o.Zperp, parent.info⋂)
 	ZperpX₂ = sumpanelsum(S⋂X₂Zperp)'
 	o.S⋂XZperp = [S⋂X₁Zperp; S⋂X₂Zperp]
-	S⋂ZperpZ = panelcross(parent, o.Zperp, _Z, parent.info⋂)
+	S⋂ZperpZ = panelcross11(parent, o.Zperp, _Z, parent.info⋂)
   o.ZperpZ = sumpanelsum(S⋂ZperpZ)
 	o.invZperpZperpZperpZ = o.invZperpZperp * o.ZperpZ
 
 #	!o.isDGP && ((o.LIML || !parent.robust || !isone(o.κ)) || parent.granular) &&
-		(o.Z = _Z .- o.Zperp * (o.invZperpZperp * o.ZperpZ))
+		(o.Z = _Z - o.Zperp * o.invZperpZperpZperpZ)
 	o.ZperpY₂ = cross(o.Zperp, parent.wt, parent.Y₂)
 	o.invZperpZperpZperpY₂ = o.invZperpZperp * o.ZperpY₂
   o.Y₂ = parent.Y₂ - o.Zperp * o.invZperpZperpZperpY₂
-	o.S⋂Zperpy₁ = panelcross(parent, o.Zperp, parent.y₁, parent.info⋂)
+	o.S⋂Zperpy₁ = panelcross11(parent, o.Zperp, parent.y₁, parent.info⋂)
   Zperpy₁ = reshape(sumpanelsum(o.S⋂Zperpy₁), :)
 	o.invZperpZperpZperpy₁ = o.invZperpZperp * Zperpy₁
 	o.y₁ = parent.y₁ - o.Zperp * o.invZperpZperpZperpy₁
@@ -133,9 +133,9 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
   o.X₂Y₂ = cross(parent.X₂, parent.wt, parent.Y₂) .- ZperpX₂'o.invZperpZperp * o.ZperpY₂  # cross(o.X₂, parent.wt, o.Y₂)
   o.XY₂ = [o.X₁Y₂ ; o.X₂Y₂]
   o.Y₂y₁ = crossvec(parent.Y₂, parent.wt, parent.y₁) - o.ZperpY₂'o.invZperpZperpZperpy₁  # crossvec(o.Y₂, parent.wt, o.y₁)
-	S⋂X₂y₁ = panelcross(parent, parent.X₂, parent.y₁, parent.info⋂)
+	S⋂X₂y₁ = panelcross11(parent, parent.X₂, parent.y₁, parent.info⋂)
   o.X₂y₁ = reshape(sumpanelsum(S⋂X₂y₁), :) - ZperpX₂'o.invZperpZperpZperpy₁  # crossvec(o.X₂, parent.wt, o.y₁)
-	S⋂X₁y₁ = panelcross(parent, _X₁, parent.y₁, parent.info⋂)
+	S⋂X₁y₁ = panelcross11(parent, _X₁, parent.y₁, parent.info⋂)
   o.X₁y₁ = reshape(sumpanelsum(S⋂X₁y₁), :) - ZperpX₁'o.invZperpZperpZperpy₁  # crossvec(o.X₁, parent.wt, o.y₁)
   o.y₁y₁ = cross(parent.y₁, parent.wt, parent.y₁)[1] -  Zperpy₁'o.invZperpZperpZperpy₁  # cross(o.y₁, parent.wt, o.y₁)[1]
   o.Zy₁  = crossvec(_Z, parent.wt, parent.y₁) - o.ZperpZ'o.invZperpZperpZperpy₁  # crossvec(o.Z, parent.wt, o.y₁)
@@ -148,10 +148,10 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 
   if o.restricted
 		#=o.ZR₁=# _ZR₁ = X₁₂B(parent, parent.X₁, parent.Y₂, o.R₁invR₁R₁)
-		S⋂X₁_ZR₁ = panelcross(parent, _X₁, _ZR₁, parent.info⋂)
-		S⋂X₂_ZR₁ = panelcross(parent, parent.X₂, _ZR₁, parent.info⋂)
+		S⋂X₁_ZR₁ = panelcross11(parent, _X₁, _ZR₁, parent.info⋂)
+		S⋂X₂_ZR₁ = panelcross11(parent, parent.X₂, _ZR₁, parent.info⋂)
 		o.S⋂X_ZR₁ = [S⋂X₁_ZR₁; S⋂X₂_ZR₁]
-		o.S⋂Zperp_ZR₁ = panelcross(parent, o.Zperp, _ZR₁, parent.info⋂)
+		o.S⋂Zperp_ZR₁ = panelcross11(parent, o.Zperp, _ZR₁, parent.info⋂)
 		o.Zperp_ZR₁ = sumpanelsum(o.S⋂Zperp_ZR₁)
 		o.invZperpZperpZperp_ZR₁ = o.invZperpZperp * o.Zperp_ZR₁
 		#=o.ZR₁ .-= =# o.ZR₁ = _ZR₁ - o.Zperp * o.invZperpZperpZperp_ZR₁
@@ -184,8 +184,8 @@ o._Z=_Z
 	  o.Yendog = [true; #=o.RparY.type==identity ? fill(true, o.kZ) :=# mapreduce(v->v.≠0, .|, eachcol(o.RparY))]  # columns of Y = [y₁par Zpar] that are endogenous (normally all)
 
 	  if parent.robust && parent.bootstrapt  # for WRE replication regression, prepare for CRVE
-			S⋂X₁y₁ = panelcross(parent, _X₁, parent.y₁, parent.info⋂)  # S⋂(M_(Z⟂)X₁∥ :* y₁)  XXX missing weights
-			S⋂X₂y₁ = panelcross(parent, parent.X₂, parent.y₁, parent.info⋂)  # S⋂(X₂∥:*y₁)
+			S⋂X₁y₁ = panelcross11(parent, _X₁, parent.y₁, parent.info⋂)  # S⋂(M_(Z⟂)X₁∥ :* y₁)  XXX missing weights
+			S⋂X₂y₁ = panelcross11(parent, parent.X₂, parent.y₁, parent.info⋂)  # S⋂(X₂∥:*y₁)
 			o.S⋂Xy₁ = [S⋂X₁y₁; S⋂X₂y₁]
 
 			o.S⋂YX       = Vector{Matrix{T}}(undef, o.kZ+1)

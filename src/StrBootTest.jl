@@ -108,6 +108,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   seed::UInt64
 
 	S✻u₁X0::Array{T,3}; ∂S✻u₁X∂β̂::Array{T,3}; ∂S✻u₁X∂γ̈::Array{T,3}; ∂S✻u₁X∂γ̈Π̂::Array{T,3}; ∂S✻u₁X∂r::Array{T,3}; S✻U₂X0::Array{T,3}; ∂S✻U₂X∂Π̂::Array{T,3}
+	S✻u₁Zperp0::Array{T,3}; ∂S✻u₁Zperp∂β̂::Array{T,3}; ∂S✻u₁Zperp∂γ̈::Array{T,3}; ∂S✻u₁Zperp∂γ̈Π̂::Array{T,3}; ∂S✻u₁Zperp∂r::Array{T,3}; S✻U₂Zperp0::Array{T,3}; ∂S✻U₂Zperp∂Π̂::Array{T,3}
 
 	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
 	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,

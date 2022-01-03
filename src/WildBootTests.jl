@@ -125,7 +125,7 @@ ID = floor.(Int8, collect(0:N-1) / (N/G))
 R = [zeros(1,k) 1]; r = [0]
 WildBootTests.wildboottest(Float32, R,.4; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=999, issorted=true, rng=StableRNG(1231))
 
-N=1_000_00; G=40; k=12; l=40
+N=1_000_000; G=40; k=12; l=40
 Random.seed!(1231)
 β=rand(); γ=rand(k); Π=rand(l)
 W = rand(N,l)

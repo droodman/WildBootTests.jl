@@ -215,33 +215,38 @@ function InitWRE!(o::StrBootTest{T}) where T
 	o.T1R = deepcopy(o.T1L)
 
 	S✻XZperp = panelcross21(o, o.Repl._X₁, o.X₂, o.DGP.Zperp, o.info✻)
-	S✻ZperpZperp = panelcross(o, o.Repl.Zperp, o.DGP.Zperp, o.info✻)
+	S✻ZperpZperp = panelcross11(o, o.Repl.Zperp, o.DGP.Zperp, o.info✻)
 	S✻XY₂ = panelcross21(o, o.Repl._X₁, o.X₂, o.Y₂, o.info✻)  # XXX X₂-Y₂ part same for DGP & Repl
-	S✻ZperpY₂ = panelcross(o, o.Repl.Zperp, o.Y₂, o.info✻)
-	S✻XX = panelcross22(o, o.Repl._X₁, o.X₂, o.DGP.X₁, o.DGP.X₂, o.info✻)  # XXX X₂-X₂ part same for DGP & Repl
-	S✻ZperpX = panelcross12(o, o.Repl.Zperp, o.DGP.X₁, o.DGP.X₂, o.info✻)
-	
+	S✻ZperpY₂ = panelcross11(o, o.Repl.Zperp, o.Y₂, o.info✻)
+	S✻XX = panelcross22(o, o.Repl._X₁, o.X₂, o.DGP._X₁, o.X₂, o.info✻)  # XXX X₂-X₂ part same for DGP & Repl
+	S✻ZperpX = panelcross12(o, o.Repl.Zperp, o.DGP._X₁, o.X₂, o.info✻)
+	S✻Zperpy₁ = panelcross11(o, o.Repl.Zperp, o.y₁, o.info✻)
+	S✻ZperpZ = panelcross11(o, o.Repl.Zperp, o.DGP._Z, o.info✻)
+	S✻ZperpZR₁ = panelcross11(o, o.Repl.Zperp, o.DGP._ZR₁, o.info✻)
+
+	o.S✻u₁Zperp0 = S✻Zperpy₁ - S✻ZperpZperp * o.DGP.invZperpZperpZperpy₁
+	o.∂S✻u₁Zperp∂β̂ = S✻ZperpZ - S✻ZperpZperp * o.DGP.invZperpZperpZperpZ
+	o.∂S✻u₁Zperp∂γ̈ = S✻ZperpY₂ - S✻ZperpZperp * o.DGP.invZperpZperpZperpY₂
+	o.∂S✻u₁Zperp∂γ̈Π̂ = S✻ZperpX - panelcross11(o, o.Repl.Zperp, o.DGP.Zperp, o.info✻) * o.DGP.invZperpZperpZperpX
+	o.∂S✻u₁Zperp∂r = S✻ZperpZR₁ - S✻ZperpZperp * o.DGP.invZperpZperpZperp_ZR₁
+	o.S✻U₂Zperp0 = o.∂S✻u₁Zperp∂γ̈
+	o.∂S✻U₂Zperp∂Π̂ = S✻ZperpX - S✻ZperpZperp * o.DGP.invZperpZperpZperpX
+
 	o.S✻u₁X0 = panelcross21(o, o.Repl._X₁, o.X₂, o.y₁, o.info✻) - 
-								S✻XZperp * o.DGP.invZperpZperpZperpy₁ -
-								o.Repl.invZperpZperpZperpX' * (panelcross(o, o.Repl.Zperp, o.y₁, o.info✻) -
-																							 S✻ZperpZperp * o.DGP.invZperpZperpZperpy₁)
+								S✻XZperp * o.DGP.invZperpZperpZperpy₁ -	o.Repl.invZperpZperpZperpX' * o.S✻u₁Zperp0
 	o.∂S✻u₁X∂β̂ = panelcross21(o, o.Repl._X₁, o.X₂, o.DGP._Z, o.info✻) -
-									S✻XZperp * o.DGP.invZperpZperpZperpZ -
-									o.Repl.invZperpZperpZperpX' * (panelcross(o, o.Repl.Zperp, o.DGP._Z, o.info✻) -
-																								 S✻ZperpZperp * o.DGP.invZperpZperpZperpZ)
+									S✻XZperp * o.DGP.invZperpZperpZperpZ - o.Repl.invZperpZperpZperpX' * o.∂S✻u₁Zperp∂β̂
 
-	o.∂S✻u₁X∂γ̈ = S✻XY₂ - S✻XZperp * o.DGP.invZperpZperpZperpY₂ - o.Repl.invZperpZperpZperpX' * (S✻ZperpY₂ - S✻ZperpZperp * o.DGP.invZperpZperpZperpY₂)
+	o.∂S✻u₁X∂γ̈ = S✻XY₂ - S✻XZperp * o.DGP.invZperpZperpZperpY₂ - o.Repl.invZperpZperpZperpX' * o.∂S✻u₁Zperp∂γ̈
 
-	o.∂S✻u₁X∂γ̈Π̂ = S✻XX - o.Repl.invZperpZperpZperpX' * S✻ZperpX
+	o.∂S✻u₁X∂γ̈Π̂ = S✻XX - S✻XZperp * o.DGP.invZperpZperpZperpX - o.Repl.invZperpZperpZperpX' * o.∂S✻u₁Zperp∂γ̈Π̂
 
 	o.∂S✻u₁X∂r = panelcross21(o, o.Repl._X₁, o.X₂, o.DGP._ZR₁, o.info✻) - 
-									S✻XZperp * o.DGP.invZperpZperp * o.DGP.Zperp_ZR₁ - 
-									o.Repl.invZperpZperpZperpX' * (panelcross(o, o.Repl.Zperp, o.DGP._ZR₁, o.info✻) - 
-																								 S✻ZperpZperp * o.DGP.invZperpZperpZperp_ZR₁)
+									S✻XZperp * o.DGP.invZperpZperp * o.DGP.Zperp_ZR₁ - o.Repl.invZperpZperpZperpX' * o.∂S✻u₁Zperp∂r
 
 	o.S✻U₂X0 = o.∂S✻u₁X∂γ̈
 
-	o.∂S✻U₂X∂Π̂ = S✻XX - o.Repl.invZperpZperpZperpX' * S✻ZperpX
+	o.∂S✻U₂X∂Π̂ = S✻XX - S✻XZperp * o.DGP.invZperpZperpZperpX - o.Repl.invZperpZperpZperpX' * o.∂S✻U₂Zperp∂Π̂
 end
 
 function PrepWRE!(o::StrBootTest{T}) where T
@@ -251,6 +256,8 @@ function PrepWRE!(o::StrBootTest{T}) where T
   Ü₂par = view(o.DGP.Ü₂ * o.Repl.RparY,:,:)
 
 	_S✻UX = (o.S✻U₂X0 - o.∂S✻U₂X∂Π̂ * o.DGP.Π̂) * o.Repl.RparY  # panelsum2(o, o.Repl.X₁, o.Repl.X₂, uwt, o.info✻)'
+	(o.LIML || o.bootstrapt || !isone(o.κ)) && 
+		(_S✻UZperp = ((o.S✻U₂Zperp0 - 	o.∂S✻U₂Zperp∂Π̂ * o.DGP.Π̂) * o.Repl.RparY))
 
   @inbounds for i ∈ 0:o.Repl.kZ  # precompute various clusterwise sums
 		u = i>0 ? view(Ü₂par,:,i) : view(o.DGP.u⃛₁,:)
@@ -262,13 +269,19 @@ function PrepWRE!(o::StrBootTest{T}) where T
 			o.DGP.restricted &&
 				(o.S✻UX[1] .-= dropdims(o.∂S✻u₁X∂r * r₁; dims=3))
 		else
-			o.S✻UX[i+1] = _S✻UX[:,:,i]
+			o.S✻UX[i+1] = view(_S✻UX,:,:,i)
 		end
 
 		o.S✻UXinvXX[i+1] = o.Repl.invXX * o.S✻UX[i+1]
 
 		if o.LIML || o.bootstrapt || !isone(o.κ)
-			o.S✻UZperp[i+1]              = @panelsum(o, o.Repl.Zperp, uwt, o.info✻)'
+			if iszero(i)  # panelsum2(o, o.Repl.X₁, o.Repl.X₂, uwt, o.info✻)'
+				o.S✻UZperp[i+1] = (o.S✻u₁Zperp0 - o.∂S✻u₁Zperp∂β̂ * o.DGP.β̈ + (o.∂S✻u₁Zperp∂γ̈ - o.∂S✻u₁Zperp∂γ̈Π̂ * o.DGP.Π̂) * o.DGP.γ̈)[:,:,1]
+				o.DGP.restricted &&
+					(o.S✻UZperp[i+1] .-= (o.∂S✻u₁Zperp∂r * r₁)[:,:,1])
+			else
+				o.S✻UZperp[i+1] = view(_S✻UZperp,:,:,i)
+			end
 			o.S✻UZperpinvZperpZperp[i+1] = o.Repl.invZperpZperp * o.S✻UZperp[i+1]
 			o.NFE>0 && (o.CTFEU[i+1] = crosstabFE(o, uwt, o.info✻))
 		end
