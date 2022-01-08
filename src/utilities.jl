@@ -265,8 +265,28 @@ function panelsum_nonturbo!(dest::AbstractArray, X::AbstractArray, wt::AbstractV
     end
   end
 end
-# panelsum!() of two data matrices
-# 1st dimension of result corresponds to columns of X, second to rowse of both, third to columns of Y
+function panelsum_nonturbo!(dest::AbstractArray, X::AbstractArray{T,3} where T, info::Vector{UnitRange{S}} where S<:Integer)
+  iszero(length(X)) && return
+  @inbounds Threads.@threads for g in eachindex(info)
+    f, l = first(info[g]), last(info[g])
+    fl = f+1:l
+    if f<l
+      for i ∈ axes(X,1), k ∈ axes(X,3)
+        tmp = X[i,f,k]
+        for j ∈ fl
+          tmp += X[i,j,k]
+        end
+        dest[i,g,k] = tmp
+      end
+    else
+      for i ∈ axes(X,1), k ∈ axes(X,3)
+        dest[i,g,k] = X[i,f,k]
+      end
+    end
+  end
+end
+# groupwise inner product of two two data matrices
+# 1st dimension of result corresponds to columns of X, second to rows of both, third to columns of Y
 function panelcross_nonturbo!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
 	iszero(length(X)) && return
 	if iszero(length(info)) || nrows(info)==nrows(X)
@@ -321,6 +341,11 @@ function panelcross11(o::StrBootTest, X::AbstractVecOrMat{T}, Y::AbstractVecOrMa
 end
 function panelsum(o::StrBootTest, X::AbstractVecOrMat, info::AbstractVector{UnitRange{T}} where T<:Integer)
 	dest = similar(X, length(info), size(X)[2:end]...)
+	o.panelsum!(dest, X, info)
+	dest
+end
+function panelsum(o::StrBootTest{T}, X::AbstractArray{T,3}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	dest = Array{T,3}(undef, size(X,1), size(info,1), size(X,3))
 	o.panelsum!(dest, X, info)
 	dest
 end

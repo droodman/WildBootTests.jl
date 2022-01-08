@@ -153,8 +153,8 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.S⋂X_ZR₁ = [S⋂X₁_ZR₁; S⋂X₂_ZR₁]
 		o.S⋂Zperp_ZR₁ = panelcross11(parent, o.Zperp, _ZR₁, parent.info⋂)
 		o.Zperp_ZR₁ = sumpanelsum(o.S⋂Zperp_ZR₁)
-		o.invZperpZperpZperp_ZR₁ = o.invZperpZperp * o.Zperp_ZR₁
-		#=o.ZR₁ .-= =# o.ZR₁ = _ZR₁ - o.Zperp * o.invZperpZperpZperp_ZR₁
+		o.invZperpZperpZperpZR₁ = o.invZperpZperp * o.Zperp_ZR₁
+		#=o.ZR₁ .-= =# o.ZR₁ = _ZR₁ - o.Zperp * o.invZperpZperpZperpZR₁
 	  o.X₁ZR₁    = sumpanelsum(S⋂X₁_ZR₁) - ZperpX₁'o.invZperpZperp * o.Zperp_ZR₁  # cross(o.X₁, parent.wt, o.ZR₁)
 	  o.X₂ZR₁    = sumpanelsum(S⋂X₂_ZR₁) - ZperpX₂'o.invZperpZperp * o.Zperp_ZR₁  # cross(o.X₂, parent.wt, o.ZR₁)
 	  o.ZZR₁     = cross(       _Z, parent.wt, _ZR₁) - o.ZperpZ'o.invZperpZperp * o.Zperp_ZR₁  # cross(o.Z , parent.wt, o.ZR₁)

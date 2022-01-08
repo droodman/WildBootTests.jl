@@ -150,15 +150,15 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			o.IDCT⋂✻   = Vector{Vector{Int64}}(undef, o.N✻)
 			o.infoCT⋂✻ = Vector{Vector{UnitRange{Int64}}}(undef, o.N✻)
 			for i ∈ 1:o.N✻
-				tmp = ID✻⋂[o.info✻[i]]                        # ID numbers w.r.t. intersection of all bootstrap/error clusterings contained in bootstrap cluster i
-				o.infoCT⋂✻[i] = o.info✻⋂[tmp[1]:tmp[end]]       # for each of those ID's, panel info for the all-bootstrap/error-clusterings data row groupings
+				tmp = ID✻⋂[o.info✻[i]]                    # ID numbers w.r.t. intersection of all bootstrap/error clusterings contained in bootstrap cluster i
+				o.infoCT⋂✻[i] = o.info✻⋂[tmp[1]:tmp[end]] # for each of those ID's, panel info for the all-bootstrap/error-clusterings data row groupings
 				o.IDCT⋂✻[i] = ID⋂[first.(o.infoCT⋂✻[i])]  # ID numbers of those groupings w.r.t. the all-error-clusterings grouping
 			end
 		end
   else
 	  minN = T(nrows(o.info✻))
 	end
-
+o._ID✻⋂=ID✻⋂
 	InitFEs(o)
 
 	if o.B>0 && o.robust && o.granular && !o.purerobust && o.bootstrapt && !o.WREnonARubin
@@ -239,7 +239,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 				o.S✻UMZperp = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
 				o.S✻UPX     = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
 				o._J⋂ = zeros(o.clust[1].N, o.Repl.kZ)
-				!o.granular && (o.SCT⋂uXinvXX = Matrix{Matrix{T}}(undef, o.Repl.kZ+1, o.N✻))
+				!o.granular && (o.S✻⋂u₁XinvXX = Matrix{Matrix{T}}(undef, o.Repl.kZ+1, o.N✻))
 				if o.LIML || !o.robust
 					o.YY✻_b   = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
 					o.YPXY✻_b = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
