@@ -228,7 +228,7 @@ o._Z=_Z
 				S⋂Xy₁ = [S⋂X₁y₁; S⋂X₂y₁]
 				o.S⋂y₁X₀ = dropdims(S⋂Xy₁ - o.S⋂XZperp * o.invZperpZperpZperpy₁ - o.ZperpX' * o.invZperpZperp * (o.S⋂Zperpy₁ - o.S⋂ZperpZperp * o.invZperpZperpZperpy₁); dims=3)
 				o.restricted &&
-					(o.∂S⋂y₁X∂r = o.S⋂X_ZR₁ - o.Zperp_ZR₁' * o.invZperpZperp * o.S⋂XZperp - o.ZperpX' * o.invZperpZperp * (o.S⋂Zperp_ZR₁ - o.S⋂ZperpZperp * o.invZperpZperp * o.Zperp_ZR₁))
+					(o.∂S⋂y₁X∂r = o.S⋂X_ZR₁ - o.S⋂XZperp * o.invZperpZperp * o.Zperp_ZR₁ - o.ZperpX' * o.invZperpZperp * (o.S⋂Zperp_ZR₁ - o.S⋂ZperpZperp * o.invZperpZperp * o.Zperp_ZR₁))
 			end
 	  end
   end
@@ -298,7 +298,7 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, r₁::AbstractV
 	    end
 	    if !parent.granular
 	  		o.S⋂YX[1] = o.S⋂y₁X₀
-				o.restricted && (o.S⋂YX[1] .-= r₁' * o.∂S⋂y₁X∂r)   # S⋂(M_Zperp*y₁ .* P_(MZperpX)])
+				o.restricted && (o.S⋂YX[1] .-= dropdims(o.∂S⋂y₁X∂r * r₁, dims=3))   # S⋂(M_Zperp*y₁ .* P_(MZperpX)])
 			end
 	  end
   end
