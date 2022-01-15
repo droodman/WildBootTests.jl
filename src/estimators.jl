@@ -22,8 +22,8 @@ function setR!(o::StrEstimator{T}, parent::StrBootTest{T}, R₁::AbstractMatrix{
   end
 
   if !iszero(o.κ)
-	  RR₁perp = Matrix([R ; zeros(T, parent.kY₂, parent.kX₁) I])  # rows to prevent partialling out of endogenous regressors
-
+	  RR₁perp = Matrix([R
+		                  zeros(T, parent.kY₂, parent.kX₁) I])  # rows to prevent partialling out of endogenous regressors
 	  length(R₁)>0 && (RR₁perp *= o.R₁perp)
 
 	  F = eigen(Symmetric(RR₁perp'pinv(RR₁perp * RR₁perp')*RR₁perp)); val = abs.(F.values) .> 1000*eps(T)
@@ -36,7 +36,7 @@ function setR!(o::StrEstimator{T}, parent::StrBootTest{T}, R₁::AbstractMatrix{
 	  end
 
 	  o.RRpar = R * o.Rpar
-	  o.RperpX = o.RperpX[1:parent.kX₁,:]  # Zperp=Z*RperpX; though formally a multiplier on Z, it will only extract exogenous components, in X₁, since all endogenous ones will be retained
+	  o.RperpX = o.RperpX[1:parent.kX₁,:]  # Zperp=X₁*RperpX
 		o.RperpXperp = perp(o.RperpX)
 		o.RparY = o.Rpar[parent.kX₁+1:end,:]  # part of Rpar that refers to Y₂
 	  o.R₁invR₁R₁Y = o.R₁invR₁R₁[parent.kX₁+1:end,:]

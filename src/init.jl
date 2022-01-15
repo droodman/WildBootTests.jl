@@ -227,7 +227,6 @@ o._ID✻⋂=ID✻⋂
 				EstimateIV!(o.DGP, o, o.r₁)
 				MakeResidualsIV!(o.DGP, o)
 			end
-
 			o.Repl = StrEstimator{T}(false, o.LIML, o.Fuller, o.κ)
 			setR!(o.Repl, o, o.R₁, o.R)
 			InitVarsIV!(o.Repl, o)

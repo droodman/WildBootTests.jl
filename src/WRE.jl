@@ -4,7 +4,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 	o.LIML && o.Repl.kZ==1 && o.Nw==1 && (o.As = o.β̂s = zeros(1, o.B+1))
 	o.S✻UZperpinvZperpZperp = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
 	o.S✻UZperp              = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
-	o.S✻Uy₁                  = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
+	o.S✻UY                  = Matrix{Vector{T}}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
 	o.S✻UXinvXX             = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
 	o.S✻UX                  = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
 	o.S✻UU                  = Matrix{Matrix{T}}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
@@ -50,104 +50,123 @@ function InitWRE!(o::StrBootTest{T}) where T
 	S✻XZ = @panelsum(o, S✻⋂XZ, info✻_✻⋂)
 	S✻XZR₁ = @panelsum(o, S✻⋂XZR₁, info✻_✻⋂)
 
-	o.S✻u₁Zperp0    = S✻Zperpy₁  - S✻ZperpZperp * o.DGP.invZperpZperpZperpy₁
-	o.∂S✻u₁Zperp∂β̂  = S✻ZperpZ   - S✻ZperpZperp * o.DGP.invZperpZperpZperpZ
-	o.∂S✻u₁Zperp∂γ̈  = S✻ZperpY₂  - S✻ZperpZperp * o.DGP.invZperpZperpZperpY₂
-	o.∂S✻u₁Zperp∂γ̈Π̂ = S✻ZperpX   - S✻ZperpZperp * o.DGP.invZperpZperpZperpX
-	o.∂S✻u₁Zperp∂r  = S✻ZperpZR₁ - S✻ZperpZperp * o.DGP.invZperpZperpZperpZR₁
-	o.S✻U₂Zperp0 = o.∂S✻u₁Zperp∂γ̈ * o.Repl.RparY
-	o.∂S✻U₂Zperp∂Π̂  = o.∂S✻u₁Zperp∂γ̈Π̂
+	o.S✻Zperp_DGPy₁ = S✻Zperpy₁  - S✻ZperpZperp * o.DGP.invZperpZperpZperpy₁
+	o.S✻Zperp_DGPZ  = S✻ZperpZ   - S✻ZperpZperp * o.DGP.invZperpZperpZperpZ
+	o.S✻Zperp_DGPY₂ = S✻ZperpY₂  - S✻ZperpZperp * o.DGP.invZperpZperpZperpY₂
+	o.S✻Zperp_DGPX = S✻ZperpX   - S✻ZperpZperp * o.DGP.invZperpZperpZperpX
+	o.S✻Zperp_DGPZR₁ = S✻ZperpZR₁ - S✻ZperpZperp * o.DGP.invZperpZperpZperpZR₁
 
-	o.S✻u₁X0    = S✻Xy₁  - S✻XZperp * o.DGP.invZperpZperpZperpy₁ - o.Repl.invZperpZperpZperpX' * o.S✻u₁Zperp0
-	o.∂S✻u₁X∂β̂  = S✻XZ   - S✻XZperp * o.DGP.invZperpZperpZperpZ  - o.Repl.invZperpZperpZperpX' * o.∂S✻u₁Zperp∂β̂
-	o.∂S✻u₁X∂γ̈  = S✻XY₂  - S✻XZperp * o.DGP.invZperpZperpZperpY₂ - o.Repl.invZperpZperpZperpX' * o.∂S✻u₁Zperp∂γ̈
-	o.∂S✻u₁X∂γ̈Π̂ = S✻XX   - S✻XZperp * o.DGP.invZperpZperpZperpX  - o.Repl.invZperpZperpZperpX' * o.∂S✻u₁Zperp∂γ̈Π̂
-	o.∂S✻u₁X∂r  = S✻XZR₁ - S✻XZperp * o.DGP.invZperpZperp * o.DGP.Zperp_ZR₁ - o.Repl.invZperpZperpZperpX' * o.∂S✻u₁Zperp∂r
+	o.S✻u₁X0    = S✻Xy₁  - S✻XZperp * o.DGP.invZperpZperpZperpy₁ - o.Repl.invZperpZperpZperpX' * o.S✻Zperp_DGPy₁
+	o.∂S✻u₁X∂β̂  = S✻XZ   - S✻XZperp * o.DGP.invZperpZperpZperpZ  - o.Repl.invZperpZperpZperpX' * o.S✻Zperp_DGPZ
+	o.∂S✻u₁X∂γ̈  = S✻XY₂  - S✻XZperp * o.DGP.invZperpZperpZperpY₂ - o.Repl.invZperpZperpZperpX' * o.S✻Zperp_DGPY₂
+	o.∂S✻u₁X∂γ̈Π̂ = S✻XX   - S✻XZperp * o.DGP.invZperpZperpZperpX  - o.Repl.invZperpZperpZperpX' * o.S✻Zperp_DGPX
+	o.∂S✻u₁X∂r  = S✻XZR₁ - S✻XZperp * o.DGP.invZperpZperp * o.DGP.Zperp_ZR₁ - o.Repl.invZperpZperpZperpX' * o.S✻Zperp_DGPZR₁
 	o.S✻U₂X0 = o.∂S✻u₁X∂γ̈ * o.Repl.RparY
 	o.∂S✻U₂X∂Π̂ = o.∂S✻u₁X∂γ̈Π̂
 
 	if o.LIML || !o.robust || !isone(o.κ)
-		S✻y₁y₁ = panelcross11(o, o.y₁, o.y₁, o.info✻)
-		S✻y₁Y₂ = panelcross11(o, o.y₁, o.Y₂, o.info✻)
-		S✻y₁Zperp = panelcross11(o, o.y₁, o.DGP.Zperp, o.info✻)
-		S✻ZZ = panelcross11(o, o.Repl._Z, o.DGP._Z, o.info✻)
-		S✻ZZperp = panelcross11(o, o.Repl._Z, o.DGP.Zperp, o.info✻)
-		S✻y₁Z = panelcross11(o, o.y₁, o.DGP._Z, o.info✻)
-		S✻ZY₂ = panelcross11(o, o.Repl._Z, o.Y₂, o.info✻)
-		S✻ZX = panelcross12(o, o.Repl._Z, o.DGP._X₁, o.X₂, o.info✻)
-		S✻ZZR₁ = panelcross11(o, o.Repl._Z, o.DGP._ZR₁, o.info✻)
-		S✻y₁X = panelcross12(o, o.y₁, o.DGP._X₁, o.X₂, o.info✻)
-		S✻y₁ZR₁ = panelcross11(o, o.y₁, o.DGP._ZR₁, o.info✻)
+		# S✻y₁y₁ = panelcross11(o, o.y₁, o.y₁, o.info✻)
+		# S✻y₁Y₂ = panelcross11(o, o.y₁, o.Y₂, o.info✻)
+		# S✻y₁Zperp = panelcross11(o, o.y₁, o.DGP.Zperp, o.info✻)
+		# S✻ZZ = panelcross11(o, o.Repl._Z, o.DGP._Z, o.info✻)
+		# S✻ZZperp = panelcross11(o, o.Repl._Z, o.DGP.Zperp, o.info✻)
+		# S✻y₁Z = panelcross11(o, o.y₁, o.DGP._Z, o.info✻)
+		# S✻ZY₂ = panelcross11(o, o.Repl._Z, o.Y₂, o.info✻)
+		# S✻ZX = panelcross12(o, o.Repl._Z, o.DGP._X₁, o.X₂, o.info✻)
+		# S✻ZZR₁ = panelcross11(o, o.Repl._Z, o.DGP._ZR₁, o.info✻)
+		# S✻y₁X = panelcross12(o, o.y₁, o.DGP._X₁, o.X₂, o.info✻)
+		# S✻y₁ZR₁ = panelcross11(o, o.y₁, o.DGP._ZR₁, o.info✻)
 
-		o.∂S✻y₁U₂∂γ̈ = S✻y₁Y₂ - o.Repl.invZperpZperpZperpy₁' * S✻ZperpY₂ - (S✻y₁Zperp - o.Repl.invZperpZperpZperpy₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpY₂
-		o.S✻y₁u₁0 = -o.∂S✻y₁U₂∂γ̈ * o.Repl.RparY
-		o.∂S✻y₁u₁∂β̂ = S✻ZZ - S✻ZZperp * o.DGP.invZperpZperpZperpZ - (S✻y₁Z - S✻y₁Zperp * o.DGP.invZperpZperpZperpZ)
-		o.∂S✻y₁u₁∂γ̈ = S✻ZY₂ - o.Repl.invZperpZperpZperpy₁' * S✻ZperpY₂ - (S✻ZZperp - o.Repl.invZperpZperpZperpy₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpY₂
-		o.∂S✻y₁u₁∂γ̈Π̂ = S✻ZX   - S✻ZZperp * o.DGP.invZperpZperpZperpX - (S✻y₁X - S✻y₁Zperp * o.DGP.invZperpZperpZperpX)
-		o.∂S✻y₁u₁∂r = S✻ZZR₁  - S✻ZZperp * o.DGP.invZperpZperpZperpZR₁ - (S✻y₁ZR₁ - S✻y₁Zperp * o.DGP.invZperpZperpZperpZR₁)
-		o.S✻y₁U₂0 = S✻y₁y₁ - o.Repl.invZperpZperpZperpy₁' * S✻Zperpy₁ - o.∂S✻y₁U₂∂γ̈
-		o.∂S✻y₁U₂∂β̂ = S✻y₁Z - S✻y₁Zperp * o.DGP.invZperpZperpZperpZ - o.Repl.invZperpZperpZperpy₁' * S✻ZperpZ
-		o.∂S✻y₁U₂∂γ̈Π̂ = S✻y₁X - o.Repl.invZperpZperpZperpy₁' * S✻ZperpX - (S✻y₁Zperp - o.Repl.invZperpZperpZperpy₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpX
-		o.∂S✻y₁U₂∂Π̂ =  o.∂S✻y₁U₂∂γ̈Π̂
-		o.∂S✻y₁U₂∂r = S✻y₁ZR₁ - o.Repl.invZperpZperpZperpy₁' * S✻ZperpZR₁ - (S✻y₁Zperp - o.Repl.invZperpZperpZperpy₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpZR₁
+		o.Reply₁_DGPy₁  = panelcross11(o, o.Repl.y₁, o.DGP.y₁, o.info✻)
+		o.Reply₁_DGPZR₁ = panelcross11(o, o.Repl.y₁, o.DGP.ZR₁, o.info✻)
+		o.Reply₁_DGPZ   = panelcross11(o, o.Repl.y₁, o.DGP.Z, o.info✻)
+		o.Reply₁_DGPY₂  = panelcross11(o, o.Repl.y₁, o.DGP.Y₂, o.info✻)
+		o.Reply₁_DGPX   = panelcross11(o, o.Repl.y₁, [o.DGP.X₁ o.DGP.X₂], o.info✻)
+
+		o.ReplZ_DGPy₁  = panelcross11(o, o.Repl.Z, o.DGP.y₁, o.info✻)
+		o.ReplZ_DGPZR₁ = panelcross11(o, o.Repl.Z, o.DGP.ZR₁, o.info✻)
+		o.ReplZ_DGPZ   = panelcross11(o, o.Repl.Z, o.DGP.Z, o.info✻)
+		o.ReplZ_DGPY₂  = panelcross11(o, o.Repl.Z, o.DGP.Y₂, o.info✻)
+		o.ReplZ_DGPX   = panelcross11(o, o.Repl.Z, [o.DGP.X₁ o.DGP.X₂], o.info✻)
 
 		if o.REst
-			o.∂S✻y₁u₁∂β̂ .-= o.r₁' * (panelcross11(o, o.Repl._ZR₁, o.DGP._Z, o.info✻) - panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) * o.DGP.invZperpZperpZperpZ -
-													o.Repl.invZperpZperpZperpZR₁' * (S✻ZperpZ - 
-																														S✻ZperpZperp * o.DGP.invZperpZperpZperpZ) -
-																														(panelcross11(o, o.Repl._ZR₁, o.DGP._Z, o.info✻) -
-																														panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) * o.DGP.invZperpZperpZperpZ -
-																														o.Repl.invZperpZperpZperpZR₁' * (S✻ZperpZ -
-																																														 S✻ZperpZperp * o.DGP.invZperpZperpZperpZ)))
-			o.∂S✻y₁u₁∂γ̈ .-= o.r₁' * ((panelcross11(o, o.Repl._ZR₁, o.Y₂, o.info✻) -
-												o.Repl.invZperpZperpZperpZR₁' * panelcross11(o, o.Repl.Zperp, o.Y₂, o.info✻)) -
-											(panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
-												o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpY₂ -
-												((panelcross11(o, o.Repl._ZR₁, o.Y₂, o.info✻) -
-												 o.Repl.invZperpZperpZperpZR₁' * panelcross11(o, o.Repl.Zperp, o.Y₂, o.info✻)) - 
-													(panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
-												 o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpY₂))
-			o.∂S✻y₁u₁∂γ̈Π̂ .-= o.r₁' * ((panelcross12(o, o.Repl._ZR₁, o.DGP._X₁, o.X₂, o.info✻) -
-												panelcross12(o, o.Repl.Zperp * o.Repl.invZperpZperpZperpZR₁, o.DGP._X₁, o.X₂, o.info✻)) -
-												(panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
-												o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpX - 
-												((panelcross12(o, o.Repl._ZR₁, o.DGP._X₁, o.X₂, o.info✻) -
-											 panelcross12(o, o.Repl.Zperp * o.Repl.invZperpZperpZperpZR₁, o.DGP._X₁, o.X₂, o.info✻)) -
-												 (panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
-											 o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpX))
-			o.∂S✻y₁u₁∂r .-= o.r₁' * ((panelcross11(o, o.Repl._ZR₁, o.DGP._ZR₁, o.info✻) -
-											o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZR₁) -
-											(panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
-											o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpZR₁ -
-											((panelcross11(o, o.Repl._ZR₁, o.DGP._ZR₁, o.info✻) -
-											o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZR₁) -
-											 (panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
-											o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpZR₁))
-			o.S✻y₁U₂0 .-= o.r₁' * (panelcross11(o, o.Repl._ZR₁, o.y₁, o.info✻) -
-			                        o.Repl.invZperpZperpZperpZR₁' * panelcross11(o, o.Repl.Zperp, o.y₁, o.info✻) +
-															(panelcross11(o, o.Repl._ZR₁, o.Y₂, o.info✻) -
-															o.Repl.invZperpZperpZperpZR₁' * panelcross11(o, o.Repl.Zperp, o.Y₂, o.info✻)) -
-															(panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
-															o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpY₂) * o.Repl.RparY
-			o.∂S✻y₁U₂∂β̂ .-= o.r₁' * (panelcross11(o, o.Repl._ZR₁, o.DGP._Z, o.info✻) - panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) * o.DGP.invZperpZperpZperpZ -
-																o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZ)
-			o.∂S✻y₁U₂∂γ̈ .-= o.r₁' * ((panelcross11(o, o.Repl._ZR₁, o.Y₂, o.info✻) -
-                          o.Repl.invZperpZperpZperpZR₁' * panelcross11(o, o.Repl.Zperp, o.Y₂, o.info✻)) -
-                         (panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
-                          o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpY₂)
-			o.∂S✻y₁U₂∂γ̈Π̂ .-= o.r₁' * ((panelcross12(o, o.Repl._ZR₁, o.DGP._X₁, o.X₂, o.info✻) -
-												 panelcross12(o, o.Repl.Zperp * o.Repl.invZperpZperpZperpZR₁, o.DGP._X₁, o.X₂, o.info✻)) -
-                          (panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
-                          o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpX)
-			o.∂S✻y₁U₂∂Π̂ .+= o.r₁' * ((panelcross11(o, o.Repl._ZR₁, o.Y₂, o.info✻) -
-																o.Repl.invZperpZperpZperpZR₁' * panelcross11(o, o.Repl.Zperp, o.Y₂, o.info✻)) -
-																(panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
-																o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpY₂)
-			o.∂S✻y₁U₂∂r .-= o.r₁' * ((panelcross11(o, o.Repl._ZR₁, o.DGP._ZR₁, o.info✻) -
-																o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZR₁) -
-															(panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
-																o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpZR₁)
+			ZR₁r₁ = o.Repl.ZR₁ * o.r₁
+			o.Reply₁_DGPy₁ .-= panelcross11(o, ZR₁r₁, o.DGP.y₁, o.info✻)
+			o.Reply₁_DGPZR₁ .-= panelcross11(o, ZR₁r₁, o.DGP.ZR₁, o.info✻)
+			o.Reply₁_DGPZ .-= panelcross11(o, ZR₁r₁, o.DGP.Z, o.info✻)
+			o.Reply₁_DGPY₂ .-= panelcross11(o, ZR₁r₁, o.DGP.Y₂, o.info✻)
+			o.Reply₁_DGPX .-= panelcross11(o, ZR₁r₁, [o.DGP.X₁ o.DGP.X₂], o.info✻)
 		end
+
+		# o.∂S✻y₁U₂∂γ̈ = S✻y₁Y₂ - o.Repl.invZperpZperpZperpy₁' * S✻ZperpY₂ - (S✻y₁Zperp - o.Repl.invZperpZperpZperpy₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpY₂
+		# o.S✻y₁u₁0 = -o.∂S✻y₁U₂∂γ̈ * o.Repl.RparY
+		# o.∂S✻y₁u₁∂β̂ = S✻ZZ - S✻ZZperp * o.DGP.invZperpZperpZperpZ - (S✻y₁Z - S✻y₁Zperp * o.DGP.invZperpZperpZperpZ)
+		# o.∂S✻y₁u₁∂γ̈ = S✻ZY₂ - o.Repl.invZperpZperpZperpy₁' * S✻ZperpY₂ - (S✻ZZperp - o.Repl.invZperpZperpZperpy₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpY₂
+		# o.∂S✻y₁u₁∂γ̈Π̂ = S✻ZX   - S✻ZZperp * o.DGP.invZperpZperpZperpX - (S✻y₁X - S✻y₁Zperp * o.DGP.invZperpZperpZperpX)
+		# o.∂S✻y₁u₁∂r = S✻ZZR₁  - S✻ZZperp * o.DGP.invZperpZperpZperpZR₁ - (S✻y₁ZR₁ - S✻y₁Zperp * o.DGP.invZperpZperpZperpZR₁)
+		# o.S✻y₁U₂0 = S✻y₁y₁ - o.Repl.invZperpZperpZperpy₁' * S✻Zperpy₁ - o.∂S✻y₁U₂∂γ̈
+		# o.∂S✻y₁U₂∂β̂ = S✻y₁Z - S✻y₁Zperp * o.DGP.invZperpZperpZperpZ - o.Repl.invZperpZperpZperpy₁' * S✻ZperpZ
+		# o.∂S✻y₁U₂∂γ̈Π̂ = S✻y₁X - o.Repl.invZperpZperpZperpy₁' * S✻ZperpX - (S✻y₁Zperp - o.Repl.invZperpZperpZperpy₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpX
+		# o.∂S✻y₁U₂∂Π̂ =  o.∂S✻y₁U₂∂γ̈Π̂
+		# o.∂S✻y₁U₂∂r = S✻y₁ZR₁ - o.Repl.invZperpZperpZperpy₁' * S✻ZperpZR₁ - (S✻y₁Zperp - o.Repl.invZperpZperpZperpy₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpZR₁
+
+		# if o.REst
+		# 	o.∂S✻y₁u₁∂β̂ .-= o.r₁' * (panelcross11(o, o.Repl._ZR₁, o.DGP._Z, o.info✻) - panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) * o.DGP.invZperpZperpZperpZ -
+		# 											o.Repl.invZperpZperpZperpZR₁' * (S✻ZperpZ - 
+		# 																												S✻ZperpZperp * o.DGP.invZperpZperpZperpZ) -
+		# 																												(panelcross11(o, o.Repl._ZR₁, o.DGP._Z, o.info✻) -
+		# 																												panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) * o.DGP.invZperpZperpZperpZ -
+		# 																												o.Repl.invZperpZperpZperpZR₁' * (S✻ZperpZ -
+		# 																																												 S✻ZperpZperp * o.DGP.invZperpZperpZperpZ)))
+		# 	o.∂S✻y₁u₁∂γ̈ .-= o.r₁' * ((panelcross11(o, o.Repl._ZR₁, o.Y₂, o.info✻) -
+		# 										o.Repl.invZperpZperpZperpZR₁' * panelcross11(o, o.Repl.Zperp, o.Y₂, o.info✻)) -
+		# 									(panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
+		# 										o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpY₂ -
+		# 										((panelcross11(o, o.Repl._ZR₁, o.Y₂, o.info✻) -
+		# 										 o.Repl.invZperpZperpZperpZR₁' * panelcross11(o, o.Repl.Zperp, o.Y₂, o.info✻)) - 
+		# 											(panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
+		# 										 o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpY₂))
+		# 	o.∂S✻y₁u₁∂γ̈Π̂ .-= o.r₁' * ((panelcross12(o, o.Repl._ZR₁, o.DGP._X₁, o.X₂, o.info✻) -
+		# 										panelcross12(o, o.Repl.Zperp * o.Repl.invZperpZperpZperpZR₁, o.DGP._X₁, o.X₂, o.info✻)) -
+		# 										(panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
+		# 										o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpX - 
+		# 										((panelcross12(o, o.Repl._ZR₁, o.DGP._X₁, o.X₂, o.info✻) -
+		# 									 panelcross12(o, o.Repl.Zperp * o.Repl.invZperpZperpZperpZR₁, o.DGP._X₁, o.X₂, o.info✻)) -
+		# 										 (panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
+		# 									 o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpX))
+		# 	o.∂S✻y₁u₁∂r .-= o.r₁' * ((panelcross11(o, o.Repl._ZR₁, o.DGP._ZR₁, o.info✻) -
+		# 									o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZR₁) -
+		# 									(panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
+		# 									o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpZR₁ -
+		# 									((panelcross11(o, o.Repl._ZR₁, o.DGP._ZR₁, o.info✻) -
+		# 									o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZR₁) -
+		# 									 (panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
+		# 									o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpZR₁))
+		# 	o.S✻y₁U₂0 .-= o.r₁' * (panelcross11(o, o.Repl._ZR₁, o.y₁, o.info✻) -
+		# 	                        o.Repl.invZperpZperpZperpZR₁' * panelcross11(o, o.Repl.Zperp, o.y₁, o.info✻) +
+		# 													(panelcross11(o, o.Repl._ZR₁, o.Y₂, o.info✻) -
+		# 													o.Repl.invZperpZperpZperpZR₁' * panelcross11(o, o.Repl.Zperp, o.Y₂, o.info✻)) -
+		# 													(panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
+		# 													o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpY₂) * o.Repl.RparY
+		# 	o.∂S✻y₁U₂∂β̂ .-= o.r₁' * (panelcross11(o, o.Repl._ZR₁, o.DGP._Z, o.info✻) - panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) * o.DGP.invZperpZperpZperpZ -
+		# 														o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZ)
+		# 	o.∂S✻y₁U₂∂γ̈ .-= o.r₁' * ((panelcross11(o, o.Repl._ZR₁, o.Y₂, o.info✻) -
+    #                       o.Repl.invZperpZperpZperpZR₁' * panelcross11(o, o.Repl.Zperp, o.Y₂, o.info✻)) -
+    #                      (panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
+    #                       o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpY₂)
+		# 	o.∂S✻y₁U₂∂γ̈Π̂ .-= o.r₁' * ((panelcross12(o, o.Repl._ZR₁, o.DGP._X₁, o.X₂, o.info✻) -
+		# 										 panelcross12(o, o.Repl.Zperp * o.Repl.invZperpZperpZperpZR₁, o.DGP._X₁, o.X₂, o.info✻)) -
+    #                       (panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
+    #                       o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpX)
+		# 	o.∂S✻y₁U₂∂Π̂ .+= o.r₁' * ((panelcross11(o, o.Repl._ZR₁, o.Y₂, o.info✻) -
+		# 														o.Repl.invZperpZperpZperpZR₁' * panelcross11(o, o.Repl.Zperp, o.Y₂, o.info✻)) -
+		# 														(panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
+		# 														o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpY₂)
+		# 	o.∂S✻y₁U₂∂r .-= o.r₁' * ((panelcross11(o, o.Repl._ZR₁, o.DGP._ZR₁, o.info✻) -
+		# 														o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZR₁) -
+		# 													(panelcross11(o, o.Repl._ZR₁, o.DGP.Zperp, o.info✻) -
+		# 														o.Repl.invZperpZperpZperpZR₁' * S✻ZperpZperp) * o.DGP.invZperpZperpZperpZR₁)
+		# end
 	end
 end
 
@@ -159,29 +178,35 @@ function PrepWRE!(o::StrBootTest{T}) where T
 
 	_S✻U₂X = o.S✻U₂X0 - o.∂S✻U₂X∂Π̂ * o.DGP.Π̂ * o.Repl.RparY  # panelsum2(o, o.Repl.X₁, o.Repl.X₂, uwt, o.info✻)'
 	(o.LIML || o.bootstrapt || !isone(o.κ)) && 
-		(_S✻U₂Zperp = o.S✻U₂Zperp0 - o.∂S✻U₂Zperp∂Π̂ * o.DGP.Π̂ * o.Repl.RparY)
+		(_S✻U₂Zperp = (o.S✻Zperp_DGPY₂ - o.S✻Zperp_DGPX * o.DGP.Π̂) * o.Repl.RparY)
 	o.robust && o.bootstrapt && !o.granular &&
 		(_S✻⋂U₂XinvXX = o.S✻⋂U₂XinvXX0 - o.∂S✻⋂U₂XinvXX0∂Π̂ * o.DGP.Π̂ * o.Repl.RparY)
+	if o.LIML || !o.robust || !isone(o.κ)
+		Reply₁_DGPU₂ = o.Reply₁_DGPY₂ - o.Reply₁_DGPX * o.DGP.Π̂
+		ReplZ_DGPU₂  = o.ReplZ_DGPY₂  - o.ReplZ_DGPX  * o.DGP.Π̂
+		Reply₁_DGPU₂par = Reply₁_DGPU₂ * o.Repl.RparY
+		ReplZ_DGPU₂par = ReplZ_DGPU₂ * o.Repl.RparY
+	end
 
   @inbounds for i ∈ 0:o.Repl.kZ  # precompute various clusterwise sums
 		uwt = i>0 ? view(Ü₂par,:,i) : view(o.DGP.u⃛₁,:)::Union{Vector{T}, SubArray{T, 1}}
 
 		# S_✻(u .* X), S_✻(u .* Zperp) for residuals u for each endog var; store transposed
 		if iszero(i)  # panelsum2(o, o.Repl.X₁, o.Repl.X₂, uwt, o.info✻)'
-			o.S✻UX[1] = dropdims(o.S✻u₁X0 - o.∂S✻u₁X∂β̂ * o.DGP.β̈ + (o.∂S✻u₁X∂γ̈ - o.∂S✻u₁X∂γ̈Π̂ * o.DGP.Π̂) * o.DGP.γ̈; dims=3)
-			o.DGP.restricted &&
-				(o.S✻UX[1] .-= dropdims(o.∂S✻u₁X∂r * r₁; dims=3))
+			o.S✻UX[1] = panelsum2(o, o.Repl.X₁, o.Repl.X₂, uwt, o.info✻)'  #dropdims(o.S✻u₁X0 - o.∂S✻u₁X∂β̂ * o.DGP.β̈ + (o.∂S✻u₁X∂γ̈ - o.∂S✻u₁X∂γ̈Π̂ * o.DGP.Π̂) * o.DGP.γ̈; dims=3)
+			# o.DGP.restricted &&
+			# 	(o.S✻UX[1] .-= dropdims(o.∂S✻u₁X∂r * r₁; dims=3))
 		else
-			o.S✻UX[i+1] = view(_S✻U₂X,:,:,i)
+			o.S✻UX[i+1] = panelsum2(o, o.Repl.X₁, o.Repl.X₂, uwt, o.info✻)'  # view(_S✻U₂X,:,:,i)
 		end
 
 		o.S✻UXinvXX[i+1] = o.Repl.invXX * o.S✻UX[i+1]
 
-		if o.LIML || o.bootstrapt || !isone(o.κ)
-			if iszero(i)  # panelsum2(o, o.Repl.X₁, o.Repl.X₂, uwt, o.info✻)'
-				o.S✻UZperp[i+1] = view(o.S✻u₁Zperp0 - o.∂S✻u₁Zperp∂β̂ * o.DGP.β̈ + (o.∂S✻u₁Zperp∂γ̈ - o.∂S✻u₁Zperp∂γ̈Π̂ * o.DGP.Π̂) * o.DGP.γ̈,:,:,1)
+		if o.LIML || !isone(o.κ) || o.bootstrapt
+			if iszero(i)  # panelsum(o, o.Repl.Zperp, uwt, o.infoBootData)'
+				o.S✻UZperp[i+1] = view(o.S✻Zperp_DGPy₁ - o.S✻Zperp_DGPZ * o.DGP.β̈ + (o.S✻Zperp_DGPY₂ - o.S✻Zperp_DGPX * o.DGP.Π̂) * o.DGP.γ̈,:,:,1)
 				o.DGP.restricted &&
-					(o.S✻UZperp[i+1] .-= view(o.∂S✻u₁Zperp∂r * r₁,:,:,1))
+					(o.S✻UZperp[i+1] .-= view(o.S✻Zperp_DGPZR₁ * r₁,:,:,1))
 			else
 				o.S✻UZperp[i+1] = view(_S✻U₂Zperp,:,:,i)
 			end
@@ -189,11 +214,17 @@ function PrepWRE!(o::StrBootTest{T}) where T
 			o.NFE>0 && (o.CTFEU[i+1] = crosstabFE(o, uwt, o.info✻))
 		end
 
-		if o.LIML || !o.robust || !isone(o.κ)
+		if o.LIML || !isone(o.κ) || !o.robust
 			if iszero(i)  # panelsum2(o, o.Repl.y₁par, o.Repl.Z, uwt, o.info✻)
-        o.S✻Uy₁[1] = dropdims(o.S✻y₁u₁0 - o.∂S✻y₁u₁∂r * r₁ - o.∂S✻y₁u₁∂β̂ * o.DGP.β̈ + (o.∂S✻y₁u₁∂γ̈ - o.∂S✻y₁u₁∂γ̈Π̂ * o.DGP.Π̂) * o.DGP.γ̈; dims=(1,3))
+				o.S✻UY[1,1] = dropdims(o.Reply₁_DGPy₁ - o.Reply₁_DGPZR₁ * r₁ - o.Reply₁_DGPZ * o.DGP.β̈ - Reply₁_DGPU₂ * o.DGP.γ̈; dims=(1,3))
+				for j ∈ 1:o.Repl.kZ
+					o.S✻UY[1,j+1] = @view (o.ReplZ_DGPy₁ - o.ReplZ_DGPZR₁ * r₁ - o.ReplZ_DGPZ * o.DGP.β̈ - ReplZ_DGPU₂ * o.DGP.γ̈)[j,:,i]
+				end
       else
-        o.S✻Uy₁[i+1] = (o.S✻y₁U₂0 + (-o.∂S✻y₁U₂∂r * r₁ - o.∂S✻y₁U₂∂β̂ * o.DGP.β̈ + (o.∂S✻y₁U₂∂γ̈ - o.∂S✻y₁U₂∂γ̈Π̂ * o.DGP.Π̂) * o.DGP.γ̈ - o.∂S✻y₁U₂∂Π̂ * o.DGP.Π̂) * o.Repl.RparY)[1,:,i]
+				o.S✻UY[i+1,1] = @view Reply₁_DGPU₂par[1,:,i]
+				for j ∈ 1:o.Repl.kZ
+					o.S✻UY[i+1,j+1] = @view ReplZ_DGPU₂par[j,:,i]
+				end
 			end
 			for j ∈ 0:i
 				o.S✻UU[i+1,j+1] = vec(@panelsum(o, j>0 ? view(Ü₂par,:,j) : view(o.DGP.u⃛₁,:), uwt, o.info✻))
@@ -211,7 +242,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 					_S✻⋂UXinvXX = view(_S✻⋂U₂XinvXX,:,:,i)
 				end
 				for g ∈ 1:o.N✻
-					o.S✻⋂u₁XinvXX[i+1,g] = view(_S✻⋂UXinvXX,:,o._ID✻⋂[o.info✻[g]],1)'
+					o.S✻⋂u₁XinvXX[i+1,g] = view(_S✻⋂UXinvXX,:,o._ID✻⋂[o.info✻[g]],1)'  # panelsum(o, o.Repl.XinvXX, u, o.infoCT⋂✻[g])
 				end
 			end
 
@@ -298,22 +329,27 @@ function _HessianFixedkappa!(o::StrBootTest{T}, dest::AbstractMatrix, ind1::Inte
 				T2[diagind(T2)] .-= ind1 ≤ ind2 ? o.S✻UU[ind2+1, ind1+1] : o.S✻UU[ind1+1, ind2+1]  # minus diagonal crosstab
 				o.NFE>0 &&
 					(T2 .+= o.CTFEU[ind1+1]'(o.invFEwt .* o.CTFEU[ind2+1]))
-				if iszero(ind1) || iszero(ind2)
-					tmp = iszero(ind1) ?
-									iszero(ind2) ? o.S✻Uy₁[1] * 2 : o.S✻Uy₁[ind2+1] :
-									o.S✻Uy₁[ind1+1]				
 					if iszero(κ)
-						dest .= o.Repl.YY[ind1+1,ind2+1] .+ colquadformminus!(o, (                            tmp)'o.v, T2, o.v)
+						dest .= o.Repl.YY[ind1+1,ind2+1] .+ colquadformminus!(o, (                            o.S✻UY[ind2+1,ind1+1] .+ o.S✻UY[ind1+1,ind2+1])'o.v, T2, o.v)
 					else
-						dest .=  κ .* dest .+ (1 - κ)    .* colquadformminus!(o, (o.Repl.YY[ind1+1,ind2+1] .+ tmp)'o.v, T2, o.v)
+						dest .=   κ .* dest .+ (1 - κ)   .* colquadformminus!(o, (o.Repl.YY[ind1+1,ind2+1] .+ o.S✻UY[ind2+1,ind1+1] .+ o.S✻UY[ind1+1,ind2+1])'o.v, T2, o.v)
 					end
-				else
-					if iszero(κ)
-						dest .= o.Repl.YY[ind1+1,ind2+1]
-					else
-						dest .= κ .* dest .+ (1 - κ) .* colquadformminus!(o, o.Repl.YY[ind1+1,ind2+1]'o.v, T2, o.v)
-					end
-				end
+					# if iszero(ind1) || iszero(ind2)
+				# 	tmp = iszero(ind1) ?
+				# 					iszero(ind2) ? o.S✻UY[1] * 2 : o.S✻UY[ind2+1] :
+				# 					o.S✻UY[ind1+1]				
+				# 	if iszero(κ)
+				# 		dest .= o.Repl.YY[ind1+1,ind2+1] .+ colquadformminus!(o, (                            tmp)'o.v, T2, o.v)
+				# 	else
+				# 		dest .=  κ .* dest .+ (1 - κ)    .* colquadformminus!(o, (o.Repl.YY[ind1+1,ind2+1] .+ tmp)'o.v, T2, o.v)
+				# 	end
+				# else
+				# 	if iszero(κ)
+				# 		dest .= o.Repl.YY[ind1+1,ind2+1]
+				# 	else
+				# 		dest .= κ .* dest .+ (1 - κ) .* colquadformminus!(o, o.Repl.YY[ind1+1,ind2+1]'o.v, T2, o.v)
+				# 	end
+				# end
 			elseif iszero(κ)
 				dest .= o.Repl.YY[ind1+1,ind2+1]
 			else

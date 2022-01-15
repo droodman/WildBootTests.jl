@@ -99,7 +99,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	DGP::StrEstimator{T}; Repl::StrEstimator{T}; M::StrEstimator{T}
 	clust::Vector{StrClust{T}}
 	denom::Matrix{Matrix{T}}; Kcd::Matrix{Matrix{T}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; S✻⋂u₁XinvXX::Matrix{Matrix{T}}; S✻UU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
-	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; IDCT⋂✻::Vector{Vector{Int64}}; infoCT⋂✻::Vector{Vector{UnitRange{Int64}}}; S✻UX::Vector{Matrix{T}}; S✻UXinvXX::Vector{Matrix{T}}; S✻UZperpinvZperpZperp::Vector{Matrix{T}}; S✻Uy₁::Vector{Vector{T}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻UZperp::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
+	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; IDCT⋂✻::Vector{Vector{Int64}}; infoCT⋂✻::Vector{Vector{UnitRange{Int64}}}; S✻UX::Vector{Matrix{T}}; S✻UXinvXX::Vector{Matrix{T}}; S✻UZperpinvZperpZperp::Vector{Matrix{T}}; S✻UY::Matrix{Vector{T}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻UZperp::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
   ∂denom∂r::Vector{Matrix{Matrix{T}}}; ∂Jcd∂r::Vector{Matrix{Matrix{T}}}
   ∂²denom∂r²::Matrix{Matrix{Matrix{T}}}
 	FEs::Vector{StrFE{T}}
@@ -108,10 +108,13 @@ mutable struct StrBootTest{T<:AbstractFloat}
   seed::UInt64
 
 	S✻u₁X0::Array{T,3}; ∂S✻u₁X∂β̂::Array{T,3}; ∂S✻u₁X∂γ̈::Array{T,3}; ∂S✻u₁X∂γ̈Π̂::Array{T,3}; ∂S✻u₁X∂r::Array{T,3}; S✻U₂X0::Array{T,3}; ∂S✻U₂X∂Π̂::Array{T,3}
-	S✻u₁Zperp0::Array{T,3}; ∂S✻u₁Zperp∂β̂::Array{T,3}; ∂S✻u₁Zperp∂γ̈::Array{T,3}; ∂S✻u₁Zperp∂γ̈Π̂::Array{T,3}; ∂S✻u₁Zperp∂r::Array{T,3}; S✻U₂Zperp0::Array{T,3}; ∂S✻U₂Zperp∂Π̂::Array{T,3}
+	S✻Zperp_DGPy₁::Array{T,3}; S✻Zperp_DGPZ::Array{T,3}; S✻Zperp_DGPY₂::Array{T,3}; S✻Zperp_DGPX::Array{T,3}; S✻Zperp_DGPZR₁::Array{T,3}
 	S✻⋂u₁XinvXX0::Array{T,3}; ∂S✻⋂u₁XinvXX∂β̂::Array{T,3}; ∂S✻⋂u₁XinvXX∂γ̈::Array{T,3}; ∂S✻⋂u₁XinvXX∂γ̈Π̂::Array{T,3}; ∂S✻⋂u₁XinvXX∂r::Array{T,3}; S✻⋂U₂XinvXX0::Array{T,3}; ∂S✻⋂U₂XinvXX0∂Π̂::Array{T,3}
 	S✻y₁u₁0::Array{T,3}; ∂S✻y₁u₁∂β̂::Array{T,3}; ∂S✻y₁u₁∂γ̈::Array{T,3}; ∂S✻y₁u₁∂γ̈Π̂::Array{T,3}; ∂S✻y₁u₁∂r::Array{T,3}; S✻y₁U₂0::Array{T,3}; ∂S✻y₁U₂∂r::Array{T,3}; ∂S✻y₁U₂∂β̂::Array{T,3}; ∂S✻y₁U₂∂γ̈Π̂::Array{T,3}; ∂S✻y₁U₂∂γ̈::Array{T,3}; ∂S✻y₁U₂∂Π̂::Array{T,3}
-_ID✻⋂::Vector{Int}
+	Reply₁_DGPy₁::Array{T,3}; Reply₁_DGPZR₁::Array{T,3}; Reply₁_DGPZ::Array{T,3}; Reply₁_DGPY₂::Array{T,3}; Reply₁_DGPX::Array{T,3}
+	ReplZ_DGPy₁::Array{T,3}; ReplZ_DGPZR₁::Array{T,3}; ReplZ_DGPZ::Array{T,3}; ReplZ_DGPY₂::Array{T,3}; ReplZ_DGPX::Array{T,3}
+
+	_ID✻⋂::Vector{Int}
 	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
 	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,
 								 β̈, A, sc, willplot, gridmin, gridmax, gridpoints, turbo) where T<:Real =
