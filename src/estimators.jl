@@ -24,11 +24,10 @@ function setR!(o::StrEstimator{T}, parent::StrBootTest{T}, R₁::AbstractMatrix{
   if !iszero(o.κ)
 	  RR₁perp = Matrix([R
 		                  zeros(T, parent.kY₂, parent.kX₁) I])  # rows to prevent partialling out of endogenous regressors
-	  length(R₁)>0 && (RR₁perp *= o.R₁perp)
-
+	  nrows(R₁)>0 && (RR₁perp *= o.R₁perp)
 	  F = eigen(Symmetric(RR₁perp'pinv(RR₁perp * RR₁perp')*RR₁perp)); val = abs.(F.values) .> 1000*eps(T)
-	  o.Rpar   = F.vectors[:,   val]  # perp and par of RR₁perp
-    o.RperpX = F.vectors[:, .!val]
+	  o.Rpar   = F.vectors[:, val]  # perp and par of RR₁perp
+    o.RperpX = F.vectors[:, abs.(F.values) .< 1000*eps(T)]
 
 	  if nrows(R₁) > 0  # fold model constraint factors into Rpar, RperpX
 	    o.Rpar   = o.R₁perp * o.Rpar

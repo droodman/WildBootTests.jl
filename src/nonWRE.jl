@@ -220,7 +220,7 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 	nothing
 end
 
-function MakeNonWRELoop1!(o::StrBootTest, tmp::Matrix)
+function MakeNonWRELoop1!(o::StrBootTest, tmp::Matrix, w::Integer)
 	@inbounds Threads.@threads for k ∈ 1:ncols(o.v)
 		for i ∈ 1:o.dof
 			for j ∈ 1:i
@@ -260,7 +260,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 				(o.statDenom = [o.denom[1,1][1] o.denom[2,1][1] ; o.denom[2,1][1] o.denom[2,2][1]])  # original-sample denominator
 		else  # build each replication's denominator from vectors that hold values for each position in denominator, all replications
 			tmp = Matrix{T}(undef, o.dof, o.dof)
-			MakeNonWRELoop1!(o,tmp)
+			MakeNonWRELoop1!(o,tmp,w)
 			isone(w) && (o.statDenom = tmp)  # original-sample denominator
 		end
 	else  # non-robust

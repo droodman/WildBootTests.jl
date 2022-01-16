@@ -100,7 +100,7 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T, w::Integer)
 		if o.sqrt
 			o.dist .= o.numer ./ sqrtNaN.(o.statDenom)
 		else
-			negcolquadform!(o.dist, -invsym(o.statDenom), o.numer)  # to reduce latency my minimizing @tturbo instances, work with negative of colquadform in order to fuse code with colquadformminus!
+			negcolquadform!(o.dist, -invsym(o.statDenom), o.numer)  # to reduce latency by minimizing @tturbo instances, work with negative of colquadform in order to fuse code with colquadformminus!
 		end
   end
 	nothing
