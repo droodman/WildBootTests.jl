@@ -28,11 +28,11 @@ mutable struct StrEstimator{T<:AbstractFloat}
   R₁perp::Matrix{T}; Rpar::Matrix{T}
 
   kZ::Int64
-  y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β̂::Vector{T}; β̂₀::Vector{T}; invXXXy₁par::Vector{T}
+  y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β̈::Vector{T}; γ̈::Vector{T}; β̈₀::Vector{T}; invXXXy₁par::Vector{T}
   Yendog::Vector{Bool}
   invZperpZperp::Symmetric{T,Matrix{T}}; XZ::Matrix{T}; PXZ::Matrix{T}; YPXY::Symmetric{T,Matrix{T}}; R₁invR₁R₁::Matrix{T}
-	RperpX::#=Uber=#Matrix{T}; RperpXperp::#=Uber=#Matrix{T}; RRpar::Matrix{T}; RparY::#=Uber=#Matrix{T}; RR₁invR₁R₁::Matrix{T}
-	∂β̂∂r::Matrix{T}; YY::Symmetric{T,Matrix{T}}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; XinvXX::Matrix{T}; Rt₁::Vector{T}
+	restricted::Bool; RperpX::#=Uber=#Matrix{T}; RperpXperp::#=Uber=#Matrix{T}; RRpar::Matrix{T}; RparY::#=Uber=#Matrix{T}; RR₁invR₁R₁::Matrix{T}
+	∂β̈∂r::Matrix{T}; YY::Symmetric{T,Matrix{T}}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; XinvXX::Matrix{T}; Rt₁::Vector{T}
 	invXX::Symmetric{T,Matrix{T}}; Y₂::Matrix{T}; X₂::Matrix{T}; invH::Symmetric{T,Matrix{T}}
 	y₁par::Vector{T}; Xy₁par::Vector{T}
 	A::Symmetric{T,Matrix{T}}; Z::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
@@ -49,6 +49,7 @@ mutable struct StrEstimator{T<:AbstractFloat}
   Y₂y₁par::Vector{T}
   Rperp::Matrix{T}; ZR₁::Matrix{T}
   kX::Int64
+	Π̂::Matrix{T}
 
   StrEstimator{T}(isDGP, LIML, Fuller, κ) where T<:AbstractFloat = new(isDGP, LIML, Fuller, κ, Matrix{T}(undef,0,0))
 end
@@ -64,7 +65,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   FEID::Vector{Int64}; FEdfadj::Bool
   level::T; rtol::T
   madjtype::MAdjType; NH₀::Int16
-  ML::Bool; β̂::Vector{T}; A::Symmetric{T,Matrix{T}}; sc::Matrix{T}
+  ML::Bool; β̈::Vector{T}; A::Symmetric{T,Matrix{T}}; sc::Matrix{T}
   willplot::Bool; gridmin::Vector{T}; gridmax::Vector{T}; gridpoints::Vector{Float32}
 
   q::Int16; twotailed::Bool; scorebs::Bool; robust::Bool
@@ -72,7 +73,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   WRE::Bool; initialized::Bool; NFE::Int64; FEboot::Bool; granular::Bool; NErrClustCombs::Int16; subcluster::Int8; BFeas::Int64; interpolating::Bool
   v_sd::T; notplotted::Bool
   confpeak::Vector{T}
-  IDBootData::Vector{Int64}; IDBootAll::Vector{Int64}
+  ID✻::Vector{Int64}; ID✻_✻⋂::Vector{Int64}
   anchor::Vector{T}; poles::Vector{T}; numer::Matrix{T}
   CI::Matrix{T}
   peak::NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
@@ -84,19 +85,19 @@ mutable struct StrBootTest{T<:AbstractFloat}
 		dof::Int64; dof_r::T; p::T; BootClust::Int8
 		purerobust::Bool; N✻::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX::Int64
   _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; u✻::Matrix{T}; CT_WE::Matrix{T}
-  infoBootData::Vector{UnitRange{Int64}}; infoBootAll::Vector{UnitRange{Int64}}; infoErrAll::Vector{UnitRange{Int64}}
-  JN⋂N✻::Matrix{T}; statDenom::Matrix{T}; uXAR::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; β̂dev::Matrix{T}; δdenom_b::Matrix{T}
+  info✻::Vector{UnitRange{Int64}}; infoBootAll::Vector{UnitRange{Int64}}; info⋂_✻⋂::Vector{UnitRange{Int64}}
+  JN⋂N✻::Matrix{T}; statDenom::Matrix{T}; uXAR::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; β̈dev::Matrix{T}; δdenom_b::Matrix{T}
 	_J⋂::Matrix{T}; YY✻_b::Matrix{T}; YPXY✻_b::Matrix{T}; numerw::Matrix{T}; Zyg::Vector{Matrix{T}}; numer_b::Vector{T}; dist::Matrix{T}
 		
 	distCDR::Matrix{T}; plotX::Vector{Vector{T}}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
   numersum::Vector{T}; ü₀::Vector{T}; invFEwt::Vector{T}
-	β̂s::Matrix{T}; As::Matrix{T}
-	infoAllData::Vector{UnitRange{Int64}}; info⋂Data::Vector{UnitRange{Int64}}; IDAll::Matrix{T}
+	β̈s::Matrix{T}; As::Matrix{T}
+	info✻⋂::Vector{UnitRange{Int64}}; info⋂::Vector{UnitRange{Int64}}; ID✻⋂::Matrix{T}
 	ü::Vector{T}
 	DGP::StrEstimator{T}; Repl::StrEstimator{T}; M::StrEstimator{T}
 	clust::Vector{StrClust{T}}
-	denom::Matrix{Matrix{T}}; Kcd::Matrix{Matrix{T}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; SCT⋂uXinvXX::Matrix{Matrix{T}}; S✻UU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
-	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; IDCT⋂✻::Vector{Vector{Int64}}; infoCT⋂✻::Vector{Vector{UnitRange{Int64}}}; S✻UX::Vector{Matrix{T}}; S✻UXinvXX::Vector{Matrix{T}}; S✻UZperpinvZperpZperp::Vector{Matrix{T}}; S✻uY::Vector{Matrix{T}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻UZperp::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
+	denom::Matrix{Matrix{T}}; Kcd::Matrix{Matrix{T}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; S✻⋂u₁XinvXX::Matrix{Matrix{T}}; S✻UU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
+	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; IDCT⋂✻::Vector{Vector{Int64}}; infoCT⋂✻::Vector{Vector{UnitRange{Int64}}}; S✻XU::Vector{Matrix{T}}; invXXS✻XU::Vector{Matrix{T}}; invZperpZperpS✻ZperpU::Vector{Matrix{T}}; S✻uY::Vector{Matrix{T}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻ZperpU::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
   ∂denom∂r::Vector{Matrix{Matrix{T}}}; ∂Jcd∂r::Vector{Matrix{Matrix{T}}}
   ∂²denom∂r²::Matrix{Matrix{Matrix{T}}}
 	FEs::Vector{StrFE{T}}
@@ -104,9 +105,17 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	crosstab⋂✻ind::Vector{Int64}; crosstabBootind::Vector{Int64}
   seed::UInt64
 
+	S✻XY₂::Array{T,3}; S✻XX::Array{T,3}; S✻XZ::Array{T,3}; S✻Xy₁::Array{T,3}; S✻XZR₁::Array{T,3}
+	invXXS✻XY₂::Array{T,3}; invXXS✻XX::Array{T,3}; invXXS✻XZ::Array{T,3}; invXXS✻Xy₁::Array{T,3}; invXXS✻XZR₁::Array{T,3}
+	S✻⋂XY₂::Array{T,3}; S✻⋂XX::Array{T,3}; S✻⋂XZ::Array{T,3}; S✻⋂Xy₁::Array{T,3}; S✻⋂XZR₁::Array{T,3}
+	invXXS✻⋂XY₂::Array{T,3}; invXXS✻⋂XX::Array{T,3}; invXXS✻⋂XZ::Array{T,3}; invXXS✻⋂Xy₁::Array{T,3}; invXXS✻⋂XZR₁::Array{T,3}
+	S✻ZperpY₂::Array{T,3}; S✻ZperpX::Array{T,3}; S✻ZperpZ::Array{T,3}; S✻Zperpy₁::Array{T,3}; S✻ZperpZR₁::Array{T,3}
+	invZperpZperpS✻ZperpY₂::Array{T,3}; invZperpZperpS✻ZperpX::Array{T,3}; invZperpZperpS✻ZperpZ::Array{T,3}; invZperpZperpS✻Zperpy₁::Array{T,3}; invZperpZperpS✻ZperpZR₁::Array{T,3}
+	_ID✻⋂::Vector{Int}
+
   StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
 	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,
-								 β̂, A, sc, willplot, gridmin, gridmax, gridpoints, turbo) where T<:Real =
+								 β̈, A, sc, willplot, gridmin, gridmax, gridpoints, turbo) where T<:Real =
 
 		begin
 			kX₂ = ncols(X₂)
@@ -115,7 +124,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 
 			new(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML || !iszero(Fuller), 
 					Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML, 
-					β̂, A, sc, willplot, gridmin, gridmax, gridpoints,
+					β̈, A, sc, willplot, gridmin, gridmax, gridpoints,
 				nrows(R), ptype==symmetric || ptype==equaltail, scorebs, robust || nerrclustvar>0,
 				false, false, 0, false, false, 0, 0, 0, false,
 				one(T), true,

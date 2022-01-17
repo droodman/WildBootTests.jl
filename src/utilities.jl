@@ -265,6 +265,57 @@ function panelsum_nonturbo!(dest::AbstractArray, X::AbstractArray, wt::AbstractV
     end
   end
 end
+function panelsum_nonturbo!(dest::AbstractArray, X::AbstractArray{T,3} where T, info::Vector{UnitRange{S}} where S<:Integer)
+  iszero(length(X)) && return
+  @inbounds Threads.@threads for g in eachindex(info)
+    f, l = first(info[g]), last(info[g])
+    fl = f+1:l
+    if f<l
+      for i ∈ axes(X,1), k ∈ axes(X,3)
+        tmp = X[i,f,k]
+        for j ∈ fl
+          tmp += X[i,j,k]
+        end
+        dest[i,g,k] = tmp
+      end
+    else
+      for i ∈ axes(X,1), k ∈ axes(X,3)
+        dest[i,g,k] = X[i,f,k]
+      end
+    end
+  end
+end
+# groupwise inner product of two two data matrices
+# 1st dimension of result corresponds to columns of X, second to rows of both, third to columns of Y
+function panelcross_nonturbo!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+	iszero(length(X)) && return
+	if iszero(length(info)) || nrows(info)==nrows(X)
+		@inbounds for i ∈ axes(Y,2)
+			dest[:,:,i] .= X .* view(Y,:,i)
+		end
+		return
+	end
+	@inbounds Threads.@threads for g in eachindex(info)
+		f, l = first(info[g]), last(info[g])
+		fl = f+1:l
+		for k ∈ axes(Y,2)
+			_wt = Y[f,k]
+			if f<l
+				for j ∈ axes(X,2)
+					tmp = X[f,j] * _wt
+					#=@tturbo=# for i ∈ fl
+						tmp += X[i,j] * Y[i,k]
+					end
+					dest[j,g,k] = tmp
+				end
+			else
+				for j ∈ axes(X,2)
+					dest[J[j],g,k] = X[f,j] * _wt
+				end
+			end
+		end
+	end
+end
 function panelsum(o::StrBootTest, X::AbstractVector{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	if iszero(nrows(wt))
 		panelsum(o, X, info)
@@ -283,8 +334,18 @@ function panelsum(o::StrBootTest, X::AbstractMatrix{T}, wt::AbstractVector{T}, i
 		dest
 	end
 end
+function panelcross11(o::StrBootTest, X::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	dest = Array{T,3}(undef, size(X,2), length(info), size(Y,2))
+	#=o.=# panelcross_nonturbo!(dest, X, Y, info)
+	dest
+end
 function panelsum(o::StrBootTest, X::AbstractVecOrMat, info::AbstractVector{UnitRange{T}} where T<:Integer)
 	dest = similar(X, length(info), size(X)[2:end]...)
+	o.panelsum!(dest, X, info)
+	dest
+end
+function panelsum(o::StrBootTest{T}, X::AbstractArray{T,3}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	dest = Array{T,3}(undef, size(X,1), size(info,1), size(X,3))
 	o.panelsum!(dest, X, info)
 	dest
 end
@@ -300,6 +361,44 @@ function panelsum2(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecO
 		dest
 	end
 end
+function panelcross21(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	if iszero(ncols(X₁))
+		panelcross11(o,X₂,Y,info)
+	elseif iszero(ncols(X₂))
+		panelcross11(o,X₁,Y,info)
+	else
+		dest = Array{T,3}(undef, ncols(X₁)+ncols(X₂), length(info), ncols(Y))
+		#=o.=#panelcross_nonturbo!(view(dest,           1:ncols(X₁   ), :, :), X₁, Y, info)
+		#=o.=#panelcross_nonturbo!(view(dest, ncols(X₁)+1:size(dest,1), :, :), X₂, Y, info)
+		dest
+	end
+end
+function panelcross12(o::StrBootTest, X::AbstractVecOrMat{T}, Y₁::AbstractVecOrMat{T}, Y₂::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	if iszero(ncols(Y₁))
+		panelcross11(o,X,Y₂,info)
+	elseif iszero(ncols(Y₂))
+		panelcross11(o,X,Y₁,info)
+	else
+		dest = Array{T,3}(undef, ncols(X), length(info), ncols(Y₁)+ncols(Y₂))
+		#=o.=#panelcross_nonturbo!(view(dest, :, :,           1:ncols(Y₁   )), X, Y₁, info)
+		#=o.=#panelcross_nonturbo!(view(dest, :, :, ncols(Y₁)+1:size(dest,3)), X, Y₂, info)
+		dest
+	end
+end
+function panelcross22(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, Y₁::AbstractVecOrMat{T}, Y₂::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	if iszero(ncols(Y₁))
+		panelcross21(o,X₁,X₂,Y₂,info)
+	elseif iszero(ncols(Y₂))
+		panelcross21(o,X₁,X₂,Y₁,info)
+	else
+		dest = Array{T,3}(undef, ncols(X₁)+ncols(X₂), length(info), ncols(Y₁)+ncols(Y₂))
+		#=o.=#panelcross_nonturbo!(view(dest, 1:ncols(X₁)             , :, 1:ncols(Y₁)             ), X₁, Y₁, info)
+		#=o.=#panelcross_nonturbo!(view(dest, ncols(X₁)+1:size(dest,1), :, 1:ncols(Y₁)             ), X₂, Y₁, info)
+		#=o.=#panelcross_nonturbo!(view(dest, 1:ncols(X₁)             , :, ncols(Y₁)+1:size(dest,3)), X₁, Y₂, info)
+		#=o.=#panelcross_nonturbo!(view(dest, ncols(X₁)+1:size(dest,1), :, ncols(Y₁)+1:size(dest,3)), X₂, Y₂, info)
+		dest
+	end
+end
 
 # macros to efficiently handle result = input
 macro panelsum(o, X, info)
@@ -308,11 +407,14 @@ end
 macro panelsum(o, X, wt, info)
 	:( panelsum($(esc(o)), $(esc(X)), $(esc(wt)), $(esc(info))) )
 end
-macro panelsum2(o, X₁, X₂, wt, info)
-	:( panelsum2($(esc(o)), $(esc(X₁)), $(esc(X₂)), $(esc(wt)), $(esc(info))) )
-end
+
 
 import Base.size
 struct FakeArray{N} <: AbstractArray{Bool,N} size::Tuple{Vararg{Int64,N}} end # AbstractArray with almost no storage, just for LinearIndices() conversion         
 FakeArray(size...) = FakeArray{length(size)}(size)
 size(X::FakeArray) = X.size
+
+import Base.*, Base.adjoint  # extend * to left- and right-multiply 3-arrays by vec or mat, 2nd index of 3-array corresponds to left and 3rd index to right
+@inline *(A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T = reshape(reshape(A, size(A,1) * size(A,2), size(A,3)) * B, size(A,1), size(A,2), size(B,2))
+@inline *(A::AbstractVecOrMat, B::AbstractArray) = reshape(A * reshape(B, size(B,1), size(B,2) * size(B,3)), size(A,1), size(B,2), size(B,3))
+@inline adjoint(X::Array{T,3} where T) = permutedims(X,(3,2,1))
