@@ -4,7 +4,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 
 	o.invZperpZperpS✻ZperpU = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
 	o.S✻ZperpU              = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
-	o.S✻uY                  = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
+	o.S✻YU                  = Matrix{Vector{T}}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
 	o.invXXS✻XU             = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
 	o.S✻XU                  = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
 	o.S✻UU                  = Matrix{Matrix{T}}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
@@ -44,11 +44,30 @@ function InitWRE!(o::StrBootTest{T}) where T
 	o.S✻XZ   = @panelsum(o, o.S✻⋂XZ  , info✻_✻⋂)
 	o.S✻Xy₁  = @panelsum(o, o.S✻⋂Xy₁ , info✻_✻⋂)
 	o.S✻XZR₁ = @panelsum(o, o.S✻⋂XZR₁, info✻_✻⋂)
-	o.S✻ZperpY₂  = panelcross11(o, o.Repl.Zperp, o.Y₂, o.info✻)
+	o.S✻ZperpY₂  = panelcross11(o, o.Repl.Zperp, o.DGP.Y₂, o.info✻)
 	o.S✻ZperpX   = panelcross12(o, o.Repl.Zperp, o.Repl.X₁, o.Repl.X₂, o.info✻)
 	o.S✻ZperpZ   = panelcross11(o, o.Repl.Zperp, o.DGP.Z, o.info✻)
 	o.S✻Zperpy₁  = panelcross11(o, o.Repl.Zperp, o.DGP.y₁, o.info✻)
 	o.S✻ZperpZR₁ = panelcross11(o, o.Repl.Zperp, o.DGP.ZR₁, o.info✻)
+
+	if o.LIML || !o.robust || !isone(o.κ)
+		o.S✻y₁Y₂  = panelcross11(o, o.Repl.y₁, o.DGP.Y₂, o.info✻)   
+		o.S✻y₁X   = panelcross12(o, o.Repl.y₁, o.Repl.X₁, o.Repl.X₂, o.info✻)   
+		o.S✻y₁Z   = panelcross11(o, o.Repl.y₁, o.DGP.Z, o.info✻)   
+		o.S✻y₁y₁  = panelcross11(o, o.Repl.y₁, o.DGP.y₁, o.info✻)   
+		o.S✻y₁ZR₁ = panelcross11(o, o.Repl.y₁, o.DGP.ZR₁, o.info✻)
+		ZR₁r₁ = o.Repl.ZR₁ * o.r₁
+		o.S✻ZR₁r₁Y₂  = panelcross11(o, ZR₁r₁, o.DGP.Y₂, o.info✻)   
+		o.S✻ZR₁r₁X   = panelcross12(o, ZR₁r₁, o.Repl.X₁, o.Repl.X₂, o.info✻)   
+		o.S✻ZR₁r₁Z   = panelcross11(o, ZR₁r₁, o.DGP.Z, o.info✻)   
+		o.S✻ZR₁r₁y₁  = panelcross11(o, ZR₁r₁, o.DGP.y₁, o.info✻)   
+		o.S✻ZR₁r₁ZR₁ = panelcross11(o, ZR₁r₁, o.DGP.ZR₁, o.info✻)   
+		o.S✻ZY₂  = panelcross11(o, o.Repl.Z, o.DGP.Y₂, o.info✻)   
+		o.S✻ZX   = panelcross12(o, o.Repl.Z, o.Repl.X₁, o.Repl.X₂, o.info✻)   
+		o.S✻ZZ   = panelcross11(o, o.Repl.Z, o.DGP.Z, o.info✻)   
+		o.S✻Zy₁  = panelcross11(o, o.Repl.Z, o.DGP.y₁, o.info✻)   
+		o.S✻ZZR₁ = panelcross11(o, o.Repl.Z, o.DGP.ZR₁, o.info✻)   
+	end
 
 	o.invXXS✻XY₂  = @panelsum(o, o.invXXS✻⋂XY₂ , info✻_✻⋂)
 	o.invXXS✻XX   = @panelsum(o, o.invXXS✻⋂XX  , info✻_✻⋂)
@@ -83,6 +102,17 @@ function PrepWRE!(o::StrBootTest{T}) where T
 	invXXS✻⋂XU₂ = o.Repl.invXX * S✻⋂XU₂
 	invXXS✻⋂XU₂RparY = invXXS✻⋂XU₂ * o.Repl.RparY
 
+	if o.LIML || !o.robust || !isone(o.κ)
+		S✻y₁U₂ = o.S✻y₁Y₂ - o.S✻y₁X * o.DGP.Π̂
+		S✻ZR₁r₁U₂ = o.S✻ZR₁r₁Y₂ - o.S✻ZR₁r₁X * o.DGP.Π̂
+		S✻ZR₁r₁U₂RparY = S✻ZR₁r₁U₂ * o.Repl.RparY
+		S✻ZU₂ = o.S✻ZY₂ - o.S✻ZX * o.DGP.Π̂
+		S✻ZU₂RparY = S✻ZU₂ * o.Repl.RparY
+		S✻y₁ZR₁r₁ = o.S✻y₁ZR₁ * r₁
+		S✻ZR₁r₁ZR₁r₁ = o.S✻ZR₁r₁ZR₁ * r₁
+		S✻ZZR₁r₁ = o.S✻ZZR₁ * r₁
+	end
+
   @inbounds for i ∈ 0:o.Repl.kZ  # precompute various clusterwise sums
 		u = i>0 ? view(Ü₂par,:,i) : view(o.DGP.u⃛₁,:)
 		uwt = vHadw(u, o.wt)
@@ -100,26 +130,51 @@ function PrepWRE!(o::StrBootTest{T}) where T
 			o.invXXS✻XU[i+1] = view(invXXS✻⋂XU₂RparY,:,:,i)
 		end
 
-		if o.LIML || o.bootstrapt || !isone(o.κ)
+		if o.LIML || !isone(o.κ) || o.bootstrapt
 			if iszero(i)
-				o.S✻ZperpU[1]      = dropdims(o.S✻Zperpy₁      - o.S✻ZperpZ      * o.DGP.β̈ + S✻ZperpU₂      * o.DGP.γ̈; dims=3)
+				o.S✻ZperpU[1]              = dropdims(o.S✻Zperpy₁              - o.S✻ZperpZ              * o.DGP.β̈ + S✻ZperpU₂              * o.DGP.γ̈; dims=3)
 				o.invZperpZperpS✻ZperpU[1] = dropdims(o.invZperpZperpS✻Zperpy₁ - o.invZperpZperpS✻ZperpZ * o.DGP.β̈ + invZperpZperpS✻ZperpU₂ * o.DGP.γ̈; dims=3)
 				if o.DGP.restricted
-					o.S✻ZperpU[1]      .-= dropdims(o.S✻ZperpZR₁      * r₁; dims=3)
+					o.S✻ZperpU[1]              .-= dropdims(o.S✻ZperpZR₁              * r₁; dims=3)
 					o.invZperpZperpS✻ZperpU[1] .-= dropdims(o.invZperpZperpS✻ZperpZR₁ * r₁; dims=3)
 				end
 			else
-				o.S✻ZperpU[i+1]      = view(S✻ZperpU₂RparY,:,:,i)
+				o.S✻ZperpU[i+1]              = view(S✻ZperpU₂RparY,:,:,i)
 				o.invZperpZperpS✻ZperpU[i+1] = view(invZperpZperpS✻ZperpU₂RparY,:,:,i)
 			end
 	
 			o.NFE>0 && (o.CTFEU[i+1] = crosstabFE(o, uwt, o.info✻))
 		end
 
-		if o.LIML || !o.robust || !isone(o.κ)
-			o.S✻uY[i+1] = panelsum2(o, o.Repl.y₁par, o.Repl.Z, uwt, o.info✻)
-			for j ∈ 0:i
-				o.S✻UU[i+1,j+1] = vec(@panelsum(o, j>0 ? view(Ü₂par,:,j) : view(o.DGP.u⃛₁,:), uwt, o.info✻))
+		if o.LIML || !isone(o.κ) || !o.robust
+			if iszero(i)  # panelsum2(o, o.Repl.y₁par, o.Repl.Z, uwt, o.info✻)
+				o.S✻YU[1,1] = view(o.S✻y₁y₁ - o.S✻y₁Z * o.DGP.β̈ + S✻y₁U₂ * o.DGP.γ̈, 1,:,1)
+				o.DGP.restricted &&
+					(o.S✻YU[1,1] .-= view(S✻y₁ZR₁r₁, 1,:,1))
+
+				if o.Repl.restricted
+					o.S✻YU[1,1] .-= view(o.S✻ZR₁r₁y₁ - o.S✻ZR₁r₁Z * o.DGP.β̈ + S✻ZR₁r₁U₂ * o.DGP.γ̈, 1,:,1)
+					o.DGP.restricted &&
+						(o.S✻YU[1,1] .+= view(S✻ZR₁r₁ZR₁r₁, 1,:,1))
+				end
+
+				for j ∈ 1:o.Repl.kZ
+					o.S✻YU[j+1,1] = view(o.S✻Zy₁ - o.S✻ZZ * o.DGP.β̈ + S✻ZU₂ * o.DGP.γ̈, j,:,1)
+					o.DGP.restricted &&
+						(o.S✻YU[j+1,1] .-= view(S✻ZZR₁r₁, j,:,1))
+				end
+      else
+				o.S✻YU[1,i+1] = @view S✻y₁U₂[1,:,i]
+				o.Repl.restricted &&
+					(o.S✻YU[1,i+1] .-= @view S✻ZR₁r₁U₂RparY[1,:,i])
+				for j ∈ 1:o.Repl.kZ
+					o.S✻YU[j+1,i+1] = @view S✻ZU₂RparY[j,:,i]
+				end
+			end
+
+			o.S✻UU[1,i+1] = view(panelcross11(o, o.DGP.u⃛₁, uwt, o.info✻), 1,:,1)
+			for j ∈ 1:i
+				o.S✻UU[j+1,i+1] = view(panelcross11(o, Ü₂par, uwt, o.info✻), j,:,i)
 			end
 		end
 
@@ -216,13 +271,13 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer
 		if !isone(κ)
 			if o.Repl.Yendog[ind1+1]
 				T2 = o.invZperpZperpS✻ZperpU[ind1+1]'o.S✻ZperpU[ind2+1]  # quadratic term
-				T2[diagind(T2)] .-= ind1 ≤ ind2 ? o.S✻UU[ind2+1, ind1+1] : o.S✻UU[ind1+1, ind2+1]  # minus diagonal crosstab
+				T2[diagind(T2)] .-= ind1 ≤ ind2 ? o.S✻UU[ind1+1, ind2+1] : o.S✻UU[ind2+1, ind1+1]  # minus diagonal crosstab
 				o.NFE>0 &&
 					(T2 .+= o.CTFEU[ind1+1]'(o.invFEwt .* o.CTFEU[ind2+1]))
 				if iszero(κ)
-					dest .= o.Repl.YY[ind1+1,ind2+1] .+ colquadformminus!(o, (                            @views o.S✻uY[ind2+1][:,ind1+1] .+ o.S✻uY[ind1+1][:,ind2+1])'o.v, T2, o.v)
+					dest .= o.Repl.YY[ind1+1,ind2+1] .+ colquadformminus!(o, (                            o.S✻YU[ind1+1,ind2+1] .+ o.S✻YU[ind2+1,ind1+1])'o.v, T2, o.v)
 				else
-					dest .=   κ .* dest .+ (1 - κ)   .* colquadformminus!(o, (o.Repl.YY[ind1+1,ind2+1] .+ @views o.S✻uY[ind2+1][:,ind1+1] .+ o.S✻uY[ind1+1][:,ind2+1])'o.v, T2, o.v)
+					dest .=   κ .* dest .+ (1 - κ)   .* colquadformminus!(o, (o.Repl.YY[ind1+1,ind2+1] .+ o.S✻YU[ind1+1,ind2+1] .+ o.S✻YU[ind2+1,ind1+1])'o.v, T2, o.v)
 				end
 			elseif iszero(κ)
 				dest .= o.Repl.YY[ind1+1,ind2+1]

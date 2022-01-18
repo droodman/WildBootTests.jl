@@ -408,6 +408,7 @@ macro panelsum(o, X, wt, info)
 	:( panelsum($(esc(o)), $(esc(X)), $(esc(wt)), $(esc(info))) )
 end
 
+@inline sumpanelsum(X::Array{T,3} where T) = dropdims(sum(X, dims=2), dims=2)
 
 import Base.size
 struct FakeArray{N} <: AbstractArray{Bool,N} size::Tuple{Vararg{Int64,N}} end # AbstractArray with almost no storage, just for LinearIndices() conversion         

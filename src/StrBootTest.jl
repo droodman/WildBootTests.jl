@@ -31,7 +31,7 @@ mutable struct StrEstimator{T<:AbstractFloat}
   y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β̈::Vector{T}; γ̈::Vector{T}; β̈₀::Vector{T}; invXXXy₁par::Vector{T}
   Yendog::Vector{Bool}
   invZperpZperp::Symmetric{T,Matrix{T}}; XZ::Matrix{T}; PXZ::Matrix{T}; YPXY::Symmetric{T,Matrix{T}}; R₁invR₁R₁::Matrix{T}
-	restricted::Bool; RperpX::#=Uber=#Matrix{T}; RperpXperp::#=Uber=#Matrix{T}; RRpar::Matrix{T}; RparY::#=Uber=#Matrix{T}; RR₁invR₁R₁::Matrix{T}
+	restricted::Bool; RperpX::Matrix{T}; RperpXperp::Matrix{T}; RRpar::Matrix{T}; RparY::Matrix{T}; RR₁invR₁R₁::Matrix{T}
 	∂β̈∂r::Matrix{T}; YY::Symmetric{T,Matrix{T}}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; XinvXX::Matrix{T}; Rt₁::Vector{T}
 	invXX::Symmetric{T,Matrix{T}}; Y₂::Matrix{T}; X₂::Matrix{T}; invH::Symmetric{T,Matrix{T}}
 	y₁par::Vector{T}; Xy₁par::Vector{T}
@@ -48,8 +48,12 @@ mutable struct StrEstimator{T<:AbstractFloat}
   X₂y₁par::Vector{T}; X₁y₁par::Vector{T}; Zy₁par::Vector{T}
   Y₂y₁par::Vector{T}
   Rperp::Matrix{T}; ZR₁::Matrix{T}
-  kX::Int64
+  kX::Int64; kX₁::Int64
 	Π̂::Matrix{T}
+	S⋂y₁X₁::Matrix{T}; S⋂y₁X₂::Matrix{T}; S⋂XZperp::Array{T,3}; S⋂Xy₁::Array{T,3}; S⋂ZperpZperp::Array{T,3}; ZperpX::Matrix{T}; S⋂Zperpy₁::Array{T,3}; S⋂X_ZR₁::Array{T,3}
+	Zperp_ZR₁::Matrix{T}; S⋂Zperp_ZR₁::Array{T,3}
+	_X₁::Matrix{T}; _Z::Matrix{T}; _ZR₁::Matrix{T}
+	invZperpZperpZperpX₁::Matrix{T}; invZperpZperpZperpX₂::Matrix{T}; invZperpZperpZperpy₁::Vector{T}; invZperpZperpZperpY₂::Matrix{T}; S✻UY₂::Matrix{T}; invZperpZperpZperpZ::Matrix{T}; invZperpZperpZperpZR₁::Matrix{T}
 
   StrEstimator{T}(isDGP, LIML, Fuller, κ) where T<:AbstractFloat = new(isDGP, LIML, Fuller, κ, Matrix{T}(undef,0,0))
 end
@@ -97,7 +101,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	DGP::StrEstimator{T}; Repl::StrEstimator{T}; M::StrEstimator{T}
 	clust::Vector{StrClust{T}}
 	denom::Matrix{Matrix{T}}; Kcd::Matrix{Matrix{T}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; S✻⋂u₁XinvXX::Matrix{Matrix{T}}; S✻UU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
-	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; IDCT⋂✻::Vector{Vector{Int64}}; infoCT⋂✻::Vector{Vector{UnitRange{Int64}}}; S✻XU::Vector{Matrix{T}}; invXXS✻XU::Vector{Matrix{T}}; invZperpZperpS✻ZperpU::Vector{Matrix{T}}; S✻uY::Vector{Matrix{T}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻ZperpU::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
+	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; IDCT⋂✻::Vector{Vector{Int64}}; infoCT⋂✻::Vector{Vector{UnitRange{Int64}}}; S✻XU::Vector{Matrix{T}}; invXXS✻XU::Vector{Matrix{T}}; invZperpZperpS✻ZperpU::Vector{Matrix{T}}; S✻YU::Matrix{SubArray{T,1}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻ZperpU::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
   ∂denom∂r::Vector{Matrix{Matrix{T}}}; ∂Jcd∂r::Vector{Matrix{Matrix{T}}}
   ∂²denom∂r²::Matrix{Matrix{Matrix{T}}}
 	FEs::Vector{StrFE{T}}
@@ -112,11 +116,11 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	S✻ZperpY₂::Array{T,3}; S✻ZperpX::Array{T,3}; S✻ZperpZ::Array{T,3}; S✻Zperpy₁::Array{T,3}; S✻ZperpZR₁::Array{T,3}
 	invZperpZperpS✻ZperpY₂::Array{T,3}; invZperpZperpS✻ZperpX::Array{T,3}; invZperpZperpS✻ZperpZ::Array{T,3}; invZperpZperpS✻Zperpy₁::Array{T,3}; invZperpZperpS✻ZperpZR₁::Array{T,3}
 	_ID✻⋂::Vector{Int}
+	S✻y₁Y₂::Array{T,3}; S✻y₁X::Array{T,3}; S✻y₁Z::Array{T,3}; S✻y₁y₁::Array{T,3}; S✻y₁ZR₁::Array{T,3}; S✻ZR₁r₁Y₂::Array{T,3}; S✻ZR₁r₁X::Array{T,3}; S✻ZR₁r₁Z::Array{T,3}; S✻ZR₁r₁y₁::Array{T,3}; S✻ZR₁r₁ZR₁::Array{T,3}; S✻ZY₂::Array{T,3}; S✻ZX::Array{T,3}; S✻ZZ::Array{T,3}; S✻Zy₁::Array{T,3}; S✻ZZR₁::Array{T,3}
 
-  StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
+	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
 	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,
 								 β̈, A, sc, willplot, gridmin, gridmax, gridpoints, turbo) where T<:Real =
-
 		begin
 			kX₂ = ncols(X₂)
 			scorebs = scorebs || iszero(B) || ML
