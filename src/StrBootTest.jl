@@ -106,17 +106,18 @@ mutable struct StrBootTest{T<:AbstractFloat}
   ∂²denom∂r²::Matrix{Matrix{Matrix{T}}}
 	FEs::Vector{StrFE{T}}
   T1L::Vector{Matrix{T}}; T1R::Vector{Matrix{T}}
-	crosstab⋂✻ind::Vector{Int64}; crosstabBootind::Vector{Int64}
+	crosstab⋂✻ind::Vector{Int64}; crosstab✻ind::Vector{Int64}
   seed::UInt64
 
-	S✻XY₂::Array{T,3}; S✻XX::Array{T,3}; S✻XZ::Array{T,3}; S✻Xy₁::Array{T,3}; S✻XZR₁::Array{T,3}
-	invXXS✻XY₂::Array{T,3}; invXXS✻XX::Array{T,3}; invXXS✻XZ::Array{T,3}; invXXS✻Xy₁::Array{T,3}; invXXS✻XZR₁::Array{T,3}
-	S✻⋂XY₂::Array{T,3}; S✻⋂XX::Array{T,3}; S✻⋂XZ::Array{T,3}; S✻⋂Xy₁::Array{T,3}; S✻⋂XZR₁::Array{T,3}
-	invXXS✻⋂XY₂::Array{T,3}; invXXS✻⋂XX::Array{T,3}; invXXS✻⋂XZ::Array{T,3}; invXXS✻⋂Xy₁::Array{T,3}; invXXS✻⋂XZR₁::Array{T,3}
-	S✻ZperpY₂::Array{T,3}; S✻ZperpX::Array{T,3}; S✻ZperpZ::Array{T,3}; S✻Zperpy₁::Array{T,3}; S✻ZperpZR₁::Array{T,3}
-	invZperpZperpS✻ZperpY₂::Array{T,3}; invZperpZperpS✻ZperpX::Array{T,3}; invZperpZperpS✻ZperpZ::Array{T,3}; invZperpZperpS✻Zperpy₁::Array{T,3}; invZperpZperpS✻ZperpZR₁::Array{T,3}
+	S✻XY₂::Array{T,3}; S✻XX::Array{T,3}; S✻X_DGPZ::Array{T,3}; S✻Xy₁::Array{T,3}; S✻XZR₁::Array{T,3}
+	invXXS✻XY₂::Array{T,3}; invXXS✻XX::Array{T,3}; invXXS✻X_DGPZ::Array{T,3}; invXXS✻Xy₁::Array{T,3}; invXXS✻X_ReplZR₁::Array{T,3}
+	S✻⋂XY₂::Array{T,3}; S✻⋂XX::Array{T,3}; S✻⋂X_DGPZ::Array{T,3}; S✻⋂Xy₁::Array{T,3}; S✻⋂X_DGPZR₁::Array{T,3}
+	invXXS✻⋂XY₂::Array{T,3}; invXXS✻⋂XX::Array{T,3}; invXXS✻⋂X_DGPZ::Array{T,3}; invXXS✻⋂Xy₁::Array{T,3}; invXXS✻⋂X_DGPZR₁::Array{T,3}
+	S✻ZperpY₂::Array{T,3}; S✻ZperpX::Array{T,3}; S✻Zperp_DGPZ::Array{T,3}; S✻Zperpy₁::Array{T,3}; S✻Zperp_DGPZR₁::Array{T,3}
+	invZperpZperpS✻ZperpY₂::Array{T,3}; invZperpZperpS✻ZperpX::Array{T,3}; invZperpZperpS✻Zperp_DGPZ::Array{T,3}; invZperpZperpS✻Zperpy₁::Array{T,3}; invZperpZperpS✻Zperp_DGPZR₁::Array{T,3}
 	_ID✻⋂::Vector{Int}
-	S✻y₁Y₂::Array{T,3}; S✻y₁X::Array{T,3}; S✻y₁Z::Array{T,3}; S✻y₁y₁::Array{T,3}; S✻y₁ZR₁::Array{T,3}; S✻ZR₁r₁Y₂::Array{T,3}; S✻ZR₁r₁X::Array{T,3}; S✻ZR₁r₁Z::Array{T,3}; S✻ZR₁r₁y₁::Array{T,3}; S✻ZR₁r₁ZR₁::Array{T,3}; S✻ZY₂::Array{T,3}; S✻ZX::Array{T,3}; S✻ZZ::Array{T,3}; S✻Zy₁::Array{T,3}; S✻ZZR₁::Array{T,3}
+	S✻y₁Y₂::Array{T,3}; S✻y₁X::Array{T,3}; S✻y₁_DGPZ::Array{T,3}; S✻y₁y₁::Array{T,3}; S✻y₁_DGPZR₁::Array{T,3}; S✻ReaplZR₁r₁_Y₂::Array{T,3}; S✻ReplZR₁r₁_X::Array{T,3}; S✻ReplZR₁r₁_DGPZ::Array{T,3}; S✻ReplZR₁r₁_y₁::Array{T,3}; S✻ReplZR₁r₁_DGPZR₁::Array{T,3}; S✻ReplZ_Y₂::Array{T,3}; S✻ReplZ_X::Array{T,3}; S✻ReplZ_DGPZ::Array{T,3}; S✻ReplZ_y₁::Array{T,3}; S✻ReplZ_DGPZR₁::Array{T,3}
+	S✻UPX_S✻UMZperp::Matrix{Array{T,3}}
 
 	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
 	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,

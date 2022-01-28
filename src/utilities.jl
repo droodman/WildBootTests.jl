@@ -303,7 +303,7 @@ function panelcross_nonturbo!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, 
 			if f<l
 				for j ∈ axes(X,2)
 					tmp = X[f,j] * _wt
-					#=@tturbo=# for i ∈ fl
+					for i ∈ fl
 						tmp += X[i,j] * Y[i,k]
 					end
 					dest[j,g,k] = tmp

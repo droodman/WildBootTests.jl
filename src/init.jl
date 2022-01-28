@@ -293,8 +293,8 @@ o._ID✻⋂=ID✻⋂
 			o.numer_b = Vector{T}(undef,nrows(o.Repl.RRpar))
 		end
 		o.bootstrapt && o.robust &&
-    	(o.crosstabBootind = o.Nobs==o.N✻ ? Vector(diagind(FakeArray(o.N✻,o.N✻))) : 
-			                                    LinearIndices(FakeArray(o.Nobs,o.N✻))[CartesianIndex.(1:o.Nobs, o.ID✻)])
+    	(o.crosstab✻ind = o.Nobs==o.N✻ ? Vector(diagind(FakeArray(o.N✻,o.N✻))) : 
+			                                 LinearIndices(FakeArray(o.Nobs,o.N✻))[CartesianIndex.(1:o.Nobs, o.ID✻)])
 	else
 		o.poles = o.anchor = zeros(T,0)
 		o.interpolable = o.bootstrapt && o.B>0 && o.null && o.Nw==1 && (iszero(o.κ) || o.ARubin)

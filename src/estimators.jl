@@ -78,15 +78,15 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 
 	if o.isDGP && parent.WREnonARubin
 		o.Zperp = parent.Repl.Zperp
-		o.invZperpZperp = parent.Repl.invZperpZperp
 		_X₁ = parent.Repl._X₁
 		o.X₁ = parent.Repl.X₁
 		o.X₂ = parent.Repl.X₂
+		o.Y₂ = parent.Repl.Y₂
+		o.y₁ = parent.Repl.y₁
+		o.invZperpZperp = parent.Repl.invZperpZperp
 		o.XX = parent.Repl.XX
 		o.kX = parent.Repl.kX
 		o.invXX = parent.Repl.invXX
-		o.Y₂ = parent.Repl.Y₂
-		o.y₁ = parent.Repl.y₁
 		o.X₁Y₂ = parent.Repl.X₁Y₂
 		o.X₂Y₂ = parent.Repl.X₂Y₂
 		o.XY₂ = parent.Repl.XY₂
@@ -207,11 +207,8 @@ o._Z=_Z
 			o.S⋂YX       = Vector{Matrix{T}}(undef, o.kZ+1)
 			o.S⋂PXYZperp = Vector{Matrix{T}}(undef, o.kZ+1)
 
-			o.XinvXX = X₁₂B(parent, o.X₁, o.X₂, o.invXX); o.PXZ = X₁₂B(parent, o.X₁, o.X₂, o.invXXXZ)
-			if parent.haswt
-				o.PXZ .*= parent.wt
-				o.XinvXX .*= parent.wt
-			end
+			parent.granular && (o.XinvXX = X₁₂B(parent, o.X₁, o.X₂, o.invXX))
+			o.PXZ = X₁₂B(parent, o.X₁, o.X₂, o.invXXXZ)
 
 			o.FillingT₀ = Matrix{Matrix{T}}(undef, o.kZ+1, o.kZ+1)  # fixed component of groupwise term in sandwich filling
 			parent.NFE>0 &&
