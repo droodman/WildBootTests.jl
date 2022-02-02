@@ -50,7 +50,7 @@ mutable struct StrEstimator{T<:AbstractFloat}
   Rperp::Matrix{T}; ZR₁::Matrix{T}
   kX::Int64; kX₁::Int64
 	Π̂::Matrix{T}
-	S⋂y₁X₁::Matrix{T}; S⋂y₁X₂::Matrix{T}; S⋂XZperp::Array{T,3}; S⋂Xy₁::Array{T,3}; S⋂ZperpZperp::Array{T,3}; ZperpX::Matrix{T}; S⋂Zperpy₁::Array{T,3}; S⋂X_ZR₁::Array{T,3}
+	S⋂y₁X₁::Matrix{T}; S⋂y₁X₂::Matrix{T}; #=S⋂XZperp::Array{T,3}; =#S⋂Xy₁::Matrix{T}; S⋂ZperpZperp::Array{T,3}; ZperpX::Matrix{T}; S⋂Zperpy₁::Matrix{T}; S⋂X_ZR₁::Array{T,3}
 	Zperp_ZR₁::Matrix{T}; S⋂Zperp_ZR₁::Array{T,3}
 	_X₁::Matrix{T}; _Z::Matrix{T}; _ZR₁::Matrix{T}
 	invZperpZperpZperpX₁::Matrix{T}; invZperpZperpZperpX₂::Matrix{T}; invZperpZperpZperpy₁::Vector{T}; invZperpZperpZperpY₂::Matrix{T}; S✻UY₂::Matrix{T}; invZperpZperpZperpZ::Matrix{T}; invZperpZperpZperpZR₁::Matrix{T}
@@ -87,7 +87,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 
   sqrt::Bool; _Nobs::T; kZ::Int64; sumwt::T; haswt::Bool; REst::Bool; multiplier::T; smallsample::T
 		dof::Int64; dof_r::T; p::T; BootClust::Int8
-		purerobust::Bool; N✻::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX::Int64
+		purerobust::Bool; N✻::Int64; N✻⋂::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX::Int64
   _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; u✻::Matrix{T}; CT_WE::Matrix{T}
   info✻::Vector{UnitRange{Int64}}; infoBootAll::Vector{UnitRange{Int64}}; info⋂_✻⋂::Vector{UnitRange{Int64}}
   JN⋂N✻::Matrix{T}; statDenom::Matrix{T}; uXAR::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; β̈dev::Matrix{T}; δdenom_b::Matrix{T}
@@ -109,15 +109,15 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	crosstab⋂✻ind::Vector{Int64}; crosstab✻ind::Vector{Int64}
   seed::UInt64
 
-	S✻XY₂::Array{T,3}; S✻XX::Array{T,3}; S✻X_DGPZ::Array{T,3}; S✻Xy₁::Array{T,3}; S✻XZR₁::Array{T,3}
-	invXXS✻XY₂::Array{T,3}; invXXS✻XX::Array{T,3}; invXXS✻X_DGPZ::Array{T,3}; invXXS✻Xy₁::Array{T,3}; invXXS✻X_ReplZR₁::Array{T,3}
-	S✻⋂XY₂::Array{T,3}; S✻⋂XX::Array{T,3}; S✻⋂X_DGPZ::Array{T,3}; S✻⋂Xy₁::Array{T,3}; S✻⋂X_DGPZR₁::Array{T,3}
-	invXXS✻⋂XY₂::Array{T,3}; invXXS✻⋂XX::Array{T,3}; invXXS✻⋂X_DGPZ::Array{T,3}; invXXS✻⋂Xy₁::Array{T,3}; invXXS✻⋂X_DGPZR₁::Array{T,3}
-	S✻ZperpY₂::Array{T,3}; S✻ZperpX::Array{T,3}; S✻Zperp_DGPZ::Array{T,3}; S✻Zperpy₁::Array{T,3}; S✻Zperp_DGPZR₁::Array{T,3}
-	invZperpZperpS✻ZperpY₂::Array{T,3}; invZperpZperpS✻ZperpX::Array{T,3}; invZperpZperpS✻Zperp_DGPZ::Array{T,3}; invZperpZperpS✻Zperpy₁::Array{T,3}; invZperpZperpS✻Zperp_DGPZR₁::Array{T,3}
+	S✻XY₂::Array{T,3}; S✻XX::Array{T,3}; S✻X_DGPZ::Array{T,3}; S✻Xy₁::Matrix{T}; S✻XZR₁::Array{T,3}
+	invXXS✻XY₂::Array{T,3}; invXXS✻XX::Array{T,3}; invXXS✻X_DGPZ::Array{T,3}; invXXS✻Xy₁::Matrix{T}; invXXS✻X_ReplZR₁::Array{T,3}
+	S✻⋂XY₂::Array{T,3}; S✻⋂XX::Array{T,3}; S✻⋂X_DGPZ::Array{T,3}; S✻⋂Xy₁::Matrix{T}; S✻⋂X_DGPZR₁::Array{T,3}
+	invXXS✻⋂XY₂::Array{T,3}; invXXS✻⋂XX::Array{T,3}; invXXS✻⋂X_DGPZ::Array{T,3}; invXXS✻⋂Xy₁::Matrix{T}; invXXS✻⋂X_DGPZR₁::Array{T,3}
+	S✻ZperpY₂::Array{T,3}; S✻ZperpX::Array{T,3}; S✻Zperp_DGPZ::Array{T,3}; S✻Zperpy₁::Matrix{T}; S✻Zperp_DGPZR₁::Array{T,3}
+	invZperpZperpS✻ZperpY₂::Array{T,3}; invZperpZperpS✻ZperpX::Array{T,3}; invZperpZperpS✻Zperp_DGPZ::Array{T,3}; invZperpZperpS✻Zperpy₁::Matrix{T}; invZperpZperpS✻Zperp_DGPZR₁::Array{T,3}
 	_ID✻⋂::Vector{Int}
-	S✻y₁Y₂::Array{T,3}; S✻y₁X::Array{T,3}; S✻y₁_DGPZ::Array{T,3}; S✻y₁y₁::Array{T,3}; S✻y₁_DGPZR₁::Array{T,3}; S✻ReaplZR₁r₁_Y₂::Array{T,3}; S✻ReplZR₁r₁_X::Array{T,3}; S✻ReplZR₁r₁_DGPZ::Array{T,3}; S✻ReplZR₁r₁_y₁::Array{T,3}; S✻ReplZR₁r₁_DGPZR₁::Array{T,3}; S✻ReplZ_Y₂::Array{T,3}; S✻ReplZ_X::Array{T,3}; S✻ReplZ_DGPZ::Array{T,3}; S✻ReplZ_y₁::Array{T,3}; S✻ReplZ_DGPZR₁::Array{T,3}
-	S✻UPX_S✻UMZperp::Matrix{Array{T,3}}
+	S✻y₁Y₂::Array{T,3}; S✻y₁X::Array{T,3}; S✻y₁_DGPZ::Array{T,3}; S✻y₁y₁::Matrix{T}; S✻y₁_DGPZR₁::Array{T,3}; S✻ReaplZR₁r₁_Y₂::Array{T,3}; S✻ReplZR₁r₁_X::Array{T,3}; S✻ReplZR₁r₁_DGPZ::Array{T,3}; S✻ReplZR₁r₁_y₁::Matrix{T}; S✻ReplZR₁r₁_DGPZR₁::Array{T,3}; S✻ReplZ_Y₂::Array{T,3}; S✻ReplZ_X::Array{T,3}; S✻ReplZ_DGPZ::Array{T,3}; S✻ReplZ_y₁::Matrix{T}; S✻ReplZ_DGPZR₁::Array{T,3}
+	S⋂XZperp::Array{T,3}; S✻UPX_S✻UMZperp::Matrix{Array{T,3}}; S⋂XZperpinvZperZperp::Array{T,3}; CT✻FEX::Array{T,3}; CT⋂FEX::Array{T,3}; CT✻FEY₂::Array{T,3}; CT✻FEZ::Array{T,3}; CT✻FEy₁::Matrix{T}; CT✻FEZR₁::Array{T,3}
 
 	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
 	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,
@@ -141,87 +141,6 @@ mutable struct StrBootTest{T<:AbstractFloat}
 				nrows(X₁), ncols(ID), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!, 
 				turbo ? coldotplus_turbo! : coldotplus_nonturbo!, turbo ? colquadformminus_turbo! : colquadformminus_nonturbo!, turbo ? matmulplus_turbo! : matmulplus_nonturbo!, turbo ? panelsum_turbo! : panelsum_nonturbo!)
 		end
-end
-
-
-# cross-tab sum of a column vector w.r.t. given panel info and fixed-effect var
-# one row per FE, one col per other grouping
-function crosstabFE(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitRange{Int64}}) where T
-  dest = zeros(T, o.NFE, nrows(info))
-  if length(info)>0
-		@inbounds for i ∈ 1:nrows(info)
-	    FEIDi = @view o._FEID[info[i]]
-	    vi    = @view       v[info[i]]
-	    @inbounds @simd for j in eachindex(vi, FEIDi)
-	  	  dest[FEIDi[j],i] += vi[j]
-	    end
-	  end
-  else  # "robust" case, no clustering
-	  @inbounds @simd for i in eachindex(v,o._FEID)
-	    dest[o._FEID[i],i] = v[i]
-	  end
-  end
-  dest
-end
-# same, transposed
-function crosstabFEt(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitRange{Int64}}) where T
-  dest = zeros(T, nrows(info), o.NFE)
-  if length(info)>0
-		@inbounds for i ∈ 1:nrows(info)
-	    FEIDi = @view o._FEID[info[i]]
-	    vi    = @view       v[info[i]]
-	    @simd for j ∈ eachindex(vi, FEIDi)
-	  	  dest[i,FEIDi[j]] += vi[j]
-	    end
-	  end
-  else  # "robust" case, no clustering
-	  @inbounds @simd for i ∈ eachindex(v,o._FEID)
-	    dest[i,o._FEID[i]] = v[i]
-	  end
-  end
-  dest
-end
-# same, but handles multiple columns in v
-# *2nd* dimension of resulting 3-D array corresponds to cols of v;
-# this facilitates reshape() to 2-D array in which results for each col of v are stacked vertically
-function crosstabFEt(o::StrBootTest{T}, v::AbstractMatrix{T}, info::Vector{UnitRange{Int64}}) where T
-  dest = zeros(T, nrows(info), ncols(v), o.NFE)
-  if length(info)>0
-	  @inbounds for i ∈ 1:nrows(info)
-	    FEIDi = @view o._FEID[info[i]]
-	    vi    = @view       v[info[i],:]
-	    @simd for j ∈ 1:length(FEIDi)
-	  	  dest[i,:,FEIDi[j]] += @view vi[j,:]
-	    end
-	  end
-  else  # "robust" case, no clustering
-	  @inbounds @simd for i ∈ 1:length(FEIDi)
-	    dest[i,:,o._FEID[i]] = @view v[i,:]
-	  end
-  end
-  dest
-end
-
-
-# partial any fixed effects out of a data matrix
-function partialFE!(o::StrBootTest, In::AbstractArray)
-  if length(In)>0
-	  for f ∈ o.FEs
-	    tmp = @view In[f.is,:]
-	    tmp .-= f.wt'tmp
-    end
-  end
-	nothing
-end
-function partialFE(o::StrBootTest, In::AbstractArray)
-  Out = similar(In)
-  if length(In)>0
-	  for f ∈ o.FEs
-	    tmp = @view In[f.is,:]
-	    Out[f.is,:] .= tmp .- f.wt'tmp
-	  end
-  end
-  Out
 end
 
 macro storeWtGrpResults!(dest, content)  # poor hygiene in referencing caller's o and w

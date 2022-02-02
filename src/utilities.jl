@@ -316,6 +316,31 @@ function panelcross_nonturbo!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, 
 		end
 	end
 end
+function panelcross_nonturbo!(dest::AbstractMatrix{T}, X::AbstractVecOrMat{T}, Y::AbstractVector{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+	iszero(length(X)) && return
+	if iszero(length(info)) || nrows(info)==nrows(X)
+		dest .= X .* Y
+		return
+	end
+	@inbounds Threads.@threads for g in eachindex(info)
+		f, l = first(info[g]), last(info[g])
+		fl = f+1:l
+		_wt = Y[f]
+		if f<l
+			for j ∈ axes(X,2)
+				tmp = X[f,j] * _wt
+				for i ∈ fl
+					tmp += X[i,j] * Y[i]
+				end
+				dest[j,g] = tmp
+			end
+		else
+			for j ∈ axes(X,2)
+				dest[J[j],g] = X[f,j] * _wt
+			end
+		end
+	end
+end
 function panelsum(o::StrBootTest, X::AbstractVector{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	if iszero(nrows(wt))
 		panelsum(o, X, info)
@@ -334,8 +359,13 @@ function panelsum(o::StrBootTest, X::AbstractMatrix{T}, wt::AbstractVector{T}, i
 		dest
 	end
 end
-function panelcross11(o::StrBootTest, X::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+function panelcross11(o::StrBootTest, X::AbstractVecOrMat{T}, Y::AbstractMatrix{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	dest = Array{T,3}(undef, size(X,2), length(info), size(Y,2))
+	#=o.=# panelcross_nonturbo!(dest, X, Y, info)
+	dest
+end
+function panelcross11(o::StrBootTest, X::AbstractVecOrMat{T}, Y::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	dest = Matrix{T}(undef, size(X,2), length(info))
 	#=o.=# panelcross_nonturbo!(dest, X, Y, info)
 	dest
 end
@@ -361,7 +391,7 @@ function panelsum2(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecO
 		dest
 	end
 end
-function panelcross21(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+function panelcross21(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, Y::AbstractMatrix{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	if iszero(ncols(X₁))
 		panelcross11(o,X₂,Y,info)
 	elseif iszero(ncols(X₂))
@@ -370,6 +400,18 @@ function panelcross21(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractV
 		dest = Array{T,3}(undef, ncols(X₁)+ncols(X₂), length(info), ncols(Y))
 		#=o.=#panelcross_nonturbo!(view(dest,           1:ncols(X₁   ), :, :), X₁, Y, info)
 		#=o.=#panelcross_nonturbo!(view(dest, ncols(X₁)+1:size(dest,1), :, :), X₂, Y, info)
+		dest
+	end
+end
+function panelcross21(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, Y::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	if iszero(ncols(X₁))
+		panelcross11(o,X₂,Y,info)
+	elseif iszero(ncols(X₂))
+		panelcross11(o,X₁,Y,info)
+	else
+		dest = Matrix{T}(undef, ncols(X₁)+ncols(X₂), length(info))
+		#=o.=#panelcross_nonturbo!(view(dest,           1:ncols(X₁   ), :), X₁, Y, info)
+		#=o.=#panelcross_nonturbo!(view(dest, ncols(X₁)+1:size(dest,1), :), X₂, Y, info)
 		dest
 	end
 end
@@ -408,7 +450,131 @@ macro panelsum(o, X, wt, info)
 	:( panelsum($(esc(o)), $(esc(X)), $(esc(wt)), $(esc(info))) )
 end
 
-@inline sumpanelsum(X::Array{T,3} where T) = dropdims(sum(X, dims=2), dims=2)
+@inline sumpanelsum(X::Array{T} where T) = dropdims(sum(X, dims=2), dims=2)
+
+# cross-tab sum of a column vector w.r.t. given panel info and fixed-effect var
+# one row per FE, one col per other grouping
+function crosstabFE(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitRange{Int64}}) where T
+  dest = zeros(T, o.NFE, nrows(info))
+  if length(info)>0
+		@inbounds for i ∈ 1:nrows(info)
+	    FEIDi = @view o._FEID[info[i]]
+	    vi    = @view       v[info[i]]
+	    @inbounds @simd for j in eachindex(vi, FEIDi)
+	  	  dest[FEIDi[j],i] += vi[j]
+	    end
+	  end
+  else  # "robust" case, no clustering
+	  @inbounds @simd for i in eachindex(v,o._FEID)
+	    dest[o._FEID[i],i] = v[i]
+	  end
+  end
+  dest
+end
+# same, transposed
+function crosstabFEt(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitRange{Int64}}) where T
+  dest = zeros(T, nrows(info), o.NFE)
+  if length(info)>0
+		@inbounds for i ∈ 1:nrows(info)
+	    FEIDi = @view o._FEID[info[i]]
+	    vi    = @view       v[info[i]]
+	    @simd for j ∈ eachindex(vi, FEIDi)
+	  	  dest[i,FEIDi[j]] += vi[j]
+	    end
+	  end
+  else  # "robust" case, no clustering
+	  @inbounds @simd for i ∈ eachindex(v,o._FEID)
+	    dest[i,o._FEID[i]] = v[i]
+	  end
+  end
+  dest
+end
+# crossab handling multiple columns in v
+# dimensions: (FEs,entries of info, cols of v)
+# this facilitates reshape() to 2-D array in which results for each col of v are stacked vertically
+function crosstabFE(o::StrBootTest{T}, v::AbstractMatrix{T}, info::Vector{UnitRange{Int64}}) where T
+  dest = zeros(T, o.NFE, nrows(info), ncols(v))
+  if length(info)>0
+	  @inbounds for i ∈ 1:nrows(info)
+	    FEIDi = @view o._FEID[info[i]]
+	    vi    = @view       v[info[i],:]
+	    for j ∈ 1:length(FEIDi)
+	  	  dest[FEIDi[j],i,:] += @view vi[j,:]
+	    end
+	  end
+  else  # "robust" case, no clustering
+	  @inbounds for i ∈ 1:length(FEIDi)
+	    dest[o._FEID[i],i,:] .= @view v[i,:]
+	  end
+  end
+  dest
+end
+
+
+# partial any fixed effects out of a data matrix
+function partialFE!(o::StrBootTest, In::AbstractArray)
+  if length(In)>0
+	  for f ∈ o.FEs
+	    tmp = @view In[f.is,:]
+	    tmp .-= f.wt'tmp
+    end
+  end
+	nothing
+end
+function partialFE(o::StrBootTest, In::AbstractArray)
+  Out = similar(In)
+  if length(In)>0
+	  for f ∈ o.FEs
+	    tmp = @view In[f.is,:]
+	    Out[f.is,:] .= tmp .- f.wt'tmp
+	  end
+  end
+  Out
+end
+
+macro storeWtGrpResults!(dest, content)  # poor hygiene in referencing caller's o and w
+  if dest == :(o.dist)
+		return quote
+			if isone($(esc(:o)).Nw)
+				$(esc(dest)) .= $(esc(content))
+			else
+				$(esc(dest))[$(esc(:o)).WeightGrp[$(esc(:w))]] .= $(esc(content))
+			end
+		end
+  else
+	  return quote
+			local _content = $(esc(content))
+	    if isone($(esc(:o)).Nw)
+	  	  $(esc(dest)) = _content
+	    else
+	  	  $(esc(dest))[:,$(esc(:o)).WeightGrp[$(esc(:w))]] = _content
+	    end
+	  end
+  end
+end
+
+macro clustAccum!(X, c, Y)  # efficiently add a cluster combination-specific term, factoring in the needed multiplier and sign
+  return quote
+		local _Y = $(esc(Y))
+	  if isone($(esc(c)))
+	    if isone($(esc(:o)).clust[1].multiplier)
+	  	  $(esc(X)) = $(esc(:o)).clust[1].even ? _Y : -_Y
+	    else
+	  	  $(esc(X)) = _Y * ($(esc(:o)).clust[1].even ? $(esc(:o)).clust[1].multiplier : -$(esc(:o)).clust[1].multiplier)
+	    end
+	  elseif $(esc(:o)).clust[$(esc(c))].even
+	    if isone($(esc(:o)).clust[$(esc(c))].multiplier)
+	  	  $(esc(X)) .+= _Y
+	    else
+	  	  $(esc(X)) .+= _Y .* $(esc(:o)).clust[$(esc(c))].multiplier
+	    end
+	  elseif isone($(esc(:o)).clust[$(esc(c))].multiplier)
+	    $(esc(X)) .-= _Y
+	  else
+	    $(esc(X)) .-= _Y .* $(esc(:o)).clust[$(esc(c))].multiplier
+	  end
+  end
+end
 
 import Base.size
 struct FakeArray{N} <: AbstractArray{Bool,N} size::Tuple{Vararg{Int64,N}} end # AbstractArray with almost no storage, just for LinearIndices() conversion         
@@ -416,6 +582,8 @@ FakeArray(size...) = FakeArray{length(size)}(size)
 size(X::FakeArray) = X.size
 
 import Base.*, Base.adjoint  # extend * to left- and right-multiply 3-arrays by vec or mat, 2nd index of 3-array corresponds to left and 3rd index to right
-@inline *(A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T = reshape(reshape(A, size(A,1) * size(A,2), size(A,3)) * B, size(A,1), size(A,2), size(B,2))
+@inline *(A::AbstractArray{T,3}, B::AbstractMatrix{T}) where T = reshape(reshape(A, size(A,1) * size(A,2), size(A,3)) * B, size(A,1), size(A,2), size(B,2))
+@inline *(A::AbstractArray{T,3}, B::AbstractVector{T}) where T = reshape(reshape(A, size(A,1) * size(A,2), size(A,3)) * B, size(A,1), size(A,2))
 @inline *(A::AbstractVecOrMat, B::AbstractArray) = reshape(A * reshape(B, size(B,1), size(B,2) * size(B,3)), size(A,1), size(B,2), size(B,3))
 @inline adjoint(X::Array{T,3} where T) = permutedims(X,(3,2,1))
+

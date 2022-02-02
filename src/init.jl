@@ -69,16 +69,16 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		    o.WREnonARubin && !o.granular && (ID✻⋂ = o.ID✻)
 	    end
 
-			Nall = length(o.info✻⋂)
+			o.N✻⋂ = length(o.info✻⋂)
 
 	    if o.NClustVar > o.nerrclustvar  # info for intersections of error clustering wrt data
 		    if o.WREnonARubin && !o.granular
 		      o.info⋂, ID⋂ = panelsetupID(o.ID, o.subcluster+1:o.NClustVar)
 		    else
-		      o.info⋂          = panelsetup(o.ID, o.subcluster+1:o.NClustVar)
+		      o.info⋂      = panelsetup(o.ID, o.subcluster+1:o.NClustVar)
 		    end
-		    ID⋂_✻⋂ = length(o.info⋂)==o.Nobs ? o.ID : o.ID[first.(o.info⋂),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
-		    o.ID✻⋂ = Nall==o.Nobs ? o.ID : o.ID[first.(o.info✻⋂),:]  # version of ID matrix with one row for each all-bootstrap && error cluster-var intersection instead of 1 row for each obs
+		    ID⋂_✻⋂ = length(o.info⋂)==o.Nobs ? o.ID : o.ID[first.(o.info⋂ ),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
+		    o.ID✻⋂ =            o.N✻⋂==o.Nobs ? o.ID : o.ID[first.(o.info✻⋂),:]  # version of ID matrix with one row for each all-bootstrap && error cluster-var intersection instead of 1 row for each obs
 	    else
 		    o.info⋂ = o.info✻⋂  # info for intersections of error clustering wrt data
 		    o.WREnonARubin && !o.granular && (ID⋂ = ID✻⋂)
@@ -95,7 +95,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		      if iszero(o.subcluster)
 		    	  order = Vector{Int64}(undef,0)
 		    	  info  = Vector{UnitRange{Int64}}(undef, 0)  # causes no collapsing of data in panelsum() calls
-						N = Nall
+						N = o.N✻⋂
 		      else
 		    	  order = _sortperm(@view ID⋂_✻⋂[:,ClustCols])
 		    	  info  = panelsetup(view(ID⋂_✻⋂,order,:), ClustCols)
@@ -262,10 +262,10 @@ o._ID✻⋂=ID✻⋂
 
 		if o.robust && o.granular<o.NErrClustCombs && o.B>0
 			inds = o.subcluster>0 ?
-				        [CartesianIndex(j, i) for (j,v) ∈ enumerate(o.info⋂_✻⋂) for i ∈ v] :  # crosstab c,c* is wide
+				        [CartesianIndex(j, i) for (j,v) ∈ enumerate(o.info⋂_✻⋂) for i ∈ v] :  # crosstab ∩,* is wide
 								o.NClustVar == o.nbootclustvar ?
-										[CartesianIndex(i, i) for i ∈ 1:Nall] :  # crosstab c,c* is square
-										[CartesianIndex(i, j) for (j,v) ∈ enumerate(o.clust[o.BootClust].info) for i ∈ v]  # crosstab c,c* is tall
+										[CartesianIndex(i, i) for i ∈ 1:o.N✻⋂] :  # crosstab ∩,* is square
+										[CartesianIndex(i, j) for (j,v) ∈ enumerate(o.clust[o.BootClust].info) for i ∈ v]  # crosstab ∩,* is tall
 			o.crosstab⋂✻ind = LinearIndices(FakeArray(Tuple(max(inds...))...))[inds]
 		end
 	end

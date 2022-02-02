@@ -114,7 +114,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		ZperpX₂ = sumpanelsum(S⋂X₂Zperp)'
 		o.ZperpX = [ZperpX₁ ZperpX₂]
 
-		o.S⋂XZperp = [S⋂X₁Zperp; S⋂X₂Zperp]
+		# o.S⋂XZperp = [S⋂X₁Zperp; S⋂X₂Zperp]
 	
 		o.invZperpZperpZperpX₂ = o.invZperpZperp * ZperpX₂
 		o.X₂ = o.Zperp * o.invZperpZperpZperpX₂; o.X₂ .= parent.X₂ .- o.X₂  # FWL-process X₂
@@ -207,7 +207,7 @@ o._Z=_Z
 			o.S⋂YX       = Vector{Matrix{T}}(undef, o.kZ+1)
 			o.S⋂PXYZperp = Vector{Matrix{T}}(undef, o.kZ+1)
 
-			parent.granular && (o.XinvXX = X₁₂B(parent, o.X₁, o.X₂, o.invXX))
+			#=parent.granular &&=# (o.XinvXX = X₁₂B(parent, o.X₁, o.X₂, o.invXX))
 			o.PXZ = X₁₂B(parent, o.X₁, o.X₂, o.invXXXZ)
 
 			o.FillingT₀ = Matrix{Matrix{T}}(undef, o.kZ+1, o.kZ+1)  # fixed component of groupwise term in sandwich filling
@@ -216,7 +216,7 @@ o._Z=_Z
 			@inbounds for i ∈ 1:o.kZ
 				u = view(o.PXZ,:,i)
 				parent.NFE>0 &&
-					(o.CT_FE⋂PY[i+1] = crosstabFEt(parent, u, parent.info⋂) .* parent.invFEwt)
+					(o.CT_FE⋂PY[i+1] = crosstabFEt(parent, u, parent.info⋂) .* parent.invFEwt')
 				tmp = @panelsum(parent, o.Z, u, parent.info⋂)
 				for j ∈ 1:o.kZ
 					o.FillingT₀[i+1,j+1] = reshape(view(tmp,:,j),:,1)
