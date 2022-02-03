@@ -311,18 +311,20 @@ end
 end
 
 function MakeResidualsIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
-  o.ü₁ = o.y₁par - o.Z * o.β̈
-
-  if !parent.scorebs
-	  _β = [1 ; -o.β̈]
+  if parent.scorebs
+		o.ü₁ = o.y₁par - o.Z * o.β̈
+	else
+		_β = [1 ; -o.β̈]
 	  uu = _β'o.YY * _β
 
 	  Xu = o.Xy₁par - o.XZ * o.β̈  # after DGP regression, compute Y₂ residuals by regressing Y₂ on X while controlling for y₁ residuals, done through FWL
 	  negXuinvuu = Xu / -uu
 	  o.Π̂ = invsym(o.XX + negXuinvuu * Xu') * (negXuinvuu * (o.Y₂y₁par - o.ZY₂'o.β̈)' + o.XY₂)
-		o.Ü₂ = X₁₂B(parent, o.X₁, o.X₂, o.Π̂); o.Ü₂ .= o.Y₂ .- o.Ü₂
 		o.γ̈ = o.RparY * o.β̈ + o.t₁Y
-	  o.u⃛₁ = o.Ü₂ * o.γ̈; o.u⃛₁ .+= o.ü₁
+	  if parent.robust && parent.bootstrapt && parent.granular
+			o.Ü₂ = X₁₂B(parent, o.X₁, o.X₂, o.Π̂); o.Ü₂ .= o.Y₂ .- o.Ü₂
+			o.u⃛₁ = o.Ü₂ * o.γ̈; o.u⃛₁ .+= o.y₁par .- o.Z * o.β̈
+		end
   end
 	nothing
 end

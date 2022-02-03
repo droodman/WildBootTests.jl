@@ -51,7 +51,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 	o.S✻Zperp_DGPZ   = panelcross11(o, o.Repl.Zperp, o.DGP.Z, o.info✻)
 	o.S✻Zperpy₁  = panelcross11(o, o.Repl.Zperp, o.DGP.y₁, o.info✻)
 	o.S✻Zperp_DGPZR₁ = panelcross11(o, o.Repl.Zperp, o.DGP.ZR₁, o.info✻)
-	
+
 	if o.NFE>0 && (o.LIML || !isone(o.κ) || o.bootstrapt)
 		  CT✻⋂FEX = cat(crosstabFE(o, o.Repl.X₁, o.info✻⋂), crosstabFE(o, o.Repl.X₂, o.info✻⋂); dims=3)
 		o.CT✻FEX  = @panelsum(o, CT✻⋂FEX, info✻_✻⋂)
@@ -78,6 +78,9 @@ function InitWRE!(o::StrBootTest{T}) where T
 	end
 
 	if o.LIML || !o.robust || !isone(o.κ)
+		o.S✻Y₂Y₂ = panelcross11(o, o.DGP.Y₂, o.DGP.Y₂, o.info✻)
+		o.S✻DGPZ_DGPZ = panelcross11(o, o.DGP.Z, o.DGP.Z, o.info✻)
+		o.S✻DGPZ_Y₂ = panelcross11(o, o.DGP.Z, o.DGP.Y₂, o.info✻)
 		o.S✻y₁Y₂  = panelcross11(o, o.Repl.y₁, o.DGP.Y₂, o.info✻)   
 		o.S✻y₁X   = panelcross12(o, o.Repl.y₁, o.Repl.X₁, o.Repl.X₂, o.info✻)   
 		o.S✻y₁_DGPZ   = panelcross11(o, o.Repl.y₁, o.DGP.Z, o.info✻)   
@@ -94,6 +97,10 @@ function InitWRE!(o::StrBootTest{T}) where T
 		o.S✻ReplZ_DGPZ   = panelcross11(o, o.Repl.Z, o.DGP.Z, o.info✻)   
 		o.S✻ReplZ_y₁  = panelcross11(o, o.Repl.Z, o.DGP.y₁, o.info✻)   
 		o.S✻ReplZ_DGPZR₁ = panelcross11(o, o.Repl.Z, o.DGP.ZR₁, o.info✻)   
+		o.S✻Y₂_DGPZR₁ = panelcross11(o, o.DGP.Y₂, o.DGP.ZR₁, o.info✻)
+		o.S✻DGPZR₁_DGPZR₁ = panelcross11(o, o.DGP.ZR₁, o.DGP.ZR₁, o.info✻)
+		o.S✻DGPZR₁_DGPZ = panelcross11(o, o.DGP.ZR₁, o.DGP.Z, o.info✻)
+		o.S✻X_DGPZR₁ = @panelsum(o, o.S✻⋂X_DGPZR₁, info✻_✻⋂)
 	end
 
 	o.invXXS✻XY₂  = @panelsum(o, o.invXXS✻⋂XY₂ , info✻_✻⋂)
@@ -112,7 +119,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 	r₁ = o.null ? [o.r₁ ; o.r] : o.r₁
   EstimateIV!(o.DGP, o, r₁)
   MakeResidualsIV!(o.DGP, o)
-  Ü₂par = view(o.DGP.Ü₂ * o.Repl.RparY,:,:)
+  o.robust && o.bootstrapt && o.granular && (Ü₂par = view(o.DGP.Ü₂ * o.Repl.RparY,:,:))
 
 	S✻⋂XU₂ = o.S✻⋂XY₂ - o.S✻⋂XX * o.DGP.Π̂  # XXX preallocate these
 	S✻⋂XU₂RparY = S✻⋂XU₂ * o.Repl.RparY
@@ -140,6 +147,10 @@ function PrepWRE!(o::StrBootTest{T}) where T
 		S✻y₁ZR₁r₁ = o.S✻y₁_DGPZR₁ * r₁
 		S✻ZR₁r₁ZR₁r₁ = o.S✻ReplZR₁r₁_DGPZR₁ * r₁
 		S✻ZZR₁r₁ = o.S✻ReplZ_DGPZR₁ * r₁
+		γ̈S✻Ü₂XΠ̂ = o.DGP.γ̈' * S✻XU₂' * o.DGP.Π̂
+		S✻Ü₂Y₂ = o.S✻Y₂Y₂ - o.DGP.Π̂' * o.S✻XY₂
+		γ̈S✻Ü₂Y₂ = o.DGP.γ̈' * S✻Ü₂Y₂
+	S✻Ü₂parÜ₂par = o.Repl.RparY' * (S✻Ü₂Y₂ - S✻XU₂' * o.DGP.Π̂) * o.Repl.RparY
 
 		if o.NFE>0
 			CT✻FEU = o.CT✻FEY₂ - o.CT✻FEX * o.DGP.Π̂
@@ -148,9 +159,6 @@ function PrepWRE!(o::StrBootTest{T}) where T
 	end
 
   @inbounds for i ∈ 0:o.Repl.kZ  # precompute various clusterwise sums
-		u = i>0 ? view(Ü₂par,:,i) : view(o.DGP.u⃛₁,:)
-		uwt = vHadw(u, o.wt)
-
 		# S_✻(u .* X), S_✻(u .* Zperp) for residuals u for each endog var; store transposed
 		if iszero(i)
 			o.S✻XU[1]      = o.S✻Xy₁      - o.S✻X_DGPZ      * o.DGP.β̈ + S✻XU₂      * o.DGP.γ̈
@@ -213,10 +221,22 @@ function PrepWRE!(o::StrBootTest{T}) where T
 					o.S✻YU[j+1,i+1] = @view S✻ZU₂RparY[j,:,i]
 				end
 			end
+			XXX = o.S✻y₁Y₂ - o.DGP.β̈' * o.S✻DGPZ_Y₂ - (o.S✻y₁X  - o.DGP.β̈' * o.S✻X_DGPZ') * o.DGP.Π̂
+			# XXX = o.S✻y₁U₂ - o.DGP.β̈' * (o.S✻DGPZ_Y₂ + o.S✻X_DGPZ' * o.DGP.Π̂)
+			if iszero(i)
+		 		o.S✻UU[1,i+1] = dropdims(o.S✻y₁y₁ - (2 * o.S✻y₁_DGPZ + o.DGP.β̈' * o.S✻DGPZ_DGPZ) * o.DGP.β̈ +
+																(2 * XXX - γ̈S✻Ü₂XΠ̂ + permutedims(γ̈S✻Ü₂Y₂,(3,2,1))) * o.DGP.γ̈; dims=1)
+				o.DGP.restricted
+					(o.S✻UU[1,i+1] .+= dropdims(-2 * S✻y₁ZR₁r₁ + r₁' * o.S✻DGPZR₁_DGPZR₁ * r₁ + 2 * r₁' * (o.S✻DGPZR₁_DGPZ * o.DGP.β̈ + (o.S✻X_DGPZR₁' * o.DGP.Π̂ - o.S✻Y₂_DGPZR₁') * o.DGP.γ̈); dims=1))
+			else
+				o.S✻UU[1,i+1] = view((XXX + γ̈S✻Ü₂Y₂ - γ̈S✻Ü₂XΠ̂) * o.Repl.RparY, 1,:,i)
 
-			o.S✻UU[1,i+1] = view(panelcross11(o, o.DGP.u⃛₁, uwt, o.info✻), 1,:,1)
+				if o.DGP.restricted
+					o.S✻UU[1,i+1] .-= view(r₁' * (o.S✻Y₂_DGPZR₁' - o.S✻X_DGPZR₁' * o.DGP.Π̂) * o.Repl.RparY, 1,:,i)
+				end
+			end
 			for j ∈ 1:i
-				o.S✻UU[j+1,i+1] = view(panelcross11(o, Ü₂par, uwt, o.info✻), j,:,i)
+				o.S✻UU[j+1,i+1] = view(S✻Ü₂parÜ₂par, j,:,i)
 			end
 		end
 

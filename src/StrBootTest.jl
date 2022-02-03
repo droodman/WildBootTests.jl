@@ -54,7 +54,7 @@ mutable struct StrEstimator{T<:AbstractFloat}
 	Zperp_ZR₁::Matrix{T}; S⋂Zperp_ZR₁::Array{T,3}
 	_X₁::Matrix{T}; _Z::Matrix{T}; _ZR₁::Matrix{T}
 	invZperpZperpZperpX₁::Matrix{T}; invZperpZperpZperpX₂::Matrix{T}; invZperpZperpZperpy₁::Vector{T}; invZperpZperpZperpY₂::Matrix{T}; S✻UY₂::Matrix{T}; invZperpZperpZperpZ::Matrix{T}; invZperpZperpZperpZR₁::Matrix{T}
-
+	
   StrEstimator{T}(isDGP, LIML, Fuller, κ) where T<:AbstractFloat = new(isDGP, LIML, Fuller, κ, Matrix{T}(undef,0,0))
 end
 
@@ -118,6 +118,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	_ID✻⋂::Vector{Int}
 	S✻y₁Y₂::Array{T,3}; S✻y₁X::Array{T,3}; S✻y₁_DGPZ::Array{T,3}; S✻y₁y₁::Matrix{T}; S✻y₁_DGPZR₁::Array{T,3}; S✻ReaplZR₁r₁_Y₂::Array{T,3}; S✻ReplZR₁r₁_X::Array{T,3}; S✻ReplZR₁r₁_DGPZ::Array{T,3}; S✻ReplZR₁r₁_y₁::Matrix{T}; S✻ReplZR₁r₁_DGPZR₁::Array{T,3}; S✻ReplZ_Y₂::Array{T,3}; S✻ReplZ_X::Array{T,3}; S✻ReplZ_DGPZ::Array{T,3}; S✻ReplZ_y₁::Matrix{T}; S✻ReplZ_DGPZR₁::Array{T,3}
 	S⋂XZperp::Array{T,3}; S✻UPX_S✻UMZperp::Matrix{Array{T,3}}; S⋂XZperpinvZperZperp::Array{T,3}; CT✻FEX::Array{T,3}; CT⋂FEX::Array{T,3}; CT✻FEY₂::Array{T,3}; CT✻FEZ::Array{T,3}; CT✻FEy₁::Matrix{T}; CT✻FEZR₁::Array{T,3}
+	S✻Y₂Y₂::Array{T,3}; S✻DGPZ_DGPZ::Array{T,3}; S✻DGPZ_Y₂::Array{T,3}; S✻Y₂_DGPZR₁::Array{T,3}; S✻DGPZR₁_DGPZR₁::Array{T,3}; S✻DGPZR₁_DGPZ::Array{T,3}; S✻X_DGPZR₁::Array{T,3}
 
 	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
 	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,
