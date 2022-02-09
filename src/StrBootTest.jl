@@ -30,17 +30,16 @@ mutable struct StrEstimator{T<:AbstractFloat}
   kZ::Int64
   y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β̈::Vector{T}; γ̈::Vector{T}; β̈₀::Vector{T}; invXXXy₁par::Vector{T}
   Yendog::Vector{Bool}
-  invZperpZperp::Symmetric{T,Matrix{T}}; XZ::Matrix{T}; PXZ::Matrix{T}; YPXY::Symmetric{T,Matrix{T}}; R₁invR₁R₁::Matrix{T}
+  invZperpZperp::Symmetric{T,Matrix{T}}; invZperpZperpZperpX::Matrix{T}; XZ::Matrix{T}; YPXY::Symmetric{T,Matrix{T}}; R₁invR₁R₁::Matrix{T}
 	restricted::Bool; RperpX::Matrix{T}; RperpXperp::Matrix{T}; RRpar::Matrix{T}; RparY::Matrix{T}; RR₁invR₁R₁::Matrix{T}
-	∂β̈∂r::Matrix{T}; YY::Symmetric{T,Matrix{T}}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; XinvXX::Matrix{T}; Rt₁::Vector{T}
+	∂β̈∂r::Matrix{T}; YY::Symmetric{T,Matrix{T}}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; Rt₁::Vector{T}
 	invXX::Symmetric{T,Matrix{T}}; Y₂::Matrix{T}; X₂::Matrix{T}; invH::Symmetric{T,Matrix{T}}
 	y₁par::Vector{T}; Xy₁par::Vector{T}
 	A::Symmetric{T,Matrix{T}}; Z::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
-	FillingT₀::Matrix{Matrix{T}}
-	WXAR::Matrix{T}; S⋂PXYZperp::Vector{Matrix{T}}; S⋂YX::Vector{Matrix{T}}; CT_XAR::Vector{Matrix{T}}; CT_FE⋂PY::Vector{Matrix{T}}
+	WXAR::Matrix{T}; CT_XAR::Vector{Matrix{T}}
 
   # IV/GMM only
-  ZZ::Symmetric{T,Matrix{T}}; XY₂::Matrix{T}; XX::Symmetric{T,Matrix{T}}; H_2SLS::Symmetric{T,Matrix{T}}; V::Matrix{T}; ZY₂::Matrix{T}; X₂Y₂::Matrix{T}; X₁Y₂::Matrix{T}; ZR₁ZR₁::Symmetric{T,Matrix{T}}; X₂ZR₁::Matrix{T}; ZR₁Y₂::Matrix{T}; X₁ZR₁::Matrix{T}
+  ZZ::Symmetric{T,Matrix{T}}; XY₂::Matrix{T}; XX::Symmetric{T,Matrix{T}}; H_2SLS::Symmetric{T,Matrix{T}}; V::Matrix{T}; ZY₂::Matrix{T}; ZR₁ZR₁::Symmetric{T,Matrix{T}}; X₂ZR₁::Matrix{T}; ZR₁Y₂::Matrix{T}; X₁ZR₁::Matrix{T}
   ZZR₁::Matrix{T}; X₂y₁::Vector{T}; X₁y₁::Vector{T}; Zy₁::Vector{T}; ZXinvXXXZ::Matrix{T}; H_2SLSmZZ::Symmetric{T,Matrix{T}}
   ZXinvXXXy₁par::Vector{T}; t₁Y::Vector{T}
   Y₂y₁::Vector{T}; twoR₁Zy₁::Vector{T}
@@ -50,10 +49,10 @@ mutable struct StrEstimator{T<:AbstractFloat}
   Rperp::Matrix{T}; ZR₁::Matrix{T}
   kX::Int64; kX₁::Int64
 	Π̂::Matrix{T}
-	S⋂y₁X₁::Matrix{T}; S⋂y₁X₂::Matrix{T}; #=S⋂XZperp::Array{T,3}; =#S⋂Xy₁::Matrix{T}; S⋂ZperpZperp::Array{T,3}; ZperpX::Matrix{T}; S⋂Zperpy₁::Matrix{T}; S⋂X_ZR₁::Array{T,3}
-	Zperp_ZR₁::Matrix{T}; S⋂Zperp_ZR₁::Array{T,3}
-	_X₁::Matrix{T}; _Z::Matrix{T}; _ZR₁::Matrix{T}
-	invZperpZperpZperpX₁::Matrix{T}; invZperpZperpZperpX₂::Matrix{T}; invZperpZperpZperpy₁::Vector{T}; invZperpZperpZperpY₂::Matrix{T}; S✻UY₂::Matrix{T}; invZperpZperpZperpZ::Matrix{T}; invZperpZperpZperpZR₁::Matrix{T}
+	S✻⋂ZperpZpar::Array{T,3}; S✻⋂ZperpY₂::Array{T,3}; S⋂y₁X₁::Matrix{T}; S⋂y₁X₂::Matrix{T}; S⋂Xy₁::Matrix{T}; S✻⋂ZperpZperp::Array{T,3}; ZperpX::Matrix{T}; S✻⋂Zperpy₁::Matrix{T}; S✻⋂XZR₁::Array{T,3}; S✻⋂XY₂::Array{T,3}; S✻⋂XZperp::Array{T,3}; S✻⋂Xy₁::Matrix{T}; S✻⋂XX::Array{T,3}; S✻⋂XZpar::Array{T,3}
+	ZperpZR₁::Matrix{T}; S✻⋂ZperpZR₁::Array{T,3}
+	X₁par::Matrix{T}; Zpar::Matrix{T}; _ZR₁::Matrix{T}
+	invZperpZperpZperpX₁::Matrix{T}; invZperpZperpZperpX₂::Matrix{T}; invZperpZperpZperpy₁::Vector{T}; invZperpZperpZperpY₂::Matrix{T}; S✻UY₂::Matrix{T}; invZperpZperpZperpZpar::Matrix{T}; invZperpZperpZperpZR₁::Matrix{T}
 	
   StrEstimator{T}(isDGP, LIML, Fuller, κ) where T<:AbstractFloat = new(isDGP, LIML, Fuller, κ, Matrix{T}(undef,0,0))
 end
@@ -110,15 +109,16 @@ mutable struct StrBootTest{T<:AbstractFloat}
   seed::UInt64
 
 	S✻XY₂::Array{T,3}; S✻XX::Array{T,3}; S✻X_DGPZ::Array{T,3}; S✻Xy₁::Matrix{T}; S✻XZR₁::Array{T,3}
-	invXXS✻XY₂::Array{T,3}; invXXS✻XX::Array{T,3}; invXXS✻X_DGPZ::Array{T,3}; invXXS✻Xy₁::Matrix{T}; invXXS✻X_ReplZR₁::Array{T,3}
+	invXXS✻XY₂::Array{T,3}; invXXS✻XX::Array{T,3}; invXXS✻X_DGPZ::Array{T,3}; invXXS✻Xy₁::Matrix{T}; invXXS✻X_DGPZR₁::Array{T,3}
 	S✻⋂XY₂::Array{T,3}; S✻⋂XX::Array{T,3}; S✻⋂X_DGPZ::Array{T,3}; S✻⋂Xy₁::Matrix{T}; S✻⋂X_DGPZR₁::Array{T,3}
 	invXXS✻⋂XY₂::Array{T,3}; invXXS✻⋂XX::Array{T,3}; invXXS✻⋂X_DGPZ::Array{T,3}; invXXS✻⋂Xy₁::Matrix{T}; invXXS✻⋂X_DGPZR₁::Array{T,3}
 	S✻ZperpY₂::Array{T,3}; S✻ZperpX::Array{T,3}; S✻Zperp_DGPZ::Array{T,3}; S✻Zperpy₁::Matrix{T}; S✻Zperp_DGPZR₁::Array{T,3}
 	invZperpZperpS✻ZperpY₂::Array{T,3}; invZperpZperpS✻ZperpX::Array{T,3}; invZperpZperpS✻Zperp_DGPZ::Array{T,3}; invZperpZperpS✻Zperpy₁::Matrix{T}; invZperpZperpS✻Zperp_DGPZR₁::Array{T,3}
 	_ID✻⋂::Vector{Int}
-	S✻y₁Y₂::Array{T,3}; S✻y₁X::Array{T,3}; S✻y₁_DGPZ::Array{T,3}; S✻y₁y₁::Matrix{T}; S✻y₁_DGPZR₁::Array{T,3}; S✻ReaplZR₁r₁_Y₂::Array{T,3}; S✻ReplZR₁r₁_X::Array{T,3}; S✻ReplZR₁r₁_DGPZ::Array{T,3}; S✻ReplZR₁r₁_y₁::Matrix{T}; S✻ReplZR₁r₁_DGPZR₁::Array{T,3}; S✻ReplZ_Y₂::Array{T,3}; S✻ReplZ_X::Array{T,3}; S✻ReplZ_DGPZ::Array{T,3}; S✻ReplZ_y₁::Matrix{T}; S✻ReplZ_DGPZR₁::Array{T,3}
-	S⋂XZperp::Array{T,3}; S✻UPX_S✻UMZperp::Matrix{Array{T,3}}; S⋂XZperpinvZperZperp::Array{T,3}; CT✻FEX::Array{T,3}; CT⋂FEX::Array{T,3}; CT✻FEY₂::Array{T,3}; CT✻FEZ::Array{T,3}; CT✻FEy₁::Matrix{T}; CT✻FEZR₁::Array{T,3}
+	S✻y₁Y₂::Array{T,3}; S✻y₁X::Array{T,3}; S✻y₁_DGPZ::Array{T,3}; S✻y₁y₁::Matrix{T}; S✻y₁_DGPZR₁::Array{T,3}; S✻ReplZR₁r₁_Y₂::Array{T,3}; S✻ReplZR₁r₁_X::Array{T,3}; S✻ReplZR₁r₁_DGPZ::Array{T,3}; S✻ReplZR₁r₁_y₁::Matrix{T}; S✻ReplZR₁r₁_DGPZR₁::Array{T,3}; S✻ReplZ_Y₂::Array{T,3}; S✻ReplZ_X::Array{T,3}; S✻ReplZ_DGPZ::Array{T,3}; S✻ReplZ_y₁::Matrix{T}; S✻ReplZ_DGPZR₁::Array{T,3}
+	S✻UPX_S✻UMZperp::Matrix{Array{T,3}}; S⋂XZperpinvZperZperp::Array{T,3}; CT✻FEX::Array{T,3}; CT⋂FEX::Array{T,3}; CT✻FEY₂::Array{T,3}; CT✻FEZ::Array{T,3}; CT✻FEy₁::Matrix{T}; CT✻FEZR₁::Array{T,3}
 	S✻Y₂Y₂::Array{T,3}; S✻DGPZ_DGPZ::Array{T,3}; S✻DGPZ_Y₂::Array{T,3}; S✻Y₂_DGPZR₁::Array{T,3}; S✻DGPZR₁_DGPZR₁::Array{T,3}; S✻DGPZR₁_DGPZ::Array{T,3}; S✻X_DGPZR₁::Array{T,3}
+	S⋂YX::Vector{Matrix{T}}; S⋂PXYZperp::Vector{Matrix{T}}; XinvXX::Matrix{T}; PXZ::Matrix{T}; FillingT₀::Matrix{Matrix{T}}; CT_FE⋂PY::Vector{Matrix{T}}
 
 	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
 	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,
