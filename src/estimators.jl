@@ -30,6 +30,7 @@ function setR!(o::StrEstimator{T}, parent::StrBootTest{T}, R₁::AbstractMatrix{
 	  o.Rpar   = F.vectors[:, val]  # defines attack surface for null
 	  o.restricted && (o.Rpar = o.R₁perp * o.Rpar)  # fold model constraint factors into Rpar, RperpX
 	  o.RRpar = R * o.Rpar
+		o.RparX = o.Rpar[1:parent.kX₁,:]  # part of Rpar that refers to Y₂
 		o.RparY = o.Rpar[parent.kX₁+1:end,:]  # part of Rpar that refers to Y₂
 	  o.R₁invR₁R₁Y = o.R₁invR₁R₁[parent.kX₁+1:end,:]
 	  o.RR₁invR₁R₁ = R * o.R₁invR₁R₁
@@ -78,16 +79,23 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 
 	if o.isDGP && parent.WREnonARubin
 		o.Zperp = parent.Repl.Zperp
-		o.X₁par = parent.Repl.X₁par
-		o.X₁ = parent.Repl.X₁
-		o.X₂ = parent.Repl.X₂
-		o.Y₂ = parent.Repl.Y₂
-		o.y₁ = parent.Repl.y₁
+		o.Xpar₁ = parent.Repl.Xpar₁
+		if parent.NFE>0 && (parent.LIML || !isone(parent.κ) || parent.bootstrapt)  ||  parent.granular && parent.robust && parent.bootstrapt
+			o.X₁ = parent.Repl.X₁
+			o.X₂ = parent.Repl.X₂
+		end
+		if parent.NFE>0 && (parent.LIML || !isone(parent.κ) || parent.bootstrapt)
+			o.Y₂ = parent.Repl.Y₂
+		end
+		((parent.NFE>0 && (parent.LIML || !isone(parent.κ) || parent.bootstrapt)) || (parent.scorebs || parent.robust && parent.bootstrapt && parent.granular)) &&
+			(o.y₁ = parent.Repl.y₁)
 		o.invZperpZperp = parent.Repl.invZperpZperp
 		o.XX = parent.Repl.XX
 		o.kX = parent.Repl.kX
 		o.invXX = parent.Repl.invXX
 		o.XY₂ = parent.Repl.XY₂
+		o.Y₂Y₂ = parent.Repl.Y₂Y₂
+		o.S✻Y₂Y₂ = parent.Repl.S✻Y₂Y₂
 		o.Y₂y₁ = parent.Repl.Y₂y₁
 		o.X₂y₁ = parent.Repl.X₂y₁
 		o.X₁y₁ = parent.Repl.X₁y₁
@@ -96,96 +104,122 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.invZperpZperpZperpX₂ = parent.Repl.invZperpZperpZperpX₂
 		o.invZperpZperpZperpy₁ = parent.Repl.invZperpZperpZperpy₁
 		o.invZperpZperpZperpY₂ = parent.Repl.invZperpZperpZperpY₂
+		o.S✻⋂X₁Y₂ = parent.Repl.S✻⋂X₁Y₂
+		o.S✻⋂X₂Y₂ = parent.Repl.S✻⋂X₂Y₂
+		o.S✻⋂ZperpY₂ = parent.Repl.S✻⋂ZperpY₂
+		o.S✻Y₂y₁ = parent.Repl.S✻Y₂y₁
 	else
 		o.Zperp = parent.X₁ * o.RperpX
 		o.S✻⋂ZperpZperp = panelcross11(parent, o.Zperp, o.Zperp, parent.info✻⋂)  #  XXX exploit symmetry?
-		o.invZperpZperp = iszero(length(o.Zperp)) ? Symmetric(Matrix{T}(undef,0,0)) : inv(Symmetric(sumpanelsum(o.S✻⋂ZperpZperp)))
+		o.invZperpZperp = iszero(ncols(o.RperpX)) ? Symmetric(Matrix{T}(undef,0,0)) : inv(Symmetric(sumpanelcross(o.S✻⋂ZperpZperp)))
 
-		o.X₁par = parent.X₁ * o.RperpXperp
-		S✻⋂X₁Zperp = panelcross11(parent, o.X₁par, o.Zperp, parent.info✻⋂)
-		ZperpX₁ = sumpanelsum(S✻⋂X₁Zperp)'
+		o.Xpar₁ = parent.X₁ * o.RperpXperp
+		S✻⋂X₁Zperp = panelcross11(parent, o.Xpar₁, o.Zperp, parent.info✻⋂)
+		ZperpX₁ = sumpanelcross(S✻⋂X₁Zperp)'
 		o.invZperpZperpZperpX₁ = o.invZperpZperp * ZperpX₁
-		o.X₁ = o.X₁par - o.Zperp * o.invZperpZperpZperpX₁  # shrink and FWL-process X₁; do it as an O(N) operation because it can be so size-reducing
 
 		S✻⋂X₂Zperp = panelcross11(parent, parent.X₂, o.Zperp, parent.info✻⋂)
-		ZperpX₂ = sumpanelsum(S✻⋂X₂Zperp)'
+		ZperpX₂ = sumpanelcross(S✻⋂X₂Zperp)'
 		o.ZperpX = [ZperpX₁ ZperpX₂]
 		o.S✻⋂XZperp = [S✻⋂X₁Zperp; S✻⋂X₂Zperp]
 
 		o.invZperpZperpZperpX₂ = o.invZperpZperp * ZperpX₂
-		o.X₂ = o.Zperp * o.invZperpZperpZperpX₂; o.X₂ .= parent.X₂ .- o.X₂  # FWL-process X₂
 		o.invZperpZperpZperpX = [o.invZperpZperpZperpX₁ o.invZperpZperpZperpX₂]
 
-		S✻⋂X₁X₁ = panelcross11(parent, o.X₁par, o.X₁par, parent.info✻⋂)  # S⋂(X₂:*M_(Z⟂)X₁∥)
-		S✻⋂X₂X₁ = panelcross11(parent, parent.X₂, o.X₁par, parent.info✻⋂)
+		if parent.NFE>0 && (parent.LIML || !isone(parent.κ) || parent.bootstrapt)  ||  parent.granular && parent.robust && parent.bootstrapt
+			o.X₁ = o.Xpar₁ - o.Zperp * o.invZperpZperpZperpX₁  # shrink and FWL-process X₁; do it as an O(N) operation because it can be so size-reducing
+			o.X₂ = o.Zperp * o.invZperpZperpZperpX₂; o.X₂ .= parent.X₂ .- o.X₂  # FWL-process X₂
+		end
+		
+		S✻⋂X₁X₁ = panelcross11(parent, o.Xpar₁, o.Xpar₁, parent.info✻⋂)  # S⋂(X₂:*M_(Z⟂)X₁∥)
+		S✻⋂X₂X₁ = panelcross11(parent, parent.X₂, o.Xpar₁, parent.info✻⋂)
 		S✻⋂X₂X₂ = panelcross11(parent, parent.X₂, parent.X₂, parent.info✻⋂)
-		X₂X₁ = sumpanelsum(S✻⋂X₂X₁) - ZperpX₂'o.invZperpZperp * ZperpX₁  # cross(o.X₂, parent.wt, o.X₁)
-		X₁X₁ = Symmetric(sumpanelsum(S✻⋂X₁X₁)) - Symmetric(ZperpX₁'o.invZperpZperp * ZperpX₁)
-		X₂X₂ = Symmetric(sumpanelsum(S✻⋂X₂X₂)) - Symmetric(ZperpX₂'o.invZperpZperp * ZperpX₂)
+		X₂X₁ = sumpanelcross(S✻⋂X₂X₁) - ZperpX₂'o.invZperpZperp * ZperpX₁
+		X₁X₁ = Symmetric(sumpanelcross(S✻⋂X₁X₁)) - Symmetric(ZperpX₁'o.invZperpZperp * ZperpX₁)
+		X₂X₂ = Symmetric(sumpanelcross(S✻⋂X₂X₂)) - Symmetric(ZperpX₂'o.invZperpZperp * ZperpX₂)
 		o.S✻⋂XX = [[S✻⋂X₁X₁ S✻⋂X₂X₁'] ; [S✻⋂X₂X₁ S✻⋂X₂X₂]]  # [a b; c d] syntax would call hvcat() to concatenate horizontally along dim 2 rather than 3
 		o.XX = Symmetric([X₁X₁ X₂X₁' ; X₂X₁ X₂X₂])
 		o.kX = ncols(o.XX)
 		o.invXX = invsym(o.XX)
 	
 		o.S✻⋂ZperpY₂ = panelcross11(parent, o.Zperp, parent.Y₂, parent.info✻⋂)
-		ZperpY₂ = sumpanelsum(o.S✻⋂ZperpY₂)
+		ZperpY₂ = sumpanelcross(o.S✻⋂ZperpY₂)
 		o.invZperpZperpZperpY₂ = o.invZperpZperp * ZperpY₂
-		o.Y₂ = parent.Y₂ - o.Zperp * o.invZperpZperpZperpY₂
+		if parent.NFE>0 && (parent.LIML || !isone(parent.κ) || parent.bootstrapt)
+			o.Y₂ = parent.Y₂ - o.Zperp * o.invZperpZperpZperpY₂
+		end
 		o.S✻⋂Zperpy₁ = panelcross11(parent, o.Zperp, parent.y₁, parent.info✻⋂)
-		Zperpy₁ = sumpanelsum(o.S✻⋂Zperpy₁)
+		Zperpy₁ = sumpanelcross(o.S✻⋂Zperpy₁)
 		o.invZperpZperpZperpy₁ = o.invZperpZperp * Zperpy₁
-		o.y₁ = parent.y₁ - o.Zperp * o.invZperpZperpZperpy₁
+		((parent.NFE>0 && (parent.LIML || !isone(parent.κ) || parent.bootstrapt)) || (parent.scorebs || parent.robust && parent.bootstrapt && parent.granular)) &&
+			(o.y₁ = parent.y₁ - o.Zperp * o.invZperpZperpZperpy₁)
 
-	  S✻⋂X₁Y₂ = panelcross11(parent, o.X₁par, parent.Y₂, parent.info✻⋂)
-	  S✻⋂X₂Y₂ = panelcross11(parent, parent.X₂, parent.Y₂, parent.info✻⋂)
-		o.S✻⋂XY₂ = [S✻⋂X₁Y₂; S✻⋂X₂Y₂]
-		o.XY₂ = sumpanelsum(o.S✻⋂XY₂) - o.invZperpZperpZperpX'ZperpY₂  # cross(o.X₁, parent.wt, o.Y₂)
-		o.Y₂y₁ = crossvec(parent.Y₂, parent.wt, parent.y₁) - ZperpY₂'o.invZperpZperpZperpy₁  # crossvec(o.Y₂, parent.wt, o.y₁)
+	  o.S✻⋂X₁Y₂ = panelcross11(parent, o.Xpar₁, parent.Y₂, parent.info✻⋂)
+	  o.S✻⋂X₂Y₂ = panelcross11(parent, parent.X₂, parent.Y₂, parent.info✻⋂)
+		o.S✻⋂XY₂ = [o.S✻⋂X₁Y₂; o.S✻⋂X₂Y₂]
+		o.XY₂ = sumpanelcross(o.S✻⋂XY₂) - o.invZperpZperpZperpX'ZperpY₂
+		o.S✻Y₂y₁ = panelcross11(parent, parent.Y₂, parent.y₁, parent.info✻)
+	  o.Y₂y₁ = sumpanelcross(o.S✻Y₂y₁) - ZperpY₂'o.invZperpZperpZperpy₁
+		o.S✻Y₂Y₂ = panelcross11(parent, parent.Y₂, parent.Y₂, parent.info✻)
+		o.Y₂Y₂ = Symmetric(sumpanelcross(o.S✻Y₂Y₂)) - Symmetric(ZperpY₂'o.invZperpZperpZperpY₂)
 		S✻⋂X₂y₁ = panelcross11(parent, parent.X₂, parent.y₁, parent.info✻⋂)
-		o.X₂y₁ = reshape(sumpanelsum(S✻⋂X₂y₁), :) - ZperpX₂'o.invZperpZperpZperpy₁  # crossvec(o.X₂, parent.wt, o.y₁)
-		S✻⋂X₁y₁ = panelcross11(parent, o.X₁par, parent.y₁, parent.info✻⋂)
+		o.X₂y₁ = reshape(sumpanelcross(S✻⋂X₂y₁), :) - ZperpX₂'o.invZperpZperpZperpy₁
+		S✻⋂X₁y₁ = panelcross11(parent, o.Xpar₁, parent.y₁, parent.info✻⋂)
 		o.S✻⋂Xy₁ = [S✻⋂X₁y₁; S✻⋂X₂y₁]
-		o.X₁y₁ = reshape(sumpanelsum(S✻⋂X₁y₁), :) - ZperpX₁'o.invZperpZperpZperpy₁  # crossvec(o.X₁, parent.wt, o.y₁)
-		o.y₁y₁ = cross(parent.y₁, parent.wt, parent.y₁)[1] -  Zperpy₁'o.invZperpZperpZperpy₁  # cross(o.y₁, parent.wt, o.y₁)[1]
+		o.X₁y₁ = reshape(sumpanelcross(S✻⋂X₁y₁), :) - ZperpX₁'o.invZperpZperpZperpy₁
+		o.S✻y₁y₁ = reshape(panelcross11(parent, parent.y₁, parent.y₁, parent.info✻), :)
+		o.y₁y₁ = sum(o.S✻y₁y₁) - Zperpy₁'o.invZperpZperpZperpy₁
 	end
 
-  #=o.Z=# o.Zpar = X₁₂B(parent, parent.X₁, parent.Y₂, o.Rpar)  # Z∥
+  Zpar = X₁₂B(parent, parent.X₁, parent.Y₂, o.Rpar)  # Z∥
 
-	S✻⋂X₁Zpar = panelcross11(parent, o.X₁par, o.Zpar, parent.info✻⋂)
-	S✻⋂X₂Zpar = panelcross11(parent, parent.X₂, o.Zpar, parent.info✻⋂)
+	X₁par = parent.X₁ * o.RparX  # XXX expressible as a linear combination of Xpar₁??
+	S✻⋂X₁Zpar = panelcross11(parent, o.Xpar₁  , X₁par, parent.info✻⋂) + o.S✻⋂X₁Y₂ * o.RparY
+	S✻⋂X₂Zpar = panelcross11(parent, parent.X₂, X₁par, parent.info✻⋂) + o.S✻⋂X₂Y₂ * o.RparY
 	o.S✻⋂XZpar = [S✻⋂X₁Zpar; S✻⋂X₂Zpar]
-	X₁Zpar = sumpanelsum(S✻⋂X₁Zpar)
-	X₂Zpar = sumpanelsum(S✻⋂X₂Zpar)
-	o.S✻⋂ZperpZpar = panelcross11(parent, o.Zperp, o.Zpar, parent.info✻⋂)
-  ZperpZpar = sumpanelsum(o.S✻⋂ZperpZpar)
+	X₁Zpar = sumpanelcross(S✻⋂X₁Zpar)
+	X₂Zpar = sumpanelcross(S✻⋂X₂Zpar)
+	S✻⋂ZperpX₁par = panelcross11(parent, o.Zperp, X₁par, parent.info✻⋂)
+	ZperpX₁par = sumpanelcross(S✻⋂ZperpX₁par)
+	o.S✻⋂ZperpZpar = S✻⋂ZperpX₁par + o.S✻⋂ZperpY₂ * o.RparY
+  ZperpZpar = ZperpX₁par + sumpanelcross(o.S✻⋂ZperpY₂) * o.RparY
 	o.invZperpZperpZperpZpar = o.invZperpZperp * ZperpZpar
 
-#	!o.isDGP && ((o.LIML || !parent.robust || !isone(o.κ)) || parent.granular) &&
-		(o.Z = o.Zpar - o.Zperp * o.invZperpZperpZperpZpar)
+	o.Z = Zpar - o.Zperp * o.invZperpZperpZperpZpar
 
-  o.Zy₁  = crossvec(o.Zpar, parent.wt, parent.y₁) - ZperpZpar'o.invZperpZperpZperpy₁  # crossvec(o.Z, parent.wt, o.y₁)
-	o.XZ   = [X₁Zpar - o.invZperpZperpZperpX₁'ZperpZpar ; X₂Zpar - o.invZperpZperpZperpX₂'ZperpZpar]
-  o.ZY₂ =  cross(o.Zpar, parent.wt, parent.Y₂) - ZperpZpar'o.invZperpZperpZperpY₂  # cross(o.Z, parent.wt, o.Y₂)
-  o.ZZ  =  symcross(o.Zpar, parent.wt) - Symmetric(ZperpZpar'o.invZperpZperpZperpZpar)
+	S✻X₁pary₁ = panelcross11(parent, X₁par, parent.y₁, parent.info✻)
+	o.S✻Zpary₁ = S✻X₁pary₁ + o.RparY' * o.S✻Y₂y₁
+	o.Zy₁  = sumpanelcross(S✻X₁pary₁) + o.RparY' * o.Y₂y₁ - ZperpX₁par'o.invZperpZperpZperpy₁
+
+	S✻X₁parY₂ = panelcross11(parent, X₁par, parent.Y₂, parent.info✻)
+	o.XZ = [X₁Zpar - o.invZperpZperpZperpX₁'ZperpZpar ; X₂Zpar - o.invZperpZperpZperpX₂'ZperpZpar]
+  o.S✻ZparY₂  =  S✻X₁parY₂ + o.RparY' * o.S✻Y₂Y₂
+  o.ZY₂ =  sumpanelcross(S✻X₁parY₂) - ZperpX₁par'o.invZperpZperpZperpY₂
+  tmp = S✻X₁parY₂ * o.RparY; o.S✻ZparZpar = panelcross11(parent, X₁par, X₁par, parent.info✻) + tmp + tmp' + o.RparY' * o.S✻Y₂Y₂ * o.RparY
+  o.ZZ =  Symmetric(sumpanelcross(o.S✻ZparZpar)) - Symmetric(ZperpZpar'o.invZperpZperpZperpZpar)
 
   o.invXXXZ = o.invXX * o.XZ
   o.ZXinvXXXZ = o.XZ'o.invXXXZ  # symmetric but converting to Symmetric() hampers type inference in the one place it's used
 
   if o.restricted
 		_ZR₁ = X₁₂B(parent, parent.X₁, parent.Y₂, o.R₁invR₁R₁)
-		S✻⋂X₁ZR₁ = panelcross11(parent, o.X₁par, _ZR₁, parent.info✻⋂)
+		S✻⋂X₁ZR₁ = panelcross11(parent, o.Xpar₁, _ZR₁, parent.info✻⋂)
 		S✻⋂X₂ZR₁ = panelcross11(parent, parent.X₂, _ZR₁, parent.info⋂)
 		o.S✻⋂XZR₁ = [S✻⋂X₁ZR₁ ; S✻⋂X₂ZR₁]
 		o.S✻⋂ZperpZR₁ = panelcross11(parent, o.Zperp, _ZR₁, parent.info✻⋂)
-		o.ZperpZR₁ = sumpanelsum(o.S✻⋂ZperpZR₁)
+		o.ZperpZR₁ = sumpanelcross(o.S✻⋂ZperpZR₁)
 		o.invZperpZperpZperpZR₁ = o.invZperpZperp * o.ZperpZR₁
 		o.ZR₁ = _ZR₁ - o.Zperp * o.invZperpZperpZperpZR₁
-	  o.X₁ZR₁    = sumpanelsum(S✻⋂X₁ZR₁) - o.invZperpZperpZperpX₁'o.ZperpZR₁  # cross(o.X₁, parent.wt, o.ZR₁)
-	  o.X₂ZR₁    = sumpanelsum(S✻⋂X₂ZR₁) - o.invZperpZperpZperpX₂'o.ZperpZR₁  # cross(o.X₂, parent.wt, o.ZR₁)
-	  o.ZZR₁     = cross(       o.Zpar, parent.wt, _ZR₁) - ZperpZpar'o.invZperpZperp * o.ZperpZR₁  # cross(o.Z , parent.wt, o.ZR₁)
-	  o.ZR₁Y₂    = cross(_ZR₁, parent.wt, parent.y₁) - o.ZperpZR₁'o.invZperpZperpZperpy₁  # cross(o.ZR₁, parent.wt, o.Y₂)
-	  o.twoR₁Zy₁ = 2 * (crossvec(_ZR₁, parent.wt, parent.y₁) - o.ZperpZR₁'o.invZperpZperpZperpy₁)  # 2crossvec(o.ZR₁, parent.wt, o.y₁)
-	  o.ZR₁ZR₁   = symcross(_ZR₁, parent.wt) - Symmetric(o.ZperpZR₁'o.invZperpZperp * o.ZperpZR₁)  # symcross(o.ZR₁, parent.wt)
+	  o.X₁ZR₁    = sumpanelcross(S✻⋂X₁ZR₁) - o.invZperpZperpZperpX₁'o.ZperpZR₁
+	  o.X₂ZR₁    = sumpanelcross(S✻⋂X₂ZR₁) - o.invZperpZperpZperpX₂'o.ZperpZR₁
+		o.S✻ZR₁Z   = panelcross11(parent, _ZR₁, Zpar, parent.info✻)
+	  o.ZR₁Z     = sumpanelcross(o.S✻ZR₁Z) - o.ZperpZR₁'o.invZperpZperp * ZperpZpar
+		o.S✻ZR₁Y₂  = panelcross11(parent, _ZR₁, parent.Y₂, parent.info✻)
+	  o.ZR₁Y₂    = sumpanelcross(o.S✻ZR₁Y₂) - o.ZperpZR₁'o.invZperpZperpZperpY₂
+		o.S✻ZR₁y₁  = panelcross11(parent, _ZR₁, parent.y₁, parent.info✻)
+	  o.twoZR₁y₁ = 2 * (sumpanelcross(o.S✻ZR₁y₁) - o.ZperpZR₁'o.invZperpZperpZperpy₁)
+		o.S✻ZR₁ZR₁ = panelcross11(parent, _ZR₁, _ZR₁, parent.info✻)
+	  o.ZR₁ZR₁   = Symmetric(sumpanelcross(o.S✻ZR₁ZR₁)) - Symmetric(o.ZperpZR₁'o.invZperpZperp * o.ZperpZR₁)
   else
 	  o.Y₂y₁par    = o.Y₂y₁
 	  o.X₂y₁par    = o.X₂y₁
@@ -193,12 +227,13 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	  o.Zy₁par     = o.Zy₁
 	  o.y₁pary₁par = o.y₁y₁
 	  o.Xy₁par     = [o.X₁y₁ ; o.X₂y₁]
-	  o.y₁par      = o.y₁
+	  (parent.scorebs || parent.robust && parent.bootstrapt && parent.granular) &&
+			(o.y₁par   = o.y₁)
   end
 
   o.V =  o.invXX * o.XZ  # in 2SLS case, StrEstimator is (V' XZ)^-1 * (V'Xy₁). Also used in k-class and LIML robust VCV by Stata convention
   o.H_2SLS = Symmetric(o.V'o.XZ)  # Hessian
-  (o.LIML || o.κ ≠ 1) && (o.H_2SLSmZZ = o.H_2SLS - o.ZZ)
+  (o.LIML || !isone(o.κ)) && (o.H_2SLSmZZ = o.H_2SLS - o.ZZ)
 
   if o.isDGP
 		!o.LIML && MakeH!(o, parent, !isempty(Rperp)) # DGP is LIML except possibly when getting confidence peak for A-R plot; but LIML=0 when exactly id'd, for then κ=1 always and Hessian doesn't depend on r₁ and can be computed now
@@ -238,13 +273,14 @@ end
 
 function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, r₁::AbstractVector) where T
   if o.restricted
-    o.y₁pary₁par = o.y₁y₁ - (o.twoR₁Zy₁'r₁)[1] + r₁'o.ZR₁ZR₁ * r₁
-	  o.y₁par   = o.y₁ - o.ZR₁ * r₁
+    o.y₁pary₁par = o.y₁y₁ - (o.twoZR₁y₁'r₁)[1] + r₁'o.ZR₁ZR₁ * r₁
 	  o.Y₂y₁par = o.Y₂y₁  - o.ZR₁Y₂'r₁
 	  o.X₂y₁par = o.X₂y₁ - o.X₂ZR₁ * r₁
 	  o.X₁y₁par = o.X₁y₁ - o.X₁ZR₁ * r₁
-	  o.Zy₁par  = o.Zy₁ -  o.ZZR₁ * r₁
+	  o.Zy₁par  = o.Zy₁ -  o.ZR₁Z'r₁
 	  o.Xy₁par  = [o.X₁y₁par ; o.X₂y₁par]
+	  (parent.scorebs || parent.robust && parent.bootstrapt && parent.granular) && 
+			(o.y₁par   = o.y₁ - o.ZR₁ * r₁)
   end
 
   o.invXXXy₁par = o.invXX * o.Xy₁par

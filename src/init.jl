@@ -35,10 +35,10 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   end
 
   if o.WREnonARubin
-	  if !iszero(o.NClustVar)
-	    o.info✻, o.ID✻ = panelsetupID(o.ID, 1:o.nbootclustvar)
-	  else
+	  if iszero(o.NClustVar)
 	    o.info⋂ = o.info✻ = Vector{UnitRange{Int64}}(undef, o.Nobs, 0)  # no clustering, so no collapsing by cluster
+	  else
+	    o.info✻, o.ID✻ = panelsetupID(o.ID, 1:o.nbootclustvar)
 	  end
   elseif !iszero(o.NClustVar)
 	  o.info✻ = panelsetup(o.ID, 1:min(o.NClustVar,o.nbootclustvar))  # bootstrap cluster grouping defs rel to original data
@@ -84,6 +84,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		    o.WREnonARubin && !o.granular && (ID⋂ = ID✻⋂)
 		    o.ID✻⋂ = ID⋂_✻⋂ = nrows(o.info⋂)==o.Nobs ? o.ID : o.ID[first.(o.info⋂),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
 	    end
+			o.WREnonARubin && (o.info✻_✻⋂ = panelsetup(o.ID✻⋂, 1:o.nbootclustvar))
 
 	    o.BootClust = 2^(o.NClustVar - o.nbootclustvar)  # location of bootstrap clustering within list of cluster combinations
 

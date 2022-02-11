@@ -450,7 +450,7 @@ macro panelsum(o, X, wt, info)
 	:( panelsum($(esc(o)), $(esc(X)), $(esc(wt)), $(esc(info))) )
 end
 
-@inline sumpanelsum(X::Array{T} where T) = dropdims(sum(X, dims=2), dims=2)
+@inline sumpanelcross(X::Array{T} where T) = dropdims(sum(X, dims=2), dims=2)
 
 # cross-tab sum of a column vector w.r.t. given panel info and fixed-effect var
 # one row per FE, one col per other grouping
@@ -585,5 +585,5 @@ import Base.*, Base.adjoint, Base.hcat  # extend * to left- and right-multiply 3
 @inline *(A::AbstractArray{T,3}, B::AbstractMatrix{T}) where T = reshape(reshape(A, size(A,1) * size(A,2), size(A,3)) * B, size(A,1), size(A,2), size(B,2))
 @inline *(A::AbstractArray{T,3}, B::AbstractVector{T}) where T = reshape(reshape(A, size(A,1) * size(A,2), size(A,3)) * B, size(A,1), size(A,2))
 @inline *(A::AbstractVecOrMat, B::AbstractArray) = reshape(A * reshape(B, size(B,1), size(B,2) * size(B,3)), size(A,1), size(B,2), size(B,3))
-@inline adjoint(X::Array{T,3} where T) = permutedims(X,(3,2,1))
+@inline adjoint(A::AbstractArray{T,3} where T) = permutedims(A,(3,2,1))
 @inline hcat(A::Array{T,3}, B::Array{T,3}) where T = cat(A,B; dims=3)
