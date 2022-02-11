@@ -18,7 +18,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 		o.S✻UMZperp = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
 		o.granular && (o.S✻UPX     = Vector{Matrix{T}}(undef, o.Repl.kZ+1))
 		o._J⋂ = zeros(o.clust[1].N, o.Repl.kZ)
-		!o.granular && (o.S✻⋂u₁XinvXX = Matrix{Matrix{T}}(undef, o.Repl.kZ+1, o.N✻))
+		!o.granular && !(o.NClustVar == o.nbootclustvar && iszero(o.subcluster)) && (o.S✻⋂u₁XinvXX = Matrix{Matrix{T}}(undef, o.Repl.kZ+1, o.N✻))
 		if o.LIML || !o.robust
 			o.YY✻_b   = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
 			o.YPXY✻_b = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
@@ -322,8 +322,10 @@ function PrepWRE!(o::StrBootTest{T}) where T
 				else
 					_S✻⋂UXinvXX = view(invXXS✻⋂XU₂RparY,:,:,i)
 				end
-				for g ∈ 1:o.N✻
-					o.S✻⋂u₁XinvXX[i+1,g] = view(_S✻⋂UXinvXX,:,o._ID✻⋂[o.info✻[g]],1)'  # panelsum(o, o.XinvXX, u, o.infoCT⋂✻[g])
+				if !(o.NClustVar == o.nbootclustvar && iszero(o.subcluster))
+					for g ∈ 1:o.N✻
+						o.S✻⋂u₁XinvXX[i+1,g] = view(_S✻⋂UXinvXX,:,o._ID✻⋂[o.info✻[g]],1)'  # panelsum(o, o.XinvXX, u, o.infoCT⋂✻[g])
+					end
 				end
 			end
 
@@ -359,7 +361,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
  				S✻UMZperpX = o.Repl.invXX * S✻UMZperpX
 				for ind1 ∈ 1:o.Repl.kZ
 					o.Repl.Yendog[ind1+1] &&
-						(o.S✻UPX_S✻UMZperp[ind1+1,ind2+1] = o.S✻XU[ind1+1]'S✻UMZperpX) 
+						(o.S✻UPX_S✻UMZperp[ind1+1,ind2+1] = o.S✻XU[ind1+1]'S✻UMZperpX)  # XXX preallocate destinations
 				end
 			end
 		end
@@ -568,7 +570,6 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̈s::AbstractMatrix) where 
   dest
 end
 
-
 function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
   if isone(o.Repl.kZ)  # optimized code for 1 coefficient in bootstrap regression
 		if o.LIML
@@ -603,7 +604,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 
 		if o.bootstrapt
 			if o.robust
-				J⋂s = Filling(o, 1, _β̈s) ./ o.As
+				J⋂s = Filling(o, 1, _β̈s); J⋂s ./= o.As  # preallocate J⋂s
 				@inbounds for c ∈ 1:o.NErrClustCombs  # sum sandwich over error clusterings
 					nrows(o.clust[c].order)>0 && 
 						(J⋂s = J⋂s[o.clust[c].order,:])

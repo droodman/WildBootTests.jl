@@ -287,34 +287,24 @@ function panelsum_nonturbo!(dest::AbstractArray, X::AbstractArray{T,3} where T, 
 end
 # groupwise inner product of two two data matrices
 # 1st dimension of result corresponds to columns of X, second to rows of both, third to columns of Y
-function panelcross_nonturbo!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+function panelcross_nonturbo!(dest::AbstractArray{T,3}, X::AbstractMatrix{T}, Y::AbstractMatrix{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
 	iszero(length(X)) && return
 	if iszero(length(info)) || nrows(info)==nrows(X)
 		@inbounds for i ∈ axes(Y,2)
 			dest[:,:,i] .= X .* view(Y,:,i)
 		end
 		return
-	end
-	@inbounds Threads.@threads for g in eachindex(info)
-		f, l = first(info[g]), last(info[g])
-		fl = f+1:l
-		for k ∈ axes(Y,2)
-			_wt = Y[f,k]
-			if f<l
-				for j ∈ axes(X,2)
-					tmp = X[f,j] * _wt
-					for i ∈ fl
-						tmp += X[i,j] * Y[i,k]
-					end
-					dest[j,g,k] = tmp
-				end
-			else
-				for j ∈ axes(X,2)
-					dest[J[j],g,k] = X[f,j] * _wt
-				end
-			end
-		end
-	end
+	elseif X===Y
+    @inbounds Threads.@threads for g in eachindex(info)
+      v = view(X,info[g],:)
+      dest[:,g,:] = v'v
+    end
+  else
+    @inbounds Threads.@threads for g in eachindex(info)
+      infog = info[g]
+      dest[:,g,:] = view(X,infog,:)'view(Y,infog,:)
+    end
+  end
 end
 function panelcross_nonturbo!(dest::AbstractMatrix{T}, X::AbstractVecOrMat{T}, Y::AbstractVector{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
 	iszero(length(X)) && return
@@ -322,25 +312,19 @@ function panelcross_nonturbo!(dest::AbstractMatrix{T}, X::AbstractVecOrMat{T}, Y
 		dest .= X .* Y
 		return
 	end
-	@inbounds Threads.@threads for g in eachindex(info)
-		f, l = first(info[g]), last(info[g])
-		fl = f+1:l
-		_wt = Y[f]
-		if f<l
-			for j ∈ axes(X,2)
-				tmp = X[f,j] * _wt
-				for i ∈ fl
-					tmp += X[i,j] * Y[i]
-				end
-				dest[j,g] = tmp
-			end
-		else
-			for j ∈ axes(X,2)
-				dest[J[j],g] = X[f,j] * _wt
-			end
-		end
-	end
+	if X===Y
+    @inbounds Threads.@threads for g in eachindex(info)
+      v = view(X,info[g])
+      dest[1,g] = dot(v,v)
+    end
+  else
+    @inbounds #=Threads.@threads=# for g in eachindex(info)
+      infog = info[g]
+			dest[:,g] .= view(X,infog,:)'view(Y,infog)
+    end
+  end
 end
+
 function panelsum(o::StrBootTest, X::AbstractVector{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	if iszero(nrows(wt))
 		panelsum(o, X, info)
