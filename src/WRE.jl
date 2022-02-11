@@ -562,7 +562,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̈s::AbstractMatrix) where 
 
 			if o.Repl.Yendog[ind1+1] && o.Repl.Yendog[ind2+1]  # (S_*:*U ̈_(∥j)^'-S_* (U ̈_(∥j):*Z_⊥ ) (Z_⊥^' Z_⊥ )^(-1) Z_⊥^' )^' v^*
 				for i ∈ 1:o.clust[1].N  # put this logic inside colquadform(...Array{T,3}...)
-					o.colquadformminus!(dest, i, o.v, view(o.S✻UPX_S✻UMZperp[ind1+1,ind2+1] ,:,i,:), β̈v)
+					o.colquadformminus!(dest, i, o.v, o.S✻UPX_S✻UMZperp[ind1+1,ind2+1][:,i,:], β̈v)  # colquadformminus runs faster on array than view; convert to Array{3} of vectors
 				end
 			end
 		end

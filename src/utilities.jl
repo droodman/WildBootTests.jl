@@ -66,7 +66,7 @@ function coldotplus_turbo!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractM
 end
 function coldotplus_nonturbo!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)
 	@inbounds Threads.@threads for i ∈ eachindex(axes(A,2),axes(B,2))
-		for j ∈ eachindex(axes(A,1),axes(B,1))
+		@inbounds for j ∈ eachindex(axes(A,1),axes(B,1))
 			dest[i] += A[j,i] * B[j,i]
 		end
 	end
@@ -80,13 +80,52 @@ function colquadformminus_turbo!(dest::AbstractMatrix, row::Integer, A::Abstract
   end
   dest
 end
-function colquadformminus_nonturbo!(dest::AbstractMatrix, row::Integer, A::AbstractMatrix, Q::AbstractMatrix, B::AbstractMatrix)
-  @inbounds Threads.@threads for i ∈ axes(A,2)
-    dest[row,i] -= view(A,:,i)' * Q * view(B,:,i)
-  end
+function colquadformminus_nonturbo!(dest::AbstractMatrix{T}, row::Integer, A::AbstractMatrix, Q::AbstractMatrix, B::AbstractMatrix) where T
+  nt = Threads.nthreads()
+  cs = [round(Int, size(A,2)/nt*i) for i ∈ 0:nt]
+  if A===B 
+		@inbounds Threads.@threads for t ∈ 1:nt
+			tmp = Vector{T}(undef, size(Q,1))  # thread-safe scratchpad to minimize allocations
+			@inbounds for i ∈ cs[t]+1:cs[t+1]
+				v = view(A,:,i)
+				mul!(tmp, Q, v)
+				dest[row,i] -= v'tmp
+			end
+		end
+	else
+		@inbounds Threads.@threads for t ∈ 1:nt
+			tmp = Vector{T}(undef, size(Q,1))  # thread-safe scratchpad to minimize allocations
+			@inbounds for i ∈ cs[t]+1:cs[t+1]
+				mul!(tmp, Q, view(B,:,i))
+				dest[row,i] -= view(A,:,i)'tmp
+			end
+		end
+	end
 	dest
 end
-
+function colquadformminus_nonturbo!(dest::AbstractMatrix{T}, A::AbstractMatrix, Q::AbstractArray{T,3}, B::AbstractMatrix) where T
+  nt = Threads.nthreads()
+  cs = [round(Int, size(A,2)/nt*i) for i ∈ 0:nt]
+  if A===B 
+		@inbounds Threads.@threads for t ∈ 1:nt
+			tmp = Matrix{T}(undef, size(Q,1), size(Q,2))  # thread-safe scratchpad to minimize allocations
+			@inbounds for i ∈ cs[t]+1:cs[t+1]
+				v = view(A,:,i)
+				mul!(tmp, Q, v)
+				mul!(dest[:,i], v', tmp)
+			end
+		end
+	else
+		@inbounds Threads.@threads for t ∈ 1:nt
+			tmp = Vector{T}(undef, size(Q,1))  # thread-safe scratchpad to minimize allocations
+			@inbounds for i ∈ cs[t]+1:cs[t+1]
+				mul!(tmp, Q, view(B,:,i))
+				mul!(dest[row,i], view(A,:,i), tmp)
+			end
+		end
+	end
+	dest
+end
 colquadformminus!(o::StrBootTest, dest::AbstractMatrix, Q::AbstractMatrix, A::AbstractMatrix) = o.colquadformminus!(dest,1,A,Q,A)
 # compute negative of the norm of each col of A using quadratic form Q; dest should be a one-row matrix
 function negcolquadform!(o::StrBootTest, dest::AbstractMatrix{T}, Q::AbstractMatrix{T}, A::AbstractMatrix{T}) where T
@@ -192,7 +231,7 @@ function panelsum_nonturbo!(dest::AbstractVecOrMat, X::AbstractVecOrMat, info::A
 	@inbounds Threads.@threads for g in eachindex(info)
 		f, l = first(info[g]), last(info[g])
 		fl = f+1:l
-		if f<l
+		@inbounds if f<l
 			for j ∈ eachindexJ
 				Jj = J[j]
 				tmp = X[f,Jj]
@@ -237,6 +276,26 @@ function panelsum_turbo!(dest::AbstractVecOrMat{T}, X::AbstractVecOrMat{T}, wt::
 		end
 	end
 end
+function panelsum_turbo!(dest::AbstractArray, X::AbstractArray{T,3} where T, info::Vector{UnitRange{S}} where S<:Integer)
+  iszero(length(X)) && return
+  @inbounds for g in eachindex(info)
+    f, l = first(info[g]), last(info[g])
+    fl = f+1:l
+    if f<l
+      for i ∈ axes(X,1), k ∈ axes(X,3)
+        tmp = X[i,f,k]
+        @tturbo for j ∈ fl
+          tmp += X[i,j,k]
+        end
+        dest[i,g,k] = tmp
+      end
+    else
+      for i ∈ axes(X,1), k ∈ axes(X,3)
+        dest[i,g,k] = X[i,f,k]
+      end
+    end
+  end
+end
 function panelsum_nonturbo!(dest::AbstractArray, X::AbstractArray, wt::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer)
   iszero(length(X)) && return
   if iszero(length(info)) || nrows(info)==nrows(X)
@@ -249,7 +308,7 @@ function panelsum_nonturbo!(dest::AbstractArray, X::AbstractArray, wt::AbstractV
     f, l = first(info[g]), last(info[g])
     fl = f+1:l
 		_wt = wt[f]
-    if f<l
+    @inbounds if f<l
       for j ∈ eachindexJ
         Jj = J[j]
         tmp = X[f,Jj] * _wt
@@ -270,7 +329,7 @@ function panelsum_nonturbo!(dest::AbstractArray, X::AbstractArray{T,3} where T, 
   @inbounds Threads.@threads for g in eachindex(info)
     f, l = first(info[g]), last(info[g])
     fl = f+1:l
-    if f<l
+    @inbounds if f<l
       for i ∈ axes(X,1), k ∈ axes(X,3)
         tmp = X[i,f,k]
         for j ∈ fl
@@ -318,7 +377,7 @@ function panelcross_nonturbo!(dest::AbstractMatrix{T}, X::AbstractVecOrMat{T}, Y
       dest[1,g] = dot(v,v)
     end
   else
-    @inbounds #=Threads.@threads=# for g in eachindex(info)
+    @inbounds Threads.@threads for g in eachindex(info)
       infog = info[g]
 			dest[:,g] .= view(X,infog,:)'view(Y,infog)
     end
@@ -571,3 +630,7 @@ import Base.*, Base.adjoint, Base.hcat  # extend * to left- and right-multiply 3
 @inline *(A::AbstractVecOrMat, B::AbstractArray) = reshape(A * reshape(B, size(B,1), size(B,2) * size(B,3)), size(A,1), size(B,2), size(B,3))
 @inline adjoint(A::AbstractArray{T,3} where T) = permutedims(A,(3,2,1))
 @inline hcat(A::Array{T,3}, B::Array{T,3}) where T = cat(A,B; dims=3)
+
+#5-argument version of mul!() for 3-arrays but forces α=1, β=0
+import LinearAlgebra.mul!
+@inline mul!(dest::AbstractMatrix{T}, A::AbstractArray{T,3}, B::AbstractVector{T}; α=one(T), β=zero(T)) where T = (mul!(reshape(dest, size(A,1) * size(A,2)), reshape(A, size(A,1) * size(A,2), size(A,3)), B))
