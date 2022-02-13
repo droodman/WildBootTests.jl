@@ -28,31 +28,34 @@ mutable struct StrEstimator{T<:AbstractFloat}
   R₁perp::Matrix{T}; Rpar::Matrix{T}
 
   kZ::Int64
-  y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β̈::Vector{T}; γ̈::Vector{T}; β̂₀::Vector{T}; invXXXy₁par::Vector{T}
+  y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β̈::Vector{T}; γ̈::Vector{T}; β̈₀::Vector{T}; invXXXy₁par::Vector{T}
   Yendog::Vector{Bool}
-  invZperpZperp::Symmetric{T,Matrix{T}}; XZ::Matrix{T}; PXZ::Matrix{T}; YPXY::Symmetric{T,Matrix{T}}; R₁invR₁R₁::Matrix{T}
-	restricted::Bool; RperpX::Matrix{T}; RperpXperp::Matrix{T}; RRpar::Matrix{T}; RparY::Matrix{T}; RR₁invR₁R₁::Matrix{T}
-	∂β̂∂r::Matrix{T}; YY::Symmetric{T,Matrix{T}}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; XinvXX::Matrix{T}; Rt₁::Vector{T}
-	invXX::Symmetric{T,Matrix{T}}; Y₂::Matrix{T}; X₂::Matrix{T}; invH::Symmetric{T,Matrix{T}}
+  invZperpZperp::Symmetric{T,Matrix{T}}; invZperpZperpZperpX::Matrix{T}; XZ::Matrix{T}; YPXY::Symmetric{T,Matrix{T}}; R₁invR₁R₁::Matrix{T}
+	restricted::Bool; RperpX::Matrix{T}; RperpXperp::Matrix{T}; RRpar::Matrix{T}; RparX::Matrix{T}; RparY::Matrix{T}; RR₁invR₁R₁::Matrix{T}
+	∂β̈∂r::Matrix{T}; YY::Symmetric{T,Matrix{T}}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; Rt₁::Vector{T}
+
+  invXX::Symmetric{T,Matrix{T}}; Y₂::Matrix{T}; X₂::Matrix{T}; invH::Symmetric{T,Matrix{T}}
 	y₁par::Vector{T}; Xy₁par::Vector{T}
 	A::Symmetric{T,Matrix{T}}; Z::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
-	FillingT₀::Matrix{Matrix{T}}
-	WXAR::Matrix{T}; S⋂PXYZperp::Vector{Matrix{T}}; S⋂YX::Vector{Matrix{T}}; CT_XAR::Vector{Matrix{T}}; CT_FE⋂PY::Vector{Matrix{T}}
+	WXAR::Matrix{T}; CT_XAR::Vector{Matrix{T}}
 
   # IV/GMM only
-  ZZ::Symmetric{T,Matrix{T}}; XY₂::Matrix{T}; XX::Symmetric{T,Matrix{T}}; H_2SLS::Symmetric{T,Matrix{T}}; V::Matrix{T}; ZY₂::Matrix{T}; X₂Y₂::Matrix{T}; X₁Y₂::Matrix{T}; ZR₁ZR₁::Symmetric{T,Matrix{T}}; X₂ZR₁::Matrix{T}; ZR₁Y₂::Matrix{T}; X₁ZR₁::Matrix{T}
-  ZZR₁::Matrix{T}; X₂y₁::Vector{T}; X₁y₁::Vector{T}; Zy₁::Vector{T}; ZXinvXXXZ::Matrix{T}; H_2SLSmZZ::Symmetric{T,Matrix{T}}
+  ZZ::Symmetric{T,Matrix{T}}; XY₂::Matrix{T}; XX::Symmetric{T,Matrix{T}}; H_2SLS::Symmetric{T,Matrix{T}}; V::Matrix{T}; ZY₂::Matrix{T}; ZR₁ZR₁::Symmetric{T,Matrix{T}}; X₂ZR₁::Matrix{T}; ZR₁Y₂::Matrix{T}; X₁ZR₁::Matrix{T}
+  ZR₁Z::Matrix{T}; X₂y₁::Vector{T}; X₁y₁::Vector{T}; Zy₁::Vector{T}; ZXinvXXXZ::Matrix{T}; H_2SLSmZZ::Symmetric{T,Matrix{T}}
   ZXinvXXXy₁par::Vector{T}; t₁Y::Vector{T}
-  Y₂y₁::Vector{T}; twoR₁Zy₁::Vector{T}
-  y₁y₁::T; y₁pary₁par::T
-  X₂y₁par::Vector{T}; X₁y₁par::Vector{T}; Zy₁par::Vector{T}
-  Y₂y₁par::Vector{T}
+  Y₂y₁::Vector{T}; twoZR₁y₁::Vector{T}; y₁y₁::T; y₁pary₁par::T; Y₂Y₂::Matrix{T}
+  X₂y₁par::Vector{T}; X₁y₁par::Vector{T}; Zy₁par::Vector{T}; Y₂y₁par::Vector{T}
   Rperp::Matrix{T}; ZR₁::Matrix{T}
-  kX::Int64
-	S⋂y₁X₁::Matrix{T}; S⋂y₁X₂::Matrix{T}; invZperpZperpZperpy₁::Vector{T}; invZperpZperpZperpX::Matrix{T}; invZperpZperpZperpZ::Matrix{T}; invZperpZperpZperpZR₁::Matrix{T}; invZperpZperpZperpY₂::Matrix{T}; S⋂XZperp::Array{T,3}; S⋂Xy₁::Array{T,3}; S⋂ZperpZperp::Array{T,3}; ZperpX::Matrix{T}; S⋂Zperpy₁::Array{T,3}; S⋂X_ZR₁::Array{T,3}
-	Zperp_ZR₁::Matrix{T}; S⋂Zperp_ZR₁::Array{T,3}; FillingT₀₀::Array{T,3}; ∂FillingT₀∂r::Array{T,3}; S⋂y₁X₀::Matrix{T}; ∂S⋂y₁X∂r::Array{T,3}
-Π̂::Matrix{T}; _X₁::Matrix{T}; _Z::Matrix{T}; ZperpZ::Matrix{T}; ZperpY₂::Matrix{T}; _ZR₁::Matrix{T}
 
+  kX::Int64; kX₁::Int64
+	Π̂::Matrix{T}
+	S✻⋂ZperpZpar::Array{T,3}; S✻⋂ZperpY₂::Array{T,3}; S⋂y₁X₁::Matrix{T}; S⋂y₁X₂::Matrix{T}; S⋂Xy₁::Matrix{T}; S✻⋂ZperpZperp::Array{T,3}; ZperpX::Matrix{T}; S✻⋂Zperpy₁::Matrix{T}; S✻⋂XZR₁::Array{T,3}; S✻⋂XY₂::Array{T,3}; S✻⋂XZperp::Array{T,3}; S✻⋂Xy₁::Matrix{T}; S✻⋂XX::Array{T,3}; S✻⋂XZpar::Array{T,3}
+	S✻⋂X₁Y₂::Array{T,3}; S✻⋂X₂Y₂::Array{T,3}; S✻ZparY₂::Array{T,3}; S✻y₁y₁::Vector{T}; S✻Zpary₁::Matrix{T}; S✻ZR₁y₁::Matrix{T}; S✻ZR₁Y₂::Array{T,3}; S✻ZR₁ZR₁::Array{T,3}; S✻ZR₁Z::Array{T,3}
+	ZperpZR₁::Matrix{T}; S✻⋂ZperpZR₁::Array{T,3}
+	S✻Y₂Y₂::Array{T,3}; S✻ZparZpar::Array{T,3}; S✻Y₂y₁::Matrix{T}
+	Xpar₁::Matrix{T}
+	invZperpZperpZperpX₁::Matrix{T}; invZperpZperpZperpX₂::Matrix{T}; invZperpZperpZperpy₁::Vector{T}; invZperpZperpZperpY₂::Matrix{T}; S✻UY₂::Matrix{T}; invZperpZperpZperpZpar::Matrix{T}; invZperpZperpZperpZR₁::Matrix{T}
+	
   StrEstimator{T}(isDGP, LIML, Fuller, κ) where T<:AbstractFloat = new(isDGP, LIML, Fuller, κ, Matrix{T}(undef,0,0))
 end
 
@@ -81,44 +84,47 @@ mutable struct StrBootTest{T<:AbstractFloat}
   peak::NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
 
 	Nobs::Int64; NClustVar::Int8; kX₁::Int64; kX₂::Int64; kY₂::Int64; WREnonARubin::Bool; boottest!::Function
-	coldotplus!::Function; colquadformminus!::Function; matmulplus!::Function; panelsum!::Function
+	turbo::Bool
 
   sqrt::Bool; _Nobs::T; kZ::Int64; sumwt::T; haswt::Bool; REst::Bool; multiplier::T; smallsample::T
 		dof::Int64; dof_r::T; p::T; BootClust::Int8
-		purerobust::Bool; N✻::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX::Int64
+		purerobust::Bool; N✻::Int64; N✻⋂::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX::Int64
   _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; u✻::Matrix{T}; CT_WE::Matrix{T}
-  info✻::Vector{UnitRange{Int64}}; info⋂_✻⋂::Vector{UnitRange{Int64}}
-  JN⋂N✻::Matrix{T}; statDenom::Matrix{T}; uXAR::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; β̂dev::Matrix{T}; δdenom_b::Matrix{T}
-	_J⋂::Matrix{T}; YY✻_b::Matrix{T}; YPXY✻_b::Matrix{T}; numerw::Matrix{T}; Zyg::Vector{Matrix{T}}; numer_b::Vector{T}; dist::Matrix{T}
+  info✻::Vector{UnitRange{Int64}}; info✻_✻⋂::Vector{UnitRange{Int64}}; infoBootAll::Vector{UnitRange{Int64}}; info⋂_✻⋂::Vector{UnitRange{Int64}}
+  JN⋂N✻::Matrix{T}; statDenom::Matrix{T}; uXAR::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; β̈dev::Matrix{T}; δdenom_b::Matrix{T}
+  _J⋂::Matrix{T}; YY✻_b::Matrix{T}; YPXY✻_b::Matrix{T}; numerw::Matrix{T}; Zyg::Vector{Matrix{T}}; numer_b::Vector{T}; dist::Matrix{T}
 		
 	distCDR::Matrix{T}; plotX::Vector{Vector{T}}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
   numersum::Vector{T}; ü₀::Vector{T}; invFEwt::Vector{T}
-	β̂s::Matrix{T}; As::Matrix{T}
+	β̈s::Matrix{T}; As::Matrix{T}
 	info✻⋂::Vector{UnitRange{Int64}}; info⋂::Vector{UnitRange{Int64}}; ID✻⋂::Matrix{T}
 	ü::Vector{T}
 	DGP::StrEstimator{T}; Repl::StrEstimator{T}; M::StrEstimator{T}
 	clust::Vector{StrClust{T}}
 	denom::Matrix{Matrix{T}}; Kcd::Matrix{Matrix{T}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; S✻⋂u₁XinvXX::Matrix{Matrix{T}}; S✻UU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
-	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; IDCT⋂✻::Vector{Vector{Int64}}; infoCT⋂✻::Vector{Vector{UnitRange{Int64}}}; S✻UX::Vector{Matrix{T}}; S✻UXinvXX::Vector{Matrix{T}}; S✻UZperpinvZperpZperp::Vector{Matrix{T}}; S✻UY::Matrix{Vector{T}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻UZperp::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
+	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; IDCT⋂✻::Vector{Vector{Int64}}; infoCT⋂✻::Vector{Vector{UnitRange{Int64}}}; S✻XU::Vector{Matrix{T}}; invXXS✻XU::Vector{Matrix{T}}; invZperpZperpS✻ZperpU::Vector{Matrix{T}}; S✻YU::Matrix{Vector{T}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻ZperpU::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
   ∂denom∂r::Vector{Matrix{Matrix{T}}}; ∂Jcd∂r::Vector{Matrix{Matrix{T}}}
   ∂²denom∂r²::Matrix{Matrix{Matrix{T}}}
 	FEs::Vector{StrFE{T}}
   T1L::Vector{Matrix{T}}; T1R::Vector{Matrix{T}}
-	crosstab⋂✻ind::Vector{Int64}; crosstabBootind::Vector{Int64}
+	crosstab⋂✻ind::Vector{Int64}; crosstab✻ind::Vector{Int64}
   seed::UInt64
 
-	S✻u₁X0::Array{T,3}; ∂S✻u₁X∂β̂::Array{T,3}; ∂S✻u₁X∂γ̈::Array{T,3}; ∂S✻u₁X∂γ̈Π̂::Array{T,3}; ∂S✻u₁X∂r::Array{T,3}; S✻U₂X0::Array{T,3}; ∂S✻U₂X∂Π̂::Array{T,3}
-	S✻Zperp_DGPy₁::Array{T,3}; S✻Zperp_DGPZ::Array{T,3}; S✻Zperp_DGPY₂::Array{T,3}; S✻Zperp_DGPX::Array{T,3}; S✻Zperp_DGPZR₁::Array{T,3}
-	S✻⋂u₁XinvXX0::Array{T,3}; ∂S✻⋂u₁XinvXX∂β̂::Array{T,3}; ∂S✻⋂u₁XinvXX∂γ̈::Array{T,3}; ∂S✻⋂u₁XinvXX∂γ̈Π̂::Array{T,3}; ∂S✻⋂u₁XinvXX∂r::Array{T,3}; S✻⋂U₂XinvXX0::Array{T,3}; ∂S✻⋂U₂XinvXX0∂Π̂::Array{T,3}
-	S✻y₁u₁0::Array{T,3}; ∂S✻y₁u₁∂β̂::Array{T,3}; ∂S✻y₁u₁∂γ̈::Array{T,3}; ∂S✻y₁u₁∂γ̈Π̂::Array{T,3}; ∂S✻y₁u₁∂r::Array{T,3}; S✻y₁U₂0::Array{T,3}; ∂S✻y₁U₂∂r::Array{T,3}; ∂S✻y₁U₂∂β̂::Array{T,3}; ∂S✻y₁U₂∂γ̈Π̂::Array{T,3}; ∂S✻y₁U₂∂γ̈::Array{T,3}; ∂S✻y₁U₂∂Π̂::Array{T,3}
-	Reply₁_DGPy₁::Array{T,3}; Reply₁_DGPZR₁::Array{T,3}; Reply₁_DGPZ::Array{T,3}; Reply₁_DGPY₂::Array{T,3}; Reply₁_DGPX::Array{T,3}
-	ReplZ_DGPy₁::Array{T,3}; ReplZ_DGPZR₁::Array{T,3}; ReplZ_DGPZ::Array{T,3}; ReplZ_DGPY₂::Array{T,3}; ReplZ_DGPX::Array{T,3}
-
+	S✻XY₂::Array{T,3}; S✻XX::Array{T,3}; S✻XDGPZ::Array{T,3}; S✻Xy₁::Matrix{T}; S✻XZR₁::Array{T,3}
+	invXXS✻XY₂::Array{T,3}; invXXS✻XX::Array{T,3}; invXXS✻XDGPZ::Array{T,3}; invXXS✻Xy₁::Matrix{T}; invXXS✻XDGPZR₁::Array{T,3}
+	S✻⋂XY₂::Array{T,3}; S✻⋂XX::Array{T,3}; S✻⋂XDGPZ::Array{T,3}; S✻⋂Xy₁::Matrix{T}; S✻⋂X_DGPZR₁::Array{T,3}
+	invXXS✻⋂XY₂::Array{T,3}; invXXS✻⋂XX::Array{T,3}; invXXS✻⋂XDGPZ::Array{T,3}; invXXS✻⋂Xy₁::Matrix{T}; invXXS✻⋂XDGPZR₁::Array{T,3}
+	S✻ZperpY₂::Array{T,3}; S✻ZperpX::Array{T,3}; S✻ZperpDGPZ::Array{T,3}; S✻Zperpy₁::Matrix{T}; S✻ZperpDGPZR₁::Array{T,3}
+	invZperpZperpS✻ZperpY₂::Array{T,3}; invZperpZperpS✻ZperpX::Array{T,3}; invZperpZperpS✻ZperpDGPZ::Array{T,3}; invZperpZperpS✻Zperpy₁::Matrix{T}; invZperpZperpS✻ZperpDGPZR₁::Array{T,3}
 	_ID✻⋂::Vector{Int}
+	S✻Y₂y₁::Matrix{T}; S✻DGPZy₁::Matrix{T}; S✻y₁y₁::Vector{T}; S✻DGPZR₁y₁::Matrix{T}; r₁S✻ReplZR₁Y₂::Array{T,3}; r₁S✻ReplZR₁X::Array{T,3}; r₁S✻ReplZR₁DGPZ::Array{T,3}; r₁S✻ReplZR₁y₁::Matrix{T}; r₁S✻ReplZR₁DGPZR₁::Array{T,3}; S✻ReplZY₂::Array{T,3}; S✻ReplZX::Array{T,3}; S✻ReplZDGPZ::Array{T,3}; S✻ReplZy₁::Matrix{T}; S✻ReplZDGPZR₁::Array{T,3}
+	S✻UPX_S✻UMZperp::Matrix{Array{T,3}}; S⋂XZperpinvZperZperp::Array{T,3}; CT✻FEX::Array{T,3}; CT⋂FEX::Array{T,3}; CT✻FEY₂::Array{T,3}; CT✻FEZ::Array{T,3}; CT✻FEy₁::Matrix{T}; CT✻FEZR₁::Array{T,3}
+	S✻Y₂Y₂::Array{T,3}; S✻ZparY₂Z_DGPZ::Array{T,3}; S✻DGPZY₂::Array{T,3}; S✻DGPZR₁Y₂::Array{T,3}; S✻DGPZDGPZ::Array{T,3};  S✻DGPZR₁DGPZR₁::Array{T,3}; S✻DGPZR₁DGPZ::Array{T,3}; S✻DGPZR₁X::Array{T,3}
+	S⋂YX::Vector{Matrix{T}}; S⋂PXYZperp::Vector{Matrix{T}}; XinvXX::Matrix{T}; PXZ::Matrix{T}; FillingT₀::Matrix{Matrix{T}}; CT_FE⋂PY::Vector{Matrix{T}}
+
 	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
 	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, nbootclustvar, nerrclustvar, issorted, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,
 								 β̈, A, sc, willplot, gridmin, gridmax, gridpoints, turbo) where T<:Real =
-
 		begin
 			kX₂ = ncols(X₂)
 			scorebs = scorebs || iszero(B) || ML
@@ -136,134 +142,10 @@ mutable struct StrBootTest{T<:AbstractFloat}
 				Matrix{T}(undef,0,0),
 				(X = Vector{T}(undef,0), p = T(NaN)),
 				nrows(X₁), ncols(ID), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!, 
-				turbo ? coldotplus_turbo! : coldotplus_nonturbo!, turbo ? colquadformminus_turbo! : colquadformminus_nonturbo!, turbo ? matmulplus_turbo! : matmulplus_nonturbo!, turbo ? panelsum_turbo! : panelsum_nonturbo!)
+				turbo)
 		end
 end
 
-
-# cross-tab sum of a column vector w.r.t. given panel info and fixed-effect var
-# one row per FE, one col per other grouping
-function crosstabFE(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitRange{Int64}}) where T
-  dest = zeros(T, o.NFE, nrows(info))
-  if length(info)>0
-		@inbounds for i ∈ 1:nrows(info)
-	    FEIDi = @view o._FEID[info[i]]
-	    vi    = @view       v[info[i]]
-	    @simd for j in eachindex(vi, FEIDi)
-	  	  dest[FEIDi[j],i] += vi[j]
-	    end
-	  end
-  else  # "robust" case, no clustering
-	  @inbounds @simd for i in eachindex(v,o._FEID)
-	    dest[o._FEID[i],i] = v[i]
-	  end
-  end
-  dest
-end
-# same, transposed
-function crosstabFEt(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitRange{Int64}}) where T
-  dest = zeros(T, nrows(info), o.NFE)
-  if length(info)>0
-		@inbounds for i ∈ 1:nrows(info)
-	    FEIDi = @view o._FEID[info[i]]
-	    vi    = @view       v[info[i]]
-	    @simd for j ∈ eachindex(vi, FEIDi)
-	  	  dest[i,FEIDi[j]] += vi[j]
-	    end
-	  end
-  else  # "robust" case, no clustering
-	  @inbounds @simd for i ∈ eachindex(v,o._FEID)
-	    dest[i,o._FEID[i]] = v[i]
-	  end
-  end
-  dest
-end
-# same, but handles multiple columns in v
-# *2nd* dimension of resulting 3-D array corresponds to cols of v;
-# this facilitates reshape() to 2-D array in which results for each col of v are stacked vertically
-function crosstabFEt(o::StrBootTest{T}, v::AbstractMatrix{T}, info::Vector{UnitRange{Int64}}) where T
-  dest = zeros(T, nrows(info), ncols(v), o.NFE)
-  if length(info)>0
-	  @inbounds for i ∈ 1:nrows(info)
-	    FEIDi = @view o._FEID[info[i]]
-	    vi    = @view       v[info[i],:]
-	    @simd for j ∈ 1:length(FEIDi)
-	  	  dest[i,:,FEIDi[j]] += @view vi[j,:]
-	    end
-	  end
-  else  # "robust" case, no clustering
-	  @inbounds @simd for i ∈ 1:length(FEIDi)
-	    dest[i,:,o._FEID[i]] = @view v[i,:]
-	  end
-  end
-  dest
-end
-
-
-# partial any fixed effects out of a data matrix
-function partialFE!(o::StrBootTest, In::AbstractArray)
-  if length(In)>0
-	  for f ∈ o.FEs
-	    tmp = @view In[f.is,:]
-	    tmp .-= f.wt'tmp
-    end
-  end
-	nothing
-end
-function partialFE(o::StrBootTest, In::AbstractArray)
-  Out = similar(In)
-  if length(In)>0
-	  for f ∈ o.FEs
-	    tmp = @view In[f.is,:]
-	    Out[f.is,:] .= tmp .- f.wt'tmp
-	  end
-  end
-  Out
-end
-
-macro storeWtGrpResults!(dest, content)  # poor hygiene in referencing caller's o and w
-  if dest == :(o.dist)
-		return quote
-			if isone($(esc(:o)).Nw)
-				$(esc(dest)) .= $(esc(content))
-			else
-				$(esc(dest))[$(esc(:o)).WeightGrp[$(esc(:w))]] .= $(esc(content))
-			end
-		end
-  else
-	  return quote
-			local _content = $(esc(content))
-	    if isone($(esc(:o)).Nw)
-	  	  $(esc(dest)) = _content
-	    else
-	  	  $(esc(dest))[:,$(esc(:o)).WeightGrp[$(esc(:w))]] = _content
-	    end
-	  end
-  end
-end
-
-macro clustAccum!(X, c, Y)  # efficiently add a cluster combination-specific term, factoring in the needed multiplier and sign
-  return quote
-		local _Y = $(esc(Y))
-	  if isone($(esc(c)))
-	    if isone($(esc(:o)).clust[1].multiplier)
-	  	  $(esc(X)) = $(esc(:o)).clust[1].even ? _Y : -_Y
-	    else
-	  	  $(esc(X)) = _Y * ($(esc(:o)).clust[1].even ? $(esc(:o)).clust[1].multiplier : -$(esc(:o)).clust[1].multiplier)
-	    end
-	  elseif $(esc(:o)).clust[$(esc(c))].even
-	    if isone($(esc(:o)).clust[$(esc(c))].multiplier)
-	  	  $(esc(X)) .+= _Y
-	    else
-	  	  $(esc(X)) .+= _Y .* $(esc(:o)).clust[$(esc(c))].multiplier
-	    end
-	  elseif isone($(esc(:o)).clust[$(esc(c))].multiplier)
-	    $(esc(X)) .-= _Y
-	  else
-	    $(esc(X)) .-= _Y .* $(esc(:o)).clust[$(esc(c))].multiplier
-	  end
-  end
-end
 
 function getdist(o::StrBootTest, diststat::DistStatType=nodist)
   if diststat == numer

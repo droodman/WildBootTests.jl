@@ -35,10 +35,10 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   end
 
   if o.WREnonARubin
-	  if !iszero(o.NClustVar)
-	    o.info✻, o.ID✻ = panelsetupID(o.ID, 1:o.nbootclustvar)
-	  else
+	  if iszero(o.NClustVar)
 	    o.info⋂ = o.info✻ = Vector{UnitRange{Int64}}(undef, o.Nobs, 0)  # no clustering, so no collapsing by cluster
+	  else
+	    o.info✻, o.ID✻ = panelsetupID(o.ID, 1:o.nbootclustvar)
 	  end
   elseif !iszero(o.NClustVar)
 	  o.info✻ = panelsetup(o.ID, 1:min(o.NClustVar,o.nbootclustvar))  # bootstrap cluster grouping defs rel to original data
@@ -47,43 +47,44 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   end
   o.N✻ = nrows(o.info✻)
 
-  if o.bootstrapt
+	if o.NClustVar > o.nbootclustvar  # info for grouping by intersections of all bootstrap && clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusters
+		if o.WREnonARubin && !o.granular
+			o.info✻⋂, ID✻⋂ = panelsetupID(o.ID, 1:o.NClustVar)
+		else
+			o.info✻⋂       = panelsetup(o.ID, 1:o.NClustVar)
+		end
+		if o.subcluster>0 && nrows(o.info✻) ≠ nrows(o.info✻⋂)
+			throw(ErrorException("\nThis program can only perform the subcluster bootstrap when the bootstrap clusters are nested within the (intersections of the) error clusters.\n"))
+		end
+	else
+		o.info✻⋂ = o.info✻  # info for grouping by intersections of all bootstrap && clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusters
+		o.WREnonARubin && !o.granular && (o._ID✻⋂ = o.ID✻)
+	end
+
+	o.N✻⋂ = length(o.info✻⋂)
+
+	if o.NClustVar > o.nerrclustvar  # info for intersections of error clustering wrt data
+		if o.WREnonARubin && !o.granular
+			o.info⋂, ID⋂ = panelsetupID(o.ID, o.subcluster+1:o.NClustVar)
+		else
+			o.info⋂      = panelsetup(o.ID, o.subcluster+1:o.NClustVar)
+		end
+		ID⋂_✻⋂ = length(o.info⋂)==o.Nobs ? o.ID : o.ID[first.(o.info⋂ ),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
+		o.ID✻⋂ =            o.N✻⋂==o.Nobs ? o.ID : o.ID[first.(o.info✻⋂),:]  # version of ID matrix with one row for each all-bootstrap && error cluster-var intersection instead of 1 row for each obs
+	else
+		o.info⋂ = o.info✻⋂  # info for intersections of error clustering wrt data
+		o.WREnonARubin && !o.granular && (ID⋂ = o._ID✻⋂)
+		o.ID✻⋂ = ID⋂_✻⋂ = nrows(o.info⋂)==o.Nobs ? o.ID : o.ID[first.(o.info⋂),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
+	end
+	o.WREnonARubin && (o.info✻_✻⋂ = panelsetup(o.ID✻⋂, 1:o.nbootclustvar))
+
+	if o.bootstrapt
     if o.NClustVar>0
 	    minN = T(Inf)
 
 	    combs = [x & 2^y > 0 for x in 2^o.nerrclustvar-1:-1:1, y in o.nerrclustvar-1:-1:0]  # represent all error clustering combinations. First is intersection of all error clustering vars
 	    o.clust = Vector{StrClust{T}}(undef, nrows(combs))  # leave out no-cluster combination
 	    o.NErrClustCombs = length(o.clust)
-
-	    if o.NClustVar > o.nbootclustvar  # info for grouping by intersections of all bootstrap && clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusters
-		    if o.WREnonARubin && !o.granular
-		      o.info✻⋂, ID✻⋂ = panelsetupID(o.ID, 1:o.NClustVar)
-		    else
-		      o.info✻⋂           = panelsetup(o.ID, 1:o.NClustVar)
-		    end
-				if o.subcluster>0 && nrows(o.info✻) ≠ nrows(o.info✻⋂)
-					throw(ErrorException("\nThis program can only perform the subcluster bootstrap when the bootstrap clusters are nested within the (intersections of the) error clusters.\n"))
-				end
-			else
-		    o.info✻⋂ = o.info✻  # info for grouping by intersections of all bootstrap && clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusters
-		    o.WREnonARubin && !o.granular && (ID✻⋂ = o.ID✻)
-	    end
-
-			Nall = length(o.info✻⋂)
-
-	    if o.NClustVar > o.nerrclustvar  # info for intersections of error clustering wrt data
-		    if o.WREnonARubin && !o.granular
-		      o.info⋂, ID⋂ = panelsetupID(o.ID, o.subcluster+1:o.NClustVar)
-		    else
-		      o.info⋂      = panelsetup(o.ID, o.subcluster+1:o.NClustVar)
-		    end
-		    ID⋂_✻⋂ = length(o.info⋂)==o.Nobs ? o.ID : o.ID[first.(o.info⋂),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
-		    o.ID✻⋂ = Nall==o.Nobs ? o.ID : o.ID[first.(o.info✻⋂),:]  # version of ID matrix with one row for each all-bootstrap && error cluster-var intersection instead of 1 row for each obs
-	    else
-		    o.info⋂ = o.info✻⋂  # info for intersections of error clustering wrt data
-		    o.WREnonARubin && !o.granular && (ID⋂ = ID✻⋂)
-		    o.ID✻⋂ = ID⋂_✻⋂ = nrows(o.info⋂)==o.Nobs ? o.ID : o.ID[first.(o.info⋂),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
-	    end
 
 	    o.BootClust = 2^(o.NClustVar - o.nbootclustvar)  # location of bootstrap clustering within list of cluster combinations
 
@@ -95,7 +96,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		      if iszero(o.subcluster)
 		    	  order = Vector{Int64}(undef,0)
 		    	  info  = Vector{UnitRange{Int64}}(undef, 0)  # causes no collapsing of data in panelsum() calls
-						N = Nall
+						N = o.N✻⋂
 		      else
 		    	  order = _sortperm(@view ID⋂_✻⋂[:,ClustCols])
 		    	  info  = panelsetup(view(ID⋂_✻⋂,order,:), ClustCols)
@@ -143,15 +144,16 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		end
 
 		if o.WREnonARubin && o.robust && o.bootstrapt && !o.granular
-			if iszero(length(ID✻⋂))
-				_, ID✻⋂ = panelsetupID(o.ID,              1:o.NClustVar)
-				_, ID⋂  = panelsetupID(o.ID, o.subcluster+1:o.NClustVar)
+			if iszero(length(o._ID✻⋂))
+				_, o._ID✻⋂ = panelsetupID(o.ID,              1:o.NClustVar)
+				_, ID⋂     = panelsetupID(o.ID, o.subcluster+1:o.NClustVar)
 			end
+
 			o.IDCT⋂✻   = Vector{Vector{Int64}}(undef, o.N✻)
 			o.infoCT⋂✻ = Vector{Vector{UnitRange{Int64}}}(undef, o.N✻)
 			for i ∈ 1:o.N✻
-				tmp = ID✻⋂[o.info✻[i]]                    # ID numbers w.r.t. intersection of all bootstrap/error clusterings contained in bootstrap cluster i
-				o.infoCT⋂✻[i] = o.info✻⋂[tmp[1]:tmp[end]] # for each of those ID's, panel info for the all-bootstrap/error-clusterings data row groupings
+				tmp = o._ID✻⋂[o.info✻[i]]                        # ID numbers w.r.t. intersection of all bootstrap/error clusterings contained in bootstrap cluster i
+				o.infoCT⋂✻[i] = o.info✻⋂[tmp[1]:tmp[end]]       # for each of those ID's, panel info for the all-bootstrap/error-clusterings data row groupings
 				o.IDCT⋂✻[i] = ID⋂[first.(o.infoCT⋂✻[i])]  # ID numbers of those groupings w.r.t. the all-error-clusterings grouping
 			end
 		end
@@ -165,7 +167,7 @@ o._ID✻⋂=ID✻⋂
 		if o.NFE>0 && !o.FEboot
 			_, o.ID✻ = panelsetupID(o.ID   , 1:o.nbootclustvar)
 		else
-			_, o.ID✻_✻⋂  = panelsetupID(o.ID✻⋂, 1:o.nbootclustvar)
+			_, o.ID✻_✻⋂ = panelsetupID(o.ID✻⋂, 1:o.nbootclustvar)
 		end
 	end
 
@@ -220,6 +222,11 @@ o._ID✻⋂=ID✻⋂
 
 		elseif o.WREnonARubin
 
+			o.Repl = StrEstimator{T}(false, o.LIML, o.Fuller, o.κ)
+			setR!(o.Repl, o, o.R₁, o.R)
+			InitVarsIV!(o.Repl, o)
+			EstimateIV!(o.Repl, o, o.r₁)
+
 			o.DGP = StrEstimator{T}(true, T(o.kX₂ ≠ o.kY₂), zero(T), one(T))
 			setR!(o.DGP, o, o.null ? [o.R₁ ; o.R] : o.R₁, zeros(T,0,o.kZ))  # DGP constraints: model constraints + null if imposed
 			InitVarsIV!(o.DGP, o)
@@ -227,25 +234,7 @@ o._ID✻⋂=ID✻⋂
 				EstimateIV!(o.DGP, o, o.r₁)
 				MakeResidualsIV!(o.DGP, o)
 			end
-			o.Repl = StrEstimator{T}(false, o.LIML, o.Fuller, o.κ)
-			setR!(o.Repl, o, o.R₁, o.R)
-			InitVarsIV!(o.Repl, o)
-			EstimateIV!(o.Repl, o, o.r₁)
 			InitWRE!(o)
-
-			if o.bootstrapt
-				o.δdenom_b = zeros(o.Repl.kZ, o.Repl.kZ)
-				o.S✻UMZperp = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
-				o.S✻UPX     = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
-				o._J⋂ = zeros(o.clust[1].N, o.Repl.kZ)
-				!o.granular && (o.S✻⋂u₁XinvXX = Matrix{Matrix{T}}(undef, o.Repl.kZ+1, o.N✻))
-				if o.LIML || !o.robust
-					o.YY✻_b   = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
-					o.YPXY✻_b = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
-				end
-				o.NFE>0 && (o.bootstrapt || !isone(o.κ) || o.LIML) && (o.CTFEU = Vector{Matrix{T}}(undef, o.Repl.kZ+1))
-			end
-
 		else  # the score bootstrap for IV/GMM uses a IV/GMM DGP but then masquerades as an OLS test because most factors are fixed during the bootstrap. To conform, need DGP and Repl objects with different R, R₁, one with FWL, one not
 
 			o.DGP = StrEstimator{T}(true, o.LIML, o.Fuller, o.κ)
@@ -273,10 +262,10 @@ o._ID✻⋂=ID✻⋂
 
 		if o.robust && o.granular<o.NErrClustCombs && o.B>0
 			inds = o.subcluster>0 ?
-				        [CartesianIndex(j, i) for (j,v) ∈ enumerate(o.info⋂_✻⋂) for i ∈ v] :  # crosstab c,c* is wide
+				        [CartesianIndex(j, i) for (j,v) ∈ enumerate(o.info⋂_✻⋂) for i ∈ v] :  # crosstab ∩,* is wide
 								o.NClustVar == o.nbootclustvar ?
-										[CartesianIndex(i, i) for i ∈ 1:Nall] :  # crosstab c,c* is square
-										[CartesianIndex(i, j) for (j,v) ∈ enumerate(o.clust[o.BootClust].info) for i ∈ v]  # crosstab c,c* is tall
+										[CartesianIndex(i, i) for i ∈ 1:o.N✻⋂] :  # crosstab ∩,* is square
+										[CartesianIndex(i, j) for (j,v) ∈ enumerate(o.clust[o.BootClust].info) for i ∈ v]  # crosstab ∩,* is tall
 			o.crosstab⋂✻ind = LinearIndices(FakeArray(Tuple(max(inds...))...))[inds]
 		end
 	end
@@ -304,8 +293,8 @@ o._ID✻⋂=ID✻⋂
 			o.numer_b = Vector{T}(undef,nrows(o.Repl.RRpar))
 		end
 		o.bootstrapt && o.robust &&
-    	(o.crosstabBootind = o.Nobs==o.N✻ ? Vector(diagind(FakeArray(o.N✻,o.N✻))) : 
-			                                    LinearIndices(FakeArray(o.Nobs,o.N✻))[CartesianIndex.(1:o.Nobs, o.ID✻)])
+    	(o.crosstab✻ind = o.Nobs==o.N✻ ? Vector(diagind(FakeArray(o.N✻,o.N✻))) : 
+			                                 LinearIndices(FakeArray(o.Nobs,o.N✻))[CartesianIndex.(1:o.Nobs, o.ID✻)])
 	else
 		o.poles = o.anchor = zeros(T,0)
 		o.interpolable = o.bootstrapt && o.B>0 && o.null && o.Nw==1 && (iszero(o.κ) || o.ARubin)
@@ -373,6 +362,10 @@ function InitFEs(o::StrBootTest{T}) where T
 		if o.FEboot  # are all of this FE's obs in same bootstrapping cluster?
 			tmp = o.ID[is, 1:o.nbootclustvar]
 			o.FEboot = all(tmp .== @view tmp[1,:])
+		end
+
+		if o.robust && o.B>0 && o.bootstrapt && !o.FEboot && o.granular < o.nerrclustvar
+			o.infoBootAll = panelsetup(o.ID✻⋂, 1:o.nbootclustvar)  # info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping && error clusters
 		end
 
 		o.X₁ = partialFE(o, o.X₁)  # don't overwrite caller's data

@@ -35,7 +35,7 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 								o.∂Jcd∂r[h₁][c,d₁] = (o.Jcd[c,d₁] .- o.Jcd₀[c,d₁]) ./ o.poles[h₁]
 								for d₂ ∈ 1:d₁
 									tmp = coldot(o, o.Jcd₀[c,d₁], o.∂Jcd∂r[h₁][c,d₂])
-									d₁ ≠ d₂ && (o.coldotplus!(tmp, o.Jcd₀[c,d₂], o.∂Jcd∂r[h₁][c,d₁]))  # for diagonal items, faster to just double after the c loop
+									d₁ ≠ d₂ && (coldotplus!(Val(o.turbo), tmp, o.Jcd₀[c,d₂], o.∂Jcd∂r[h₁][c,d₁]))  # for diagonal items, faster to just double after the c loop
 									@clustAccum!(o.∂denom∂r[h₁][d₁,d₂], c, tmp)
 								end
 							end
@@ -222,7 +222,7 @@ end
 
 function MakeNonWRELoop1!(o::StrBootTest, tmp::Matrix, w::Integer)
 	@inbounds Threads.@threads for k ∈ 1:ncols(o.v)
-		for i ∈ 1:o.dof
+		@inbounds for i ∈ 1:o.dof
 			for j ∈ 1:i
 				tmp[j,i] = o.denom[i,j][k]  # fill upper triangle, which is all invsym() looks at
 			end
@@ -260,7 +260,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 				(o.statDenom = [o.denom[1,1][1] o.denom[2,1][1] ; o.denom[2,1][1] o.denom[2,2][1]])  # original-sample denominator
 		else  # build each replication's denominator from vectors that hold values for each position in denominator, all replications
 			tmp = Matrix{T}(undef, o.dof, o.dof)
-			MakeNonWRELoop1!(o,tmp,w)
+			MakeNonWRELoop1!(o,tmp, w)
 			isone(w) && (o.statDenom = tmp)  # original-sample denominator
 		end
 	else  # non-robust

@@ -14,7 +14,7 @@ struct BootTestResult{T}
   b::Vector{T}
   V::Matrix{T}
   auxweights::Union{Nothing,Matrix{T}}
-  # M::StrBootTest
+  M::StrBootTest
 end
 
 "Return test statistic"
@@ -26,13 +26,13 @@ statnumer(o::BootTestResult) = o.b
 "Return denominator of test statistic"
 statvar(o::BootTestResult) = o.V
 
-"""Return type of test statistic subject: "t", "z", "F", or "χ²" """
+"""Return type of test statistic: "t", "z", "F", or "χ²" """
 stattype(o::BootTestResult) = o.stattype
 
 "Return p value"
 p(o::BootTestResult) = o.p
 
-"Returnp p value after multiple-hypothesis adjustment, if any"
+"Return p value after multiple-hypothesis adjustment, if any"
 padj(o::BootTestResult) = o.padj
 
 "Return requested number of replications"
@@ -44,10 +44,10 @@ repsfeas(o::BootTestResult) = o.repsfeas
 "Return number of bootstrapping clusters in test"
 nbootclust(o::BootTestResult) = o.nbootclust
 
-"Return degrees of freedom test"
+"Return degrees of freedom of test"
 dof(o::BootTestResult) = o.dof
 
-"Return residual degrees of freedom test"
+"Return residual degrees of freedom of test"
 dof_r(o::BootTestResult) = o.dof_r
 
 """
@@ -149,7 +149,7 @@ function __wildboottest(
 	                  M.p, padj, M.B, M.BFeas, M.N✻, M.dof, M.dof_r, plot, peak, CI,
 	                  getdist(M, diststat),
 	                  getb(M), getV(M),
-	                  getauxweights && reps>0 ? getv(M) : nothing #=, M=#)
+	                  getauxweights && reps>0 ? getv(M) : nothing , M)
 end
 
 vecconvert(T::DataType, X) = Vector(isa(X, AbstractArray) ? vec(    eltype(X)==T ? X : T.(X)) : X)
