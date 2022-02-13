@@ -2,23 +2,27 @@
 function InitWRE!(o::StrBootTest{T}) where T
 	o.LIML && o.Repl.kZ==1 && o.Nw==1 && (o.As = o.β̈s = zeros(1, o.B+1))
 
-	o.invZperpZperpS✻ZperpU = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
-	o.S✻ZperpU              = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
-	o.S✻YU                  = Matrix{Vector{T}}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
-	o.invXXS✻XU             = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
-	o.S✻XU                  = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
-	o.S✻UU                  = Matrix{Matrix{T}}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
+	o.S✻ZperpU              = [Matrix{T}(undef, ncols(o.Repl.Zperp), o.N✻) for _ ∈ 0:o.Repl.kZ]
+	o.invZperpZperpS✻ZperpU = [Matrix{T}(undef, ncols(o.Repl.Zperp), o.N✻) for _ ∈ 0:o.Repl.kZ]
+	o.S✻YU                  = [Vector{T}(undef, o.N✻) for _ ∈ 0:o.Repl.kZ, _ ∈ 0:o.Repl.kZ]
+	o.S✻XU                  = [Matrix{T}(undef, o.DGP.kX, o.N✻) for _ ∈ 0:o.Repl.kZ]
+	o.invXXS✻XU             = [Matrix{T}(undef, o.DGP.kX, o.N✻) for _ ∈ 0:o.Repl.kZ]
+	o.S✻UU                  = [Vector{T}(undef, o.N✻) for _ ∈ 0:o.Repl.kZ, _ ∈ 0:o.Repl.kZ]
 	o.T1L = isone(o.Nw) ? [Matrix{T}(undef, o.Repl.kX, ncols(o.v))] :
 												[Matrix{T}(undef, o.Repl.kX, length(o.WeightGrp[1])), Matrix{T}(undef, o.Repl.kX, length(o.WeightGrp[end]))]
 	o.T1R = deepcopy(o.T1L)
-	o.S✻UPX_S✻UMZperp = Matrix{Array{T,3}}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
+	o.robust && o.bootstrapt && iszero(o.granular) &&
+		(o.S✻UPX_S✻UMZperp = [Array{T,3}(undef, o.N✻, nrows(o.info⋂), o.N✻) for _ ∈ 0:o.Repl.kZ, _ ∈ 0:o.Repl.kZ])
 
 	if o.bootstrapt
 		o.δdenom_b = zeros(o.Repl.kZ, o.Repl.kZ)
-		o.S✻UMZperp = Vector{Matrix{T}}(undef, o.Repl.kZ+1)
-		o.granular && (o.S✻UPX     = Vector{Matrix{T}}(undef, o.Repl.kZ+1))
+		if o.robust && o.granular
+			o.S✻UMZperp = [Matrix{T}(undef, o.Nobs, o.N✻) for _ ∈ 0:o.Repl.kZ]
+			o.S✻UPX     = [Matrix{T}(undef, o.Nobs, o.N✻) for _ ∈ 0:o.Repl.kZ]
+		end
 		o._J⋂ = zeros(o.clust[1].N, o.Repl.kZ)
-		!o.granular && !(o.NClustVar == o.nbootclustvar && iszero(o.subcluster)) && (o.S✻⋂u₁XinvXX = Matrix{Matrix{T}}(undef, o.Repl.kZ+1, o.N✻))
+		!o.granular && !(o.NClustVar == o.nbootclustvar && iszero(o.subcluster)) &&
+			(o.S✻⋂u₁XinvXX = [Matrix{T}(undef, length(o.info✻[g]), o.Repl.kX) for _ ∈ 0:o.Repl.kZ, g ∈ 1:o.N✻])
 		if o.LIML || !o.robust
 			o.YY✻_b   = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
 			o.YPXY✻_b = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
@@ -43,7 +47,6 @@ function InitWRE!(o::StrBootTest{T}) where T
 	_S✻Zperpy₁      = dropdims(@panelsum(o, reshape(o.Repl.S✻⋂Zperpy₁,Val(3)), o.info✻_✻⋂); dims=3)
 	_S✻ZperpDGPZpar = @panelsum(o, o.DGP.S✻⋂ZperpZpar, o.info✻_✻⋂)
 	_S✻ZperpDGPZR₁  = @panelsum(o, o.DGP.S✻⋂ZperpZR₁, o.info✻_✻⋂)
-	# _S✻XZperp    = @panelsum(o, o.Repl.S✻⋂XZperp, o.info✻_✻⋂)
 
 	S✻ZperpZperp    = @panelsum(o, o.Repl.S✻⋂ZperpZperp, o.info✻_✻⋂)
 	o.S✻XY₂         = @panelsum(o, o.S✻⋂XY₂   , o.info✻_✻⋂)
@@ -68,8 +71,6 @@ function InitWRE!(o::StrBootTest{T}) where T
 
 	if ((o.robust && o.bootstrapt) || o.LIML || !o.robust || !isone(o.κ))
 		S✻⋂ReplZX = (o.Repl.S✻⋂XZpar - o.Repl.S✻⋂XZperp * o.Repl.invZperpZperpZperpZpar - o.Repl.invZperpZperpZperpX' * (o.Repl.S✻⋂ZperpZpar - o.Repl.S✻⋂ZperpZperp * o.Repl.invZperpZperpZperpZpar))'
-		o.Repl.restricted &&
-			(r₁S✻⋂ReplZR₁X = o.r₁' * (o.Repl.S✻⋂XZR₁ - o.Repl.S✻⋂XZperp * o.Repl.invZperpZperpZperpZR₁ - o.Repl.invZperpZperpZperpX' * (o.Repl.S✻⋂ZperpZR₁ - o.Repl.S✻⋂ZperpZperp * o.Repl.invZperpZperpZperpZR₁))')
 	end
 
 	if o.bootstrapt & o.robust
@@ -99,12 +100,14 @@ function InitWRE!(o::StrBootTest{T}) where T
 				(o.S⋂YX[i+1] = view(S⋂ReplZ_X,i,:,:))  # S⋂(M_Zperp[Z or y₁] .* P_(MZperpX)])
 		end
 
-		o.Repl.restricted &&
-			(S⋂ReplZR₁r₁_X  = @panelsum(o, r₁S✻⋂ReplZR₁X, o.info⋂_✻⋂))
-
 		tmp = (o.Repl.invXXXZ' * S⋂Xy₁)'
-		o.Repl.restricted &&
-			(tmp .-= dropdims(o.Repl.invXXXZ' * S⋂ReplZR₁r₁_X'; dims=3)')
+		if o.Repl.restricted
+			S⋂ReplXZR₁r₁  = dropdims(@panelsum(o, reshape((o.Repl.S✻⋂XZR₁ - 
+			                              o.Repl.S✻⋂XZperp * o.Repl.invZperpZperpZperpZR₁ - 
+																		o.Repl.invZperpZperpZperpX' * (o.Repl.S✻⋂ZperpZR₁ - o.Repl.S✻⋂ZperpZperp * o.Repl.invZperpZperpZperpZR₁)) * o.r₁, Val(3)), o.info⋂_✻⋂); dims=3)
+			tmp .-= S⋂ReplXZR₁r₁'o.Repl.invXXXZ
+		end
+
 		for i ∈ 1:o.Repl.kZ
 			o.FillingT₀[i+1,1] = reshape(view(tmp,:,i),:,1)
 		end
@@ -115,7 +118,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 		else
 			o.S⋂YX[1] = dropdims(@panelsum(o, reshape(o.S✻⋂Xy₁,Val(3)), o.info⋂_✻⋂); dims=3)'  # S⋂(M_Zperp*y₁ .* P_(MZperpX)])
 			o.Repl.restricted &&
-				(o.S⋂YX[1] .-= dropdims(S⋂ReplZR₁r₁_X; dims=1))
+				(o.S⋂YX[1] .-= S⋂ReplXZR₁r₁')
 
 			inds = o.subcluster>0 ?
 							[CartesianIndex(i,j) for (j,v) ∈ enumerate(o.info⋂_✻⋂) for i ∈ v] :  # crosstab *,∩ is tall
@@ -236,28 +239,28 @@ function PrepWRE!(o::StrBootTest{T}) where T
   @inbounds for i ∈ 0:o.Repl.kZ  # precompute various clusterwise sums
 		# S_✻(u .* X), S_✻(u .* Zperp) for residuals u for each endog var; store transposed
 		if iszero(i)
-			o.S✻XU[1]      = o.S✻Xy₁      - o.S✻XDGPZ      * o.DGP.β̈ + S✻XU₂      * o.DGP.γ̈
-			o.invXXS✻XU[1] = o.invXXS✻Xy₁ - o.invXXS✻XDGPZ * o.DGP.β̈ + invXXS✻XU₂ * o.DGP.γ̈
+			o.S✻XU[1]      .= o.S✻Xy₁      - o.S✻XDGPZ      * o.DGP.β̈ + S✻XU₂      * o.DGP.γ̈
+			o.invXXS✻XU[1] .= o.invXXS✻Xy₁ - o.invXXS✻XDGPZ * o.DGP.β̈ + invXXS✻XU₂ * o.DGP.γ̈
 			if o.DGP.restricted
 				o.S✻XU[1]      .-= o.S✻XZR₁      * r₁
 				o.invXXS✻XU[1] .-= o.invXXS✻XDGPZR₁ * r₁
 			end
 		else
-			o.S✻XU[i+1]      = view(S✻XU₂RparY,:,:,i)
-			o.invXXS✻XU[i+1] = view(invXXS✻XU₂RparY,:,:,i)
+			o.S✻XU[i+1]      .= view(S✻XU₂RparY,:,:,i)
+			o.invXXS✻XU[i+1] .= view(invXXS✻XU₂RparY,:,:,i)
 		end
 
 		if o.LIML || !isone(o.κ) || o.bootstrapt
 			if iszero(i)
-				o.S✻ZperpU[1]              = o.S✻Zperpy₁              - o.S✻ZperpDGPZ              * o.DGP.β̈ + S✻ZperpU₂              * o.DGP.γ̈
-				o.invZperpZperpS✻ZperpU[1] = o.invZperpZperpS✻Zperpy₁ - o.invZperpZperpS✻ZperpDGPZ * o.DGP.β̈ + invZperpZperpS✻ZperpU₂ * o.DGP.γ̈
+				o.S✻ZperpU[1]              .= o.S✻Zperpy₁              - o.S✻ZperpDGPZ              * o.DGP.β̈ + S✻ZperpU₂              * o.DGP.γ̈
+				o.invZperpZperpS✻ZperpU[1] .= o.invZperpZperpS✻Zperpy₁ - o.invZperpZperpS✻ZperpDGPZ * o.DGP.β̈ + invZperpZperpS✻ZperpU₂ * o.DGP.γ̈
 				if o.DGP.restricted
 					o.S✻ZperpU[1]              .-= o.S✻ZperpDGPZR₁              * r₁
 					o.invZperpZperpS✻ZperpU[1] .-= o.invZperpZperpS✻ZperpDGPZR₁ * r₁
 				end
 			else
-				o.S✻ZperpU[i+1]              = view(S✻ZperpU₂RparY,:,:,i)
-				o.invZperpZperpS✻ZperpU[i+1] = view(invZperpZperpS✻ZperpU₂RparY,:,:,i)
+				o.S✻ZperpU[i+1]              .= view(S✻ZperpU₂RparY,:,:,i)
+				o.invZperpZperpS✻ZperpU[i+1] .= view(invZperpZperpS✻ZperpU₂RparY,:,:,i)
 			end
 	
 			if o.NFE>0
@@ -273,7 +276,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 
 		if o.LIML || !isone(o.κ) || !o.robust
 			if iszero(i)  # panelsum2(o, o.Repl.y₁par, o.Repl.Z, uwt, o.info✻)
-				o.S✻YU[1,1] = o.S✻y₁y₁ - o.S✻DGPZy₁'o.DGP.β̈ + S✻U₂y₁'o.DGP.γ̈
+				o.S✻YU[1,1] .= o.S✻y₁y₁ - o.S✻DGPZy₁'o.DGP.β̈ + S✻U₂y₁'o.DGP.γ̈
 				o.DGP.restricted &&
 					(o.S✻YU[1,1] .-= view(r₁S✻DGPZR₁y₁, 1,:))
 
@@ -284,32 +287,32 @@ function PrepWRE!(o::StrBootTest{T}) where T
 				end
 
 				for j ∈ 1:o.Repl.kZ
-					o.S✻YU[j+1,1] = view(o.S✻ReplZy₁ - o.S✻ReplZDGPZ * o.DGP.β̈ + S✻ZU₂ * o.DGP.γ̈, j,:,1)
+					o.S✻YU[j+1,1] .= view(o.S✻ReplZy₁ - o.S✻ReplZDGPZ * o.DGP.β̈ + S✻ZU₂ * o.DGP.γ̈, j,:,1)
 					o.DGP.restricted &&
 						(o.S✻YU[j+1,1] .-= view(S✻ReplZDGPZR₁r₁, j,:,1))
 				end
       else
-				o.S✻YU[1,i+1] = @view S✻U₂y₁[i,:,1]
+				o.S✻YU[1,i+1] .= @view S✻U₂y₁[i,:,1]
 				o.Repl.restricted &&
 					(o.S✻YU[1,i+1] .-= @view S✻ReplZR₁r₁U₂RparY[1,:,i])
 				for j ∈ 1:o.Repl.kZ
-					o.S✻YU[j+1,i+1] = @view S✻ZU₂RparY[j,:,i]
+					o.S✻YU[j+1,i+1] .= @view S✻ZU₂RparY[j,:,i]
 				end
 			end
 			XXX = o.S✻Y₂y₁ - o.S✻DGPZY₂' * o.DGP.β̈ - o.DGP.Π̂' * (o.S✻Xy₁  - o.S✻XDGPZ * o.DGP.β̈)
 			if iszero(i)
-		 		o.S✻UU[1,i+1] = o.S✻y₁y₁ - (2 * o.S✻DGPZy₁ + o.S✻DGPZDGPZ * o.DGP.β̈)'o.DGP.β̈ + (2 * XXX - Π̂S✻XÜ₂γ̈ + S✻Y₂Ü₂γ̈)'o.DGP.γ̈
+		 		o.S✻UU[1,i+1] .= o.S✻y₁y₁ - (2 * o.S✻DGPZy₁ + o.S✻DGPZDGPZ * o.DGP.β̈)'o.DGP.β̈ + (2 * XXX - Π̂S✻XÜ₂γ̈ + S✻Y₂Ü₂γ̈)'o.DGP.γ̈
 				o.DGP.restricted
 					(o.S✻UU[1,i+1] .+= dropdims(-2 * r₁S✻DGPZR₁y₁ + r₁' * (o.S✻DGPZR₁DGPZR₁ * r₁) + 2 * r₁' * (o.S✻DGPZR₁DGPZ * o.DGP.β̈ + (o.S✻DGPZR₁X * o.DGP.Π̂ - o.S✻DGPZR₁Y₂) * o.DGP.γ̈); dims=1))  # XXX dropdims vs view...
 			else
-				o.S✻UU[1,i+1] = view(o.Repl.RparY' * (XXX + S✻Y₂Ü₂γ̈ - Π̂S✻XÜ₂γ̈), i,:)
+				o.S✻UU[1,i+1] .= view(o.Repl.RparY' * (XXX + S✻Y₂Ü₂γ̈ - Π̂S✻XÜ₂γ̈), i,:)
 
 				if o.DGP.restricted
 					o.S✻UU[1,i+1] .-= view(r₁' * (o.S✻DGPZR₁Y₂ - o.S✻DGPZR₁X * o.DGP.Π̂) * o.Repl.RparY, 1,:,i)
 				end
 			end
 			for j ∈ 1:i
-				o.S✻UU[j+1,i+1] = view(S✻Ü₂parÜ₂par, j,:,i)
+				o.S✻UU[j+1,i+1] .= view(S✻Ü₂parÜ₂par, j,:,i)
 			end
 		end
 
@@ -319,20 +322,24 @@ function PrepWRE!(o::StrBootTest{T}) where T
 					_S✻⋂UXinvXX = o.invXXS✻⋂Xy₁ - o.invXXS✻⋂XDGPZ * o.DGP.β̈ + invXXS✻⋂XU₂ * o.DGP.γ̈
 					o.DGP.restricted &&
 						(_S✻⋂UXinvXX .-= o.invXXS✻⋂XDGPZR₁ * r₁)
+					if !(o.NClustVar == o.nbootclustvar && iszero(o.subcluster))
+						for g ∈ 1:o.N✻
+							o.S✻⋂u₁XinvXX[i+1,g] .= view(_S✻⋂UXinvXX,:,o._ID✻⋂[o.info✻[g]],1)'  # panelsum(o, o.XinvXX, u, o.infoCT⋂✻[g])
+						end
+					end
 				else
-					_S✻⋂UXinvXX = view(invXXS✻⋂XU₂RparY,:,:,i)
-				end
-				if !(o.NClustVar == o.nbootclustvar && iszero(o.subcluster))
-					for g ∈ 1:o.N✻
-						o.S✻⋂u₁XinvXX[i+1,g] = view(_S✻⋂UXinvXX,:,o._ID✻⋂[o.info✻[g]],1)'  # panelsum(o, o.XinvXX, u, o.infoCT⋂✻[g])
+					if !(o.NClustVar == o.nbootclustvar && iszero(o.subcluster))
+						for g ∈ 1:o.N✻
+							o.S✻⋂u₁XinvXX[i+1,g] .= view(invXXS✻⋂XU₂RparY,:,o._ID✻⋂[o.info✻[g]],1,i)'  # panelsum(o, o.XinvXX, u, o.infoCT⋂✻[g])
+						end
 					end
 				end
 			end
 
 			if o.granular
-				i>0 && (o.S✻UPX[i+1] = o.XinvXX * o.S✻XU[i+1])
+				i>0 && (o.S✻UPX[i+1] .= o.XinvXX * o.S✻XU[i+1])
 
-				o.S✻UMZperp[i+1] = o.Repl.Zperp * o.invZperpZperpS✻ZperpU[i+1] 
+				o.S✻UMZperp[i+1] .= o.Repl.Zperp * o.invZperpZperpS✻ZperpU[i+1] 
 				if iszero(i)  # subtract crosstab of observation by ∩-group of u
 					o.S✻UMZperp[  1][o.crosstab✻ind] .-= o.DGP.u⃛₁
 				else
@@ -361,7 +368,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
  				S✻UMZperpX = o.Repl.invXX * S✻UMZperpX
 				for ind1 ∈ 1:o.Repl.kZ
 					o.Repl.Yendog[ind1+1] &&
-						(o.S✻UPX_S✻UMZperp[ind1+1,ind2+1] = o.S✻XU[ind1+1]'S✻UMZperpX)  # XXX preallocate destinations
+						(o.S✻UPX_S✻UMZperp[ind1+1,ind2+1] .= o.S✻XU[ind1+1]'S✻UMZperpX)
 				end
 			end
 		end
@@ -452,7 +459,7 @@ end
 
 # put threaded loops in functions to prevent type instability https://discourse.julialang.org/t/type-inference-with-threads/2004/3
 function FillingLoop1!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::Integer, _β̈::AbstractMatrix{T}) where T
-	Threads.@threads for i ∈ 1:o.clust[1].N
+	#=Threads.@threads=# for i ∈ 1:o.clust[1].N
 		PXY✻ = hcat(o.PXZ[i,ind1])
 		o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ view(o.S✻UPX[ind1+1],i,:)'o.v)
 
@@ -467,7 +474,7 @@ function FillingLoop1!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::
 	nothing
 end
 function FillingLoop2!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::Integer, _β̈::AbstractMatrix{T}) where T
-	Threads.@threads for i ∈ 1:o.clust[1].N
+	#=Threads.@threads=# for i ∈ 1:o.clust[1].N
 		S = o.info⋂[i]
 		PXY✻ = o.Repl.Yendog[ind1+1] ? view(o.PXZ,S,ind1) .+ view(o.S✻UPX[ind1+1],S,:) * o.v :
 																	reshape(o.PXZ[S,ind1], :, 1)
@@ -482,7 +489,7 @@ function FillingLoop2!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::
 	nothing
 end
 function FillingLoop3!(o::StrBootTest{T}, T₁::Matrix{T}, ind1::Integer, ind2::Integer) where T
-	Threads.@threads for i ∈ 1:o.N✻
+	#=Threads.@threads=# for i ∈ 1:o.N✻
 		T₁[o.IDCT⋂✻[i], i] .+= o.S✻⋂u₁XinvXX[ind2+1,i] * view(o.Repl.XZ,:,ind1)
 	end
 	nothing
@@ -556,13 +563,13 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̈s::AbstractMatrix) where 
 					dest .+= o.FillingT₀[ind1+1,ind2+1] * _β̈ .+ T₁ .* β̈v
 				else
 					dest .+= o.FillingT₀[ind1+1,ind2+1] * _β̈
-					o.matmulplus!(dest, T₁, β̈v)
+					matmulplus!(Val(o.turbo), dest, T₁, β̈v)
 				end
 			end
 
 			if o.Repl.Yendog[ind1+1] && o.Repl.Yendog[ind2+1]  # (S_*:*U ̈_(∥j)^'-S_* (U ̈_(∥j):*Z_⊥ ) (Z_⊥^' Z_⊥ )^(-1) Z_⊥^' )^' v^*
-				for i ∈ 1:o.clust[1].N  # put this logic inside colquadform(...Array{T,3}...)
-					o.colquadformminus!(dest, i, o.v, o.S✻UPX_S✻UMZperp[ind1+1,ind2+1][:,i,:], β̈v)  # colquadformminus runs faster on array than view; convert to Array{3} of vectors
+				for i ∈ 1:o.clust[1].N  # equivalent to this loop but slower: colquadformminus!(Val(o.turbo), dest, o.v, o.S✻UPX_S✻UMZperp[ind1+1,ind2+1], β̈v)
+					colquadformminus!(Val(o.turbo), dest, i, o.v, o.S✻UPX_S✻UMZperp[ind1+1,ind2+1][:,i,:], β̈v)  # colquadformminus runs faster on array than view; convert to Array{3} of vectors
 				end
 			end
 		end
@@ -639,7 +646,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			δnumer =  HessianFixedkappa(o, collect(1:o.Repl.kZ), 0, o.κ, w)
 			δdenom = [HessianFixedkappa(o, collect(1:i), i, o.κ, w) for i ∈ 1:o.Repl.kZ]
 			
-			@inbounds Threads.@threads for b ∈ axes(o.v,2)
+			@inbounds #=Threads.@threads=# for b ∈ axes(o.v,2)
 				for i ∈ 1:o.Repl.kZ
 					o.δdenom_b[1:i,i] = view(δdenom[i],:,b)  # fill uppper triangle
 				end

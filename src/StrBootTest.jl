@@ -82,7 +82,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   peak::NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
 
 	Nobs::Int64; NClustVar::Int8; kX₁::Int64; kX₂::Int64; kY₂::Int64; WREnonARubin::Bool; boottest!::Function
-	coldotplus!::Function; colquadformminus!::Function; matmulplus!::Function; panelsum!::Function
+	turbo::Bool
 
   sqrt::Bool; _Nobs::T; kZ::Int64; sumwt::T; haswt::Bool; REst::Bool; multiplier::T; smallsample::T
 		dof::Int64; dof_r::T; p::T; BootClust::Int8
@@ -140,7 +140,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 				Matrix{T}(undef,0,0),
 				(X = Vector{T}(undef,0), p = T(NaN)),
 				nrows(X₁), ncols(ID), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!, 
-				turbo ? coldotplus_turbo! : coldotplus_nonturbo!, turbo ? colquadformminus_turbo! : colquadformminus_nonturbo!, turbo ? matmulplus_turbo! : matmulplus_nonturbo!, turbo ? panelsum_turbo! : panelsum_nonturbo!)
+				turbo)
 		end
 end
 

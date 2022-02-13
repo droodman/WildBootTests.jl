@@ -106,14 +106,26 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T, w::Integer)
 	nothing
 end
 
-include("precompile_WildBootTests.jl")  # source: https://timholy.github.io/SnoopCompile.jl/stable/snoopi_deep_parcel/#SnoopCompile.write
-_precompile_()
+# include("precompile_WildBootTests.jl")  # source: https://timholy.github.io/SnoopCompile.jl/stable/snoopi_deep_parcel/#SnoopCompile.write
+# _precompile_()
 
 end
 
+# using StatFiles, StatsModels, DataFrames, DataFramesMeta, BenchmarkTools, Plots, CategoricalArrays, Random, StableRNGs
+# df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\nlsw88.dta"))
+# df = df[:, [:wage; :tenure; :ttl_exp; :collgrad; :industry; :union]]
+# dropmissing!(df)
+# f = @formula(wage ~ 1 + ttl_exp + collgrad)
+# f = apply_schema(f, schema(f, df))
+# resp, predexog = modelcols(f, df)
+# ivf = @formula(tenure ~ union)
+# ivf = apply_schema(ivf, schema(ivf, df))
+# predendog, inst = modelcols(ivf, df)
+# test = WildBootTests.wildboottest([0 0 0 1], [.0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, auxwttype=WildBootTests.webb, bootstrapc=true, ptype=WildBootTests.equaltail, rng=StableRNG(1231), gridmin=[-5], gridmax=[5], gridpoints=[100])
+
 
 using StableRNGs, Random, BenchmarkTools
-N=1_000_00; G=40; k=2; l=4
+N=1_00_000; G=40; k=2; l=4
 Random.seed!(1231)
 β=rand(); γ=rand(k); Π=rand(l)
 W = rand(N,l)
@@ -125,7 +137,8 @@ y₁ = y₂ * β + Z * γ + u₁
 ID = floor.(Int8, collect(0:N-1) / (N/G))
 R = [zeros(1,k) 1]; r = [0]
 FEID = rand([1,2,3,4,5],N)
-WildBootTests.wildboottest(Float32, R,#=.46=#.36; R1 = [1 zeros(1,k)], r1=[0], resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=999, issorted=true, rng=StableRNG(1231), LIML=true, feid=FEID)
+test = WildBootTests.wildboottest(Float32, R,#=.46=#.36; R1 = [1 zeros(1,k)], r1=[0], resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=999, issorted=true, rng=StableRNG(1231), LIML=true, feid=FEID)
+test
 WildBootTests.wildboottest(Float64, R,#=.46=#.36; R1 = [1 zeros(1,k)], r1=[0], resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=999, issorted=true, rng=StableRNG(1231), LIML=true, feid=FEID)
 
 N=1_000_000; G=40; k=12; l=40
@@ -139,7 +152,7 @@ Z = rand(N,k)
 y₁ = y₂ * β + Z * γ + u₁
 ID = floor.(Int8, collect(0:N-1) / (N/G))
 R = [zeros(1,k) 1]; r = [0]
-@btime WildBootTests.wildboottest(Float32, R,.4; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=false)
-@btime WildBootTests.wildboottest(Float64, R,.4; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=false)
+@btime WildBootTests.wildboottest(Float32, R,r; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=false)
+@btime WildBootTests.wildboottest(Float64, R,r; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=false)
 
-# @btime WildBootTests.wildboottest(Float32, R,.4; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=true);
+@btime WildBootTests.wildboottest(Float32, R,.4; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=true);
