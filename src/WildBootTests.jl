@@ -74,12 +74,12 @@ end
 # if not imposing null and we have returned to boottest!(), then dof=1 or 2; we're plotting or finding CI, and only test stat, not distribution, changes with r
 function NoNullUpdate!(o::StrBootTest{T} where T)
 	if o.WREnonARubin
-		o.numer[:,1] = o.R * o.DGP.Rpar * o.β̂s[1] - o.r
+		o.numer[:,1] = o.R * o.DGP.Rpar * o.β̈s[1] - o.r
 	elseif o.ARubin
 		EstimateARubin!(o.DGP, o, o.r)
-		o.numer[:,1] = o.v_sd * @view o.DGP.β̂[o.kX₁+1:end,:]  # coefficients on excluded instruments in ARubin OLS
+		o.numer[:,1] = o.v_sd * @view o.DGP.β̈[o.kX₁+1:end,:]  # coefficients on excluded instruments in ARubin OLS
 	else
-		o.numer[:,1] = o.v_sd * (o.R * (o.ML ? o.β̂ : o.M.β̂) - o.r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
+		o.numer[:,1] = o.v_sd * (o.R * (o.ML ? o.β̈ : o.M.β̈) - o.r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
 	end
 	o.dist[1] = isone(o.dof) ? o.numer[1] / sqrt(o.statDenom[1]) : o.numer[:,1]'invsym(o.statDenom)*o.numer[:,1]
 	nothing
@@ -111,48 +111,48 @@ end
 
 end
 
-# using StatFiles, StatsModels, DataFrames, DataFramesMeta, BenchmarkTools, Plots, CategoricalArrays, Random, StableRNGs
+# using StatFiles, StatsModels, DataFrames, DataFramesMeta, BenchmarkTools, CategoricalArrays
 # df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\nlsw88.dta"))
-# df = df[:, [:wage; :tenure; :ttl_exp; :collgrad; :industry; :union]]
+# df = df[:, [:wage, :tenure, :ttl_exp, :collgrad, :industry]]
 # dropmissing!(df)
-# f = @formula(wage ~ 1 + ttl_exp + collgrad)
+# f = @formula(wage ~ 1)
 # f = apply_schema(f, schema(f, df))
 # resp, predexog = modelcols(f, df)
-# ivf = @formula(tenure ~ union)
+# ivf = @formula(tenure ~ collgrad + ttl_exp)
 # ivf = apply_schema(ivf, schema(ivf, df))
 # predendog, inst = modelcols(ivf, df)
-# test = WildBootTests.wildboottest([0 0 0 1], [.0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, auxwttype=WildBootTests.webb, bootstrapc=true, ptype=WildBootTests.equaltail, rng=StableRNG(1231), gridmin=[-5], gridmax=[5], gridpoints=[100])
+# test = WildBootTests.wildboottest([0 1], [0]; resp, predexog, predendog, inst, LIML=true, clustid=df.industry, small=false, reps=999)
 
 
-using StableRNGs, Random, BenchmarkTools
-N=1_00_000; G=40; k=2; l=4
-Random.seed!(1231)
-β=rand(); γ=rand(k); Π=rand(l)
-W = rand(N,l)
-u₂ = randn(N)
-y₂ = W * Π + u₂
-u₁ = u₂ + randn(N)
-Z = rand(N,k)
-y₁ = y₂ * β + Z * γ + u₁
-ID = floor.(Int8, collect(0:N-1) / (N/G))
-R = [zeros(1,k) 1]; r = [0]
-FEID = rand([1,2,3,4,5],N)
-test = WildBootTests.wildboottest(Float32, R,#=.46=#.36; R1 = [1 zeros(1,k)], r1=[0], resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=999, issorted=true, rng=StableRNG(1231), LIML=true, feid=FEID)
-test
-WildBootTests.wildboottest(Float64, R,#=.46=#.36; R1 = [1 zeros(1,k)], r1=[0], resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=999, issorted=true, rng=StableRNG(1231), LIML=true, feid=FEID)
+# using StableRNGs, Random, BenchmarkTools
+# N=1_00_000; G=40; k=2; l=4
+# Random.seed!(1231)
+# β=rand(); γ=rand(k); Π=rand(l)
+# W = rand(N,l)
+# u₂ = randn(N)
+# y₂ = W * Π + u₂
+# u₁ = u₂ + randn(N)
+# Z = rand(N,k)
+# y₁ = y₂ * β + Z * γ + u₁
+# ID = floor.(Int8, collect(0:N-1) / (N/G))
+# R = [zeros(1,k) 1]; r = [0]
+# FEID = rand([1,2,3,4,5],N)
+# test = WildBootTests.wildboottest(Float32, R,#=.46=#.36; R1 = [1 zeros(1,k)], r1=[0], resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=999, issorted=true, rng=StableRNG(1231), LIML=true, feid=FEID)
+# test
+# WildBootTests.wildboottest(Float64, R,#=.46=#.36; R1 = [1 zeros(1,k)], r1=[0], resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=999, issorted=true, rng=StableRNG(1231), LIML=true, feid=FEID)
 
-N=1_000_000; G=40; k=12; l=40
-Random.seed!(1231)
-β=rand(); γ=rand(k); Π=rand(l)
-W = rand(N,l)
-u₂ = randn(N)
-y₂ = W * Π + u₂
-u₁ = u₂ + randn(N)
-Z = rand(N,k)
-y₁ = y₂ * β + Z * γ + u₁
-ID = floor.(Int8, collect(0:N-1) / (N/G))
-R = [zeros(1,k) 1]; r = [0]
-@btime WildBootTests.wildboottest(Float32, R,r; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=false)
-@btime WildBootTests.wildboottest(Float64, R,r; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=false)
+# N=1_000_000; G=40; k=12; l=40
+# Random.seed!(1231)
+# β=rand(); γ=rand(k); Π=rand(l)
+# W = rand(N,l)
+# u₂ = randn(N)
+# y₂ = W * Π + u₂
+# u₁ = u₂ + randn(N)
+# Z = rand(N,k)
+# y₁ = y₂ * β + Z * γ + u₁
+# ID = floor.(Int8, collect(0:N-1) / (N/G))
+# R = [zeros(1,k) 1]; r = [0]
+# @btime WildBootTests.wildboottest(Float32, R,r; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=false)
+# @btime WildBootTests.wildboottest(Float64, R,r; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=false)
 
-@btime WildBootTests.wildboottest(Float32, R,.4; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=true);
+# @btime WildBootTests.wildboottest(Float32, R,.4; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=true);

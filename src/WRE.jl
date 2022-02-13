@@ -151,7 +151,8 @@ function InitWRE!(o::StrBootTest{T}) where T
 			o.r₁S✻ReplZR₁X      = o.r₁' * (_S✻⋂XReplZR₁'  - _S✻ZperpReplZR₁' * o.Repl.invZperpZperpZperpX  - o.Repl.invZperpZperpZperpZR₁' * o.S✻ZperpX )
 			o.r₁S✻ReplZR₁DGPZ   = o.r₁' * panelcross11(o, o.Repl.ZR₁, o.DGP.Z, o.info✻)   
 			o.r₁S✻ReplZR₁y₁     = o.r₁' * (o.Repl.S✻ZR₁y₁ - _S✻ZperpReplZR₁' * o.Repl.invZperpZperpZperpy₁ - o.Repl.invZperpZperpZperpZR₁' * o.S✻Zperpy₁)
-			o.r₁S✻ReplZR₁DGPZR₁ = o.r₁' * panelcross11(o, o.Repl.ZR₁, o.DGP.ZR₁, o.info✻)
+			o.DGP.restricted &&
+				(o.r₁S✻ReplZR₁DGPZR₁ = o.r₁' * panelcross11(o, o.Repl.ZR₁, o.DGP.ZR₁, o.info✻))
 		end
 
 		_S✻ZperpReplZpar = @panelsum(o, o.Repl.S✻⋂ZperpZpar, o.info✻_✻⋂)
@@ -226,8 +227,8 @@ function PrepWRE!(o::StrBootTest{T}) where T
 		end	
 		if o.DGP.restricted
 			r₁S✻DGPZR₁y₁ = r₁' * o.S✻DGPZR₁y₁
-			S✻ReplZR₁r₁DGPZR₁r₁ = o.r₁S✻ReplZR₁DGPZR₁ * r₁
 			S✻ReplZDGPZR₁r₁ = o.S✻ReplZDGPZR₁ * r₁
+			o.Repl.restricted && (S✻ReplZR₁r₁DGPZR₁r₁ = o.r₁S✻ReplZR₁DGPZR₁ * r₁)
 		end
 
 		if o.NFE>0

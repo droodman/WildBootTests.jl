@@ -19,3 +19,56 @@ boottest tenure, ptype(equaltail)
 t=2.6039793 p=0.044433594 CI=Float32[0.11879814 2.2101226]
 
 boottest tenure, ptype(equaltail) reps(9999) weight(webb) stat(c)
+z=1.6443814 p=0.11061106 CI=Float32[-Inf Inf]
+
+boottest, ar
+z=2.4454045 p=0.030273438 CI=Float32[0.069955856 1.2517921]
+
+boottest, ar nonull
+z=2.4454045 p=0.030273438 CI=Float32[0.056094237 1.4158075]
+
+scoretest tenure
+z=2.327888 p=0.01991805 CI=Float32[0.1367202 1.3236756]
+
+waldtest tenure
+z=2.603912 p=0.009216638 CI=Float32[0.18201038 1.2899686]
+
+ivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)
+boottest tenure
+z=7.584607 p=0.003003003 CI=Float32[0.3354099 0.8054992]
+
+ivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)
+boottest tenure, nograph weight(webb) reps(9999)
+z=4.0262947 p=0.025102511 CI=Float32[-0.8930385 -0.38526532; 0.30935368 1.2532877]
+
+areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)
+boottest tenure, cluster(age occupation) bootcluster(occupation)
+t=0.48740056 p=0.6596597 CI=Float32[-0.0415996 0.11494795]
+
+global pix lnkm pixpetro pixdia pixwaterd pixcapdist pixmal pixsead pixsuit pixelev pixbdist
+global geo lnwaterkm lnkm2split mean_elev mean_suit malariasuit petroleum diamondd
+global poly capdistance1 seadist1 borderdist1
+encode pixwbcode, gen(ccode)  // make numerical country identifier
+qui areg lnl0708s centr_tribe lnpd0 $pix $geo $poly, absorb(ccode)
+boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode)
+boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(pixcluster)
+boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode pixcluster)
+t=3.5211515 p=0.00210021 CI=Float32[0.05588541 0.25092924]
+t=3.5211356 p=0.00260026 CI=Float32[0.045336533 0.26122943]
+t=3.521134 p=0.0033003301 CI=Float32[0.05448644 0.24806115]
+
+infile coll merit male black asian year state chst using regm.raw, clear
+qui regress coll merit male black asian i.year i.state if !inlist(state,34,57,59,61,64,71,72,85,88), cluster(state)	
+generate individual = _n  // unique ID for each observation
+boottest merit, nogr reps(9999) gridpoints(10)  // defaults to bootcluster(state)
+boottest merit, nogr reps(9999) gridpoints(10) nonull
+boottest merit, nogr reps(9999) gridpoints(10) bootcluster(state year)
+boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(state year)
+boottest merit, nogr reps(9999) gridpoints(10) bootcluster(individual)
+boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual)
+t=6.7126536 p=0.49184918 CI=Float32[-2.8158574 1.2845865]
+t=6.7127285 p=0.0 CI=Float32[0.049524948 0.09481105]
+t=6.7126613 p=0.29282928 CI=Float32[-5.341605 4.532589]
+t=6.7127123 p=0.08940894 CI=Float32[-0.011595316 0.15593131]
+t=6.7126613 p=0.37383738 CI=Float32[-0.09999681 0.24192892]
+t=6.7127156 p=0.37593758 CI=Float32[-0.0941135 0.2384495]

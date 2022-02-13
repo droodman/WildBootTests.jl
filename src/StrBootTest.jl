@@ -144,50 +144,6 @@ mutable struct StrBootTest{T<:AbstractFloat}
 		end
 end
 
-macro storeWtGrpResults!(dest, content)  # poor hygiene in referencing caller's o and w
-  if dest == :(o.dist)
-		return quote
-			if isone($(esc(:o)).Nw)
-				$(esc(dest)) .= $(esc(content))
-			else
-				$(esc(dest))[$(esc(:o)).WeightGrp[$(esc(:w))]] .= $(esc(content))
-			end
-		end
-  else
-	  return quote
-			local _content = $(esc(content))
-	    if isone($(esc(:o)).Nw)
-	  	  $(esc(dest)) = _content
-	    else
-	  	  $(esc(dest))[:,$(esc(:o)).WeightGrp[$(esc(:w))]] = _content
-	    end
-	  end
-  end
-end
-
-macro clustAccum!(X, c, Y)  # efficiently add a cluster combination-specific term, factoring in the needed multiplier and sign
-  return quote
-		local _Y = $(esc(Y))
-	  if isone($(esc(c)))
-	    if isone($(esc(:o)).clust[1].multiplier)
-	  	  $(esc(X)) = $(esc(:o)).clust[1].even ? _Y : -_Y
-	    else
-	  	  $(esc(X)) = _Y * ($(esc(:o)).clust[1].even ? $(esc(:o)).clust[1].multiplier : -$(esc(:o)).clust[1].multiplier)
-	    end
-	  elseif $(esc(:o)).clust[$(esc(c))].even
-	    if isone($(esc(:o)).clust[$(esc(c))].multiplier)
-	  	  $(esc(X)) .+= _Y
-	    else
-	  	  $(esc(X)) .+= _Y .* $(esc(:o)).clust[$(esc(c))].multiplier
-	    end
-	  elseif isone($(esc(:o)).clust[$(esc(c))].multiplier)
-	    $(esc(X)) .-= _Y
-	  else
-	    $(esc(X)) .-= _Y .* $(esc(:o)).clust[$(esc(c))].multiplier
-	  end
-  end
-end
-
 function getdist(o::StrBootTest, diststat::DistStatType=nodist)
   if diststat == numer
 	  _numer = isone(o.v_sd) ? o.numer : o.numer / o.v_sd

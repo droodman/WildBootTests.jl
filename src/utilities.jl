@@ -40,7 +40,7 @@ function X₁₂B(o::StrBootTest, X₁::AbstractVecOrMat, X₂::AbstractArray, B
 end
 function X₁₂B(o::StrBootTest, X₁::AbstractArray, X₂::AbstractArray, B::AbstractVector)
 	dest = X₁ * view(B,1:size(X₁,2))
-	length(dest)>0 && length(X₂)>0 && matmulplus!(Val(o.turbo)dest, X₂, B[size(X₁,2)+1:end])
+	length(dest)>0 && length(X₂)>0 && matmulplus!(Val(o.turbo), dest, X₂, B[size(X₁,2)+1:end])
 	dest
 end
 

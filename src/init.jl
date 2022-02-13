@@ -76,6 +76,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.WREnonARubin && !o.granular && (ID⋂ = o._ID✻⋂)
 		o.ID✻⋂ = ID⋂_✻⋂ = nrows(o.info⋂)==o.Nobs ? o.ID : o.ID[first.(o.info⋂),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
 	end
+	o.WREnonARubin && (o.info✻_✻⋂ = panelsetup(o.ID✻⋂, 1:o.nbootclustvar))
 
 	if o.bootstrapt
     if o.NClustVar>0
@@ -84,8 +85,6 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	    combs = [x & 2^y > 0 for x in 2^o.nerrclustvar-1:-1:1, y in o.nerrclustvar-1:-1:0]  # represent all error clustering combinations. First is intersection of all error clustering vars
 	    o.clust = Vector{StrClust{T}}(undef, nrows(combs))  # leave out no-cluster combination
 	    o.NErrClustCombs = length(o.clust)
-
-			o.WREnonARubin && (o.info✻_✻⋂ = panelsetup(o.ID✻⋂, 1:o.nbootclustvar))
 
 	    o.BootClust = 2^(o.NClustVar - o.nbootclustvar)  # location of bootstrap clustering within list of cluster combinations
 

@@ -80,15 +80,10 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	if o.isDGP && parent.WREnonARubin
 		o.Zperp = parent.Repl.Zperp
 		o.Xpar₁ = parent.Repl.Xpar₁
-		if parent.NFE>0 && (parent.LIML || !isone(parent.κ) || parent.bootstrapt)  ||  parent.granular && parent.robust && parent.bootstrapt
-			o.X₁ = parent.Repl.X₁
-			o.X₂ = parent.Repl.X₂
-		end
-		if parent.NFE>0 && (parent.LIML || !isone(parent.κ) || parent.bootstrapt)
-			o.Y₂ = parent.Repl.Y₂
-		end
-		((parent.NFE>0 && (parent.LIML || !isone(parent.κ) || parent.bootstrapt)) || (parent.scorebs || parent.robust && parent.bootstrapt && parent.granular)) &&
-			(o.y₁ = parent.Repl.y₁)
+		isdefined(parent.Repl, :X₁) && (o.X₁ = parent.Repl.X₁)
+		isdefined(parent.Repl, :X₂) && (o.X₂ = parent.Repl.X₂)
+		isdefined(parent.Repl, :Y₂) && (o.Y₂ = parent.Repl.Y₂)
+		isdefined(parent.Repl, :y₁) && (o.y₁ = parent.Repl.y₁)
 		o.invZperpZperp = parent.Repl.invZperpZperp
 		o.XX = parent.Repl.XX
 		o.kX = parent.Repl.kX
@@ -126,7 +121,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.invZperpZperpZperpX₂ = o.invZperpZperp * ZperpX₂
 		o.invZperpZperpZperpX = [o.invZperpZperpZperpX₁ o.invZperpZperpZperpX₂]
 
-		if parent.NFE>0 && (parent.LIML || !isone(parent.κ) || parent.bootstrapt)  ||  parent.granular && parent.robust && parent.bootstrapt
+		if parent.NFE>0 && (parent.LIML || !isone(parent.κ) || parent.bootstrapt)  ||  parent.granular && parent.robust && parent.bootstrapt  ||  !o.LIML && !isempty(Rperp)
 			o.X₁ = o.Xpar₁ - o.Zperp * o.invZperpZperpZperpX₁  # shrink and FWL-process X₁; do it as an O(N) operation because it can be so size-reducing
 			o.X₂ = o.Zperp * o.invZperpZperpZperpX₂; o.X₂ .= parent.X₂ .- o.X₂  # FWL-process X₂
 		end
