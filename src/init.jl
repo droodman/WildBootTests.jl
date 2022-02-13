@@ -160,7 +160,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   else
 	  minN = T(nrows(o.info✻))
 	end
-
+o._ID✻⋂=ID✻⋂
 	InitFEs(o)
 
 	if o.B>0 && o.robust && o.granular && !o.purerobust && o.bootstrapt && !o.WREnonARubin
@@ -234,9 +234,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 				EstimateIV!(o.DGP, o, o.r₁)
 				MakeResidualsIV!(o.DGP, o)
 			end
-
 			InitWRE!(o)
-
 		else  # the score bootstrap for IV/GMM uses a IV/GMM DGP but then masquerades as an OLS test because most factors are fixed during the bootstrap. To conform, need DGP and Repl objects with different R, R₁, one with FWL, one not
 
 			o.DGP = StrEstimator{T}(true, o.LIML, o.Fuller, o.κ)

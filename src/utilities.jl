@@ -422,6 +422,11 @@ function panelsum(o::StrBootTest{T}, X::AbstractArray{T,3}, info::AbstractVector
 	panelsum!(Val(o.turbo), dest, X, info)
 	dest
 end
+function panelsum(o::StrBootTest{T}, X::AbstractArray{T,3}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	dest = Array{T,3}(undef, size(X,1), size(info,1), size(X,3))
+	o.panelsum!(dest, X, info)
+	dest
+end
 function panelsum2(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	if iszero(length(X₁))
 		panelsum(o, X₂,wt,info)
@@ -481,6 +486,44 @@ function panelcross22(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractV
 		panelcross!(Val(false), view(dest, ncols(X₁)+1:size(dest,1), :, 1:ncols(Y₁)             ), X₂, Y₁, info)
 		panelcross!(Val(false), view(dest, 1:ncols(X₁)             , :, ncols(Y₁)+1:size(dest,3)), X₁, Y₂, info)
 		panelcross!(Val(false), view(dest, ncols(X₁)+1:size(dest,1), :, ncols(Y₁)+1:size(dest,3)), X₂, Y₂, info)
+		dest
+	end
+end
+function panelcross21(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	if iszero(ncols(X₁))
+		panelcross11(o,X₂,Y,info)
+	elseif iszero(ncols(X₂))
+		panelcross11(o,X₁,Y,info)
+	else
+		dest = Array{T,3}(undef, ncols(X₁)+ncols(X₂), length(info), ncols(Y))
+		#=o.=#panelcross_nonturbo!(view(dest,           1:ncols(X₁   ), :, :), X₁, Y, info)
+		#=o.=#panelcross_nonturbo!(view(dest, ncols(X₁)+1:size(dest,1), :, :), X₂, Y, info)
+		dest
+	end
+end
+function panelcross12(o::StrBootTest, X::AbstractVecOrMat{T}, Y₁::AbstractVecOrMat{T}, Y₂::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	if iszero(ncols(Y₁))
+		panelcross11(o,X,Y₂,info)
+	elseif iszero(ncols(Y₂))
+		panelcross11(o,X,Y₁,info)
+	else
+		dest = Array{T,3}(undef, ncols(X), length(info), ncols(Y₁)+ncols(Y₂))
+		#=o.=#panelcross_nonturbo!(view(dest, :, :,           1:ncols(Y₁   )), X, Y₁, info)
+		#=o.=#panelcross_nonturbo!(view(dest, :, :, ncols(Y₁)+1:size(dest,3)), X, Y₂, info)
+		dest
+	end
+end
+function panelcross22(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, Y₁::AbstractVecOrMat{T}, Y₂::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	if iszero(ncols(Y₁))
+		panelcross21(o,X₁,X₂,Y₂,info)
+	elseif iszero(ncols(Y₂))
+		panelcross21(o,X₁,X₂,Y₁,info)
+	else
+		dest = Array{T,3}(undef, ncols(X₁)+ncols(X₂), length(info), ncols(Y₁)+ncols(Y₂))
+		#=o.=#panelcross_nonturbo!(view(dest, 1:ncols(X₁)             , :, 1:ncols(Y₁)             ), X₁, Y₁, info)
+		#=o.=#panelcross_nonturbo!(view(dest, ncols(X₁)+1:size(dest,1), :, 1:ncols(Y₁)             ), X₂, Y₁, info)
+		#=o.=#panelcross_nonturbo!(view(dest, 1:ncols(X₁)             , :, ncols(Y₁)+1:size(dest,3)), X₁, Y₂, info)
+		#=o.=#panelcross_nonturbo!(view(dest, ncols(X₁)+1:size(dest,1), :, ncols(Y₁)+1:size(dest,3)), X₂, Y₂, info)
 		dest
 	end
 end
