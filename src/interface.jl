@@ -351,7 +351,6 @@ Function to perform wild-bootstrap-based hypothesis test
 * `getplot::Bool=getCI`: whether to generate plot data
 * `getauxweights::Bool=false`: whether to save auxilliary weight matrix (v)
 * `turbo::Bool=false`: whether to exploit acceleration of the LoopVectorization package: slower on first use in a session, faster after
-* `issorted::Bool=false`: time-saving flag that all data matrices are already sorted by variables 2, then 3, then 1, as numbered below
 
 # Notes
 `T`, `ptype`, `auxwttype`, `madjtype`, and `diststat` may also be strings. Examples: `"Float32"` and `"webb"`.
@@ -365,7 +364,8 @@ Order the columns of `clustid` this way:
 3. Variables only used to define error clusters.
 `nbootclustvar` is then the number of columns of type 1 or 2; `nerrclustvar` is the number of columns of type 2 or 3. Typically `clustid` is a single column of type 2. 
 
-`wildboottest()` does not handle missing data values: all data and identifier matrices must be restricted to the estimation sample.
+`wildboottest()` does not handle missing data values: all data and identifier matrices must 
+be restricted to the estimation sample.
 
 """
 wildboottest(   R, r; args...) = _wildboottest(                                                  R, r; Dict(a.first => (isa(a.second, AbstractString) ? eval(Meta.parse(a.second)) : a.second) for a ∈ args)...)

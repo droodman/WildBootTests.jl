@@ -11,7 +11,7 @@ end
 # for replication regressions R₁ is maintained constraints, R is null
 function setR!(o::StrEstimator{T}, parent::StrBootTest{T}, R₁::AbstractMatrix{T}, R::Union{UniformScaling{Bool},AbstractMatrix{T}}=Matrix{T}(undef,0,0)) where {T,E}
   o.restricted = nrows(R₁) > 0
-	if o.restricted
+	if o.restricted > 0
 	  invR₁R₁ = invsym(R₁ * R₁')
 	  all(iszero.(diag(invR₁R₁))) && throw(ErrorException("Null hypothesis or model constraints are inconsistent or redundant."))
 	  o.R₁invR₁R₁ = R₁'invR₁R₁
@@ -73,8 +73,6 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
   o.∂β̈∂r = R₁AR₁ * [cross(parent.X₁, parent.wt, parent.Y₂) ; cross(parent.X₂, parent.wt, parent.Y₂)]
 	nothing
 end
-
-@inline sumpanelsum(X::Array{T,3} where T) = dropdims(sum(X, dims=2), dims=2)
 
 function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::AbstractMatrix{T}...) where T
   !isempty(Rperp) && (o.Rperp = Rperp[1])
@@ -227,8 +225,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	  (parent.scorebs || parent.robust && parent.bootstrapt && parent.granular) &&
 			(o.y₁par   = o.y₁)
   end
-o._X₁=_X₁
-o._Z=_Z
+
   o.V =  o.invXX * o.XZ  # in 2SLS case, StrEstimator is (V' XZ)^-1 * (V'Xy₁). Also used in k-class and LIML robust VCV by Stata convention
   o.H_2SLS = Symmetric(o.V'o.XZ)  # Hessian
   (o.LIML || !isone(o.κ)) && (o.H_2SLSmZZ = o.H_2SLS - o.ZZ)
@@ -283,8 +280,8 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, r₁::AbstractV
 
   o.invXXXy₁par = o.invXX * o.Xy₁par
   o.ZXinvXXXy₁par = o.XZ'o.invXXXy₁par
-  o.YY   = Symmetric([o.y₁pary₁par           o.Zy₁par'        ; o.Zy₁par        Matrix(o.ZZ)])
-  o.YPXY = Symmetric([o.invXXXy₁par'o.Xy₁par o.ZXinvXXXy₁par' ; o.ZXinvXXXy₁par  o.ZXinvXXXZ])
+  o.YY   = Symmetric([[o.y₁pary₁par          ] o.Zy₁par'        ; o.Zy₁par        Matrix(o.ZZ)])
+  o.YPXY = Symmetric([[o.invXXXy₁par'o.Xy₁par] o.ZXinvXXXy₁par' ; o.ZXinvXXXy₁par  o.ZXinvXXXZ])
 
   if o.isDGP
 	  if o.LIML
@@ -300,6 +297,7 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, r₁::AbstractV
   end
 	nothing
 end
+
 
 @inline function MakeResidualsOLSARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
   o.ü₁ = o.y₁par - X₁₂B(parent, parent.X₁, parent.X₂, o.β̈)

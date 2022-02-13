@@ -108,8 +108,23 @@ end
 
 # include("precompile_WildBootTests.jl")  # source: https://timholy.github.io/SnoopCompile.jl/stable/snoopi_deep_parcel/#SnoopCompile.write
 # _precompile_()
+
 end
-# using Random, BenchmarkTools
+
+# using StatFiles, StatsModels, DataFrames, DataFramesMeta, BenchmarkTools, CategoricalArrays
+# df = DataFrame(load(raw"d:\OneDrive\Documents\Macros\nlsw88.dta"))
+# df = df[:, [:wage, :tenure, :ttl_exp, :collgrad, :industry]]
+# dropmissing!(df)
+# f = @formula(wage ~ 1)
+# f = apply_schema(f, schema(f, df))
+# resp, predexog = modelcols(f, df)
+# ivf = @formula(tenure ~ collgrad + ttl_exp)
+# ivf = apply_schema(ivf, schema(ivf, df))
+# predendog, inst = modelcols(ivf, df)
+# test = WildBootTests.wildboottest([0 1], [0]; resp, predexog, predendog, inst, LIML=true, clustid=df.industry, small=false, reps=999)
+
+
+# using StableRNGs, Random, BenchmarkTools
 # N=1_00_000; G=40; k=2; l=4
 # Random.seed!(1231)
 # β=rand(); γ=rand(k); Π=rand(l)
