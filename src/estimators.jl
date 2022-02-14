@@ -62,15 +62,15 @@ function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstrac
 end
 
 function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
-  X₂X₁ = cross(parent.X₂, parent.wt, parent.X₁)
-  H = Symmetric([symcross(parent.X₁, parent.wt) X₂X₁' ; X₂X₁ symcross(parent.X₂, parent.wt)])
+  X₂X₁ = parent.X₂'parent.X₁
+  H = Symmetric([parent.X₁'parent.X₁ X₂X₁' ; X₂X₁ parent.X₂'parent.X₂])
   o.A = inv(H)
   o.AR = o.A * parent.R'
   (parent.scorebs || parent.robust) && (o.XAR = X₁₂B(parent, parent.X₁, parent.X₂, o.AR))
 
   R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.A : Symmetric(o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')
-  o.β̈₀   = R₁AR₁ * [crossvec(parent.X₁, parent.wt, parent.y₁) ; crossvec(parent.X₂, parent.wt, parent.y₁)]
-  o.∂β̈∂r = R₁AR₁ * [cross(parent.X₁, parent.wt, parent.Y₂) ; cross(parent.X₂, parent.wt, parent.Y₂)]
+  o.β̈₀   = R₁AR₁ * [parent.X₁'parent.y₁ ; parent.X₂'parent.y₁]
+  o.∂β̈∂r = R₁AR₁ * [parent.X₁'parent.Y₂ ; parent.X₂'parent.Y₂]
 	nothing
 end
 

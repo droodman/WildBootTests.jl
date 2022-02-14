@@ -19,10 +19,15 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   iszero(o.B) && (o.scorebs = true)
 
   o.haswt = !iszero(nrows(o.wt))
-  o.sumwt = o.haswt ? sum(o.wt) : one(T)
-  o._Nobs = o.haswt && o.fweights ? o.sumwt : T(o.Nobs)
+	if o.haswt
+		o.sumwt = sum(o.wt)
+		o._Nobs = o.fweights ? o.sumwt : T(o.Nobs)
+	else
+		o.sumwt = one(T)
+		o._Nobs = T(o.Nobs)
+	end
 
-  if !(iszero(o.NClustVar)  || o.issorted)
+	if !(iszero(o.NClustVar) || o.issorted)
 		o.subcluster = o.NClustVar - o.nerrclustvar
 		p = _sortperm(view(o.ID, :, [collect(o.subcluster+1:o.NClustVar); collect(1:o.subcluster)]))  # sort by err cluster vars, then remaining boot cluster vars
 		o.ID = ndims(o.ID)==1 ? o.ID[p] : o.ID[p,:]
@@ -30,9 +35,24 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.X₂ = ndims(o.X₂)==1 ? o.X₂[p] : o.X₂[p,:]
 		o.y₁ = o.y₁[p]
 		o.Y₂ = ndims(o.Y₂)==1 ? o.Y₂[p] : o.Y₂[p,:]
-		o.haswt && (o.wt = o.wt[p])
 		isdefined(o, :FEID) && nrows(o.FEID)>0 && (o.FEID = o.FEID[p])
-  end
+
+		if o.haswt
+			o.wt = o.wt[p]
+
+			sqrtwt = sqrt(o.wt)
+			o.y₁ .= o.y₁ ./ sqrtwt  # can overwrite sorted copy of user's data
+			length(o.Y₂)>0 && (o.Y₂ .= o.Y₂ ./ sqrtwt)
+			length(o.X₁)>0 && (o.X₁ .= o.X₁ ./ sqrtwt)
+			length(o.X₂)>0 && (o.X₂ .= o.X₂ ./ sqrtwt)
+		end
+	elseif o.haswt
+		sqrtwt = sqrt(o.wt)
+		o.y₁ = o.y₁ ./ sqrtwt  # don't overwrite user's data
+		length(o.Y₂)>0 && (o.Y₂ = o.Y₂ ./ sqrtwt)
+		length(o.X₁)>0 && (o.X₁ = o.X₁ ./ sqrtwt)
+		length(o.X₂)>0 && (o.X₂ = o.X₂ ./ sqrtwt)
+	end
 
   if o.WREnonARubin
 	  if iszero(o.NClustVar)
@@ -322,20 +342,20 @@ function InitFEs(o::StrBootTest{T}) where T
 		i_FE = 1; o.FEboot = o.B>0 && !o.WREnonARubin && o.NClustVar>0; j = o.Nobs; o._FEID = ones(Int64, o.Nobs)
 		o.invFEwt = zeros(T, o.NFE>0 ? o.NFE : o.Nobs)
 		o.FEs = Vector{StrFE{T}}(undef, o.NFE>0 ? o.NFE : o.Nobs)
+		_sqrtwt = T[]
 		@inbounds for i ∈ o.Nobs-1:-1:1
 			if sortID[i] ≠ sortID[i+1]
 				is = @view p[i+1:j]
 				if o.haswt
-					tmp  = o.wt[is]
-					wt = tmp / (sumFEwt = sum(tmp))
+					_sqrtwt  = @view o.sqrtwt[is]
+					wt = _sqrtwt / (sumFEwt = sum(@view o.wt[is]))
 				else
 					sumFEwt = T(j - i)
-					wt = fill(1/sumFEwt, j-i)
+					wt = one(T)/sumFEwt
 				end
-				o.FEs[i_FE] = StrFE{T}(is, wt)
-				if (o.B>0 && o.robust && o.granular < o.nerrclustvar) || (o.WREnonARubin && o.robust && o.granular && o.bootstrapt)
-					o.invFEwt[i_FE] = one(T) / sumFEwt
-				end
+				o.FEs[i_FE] = StrFE{T}(is, wt, _sqrtwt)
+				((o.B>0 && o.robust && o.granular < o.nerrclustvar) || (o.WREnonARubin && o.robust && o.granular && o.bootstrapt)) &&
+					(o.invFEwt[i_FE] = one(T) / sumFEwt)
 
 				j = i
 
@@ -349,13 +369,13 @@ function InitFEs(o::StrBootTest{T}) where T
 		end
 		is = @view p[1:j]
 		if o.haswt
-			tmp = o.wt[is]
-			wt = tmp / (sumFEwt = sum(tmp))
+			_sqrtwt  = @view o.sqrtwt[is]
+			wt = _sqrtwt / (sumFEwt = sum(@view o.wt[is]))
 		else
 			sumFEwt = T(j)
-			wt = fill(1/sumFEwt, j)
+			wt = T[1/sumFEwt]
 		end
-		o.FEs[i_FE] = StrFE{T}(is, wt)
+		o.FEs[i_FE] = StrFE{T}(is, wt, _sqrtwt)
 		o.robust && ((o.B>0 && o.granular < o.nerrclustvar) || (o.WREnonARubin && o.granular && o.bootstrapt)) &&
 			(o.invFEwt[i_FE] = 1 / sumFEwt)
 		o.NFE = i_FE

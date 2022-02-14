@@ -557,20 +557,34 @@ end
 # partial any fixed effects out of a data matrix
 function partialFE!(o::StrBootTest, In::AbstractArray)
   if length(In)>0
-	  Threads.@threads for f ∈ o.FEs
-	    tmp = @view In[f.is,:]
-	    tmp .-= f.wt'tmp
-    end
+		if o.haswt
+			Threads.@threads for f ∈ o.FEs
+				tmp = @view In[f.is,:]
+				tmp .-= f.sqrtwt * (f.wt'tmp)
+			end
+		else
+			Threads.@threads for f ∈ o.FEs
+				tmp = @view In[f.is,:]
+				tmp .-= f.wt[1] * sum(tmp)
+			end
+		end
   end
 	nothing
 end
 function partialFE(o::StrBootTest, In::AbstractArray)
   Out = similar(In)
   if length(In)>0
-	  for f ∈ o.FEs
-	    tmp = @view In[f.is,:]
-	    Out[f.is,:] .= tmp .- f.wt'tmp
-	  end
+		if o.haswt
+			for f ∈ o.FEs
+				tmp = @view In[f.is,:]
+				Out[f.is,:] .= tmp .- f.sqrtwt *  (f.wt'tmp)
+			end
+		else
+			for f ∈ o.FEs
+				tmp = @view In[f.is,:]
+				Out[f.is,:] .= tmp .- f.wt[1] * sum(tmp)
+			end
+		end
   end
   Out
 end

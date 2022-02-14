@@ -21,6 +21,7 @@ end
 struct StrFE{T<:Real}
 	is::SubArray{Int64, 1, Vector{Int64}, Tuple{UnitRange{Int64}}, true}
   wt::Vector{T}
+  sqrtwt::Vector{T}
 end
 
 mutable struct StrEstimator{T<:AbstractFloat}
@@ -84,7 +85,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	Nobs::Int64; NClustVar::Int8; kX₁::Int64; kX₂::Int64; kY₂::Int64; WREnonARubin::Bool; boottest!::Function
 	turbo::Bool
 
-  sqrt::Bool; _Nobs::T; kZ::Int64; sumwt::T; haswt::Bool; REst::Bool; multiplier::T; smallsample::T
+  sqrt::Bool; _Nobs::T; kZ::Int64; sumwt::T; haswt::Bool; sqrtwt::Vector{T}; REst::Bool; multiplier::T; smallsample::T
 		dof::Int64; dof_r::T; p::T; BootClust::Int8
 		purerobust::Bool; N✻::Int64; N✻⋂::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX::Int64
   _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; u✻::Matrix{T}; CT_WE::Matrix{T}
