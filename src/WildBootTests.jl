@@ -106,8 +106,8 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T, w::Integer)
 	nothing
 end
 
-# include("precompile_WildBootTests.jl")  # source: https://timholy.github.io/SnoopCompile.jl/stable/snoopi_deep_parcel/#SnoopCompile.write
-# _precompile_()
+include("precompile_WildBootTests.jl")  # source: https://timholy.github.io/SnoopCompile.jl/stable/snoopi_deep_parcel/#SnoopCompile.write
+_precompile_()
 
 end
 
