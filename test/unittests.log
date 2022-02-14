@@ -43,7 +43,7 @@ z=4.0262947 p=0.025102511 CI=Float32[-0.8930385 -0.38526532; 0.30935368 1.253287
 
 areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)
 boottest tenure, cluster(age occupation) bootcluster(occupation)
-t=0.48740056 p=0.6596597 CI=Float32[-0.0415996 0.11494795]
+t=0.48740005 p=0.6596597 CI=Float32[-0.04159961 0.11494792]
 
 global pix lnkm pixpetro pixdia pixwaterd pixcapdist pixmal pixsead pixsuit pixelev pixbdist
 global geo lnwaterkm lnkm2split mean_elev mean_suit malariasuit petroleum diamondd
@@ -53,9 +53,9 @@ qui areg lnl0708s centr_tribe lnpd0 $pix $geo $poly, absorb(ccode)
 boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode)
 boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(pixcluster)
 boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode pixcluster)
-t=3.5211515 p=0.00210021 CI=Float32[0.05588541 0.25092924]
-t=3.5211356 p=0.00260026 CI=Float32[0.045336533 0.26122943]
-t=3.521134 p=0.0033003301 CI=Float32[0.05448644 0.24806115]
+t=3.5211031 p=0.00210021 CI=Float32[0.055922113 0.2509305]
+t=3.5211253 p=0.00260026 CI=Float32[0.045329742 0.26127106]
+t=3.5211253 p=0.0033003301 CI=Float32[0.05448625 0.24807718]
 
 infile coll merit male black asian year state chst using regm.raw, clear
 qui regress coll merit male black asian i.year i.state if !inlist(state,34,57,59,61,64,71,72,85,88), cluster(state)	

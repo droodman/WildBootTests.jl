@@ -111,21 +111,21 @@ end
 
 end
 
-using StableRNGs, Random, BenchmarkTools
-N=1_00_000; G=40; k=2; l=4
-Random.seed!(1231)
-β=rand(); γ=rand(k); Π=rand(l)
-W = rand(N,l)
-u₂ = randn(N)
-y₂ = W * Π + u₂
-u₁ = u₂ + randn(N)
-Z = rand(N,k)
-y₁ = y₂ * β + Z * γ + u₁
-ID = floor.(Int8, collect(0:N-1) / (N/G))
-R = [zeros(1,k) 1]; r = [0]
-FEID = rand([1,2,3,4,5],N)
-test = WildBootTests.wildboottest(Float32, R,#=.46=#.36; R1 = [1 zeros(1,k)], r1=[0], resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=999, issorted=true, rng=StableRNG(1231), LIML=true, feid=FEID)
-test
+# using StableRNGs, Random, BenchmarkTools
+# N=1_00_000; G=40; k=2; l=4
+# Random.seed!(1231)
+# β=rand(); γ=rand(k); Π=rand(l)
+# W = rand(N,l)
+# u₂ = randn(N)
+# y₂ = W * Π + u₂
+# u₁ = u₂ + randn(N)
+# Z = rand(N,k)
+# y₁ = y₂ * β + Z * γ + u₁
+# ID = floor.(Int8, collect(0:N-1) / (N/G))
+# R = [zeros(1,k) 1]; r = [0]
+# FEID = rand([1,2,3,4,5],N)
+# test = WildBootTests.wildboottest(Float32, R,#=.46=#.36; R1 = [1 zeros(1,k)], r1=[0], resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=999, issorted=true, rng=StableRNG(1231), LIML=true, feid=FEID)
+# test
 # WildBootTests.wildboottest(Float64, R,#=.46=#.36; R1 = [1 zeros(1,k)], r1=[0], resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=999, issorted=true, rng=StableRNG(1231), LIML=true, feid=FEID)
 
 # N=1_000_000; G=40; k=12; l=40

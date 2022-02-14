@@ -48,11 +48,11 @@ end
 # stuff that can be done before r set, and depends only on exogenous variables, which are fixed throughout all bootstrap methods
 function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::AbstractMatrix{T}) where T # Rperp is for replication regression--no null imposed
   o.y₁par = parent.y₁
-  H = symcross(parent.X₁, parent.wt)
+  H = Symmetric(parent.X₁'parent.X₁)
   o.invH = Symmetric(inv(H))
 
   R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.invH : Symmetric(o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')  # for DGP regression
-  o.β̈₀ = R₁AR₁ * crossvec(parent.X₁, parent.wt, o.y₁par)
+  o.β̈₀ = R₁AR₁ * (parent.X₁'o.y₁par)
   o.∂β̈∂r = R₁AR₁ * H * o.R₁invR₁R₁ - o.R₁invR₁R₁
 
   o.A = iszero(nrows(Rperp)) ? o.invH : Symmetric(Rperp * invsym(Rperp'H*Rperp) * Rperp')  # for replication regression
@@ -329,10 +329,10 @@ end
 # depends on results of Estimate() only when doing OLS-style bootstrap on an overidentified IV/GMM regression--score bootstrap or A-R. Then κ from DGP LIML affects Hessian, H.
 function InitTestDenoms!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
   if parent.bootstrapt && (parent.scorebs || parent.robust)
-	  (parent.granular || parent.purerobust) && (o.WXAR = vHadw(o.XAR, parent.wt))
+	  (parent.granular || parent.purerobust) && (o.WXAR = o.XAR)  # XXX simplify
 
 	  if parent.robust && parent.NFE>0 && !(parent.FEboot || parent.scorebs) && parent.granular < parent.NErrClustCombs  # make first factor of second term of (64) for c=⋂ (c=1)
-	    !isdefined(o, :WXAR) && (o.WXAR = vHadw(o.XAR, parent.wt))
+	    !isdefined(o, :WXAR) && (o.WXAR = o.XAR)  # XXX simplify
 	    o.CT_XAR = [crosstabFEt(parent, view(o.WXAR,:,d), parent.info⋂) for d ∈ 1:parent.dof]
 	  end
   end

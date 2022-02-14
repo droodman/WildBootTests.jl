@@ -25,6 +25,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	else
 		o.sumwt = one(T)
 		o._Nobs = T(o.Nobs)
+		o.sqrtwt = T[]
 	end
 
 	if !(iszero(o.NClustVar) || o.issorted)
@@ -39,19 +40,18 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
 		if o.haswt
 			o.wt = o.wt[p]
-
-			sqrtwt = sqrt(o.wt)
-			o.y₁ .= o.y₁ ./ sqrtwt  # can overwrite sorted copy of user's data
-			length(o.Y₂)>0 && (o.Y₂ .= o.Y₂ ./ sqrtwt)
-			length(o.X₁)>0 && (o.X₁ .= o.X₁ ./ sqrtwt)
-			length(o.X₂)>0 && (o.X₂ .= o.X₂ ./ sqrtwt)
+			o.sqrtwt = sqrt.(o.wt)
+			o.y₁ .*= o.sqrtwt  # can overwrite sorted copy of user's data
+			length(o.Y₂)>0 && (o.Y₂ .*= o.sqrtwt)
+			length(o.X₁)>0 && (o.X₁ .*= o.sqrtwt)
+			length(o.X₂)>0 && (o.X₂ .*= o.sqrtwt)
 		end
 	elseif o.haswt
-		sqrtwt = sqrt(o.wt)
-		o.y₁ = o.y₁ ./ sqrtwt  # don't overwrite user's data
-		length(o.Y₂)>0 && (o.Y₂ = o.Y₂ ./ sqrtwt)
-		length(o.X₁)>0 && (o.X₁ = o.X₁ ./ sqrtwt)
-		length(o.X₂)>0 && (o.X₂ = o.X₂ ./ sqrtwt)
+		o.sqrtwt = sqrt.(o.wt)
+		o.y₁ = o.y₁ .* o.sqrtwt  # don't overwrite user's data
+		length(o.Y₂)>0 && (o.Y₂ = o.Y₂ .* o.sqrtwt)
+		length(o.X₁)>0 && (o.X₁ = o.X₁ .* o.sqrtwt)
+		length(o.X₂)>0 && (o.X₂ = o.X₂ .* o.sqrtwt)
 	end
 
   if o.WREnonARubin
@@ -351,7 +351,7 @@ function InitFEs(o::StrBootTest{T}) where T
 					wt = _sqrtwt / (sumFEwt = sum(@view o.wt[is]))
 				else
 					sumFEwt = T(j - i)
-					wt = one(T)/sumFEwt
+					wt = [one(T)/sumFEwt]
 				end
 				o.FEs[i_FE] = StrFE{T}(is, wt, _sqrtwt)
 				((o.B>0 && o.robust && o.granular < o.nerrclustvar) || (o.WREnonARubin && o.robust && o.granular && o.bootstrapt)) &&

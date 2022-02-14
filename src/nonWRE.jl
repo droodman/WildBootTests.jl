@@ -121,21 +121,21 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 	o.SuwtXA = o.scorebs ?
 				o.B>0 ?
 					 o.NClustVar ?
-				          @panelsum(o, o.uXAR, o.wt, o.info✻) :
-					      vHadw(o.uXAR, o.wt)                    :
-				        o.haswt ? reshape(o.uXAR'o.wt,1,:) : sum(o.uXAR,dims=1)  :
-			  o.DGP.A * panelsum2(o, o.X₁, o.X₂, vHadw(o.ü, o.wt), o.info✻)'  # same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined; X₂ empty except in Anderson-Rubin
+				          @panelsum(o, o.uXAR, o.info✻) :
+					      o.uXAR                    :
+				        sum(o.uXAR,dims=1)  :
+			  o.DGP.A * panelsum2(o, o.X₁, o.X₂, o.ü, o.info✻)'  # same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined; X₂ empty except in Anderson-Rubin
 
 	if o.robust && o.bootstrapt && o.granular < o.NErrClustCombs
-		u✻XAR = @panelsum(o, o.uXAR, o.wt, o.info✻⋂)  # collapse data to all-boot && error-cluster-var intersections. If no collapsing needed, panelsum() will still fold in any weights
+		u✻XAR = @panelsum(o, o.uXAR, o.info✻⋂)  # collapse data to all-boot && error-cluster-var intersections. If no collapsing needed, panelsum() will still fold in any weights
 		if o.B>0
 			if o.scorebs
 				K = [zeros(T, o.clust[1].N, o.N✻) for _ in o.dof]::Vector{Matrix{T}}  # inefficient, but not optimizing for the score bootstrap
 			else
-				K = [panelsum2(o, o.X₁, o.X₂, vHadw(view(o.DGP.XAR,:,d), o.wt), o.info⋂) * o.SuwtXA for d ∈ 1:o.dof]::Vector{Matrix{T}}
+				K = [panelsum2(o, o.X₁, o.X₂, view(o.DGP.XAR,:,d), o.info⋂) * o.SuwtXA for d ∈ 1:o.dof]::Vector{Matrix{T}}
 			end
 
-			o.NFE>0 && !o.FEboot && (o.CT_WE = crosstabFE(o, vHadw(o.ü, o.wt), o.info✻))
+			o.NFE>0 && !o.FEboot && (o.CT_WE = crosstabFE(o, o.ü, o.info✻))
 
 			if o.NFE>0 && !o.FEboot
 				tmp = o.invFEwt .* o.CT_WE
@@ -278,11 +278,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 				else
 					minusX₁₂B(o.u✻, o.X₁, o.X₂, o.β̈dev)  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
 				end
-				if o.haswt
-					o.denom[1,1] .*= o.wt'(o.u✻ .^ 2)
-				else
-					o.denom[1,1] .*= coldot(o,o.u✻)
-				end
+				o.denom[1,1] .*= coldot(o,o.u✻)
 			end
 
 			@storeWtGrpResults!(o.dist, o.numerw ./ sqrtNaN.(o.denom[1,1]))
@@ -303,29 +299,21 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 						o.dist[k+first(o.WeightGrp[w])-1] = o.numer_l'invdenom*numer_l
 						o.u✻ = view(o.v,:,k) .* o.ü
 						if o.scorebs
-							if o.haswt  # Center variance if interpolated
-								o.u✻ .-= o.wt'o.u✻ * o.ClustShare
-							else
-								o.u✻ .-= colsum(o.u✻) * o.ClustShare
-							end
+							o.u✻ .-= colsum(o.u✻) * o.ClustShare
 						else
 							minusX₁₂B(o.u✻, o.X₁, o.X₂, view(o.β̈dev,:,k))  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
 						end
-						o.dist[k+first(o.WeightGrp[w])-1] ./= (tmp = symcross(o.u✻, o.wt))
+						o.dist[k+first(o.WeightGrp[w])-1] ./= (tmp = Symetric(o.u✻'o.u✻))
 					end
 				else
 					o.dist[1] = o.numerw'invdenom*o.numerw
 					o.u✻ = o.ü
 					if o.scorebs
-						if o.haswt  # Center variance if interpolated
-							o.u✻ .-= o.wt'o.u✻ * o.ClustShare
-						else
-							o.u✻ .-= colsum(o.u✻) * o.ClustShare
-						end
+						o.u✻ .-= colsum(o.u✻) * o.ClustShare  # Center variance if interpolated
 					else
 						minusX₁₂B(o.u✻, o.X₁, o.X₂, o.β̈dev)  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
 					end
-					o.dist[1] /= (tmp = symcross(o.u✻, o.wt))
+					o.dist[1] /= (tmp = Symmetric(o.u✻'o.u✻))
 				end
 				isone(w) && (o.statDenom = o.denom[1,1] * tmp)  # original-sample denominator
 			end

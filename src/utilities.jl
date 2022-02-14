@@ -25,8 +25,6 @@ function crossvec(X::AbstractMatrix{T}, wt::AbstractVector{T}, Y::AbstractVector
 	end
 end
 
-@inline vHadw(v::AbstractArray, w::AbstractVector) = iszero(nrows(w)) ? v : v .* w  # not type-stable
-
 @inline nrows(X::AbstractArray) = size(X,1)
 @inline ncols(X::AbstractArray) = size(X,2)
 
@@ -107,7 +105,7 @@ end
 #   nt = Threads.nthreads()
 #   cs = [round(Int, size(A,2)/nt*i) for i ∈ 0:nt]
 #   if A===B 
-# 		@inbounds #=Threads.@threads=# for t ∈ 1:nt
+# 		@inbounds Threads.@threads for t ∈ 1:nt
 # 			tmp = Matrix{T}(undef, size(Q,1), size(Q,2))  # thread-safe scratchpad to minimize allocations
 # 			@inbounds for i ∈ cs[t]+1:cs[t+1]
 # 				v = view(A,:,i)
@@ -116,7 +114,7 @@ end
 # 			end
 # 		end
 # 	else
-# 		@inbounds #=Threads.@threads=# for t ∈ 1:nt
+# 		@inbounds Threads.@threads for t ∈ 1:nt
 # 			tmp = Matrix{T}(undef, size(Q,1), size(Q,2))  # thread-safe scratchpad to minimize allocations
 # 			@inbounds for i ∈ cs[t]+1:cs[t+1]
 # 				mul!(tmp, Q, view(B,:,i))
@@ -499,37 +497,71 @@ end
 # one row per FE, one col per other grouping
 function crosstabFE(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitRange{Int64}}) where T
   dest = zeros(T, o.NFE, nrows(info))
-  if nrows(info)>0
-		@inbounds Threads.@threads for i ∈ axes(info,1)
-	    FEIDi = @view o._FEID[info[i]]
-	    vi    = @view       v[info[i]]
-	    @inbounds for j in eachindex(vi, FEIDi)
-	  	  dest[FEIDi[j],i] += vi[j]
-	    end
-	  end
-  else  # "robust" case, no clustering
-	  @inbounds Threads.@threads for i in eachindex(v,o._FEID)
-	    dest[o._FEID[i],i] = v[i]
-	  end
-  end
+	if o.haswt
+		vw = v .* o.sqrtwt
+		if nrows(info)>0
+			@inbounds Threads.@threads for i ∈ axes(info,1)
+				FEIDi = @view o._FEID[info[i]]
+				vi    = @view      vw[info[i]]
+				@inbounds for j in eachindex(vi, FEIDi)
+					dest[FEIDi[j],i] += vi[j]
+				end
+			end
+		else  # "robust" case, no clustering
+			@inbounds Threads.@threads for i in eachindex(v,o._FEID)
+				dest[o._FEID[i],i] = vw[i]
+			end
+		end
+	else
+		if nrows(info)>0
+			@inbounds Threads.@threads for i ∈ axes(info,1)
+				FEIDi = @view o._FEID[info[i]]
+				vi    = @view       v[info[i]]
+				@inbounds for j in eachindex(vi, FEIDi)
+					dest[FEIDi[j],i] += vi[j]
+				end
+			end
+		else  # "robust" case, no clustering
+			@inbounds Threads.@threads for i in eachindex(v,o._FEID)
+				dest[o._FEID[i],i] = v[i]
+			end
+		end
+	end		
   dest
 end
 # same, transposed
 function crosstabFEt(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitRange{Int64}}) where T
   dest = zeros(T, nrows(info), o.NFE)
-  if nrows(info)>0
-		@inbounds Threads.@threads for i ∈ axes(info,1)
-	    FEIDi = @view o._FEID[info[i]]
-	    vi    = @view       v[info[i]]
-	    @inbounds for j ∈ eachindex(vi, FEIDi)
-	  	  dest[i,FEIDi[j]] += vi[j]
-	    end
-	  end
-  else  # "robust" case, no clustering
-	  @inbounds Threads.@threads for i ∈ eachindex(v,o._FEID)
-	    dest[i,o._FEID[i]] = v[i]
-	  end
-  end
+	if o.haswt
+		vw = v .* o.sqrtwt
+		if nrows(info)>0
+			@inbounds Threads.@threads for i ∈ axes(info,1)
+				FEIDi = @view o._FEID[info[i]]
+				vi    = @view      vw[info[i]]
+				@inbounds for j ∈ eachindex(vi, FEIDi)
+					dest[i,FEIDi[j]] += vi[j]
+				end
+			end
+		else  # "robust" case, no clustering
+			@inbounds Threads.@threads for i ∈ eachindex(v,o._FEID)
+				dest[i,o._FEID[i]] = vw[i]
+			end
+		end
+	else
+		if nrows(info)>0
+			@inbounds Threads.@threads for i ∈ axes(info,1)
+				FEIDi = @view o._FEID[info[i]]
+				vi    = @view       v[info[i]]
+				@inbounds for j ∈ eachindex(vi, FEIDi)
+					dest[i,FEIDi[j]] += vi[j]
+				end
+			end
+		else  # "robust" case, no clustering
+			@inbounds Threads.@threads for i ∈ eachindex(v,o._FEID)
+				dest[i,o._FEID[i]] = v[i]
+			end
+		end
+	end	
   dest
 end
 # crossab handling multiple columns in v
@@ -537,19 +569,36 @@ end
 # this facilitates reshape() to 2-D array in which results for each col of v are stacked vertically
 function crosstabFE(o::StrBootTest{T}, v::AbstractMatrix{T}, info::Vector{UnitRange{Int64}}) where T
   dest = zeros(T, o.NFE, nrows(info), ncols(v))
-  if nrows(info)>0
-	  @inbounds Threads.@threads for i ∈ axes(info,1)
-	    FEIDi = view(o._FEID, info[i])
-	    vi    = @view       v[info[i],:]
-	    @inbounds for j ∈ axes(FEIDi,1)
-	  	  dest[FEIDi[j],i,:] += @view vi[j,:]
-	    end
-	  end
-  else  # "robust" case, no clustering
-	  @inbounds Threads.@threads for i ∈ axes(o._FEID,1)
-	    dest[o._FEID[i],i,:] .= @view v[i,:]
-	  end
-  end
+	if o.haswt
+		vw = v .* o.sqrtwt
+		if nrows(info)>0
+			@inbounds Threads.@threads for i ∈ axes(info,1)
+				FEIDi = view(o._FEID, info[i])
+				vi    = @view      vw[info[i],:]
+				@inbounds for j ∈ axes(FEIDi,1)
+					dest[FEIDi[j],i,:] += @view vi[j,:]
+				end
+			end
+		else  # "robust" case, no clustering
+			@inbounds Threads.@threads for i ∈ axes(o._FEID,1)
+				dest[o._FEID[i],i,:] .= @view vw[i,:]
+			end
+		end
+	else
+		if nrows(info)>0
+			@inbounds Threads.@threads for i ∈ axes(info,1)
+				FEIDi = view(o._FEID, info[i])
+				vi    = @view       v[info[i],:]
+				@inbounds for j ∈ axes(FEIDi,1)
+					dest[FEIDi[j],i,:] += @view vi[j,:]
+				end
+			end
+		else  # "robust" case, no clustering
+			@inbounds Threads.@threads for i ∈ axes(o._FEID,1)
+				dest[o._FEID[i],i,:] .= @view v[i,:]
+			end
+		end
+	end		
   dest
 end
 
@@ -565,7 +614,7 @@ function partialFE!(o::StrBootTest, In::AbstractArray)
 		else
 			Threads.@threads for f ∈ o.FEs
 				tmp = @view In[f.is,:]
-				tmp .-= f.wt[1] * sum(tmp)
+				tmp .-= f.wt[1] * sum(tmp; dims=1)
 			end
 		end
   end
@@ -582,7 +631,7 @@ function partialFE(o::StrBootTest, In::AbstractArray)
 		else
 			for f ∈ o.FEs
 				tmp = @view In[f.is,:]
-				Out[f.is,:] .= tmp .- f.wt[1] * sum(tmp)
+				Out[f.is,:] .= tmp .- f.wt[1] * sum(tmp; dims=1)
 			end
 		end
   end

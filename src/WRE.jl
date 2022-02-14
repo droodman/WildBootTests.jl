@@ -460,7 +460,7 @@ end
 
 # put threaded loops in functions to prevent type instability https://discourse.julialang.org/t/type-inference-with-threads/2004/3
 function FillingLoop1!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::Integer, _β̈::AbstractMatrix{T}) where T
-	#=Threads.@threads=# for i ∈ 1:o.clust[1].N
+	Threads.@threads for i ∈ 1:o.clust[1].N
 		PXY✻ = hcat(o.PXZ[i,ind1])
 		o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ view(o.S✻UPX[ind1+1],i,:)'o.v)
 
@@ -475,7 +475,7 @@ function FillingLoop1!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::
 	nothing
 end
 function FillingLoop2!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::Integer, _β̈::AbstractMatrix{T}) where T
-	#=Threads.@threads=# for i ∈ 1:o.clust[1].N
+	Threads.@threads for i ∈ 1:o.clust[1].N
 		S = o.info⋂[i]
 		PXY✻ = o.Repl.Yendog[ind1+1] ? view(o.PXZ,S,ind1) .+ view(o.S✻UPX[ind1+1],S,:) * o.v :
 																	reshape(o.PXZ[S,ind1], :, 1)
@@ -490,7 +490,7 @@ function FillingLoop2!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::
 	nothing
 end
 function FillingLoop3!(o::StrBootTest{T}, T₁::Matrix{T}, ind1::Integer, ind2::Integer) where T
-	#=Threads.@threads=# for i ∈ 1:o.N✻
+	Threads.@threads for i ∈ 1:o.N✻
 		T₁[o.IDCT⋂✻[i], i] .+= o.S✻⋂u₁XinvXX[ind2+1,i] * view(o.Repl.XZ,:,ind1)
 	end
 	nothing
@@ -602,7 +602,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 		end
 
 		if o.null
-			o.numerw = _β̈s .+ (o.Repl.Rt₁ - o.r) / o.Repl.RRpar
+			o.numerw =_β̈s  .+ (o.Repl.Rt₁ - o.r) / o.Repl.RRpar
 		else
 			o.numerw = _β̈s .- o.DGP.β̈
 			isone(w) && (o.numerw[1] = _β̈s[1] + (o.Repl.Rt₁[1] - o.r[1]) / o.Repl.RRpar[1])
@@ -647,7 +647,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			δnumer =  HessianFixedkappa(o, collect(1:o.Repl.kZ), 0, o.κ, w)
 			δdenom = [HessianFixedkappa(o, collect(1:i), i, o.κ, w) for i ∈ 1:o.Repl.kZ]
 			
-			@inbounds #=Threads.@threads=# for b ∈ axes(o.v,2)
+			@inbounds Threads.@threads for b ∈ axes(o.v,2)
 				for i ∈ 1:o.Repl.kZ
 					o.δdenom_b[1:i,i] = view(δdenom[i],:,b)  # fill uppper triangle
 				end
