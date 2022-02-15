@@ -9,7 +9,7 @@ function invsym(X)  # inverse of symmetric matrix
 	Symmetric(X)
 end
 function invsymsingcheck(X)  # inverse of symmetric matrix, checking for singularity
-	iszero(nrows(X)) && (return Symmetric(X))
+	iszero(nrows(X)) && (return (false, Symmetric(X)))
 	X, ipiv, info = LinearAlgebra.LAPACK.sytrf!('U', Matrix(X))
 	singular = info>0
 	!singular && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)
