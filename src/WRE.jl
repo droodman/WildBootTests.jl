@@ -113,7 +113,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 		end
 
 		if o.granular
-			o.XinvXX = X₁₂B(o, o.Repl.X₁, o.Repl.X₂, o.invXX)
+			o.XinvXX = X₁₂B(o, o.Repl.X₁, o.Repl.X₂, o.Repl.invXX)
 			o.PXZ    = X₁₂B(o, o.Repl.X₁, o.Repl.X₂, o.Repl.invXXXZ)
 		else
 			o.S⋂YX[1] = dropdims(@panelsum(o, reshape(o.S✻⋂Xy₁,Val(3)), o.info⋂_✻⋂); dims=3)'  # S⋂(M_Zperp*y₁ .* P_(MZperpX)])
@@ -214,6 +214,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 
 	if o.LIML || !o.robust || !isone(o.κ)
 		S✻U₂y₁ = o.S✻Y₂y₁ - o.DGP.Π̂' * o.S✻Xy₁
+		S✻U₂RparYy₁ = o.Repl.RparY' * S✻U₂y₁
 		S✻ZU₂ = o.S✻ReplZY₂ - o.S✻ReplZX * o.DGP.Π̂
 		S✻ZU₂RparY = S✻ZU₂ * o.Repl.RparY
 		Π̂S✻XÜ₂γ̈ = o.DGP.Π̂' * S✻XU₂ * o.DGP.γ̈
@@ -293,7 +294,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 						(o.S✻YU[j+1,1] .-= view(S✻ReplZDGPZR₁r₁, j,:,1))
 				end
       else
-				o.S✻YU[1,i+1] .= @view S✻U₂y₁[i,:,1]
+				o.S✻YU[1,i+1] .= @view S✻U₂RparYy₁[i,:]
 				o.Repl.restricted &&
 					(o.S✻YU[1,i+1] .-= @view S✻ReplZR₁r₁U₂RparY[1,:,i])
 				for j ∈ 1:o.Repl.kZ
@@ -392,7 +393,7 @@ end
 function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer, ind2::Integer, κ::Number, w::Integer)
   if !(o.Repl.Yendog[ind1+1] || o.Repl.Yendog[ind2+1])  # if both vars exog, result = order-0 term only, same for all draws
 		!iszero(κ) && 
-			coldot!(o, dest, view(o.Repl.XZ,:,ind1), view(o.Repl.invXXXZ,:,ind2))
+			(dest .= dot(view(o.Repl.XZ,:,ind1), view(o.Repl.invXXXZ,:,ind2)))
 		if !isone(κ)
 			if iszero(κ)
 				fill!(dest, o.Repl.YY[ind1+1,ind2+1])
@@ -403,7 +404,7 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer
 	else
 		if !iszero(κ)  # repititiveness in this section to maintain type stability
 			if o.Repl.Yendog[ind1+1]
-				T1L = o.T1L[isone(o.Nw) || w<o.Nw ? 1 : 2]  # use preallocated destinations
+				T1L = o.T1L[isone(o.Nw) || w<o.Nw ? 1 : 2]  # preallocated destinations
 				mul!(T1L, o.S✻XU[ind1+1], o.v)
 				if iszero(ind1)
 					T1L .+= o.Repl.Xy₁par
@@ -411,7 +412,7 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer
 					T1L .+= view(o.Repl.XZ,:,ind1)
 				end
 				if o.Repl.Yendog[ind2+1]
-					T1R = o.T1R[isone(o.Nw) || w<o.Nw ? 1 : 2]  # use preallocated destinations
+					T1R = o.T1R[isone(o.Nw) || w<o.Nw ? 1 : 2]  # preallocated destinations
 					mul!(T1R, o.invXXS✻XU[ind2+1], o.v)
 					if iszero(ind2)
 						T1R .+=  o.Repl.invXXXy₁par
@@ -420,7 +421,7 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer
 					end
 					coldot!(o, dest, T1L, T1R)
 				else
-					coldot!(o, dest, T1L, view(o.Repl.invXXXZ,:,ind2))
+					dest .= view(o.Repl.invXXXZ,:,ind2)'T1L  # coldot!(o, dest, T1L, view(o.Repl.invXXXZ,:,ind2))
 				end
 			else
 				if o.Repl.Yendog[ind2+1]
@@ -431,9 +432,9 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer
 					else
 						T1R .+= view(o.Repl.invXXXZ,:,ind2)
 					end
-					coldot!(o, dest, view(o.Repl.XZ,:,ind1), T1R)
+					dest .= view(o.Repl.XZ,:,ind1)'T1R
 				else
-					dest .= coldot(o, view(o.Repl.XZ,:,ind1), view(o.Repl.invXXXZ,:,ind2))
+					dest .= dot(view(o.Repl.XZ,:,ind1), view(o.Repl.invXXXZ,:,ind2))
 				end
 			end
 		end
@@ -632,16 +633,16 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 
 		if o.LIML
 			YY✻   = [HessianFixedkappa(o, collect(0:i), i, zero(T), w) for i ∈ 0:o.Repl.kZ] # κ=0 => Y*MZperp*Y
-			o.YPXY✻ = [HessianFixedkappa(o, collect(0:i), i,  one(T), w) for i ∈ 0:o.Repl.kZ] # κ=1 => Y*PXpar*Y
+			YPXY✻ = [HessianFixedkappa(o, collect(0:i), i,  one(T), w) for i ∈ 0:o.Repl.kZ] # κ=1 => Y*PXpar*Y
 
 			@inbounds for b ∈ axes(o.v,2)
 				for i ∈ 0:o.Repl.kZ
 					o.YY✻_b[1:i+1,i+1]   = YY✻[i+1][:,b]  # fill uppper triangles, which is all that invsym() looks at
-					o.YPXY✻_b[1:i+1,i+1] = o.YPXY✻[i+1][:,b]
+					o.YPXY✻_b[1:i+1,i+1] = YPXY✻[i+1][:,b]
 				end
 				o.κ = 1/(1 - eigvals(invsym(o.YY✻_b) * Symmetric(o.YPXY✻_b))[1])
 				!iszero(o.Fuller) && (o.κ -= o.Fuller / (o._Nobs - o.kX))
-				β̈s[:,b] = (A[b] = invsym(o.κ*o.YPXY✻_b[2:end,2:end] + (1-o.κ)*o.YY✻_b[2:end,2:end])) * (o.κ*o.YPXY✻_b[1,2:end]' + (1-o.κ)*YY✻_b[1,2:end]')
+				β̈s[:,b] = (A[b] = invsym(o.κ*o.YPXY✻_b[2:end,2:end] + (1-o.κ)*o.YY✻_b[2:end,2:end])) * (o.κ*o.YPXY✻_b[1,2:end] + (1-o.κ)*o.YY✻_b[1,2:end])
 			end
 		else
 			δnumer =  HessianFixedkappa(o, collect(1:o.Repl.kZ), 0, o.κ, w)

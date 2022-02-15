@@ -1,7 +1,20 @@
-# core functions not referencing StrBootest or StrEstimator "classes"
-
+@inline nrows(X::AbstractArray) = size(X,1)
+@inline ncols(X::AbstractArray) = size(X,2)
 @inline sqrtNaN(x) = x<0 ? typeof(x)(NaN) : sqrt(x)
-@inline invsym(X) = iszero(nrows(X)) ? Symmetric(X) : inv(Symmetric(X))
+
+function invsym(X)  # inverse of symmetric matrix
+	iszero(nrows(X)) && (return Symmetric(X))
+	X, ipiv, info = LinearAlgebra.LAPACK.sytrf!('U', Matrix(X))
+	iszero(info) && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)
+	Symmetric(X)
+end
+function invsymsingcheck(X)  # inverse of symmetric matrix, checking for singularity
+	iszero(nrows(X)) && (return Symmetric(X))
+	X, ipiv, info = LinearAlgebra.LAPACK.sytrf!('U', Matrix(X))
+	singular = info>0
+	!singular && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)
+	singular, Symmetric(X)
+end
 
 @inline symcross(X::AbstractVecOrMat, wt::AbstractVector) = Symmetric(cross(X,wt,X))  # maybe bad name since it means cross product in Julia
 function cross(X::AbstractVecOrMat{T}, wt::AbstractVector{T}, Y::AbstractVecOrMat{T}) where T
@@ -24,9 +37,6 @@ function crossvec(X::AbstractMatrix{T}, wt::AbstractVector{T}, Y::AbstractVector
 		mul!(dest, (X.*wt)', Y)
 	end
 end
-
-@inline nrows(X::AbstractArray) = size(X,1)
-@inline ncols(X::AbstractArray) = size(X,2)
 
 @inline colsum(X::AbstractArray) = iszero(length(X)) ? similar(X, 1, size(X)[2:end]...) : sum(X, dims=1)
 @inline rowsum(X::AbstractArray) = vec(sum(X, dims=2))

@@ -12,8 +12,8 @@ end
 function setR!(o::StrEstimator{T}, parent::StrBootTest{T}, R₁::AbstractMatrix{T}, R::Union{UniformScaling{Bool},AbstractMatrix{T}}=Matrix{T}(undef,0,0)) where {T,E}
   o.restricted = nrows(R₁) > 0
 	if o.restricted > 0
-	  invR₁R₁ = invsym(R₁ * R₁')
-	  all(iszero.(diag(invR₁R₁))) && throw(ErrorException("Null hypothesis or model constraints are inconsistent or redundant."))
+		singular, invR₁R₁ = invsymsingcheck(R₁ * R₁')
+		singular && throw(ErrorException("Null hypothesis or model constraints are inconsistent or redundant."))
 	  o.R₁invR₁R₁ = R₁'invR₁R₁
 	  F = eigen(Symmetric(o.R₁invR₁R₁ * R₁))
 	  o.R₁perp = F.vectors[:, abs.(F.values) .< 1000*eps(T)]  # eigenvectors orthogonal to span of R₁; foundation for parameterizing subspace compatible with constraints
@@ -22,7 +22,7 @@ function setR!(o::StrEstimator{T}, parent::StrBootTest{T}, R₁::AbstractMatrix{
   end
 
   if !iszero(o.κ)
-	  RR₁perp = Matrix([R ; zeros(T, parent.kY₂, parent.kX₁) I])  # rows to prevent partialling out of endogenous regressors; convert sparse matrix produced by constructor to dense
+	  RR₁perp = Matrix{T}([R ; zeros(T, parent.kY₂, parent.kX₁) I])  # rows to prevent partialling out of endogenous regressors; convert sparse matrix produced by constructor to dense
 
 	  o.restricted && (RR₁perp *= o.R₁perp)
 
@@ -234,7 +234,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		!o.LIML && MakeH!(o, parent, !isempty(Rperp)) # DGP is LIML except possibly when getting confidence peak for A-R plot; but LIML=0 when exactly id'd, for then κ=1 always and Hessian doesn't depend on r₁ and can be computed now
 	else
 	  o.kZ = ncols(o.Rpar)
-	  o.Yendog = [true; #=o.RparY.type==identity ? fill(true, o.kZ) :=# mapreduce(v->v.≠0, .|, eachcol(o.RparY))]  # columns of Y = [y₁par Zpar] that are endogenous (normally all)
+	  o.Yendog = [true colsum(o.RparY .!= zero(T)).!=0]  # columns of Y = [y₁par Zpar] that are endogenous (normally all)
 	end
 	nothing
 end

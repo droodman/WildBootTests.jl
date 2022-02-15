@@ -30,7 +30,7 @@ mutable struct StrEstimator{T<:AbstractFloat}
 
   kZ::Int64
   y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β̈::Vector{T}; γ̈::Vector{T}; β̈₀::Vector{T}; invXXXy₁par::Vector{T}
-  Yendog::Vector{Bool}
+  Yendog::Matrix{Bool}
   invZperpZperp::Symmetric{T,Matrix{T}}; invZperpZperpZperpX::Matrix{T}; XZ::Matrix{T}; YPXY::Symmetric{T,Matrix{T}}; R₁invR₁R₁::Matrix{T}
 	restricted::Bool; RperpX::Matrix{T}; RperpXperp::Matrix{T}; RRpar::Matrix{T}; RparX::Matrix{T}; RparY::Matrix{T}; RR₁invR₁R₁::Matrix{T}
 	∂β̈∂r::Matrix{T}; YY::Symmetric{T,Matrix{T}}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; Rt₁::Vector{T}
