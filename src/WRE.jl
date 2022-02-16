@@ -460,7 +460,7 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer
 end
 
 # put threaded loops in functions to prevent type instability https://discourse.julialang.org/t/type-inference-with-threads/2004/3
-function FillingLoop1!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::Integer, _β̈::AbstractMatrix{T}) where T
+function FillingLoop1!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::Integer, _β̈::AbstractMatrix{T}, β̈v::AbstractMatrix{T}) where T
 	Threads.@threads for i ∈ 1:o.clust[1].N
 		PXY✻ = hcat(o.PXZ[i,ind1])
 		o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ view(o.S✻UPX[ind1+1],i,:)'o.v)
@@ -475,7 +475,7 @@ function FillingLoop1!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::
 	end
 	nothing
 end
-function FillingLoop2!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::Integer, _β̈::AbstractMatrix{T}) where T
+function FillingLoop2!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::Integer, _β̈::AbstractMatrix{T}, β̈v::AbstractMatrix{T}) where T
 	Threads.@threads for i ∈ 1:o.clust[1].N
 		S = o.info⋂[i]
 		PXY✻ = o.Repl.Yendog[ind1+1] ? view(o.PXZ,S,ind1) .+ view(o.S✻UPX[ind1+1],S,:) * o.v :
@@ -521,9 +521,9 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̈s::AbstractMatrix) where 
 				ind2>0 && (β̈v = o.v .* (_β̈ = view(β̈s,ind2,:)'))
 
 				if o.purerobust
-					FillingLoop1!(o, dest, ind1, ind2, _β̈)
+					FillingLoop1!(o, dest, ind1, ind2, _β̈, β̈v)
 				else
-					FillingLoop2!(o, dest, ind1, ind2, _β̈)
+					FillingLoop2!(o, dest, ind1, ind2, _β̈, β̈v)
 				end
 			end
     end

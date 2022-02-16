@@ -102,7 +102,7 @@ function colquadformminus!(turbo::Val{false}, dest::AbstractMatrix{T}, row::Inte
 		end
 	else
 		@inbounds Threads.@threads for t ∈ 1:nt
-			tmp = Vector{T}(undef, size(Q,1))  # thread-safe scratchpad to minimize allocations
+			tmp = Vector{T}(undef, size(Q,1))
 			@inbounds for i ∈ cs[t]+1:cs[t+1]
 				mul!(tmp, Q, view(B,:,i))
 				dest[row,i] -= view(A,:,i)'tmp

@@ -144,7 +144,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.S✻⋂ZperpY₂ = panelcross11(parent, o.Zperp, parent.Y₂, parent.info✻⋂)
 		ZperpY₂ = sumpanelcross(o.S✻⋂ZperpY₂)
 		o.invZperpZperpZperpY₂ = o.invZperpZperp * ZperpY₂
-		parent.NFE>0 && (parent.LIML || !isone(parent.κ) || parent.bootstrapt) &&
+		((parent.NFE>0 && (parent.LIML || !isone(parent.κ) || parent.bootstrapt)) || (parent.robust && parent.bootstrapt && parent.granular)) &&
 			(o.Y₂ = parent.Y₂ - o.Zperp * o.invZperpZperpZperpY₂)
 		o.S✻⋂Zperpy₁ = panelcross11(parent, o.Zperp, parent.y₁, parent.info✻⋂)
 		Zperpy₁ = sumpanelcross(o.S✻⋂Zperpy₁)
