@@ -48,6 +48,7 @@ end
 # stuff that can be done before r set, and depends only on exogenous variables, which are fixed throughout all bootstrap methods
 function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::AbstractMatrix{T}) where T # Rperp is for replication regression--no null imposed
   o.y₁par = parent.y₁
+	o.ü₁ = Vector{T}(undef, parent.Nobs)
   H = Symmetric(parent.X₁'parent.X₁)
   o.invH = Symmetric(inv(H))
 
@@ -62,7 +63,10 @@ function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstrac
 end
 
 function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
-  X₂X₁ = parent.X₂'parent.X₁
+	o.y₁par = Vector{T}(undef, parent.Nobs)
+	o.ü₁    = Vector{T}(undef, parent.Nobs)
+
+	X₂X₁ = parent.X₂'parent.X₁
   H = Symmetric([parent.X₁'parent.X₁ X₂X₁' ; X₂X₁ parent.X₂'parent.X₂])
   o.A = inv(H)
   o.AR = o.A * parent.R'
@@ -140,9 +144,8 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.S✻⋂ZperpY₂ = panelcross11(parent, o.Zperp, parent.Y₂, parent.info✻⋂)
 		ZperpY₂ = sumpanelcross(o.S✻⋂ZperpY₂)
 		o.invZperpZperpZperpY₂ = o.invZperpZperp * ZperpY₂
-		if parent.NFE>0 && (parent.LIML || !isone(parent.κ) || parent.bootstrapt)
-			o.Y₂ = parent.Y₂ - o.Zperp * o.invZperpZperpZperpY₂
-		end
+		parent.NFE>0 && (parent.LIML || !isone(parent.κ) || parent.bootstrapt) &&
+			(o.Y₂ = parent.Y₂ - o.Zperp * o.invZperpZperpZperpY₂)
 		o.S✻⋂Zperpy₁ = panelcross11(parent, o.Zperp, parent.y₁, parent.info✻⋂)
 		Zperpy₁ = sumpanelcross(o.S✻⋂Zperpy₁)
 		o.invZperpZperpZperpy₁ = o.invZperpZperp * Zperpy₁
@@ -166,7 +169,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.y₁y₁ = sum(o.S✻y₁y₁) - Zperpy₁'o.invZperpZperpZperpy₁
 	end
 
-  Zpar = X₁₂B(parent, parent.X₁, parent.Y₂, o.Rpar)  # Z∥
+  o.Z = X₁₂B(parent, parent.X₁, parent.Y₂, o.Rpar)  # Z∥
 
 	X₁par = parent.X₁ * o.RparX  # XXX expressible as a linear combination of Xpar₁??
 	S✻⋂X₁Zpar = panelcross11(parent, o.Xpar₁  , X₁par, parent.info✻⋂) + o.S✻⋂X₁Y₂ * o.RparY
@@ -179,8 +182,6 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	o.S✻⋂ZperpZpar = S✻⋂ZperpX₁par + o.S✻⋂ZperpY₂ * o.RparY
   ZperpZpar = ZperpX₁par + sumpanelcross(o.S✻⋂ZperpY₂) * o.RparY
 	o.invZperpZperpZperpZpar = o.invZperpZperp * ZperpZpar
-
-	o.Z = Zpar - o.Zperp * o.invZperpZperpZperpZpar
 
 	S✻X₁pary₁ = panelcross11(parent, X₁par, parent.y₁, parent.info✻)
 	o.S✻Zpary₁ = S✻X₁pary₁ + o.RparY' * o.S✻Y₂y₁
@@ -207,7 +208,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.ZR₁ = _ZR₁ - o.Zperp * o.invZperpZperpZperpZR₁
 	  o.X₁ZR₁    = sumpanelcross(S✻⋂X₁ZR₁) - o.invZperpZperpZperpX₁'o.ZperpZR₁
 	  o.X₂ZR₁    = sumpanelcross(S✻⋂X₂ZR₁) - o.invZperpZperpZperpX₂'o.ZperpZR₁
-		o.S✻ZR₁Z   = panelcross11(parent, _ZR₁, Zpar, parent.info✻)
+		o.S✻ZR₁Z   = panelcross11(parent, _ZR₁, o.Z, parent.info✻)
 	  o.ZR₁Z     = sumpanelcross(o.S✻ZR₁Z) - o.ZperpZR₁'o.invZperpZperp * ZperpZpar
 		o.S✻ZR₁Y₂  = panelcross11(parent, _ZR₁, parent.Y₂, parent.info✻)
 	  o.ZR₁Y₂    = sumpanelcross(o.S✻ZR₁Y₂) - o.ZperpZR₁'o.invZperpZperpZperpY₂
@@ -222,11 +223,22 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	  o.Zy₁par     = o.Zy₁
 	  o.y₁pary₁par = o.y₁y₁
 	  o.Xy₁par     = [o.X₁y₁ ; o.X₂y₁]
-	  (parent.scorebs || parent.robust && parent.bootstrapt && parent.granular) &&
-			(o.y₁par   = o.y₁)
   end
+	(parent.scorebs || parent.robust && parent.bootstrapt && parent.granular) && 
+		(o.y₁par = copy(o.y₁))
 
-  o.V =  o.invXX * o.XZ  # in 2SLS case, StrEstimator is (V' XZ)^-1 * (V'Xy₁). Also used in k-class and LIML robust VCV by Stata convention
+	if o.isDGP
+		if parent.scorebs
+			o.ü₁ = Vector{T}(undef, parent.Nobs)
+		elseif parent.robust && parent.bootstrapt && parent.granular
+			o.Ü₂ = Matrix{T}(undef, parent.Nobs, parent.kY₂)
+			o.u⃛₁ = Vector{T}(undef, parent.Nobs)
+		end
+	end
+	
+	o.Z .-= o.Zperp * o.invZperpZperpZperpZpar
+
+  o.V =  o.invXX * o.XZ  # in 2SLS case, estimator is (V' XZ)^-1 * (V'Xy₁). Also used in k-class and LIML robust VCV by Stata convention
   o.H_2SLS = Symmetric(o.V'o.XZ)  # Hessian
   (o.LIML || !isone(o.κ)) && (o.H_2SLSmZZ = o.H_2SLS - o.ZZ)
 
@@ -251,7 +263,7 @@ end
 
 function EstimateARubin!(o::StrEstimator{T}, parent::StrBootTest{T}, r₁::AbstractVector) where T
   o.β̈ = o.β̈₀ - o.∂β̈∂r * r₁
-  o.y₁par = parent.y₁ - parent.Y₂ * r₁
+  o.y₁par .= parent.y₁ .- parent.Y₂ * r₁
 	nothing
 end
 
@@ -275,7 +287,7 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, r₁::AbstractV
 	  o.Zy₁par  = o.Zy₁ -  o.ZR₁Z'r₁
 	  o.Xy₁par  = [o.X₁y₁par ; o.X₂y₁par]
 	  (parent.scorebs || parent.robust && parent.bootstrapt && parent.granular) && 
-			(o.y₁par   = o.y₁ - o.ZR₁ * r₁)
+			(o.y₁par .= o.y₁ .- o.ZR₁ * r₁)
   end
 
   o.invXXXy₁par = o.invXX * o.Xy₁par
@@ -300,13 +312,13 @@ end
 
 
 @inline function MakeResidualsOLSARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
-  o.ü₁ = o.y₁par - X₁₂B(parent, parent.X₁, parent.X₂, o.β̈)
+  o.ü₁ .= o.y₁par .- X₁₂B(parent, parent.X₁, parent.X₂, o.β̈)
 	nothing
 end
 
 function MakeResidualsIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
   if parent.scorebs
-		o.ü₁ = o.y₁par - o.Z * o.β̈
+		o.ü₁ .= o.y₁par .- o.Z * o.β̈
 	else
 		_β = [1 ; -o.β̈]
 	  uu = _β'o.YY * _β
@@ -316,8 +328,8 @@ function MakeResidualsIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	  o.Π̂ = invsym(o.XX + negXuinvuu * Xu') * (negXuinvuu * (o.Y₂y₁par - o.ZY₂'o.β̈)' + o.XY₂)
 		o.γ̈ = o.RparY * o.β̈ + o.t₁Y
 	  if parent.robust && parent.bootstrapt && parent.granular
-			o.Ü₂ = X₁₂B(parent, o.X₁, o.X₂, o.Π̂); o.Ü₂ .= o.Y₂ .- o.Ü₂
-			o.u⃛₁ = o.Ü₂ * o.γ̈; o.u⃛₁ .+= o.y₁par .- o.Z * o.β̈
+			o.Ü₂ .= o.Y₂ .- X₁₂B(parent, o.X₁, o.X₂, o.Π̂)
+			o.u⃛₁ .= o.y₁par .- o.Z * o.β̈ .+ o.Ü₂ * o.γ̈
 		end
   end
 	nothing

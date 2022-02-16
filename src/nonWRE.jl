@@ -121,7 +121,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 	o.SuwtXA = o.scorebs ?
 				o.B>0 ?
 					 o.NClustVar ?
-				          @panelsum(o, o.uXAR, o.info✻) :
+				      	@panelsum(o, o.uXAR, o.info✻) :
 					      o.uXAR                    :
 				        sum(o.uXAR,dims=1)  :
 			  o.DGP.A * panelsum2(o, o.X₁, o.X₂, o.ü, o.info✻)'  # same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined; X₂ empty except in Anderson-Rubin
@@ -238,7 +238,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 	!o.bootstrapt && return
 
 	if o.robust
-    if !o.interpolating  # these quadratic computation needed to *prepare* for interpolation but are superseded by interpolation once it is going
+    if !o.interpolating  # these quadratic computations needed to *prepare* for interpolation but are superseded by interpolation once it is going
     	o.purerobust && (u✻2 = o.u✻ .^ 2)
     	@inbounds for i ∈ 1:o.dof, j ∈ 1:i
     		o.purerobust &&

@@ -172,8 +172,8 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			o.IDCT⋂✻   = Vector{Vector{Int64}}(undef, o.N✻)
 			o.infoCT⋂✻ = Vector{Vector{UnitRange{Int64}}}(undef, o.N✻)
 			for i ∈ 1:o.N✻
-				tmp = o._ID✻⋂[o.info✻[i]]                        # ID numbers w.r.t. intersection of all bootstrap/error clusterings contained in bootstrap cluster i
-				o.infoCT⋂✻[i] = o.info✻⋂[tmp[1]:tmp[end]]       # for each of those ID's, panel info for the all-bootstrap/error-clusterings data row groupings
+				tmp = o._ID✻⋂[o.info✻[i]]                 # ID numbers w.r.t. intersection of all bootstrap/error clusterings contained in bootstrap cluster i
+				o.infoCT⋂✻[i] = o.info✻⋂[tmp[1]:tmp[end]] # for each of those ID's, panel info for the all-bootstrap/error-clusterings data row groupings
 				o.IDCT⋂✻[i] = ID⋂[first.(o.infoCT⋂✻[i])]  # ID numbers of those groupings w.r.t. the all-error-clusterings grouping
 			end
 		end
