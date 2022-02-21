@@ -11,11 +11,8 @@ function InitWRE!(o::StrBootTest{T}) where T
 	o.T1L = isone(o.Nw) ? [Matrix{T}(undef, o.Repl.kX, ncols(o.v))] :
 												[Matrix{T}(undef, o.Repl.kX, length(o.WeightGrp[1])), Matrix{T}(undef, o.Repl.kX, length(o.WeightGrp[end]))]
 	o.T1R = deepcopy(o.T1L)
-	if o.robust && o.bootstrapt && iszero(o.granular)
-		o.negS✻UMZperpX = Vector{Array{T,3}}(undef, o.Repl.kZ+1)  # XXX change to preallocation
-		(o.Nw>1 || true) &&
-			(o.S✻U_S✻UMZperpX = [Array{T,3}(undef, o.N✻, nrows(o.info⋂), o.N✻) for _ ∈ 0:o.Repl.kZ, _ ∈ 0:o.Repl.kZ])
-	end
+	o.robust && o.bootstrapt && iszero(o.granular) &&
+		(o.negS✻UMZperpX = [Array{T,3}(undef, o.Repl.kX, o.N⋂, o.N✻) for _ in 0:o.Repl.kZ])
 
 	if o.bootstrapt
 		o.δdenom_b = zeros(o.Repl.kZ, o.Repl.kZ)
@@ -427,18 +424,6 @@ function FillingLoop2!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::
 	nothing
 end
 
-# dest = dropdims(sum(reshape(F1,(size(F1,1),1,size(F1,2))) .* F2; dims=1); dims=1)
-# function FillingLoop3(dest, F1, F2)
-# 	@inbounds #=Threads.@threads=# for b ∈ 1:size(F2,3)
-# 		@inbounds for i ∈ 1:size(F2,1)
-# 			F1ib = F1[i,b]
-# 			for g ∈ 1:size(F2,2)
-# 				dest[g,b] += F1ib * F2[i,g,b]
-# 			end
-# 		end
-# 	end
-# end
-
 # Workhorse for WRE CRVE sandwich filling
 # Given a zero-indexed column index, ind1>0, and a matrix β̈s of all the bootstrap estimates, 
 # return all bootstrap realizations of P_X * Z[:,ind1]_g ' û₁g^*b
@@ -471,21 +456,31 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̈s::AbstractMatrix) where 
 			end
     end
   else  # coarse error clustering
-		F1_0 = o.Repl.invXX * view(o.Repl.XZ,:,ind1) #=(kX,)=#; F1_1 = o.Repl.invXX * o.S✻XU[ind1+1] #=(kX,N*)=#
+		F1_0 = view(o.Repl.invXXXZ,:,ind1) #=(kX,)=#; F1_1 = o.Repl.Yendog[ind1+1] ? o.invXXS✻XU[ind1+1] #=(kX,N*)=# : Matrix{T}(undef,0,0)
 		F2_0 = o.S⋂Xy₁ #=(kX,N⋂)=#; F2_1 = o.negS✻UMZperpX[1] #=(kx,N⋂,N*)=#
-		dest = reshape(F1_0'F2_0,:,1) .+ (F2_0'F1_1 - dropdims(F1_0'F2_1; dims=1)) * o.v  # 0th- & 1st-order terms
-		Q = F1_1'F2_1
-		for g ∈ 1:o.N⋂
-			colquadformminus!(Val(o.turbo), dest, g, o.v, Q[:,g,:], o.v)
+		if ncols(F1_1)>0  # add terms that are zero only if Zpar[ind1] is exogenous, i.e. if a null refers only to exogenous variables
+			dest = reshape(F1_0'F2_0,:,1) .- (dropdims(F1_0'F2_1; dims=1) - F2_0'F1_1) * o.v  # 0th- & 1st-order terms
+			Q = F1_1'F2_1
+			@inbounds for g ∈ 1:o.N⋂
+				colquadformminus!(Val(o.turbo), dest, g, o.v, Q[:,g,:], o.v)
+			end
+		else
+			dest = reshape(F1_0'F2_0,:,1) .- dropdims(F1_0'F2_1; dims=1) * o.v  # 0th- & 1st-order terms
 		end
 
 		@inbounds for ind2 ∈ 1:o.Repl.kZ
-			F2_0 = view(o.S⋂ReplZX,ind2,:,:)' #=(kX,N⋂)=#; F2_1 = o.negS✻UMZperpX[ind2+1] #=(kx,N⋂,N*)=#
+			F2_0 = view(o.S⋂ReplZX,ind2,:,:)' #=(kX,N⋂)=#; F2_1 =  o.Repl.Yendog[ind2+1] ? o.negS✻UMZperpX[ind2+1] #=(kx,N⋂,N*)=# : Array{T,3}(undef,0,0,0)
 			β̈v = o.v .* (_β̈ = -view(β̈s,ind2,:)')
-			dest .+= reshape(F1_0'F2_0,:,1) .* _β̈ .+ (F2_0'F1_1 - dropdims(F1_0'F2_1; dims=1)) * β̈v  # "-" because S✻UMZperpX is stored negated as negS✻UMZperpX
-			Q = F1_1'F2_1
-			for g ∈ 1:o.N⋂
-				colquadformminus!(Val(o.turbo), dest, g, o.v, Q[:,g,:], β̈v)
+			if ncols(F1_1)>0
+				dest .+= reshape(F1_0'F2_0,:,1) .* _β̈ .+ (F2_0'F1_1 - dropdims(F1_0'F2_1; dims=1)) * β̈v  # "-" because S✻UMZperpX is stored negated as negS✻UMZperpX
+				Q .= F1_1'F2_1
+				for g ∈ 1:o.N⋂
+					colquadformminus!(Val(o.turbo), dest, g, o.v, Q[:,g,:], β̈v)
+				end
+			elseif ncols(F2_1)>0
+				dest .+= reshape(F1_0'F2_0,:,1) .* _β̈ .- dropdims(F1_0'F2_1; dims=1) * β̈v
+			else
+				dest .+= reshape(F1_0'F2_0,:,1) .* _β̈
 			end
 		end
   end
