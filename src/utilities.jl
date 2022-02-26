@@ -3,10 +3,10 @@
 @inline sqrtNaN(x) = x<0 ? typeof(x)(NaN) : sqrt(x)
 
 function invsym(X)  # inverse of symmetric matrix
-	iszero(nrows(X)) && (return Symmetric(X))
-	X, ipiv, info = LinearAlgebra.LAPACK.sytrf!('U', Matrix(X))
-	iszero(info) && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)
-	Symmetric(X)
+	# iszero(nrows(X)) && (return Symmetric(X))
+	# X, ipiv, info = LinearAlgebra.LAPACK.sytrf!('U', Matrix(X))
+	# iszero(info) && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)
+	Symmetric(pinv(X))
 end
 function invsymsingcheck(X)  # inverse of symmetric matrix, checking for singularity
 	iszero(nrows(X)) && (return (false, Symmetric(X)))

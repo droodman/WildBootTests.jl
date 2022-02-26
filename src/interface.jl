@@ -208,6 +208,7 @@ function _wildboottest(T::DataType,
   @assert length(predexog)==0 || nrows(predexog)==nrows(resp) "All data vectors/matrices must have same height"
   @assert length(predendog)==0 || nrows(predendog)==nrows(resp) "All data vectors/matrices must have same height"
   @assert length(inst)==0 || nrows(inst)==nrows(resp) "All data vectors/matrices must have same height"
+	@assert ncols(inst) >= ncols(predendog) "Model has fewer instruments than instrumented variables"
   @assert length(feid)==0 || nrows(feid)==nrows(resp) "feid vector must have same height as data matrices"
   @assert length(clustid)==0 || nrows(clustid)==nrows(resp) "clustid must have same height as data matrices"
   @assert nrows(obswt)==0 || nrows(obswt)==nrows(resp) "obswt must have same height as data matrices"
@@ -317,6 +318,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `clustid::AbstractVecOrMat{<:Integer}`: data vector/matrix of error and bootstrapping cluster identifiers; see Notes 
 * `nbootclustvar::Integer=1`: number of bootstrap-clustering variables
 * `nerrclustvar::Integer=nbootclustvar`: number of error-clustering variables
+* `issorted:Bool=false`: time-saving flag: data matrices are already sort by column types 2, then 3, then 1 (see notes)
 * `hetrobust::Bool=true`: true unless errors are treated as iid
 * `feid::AbstractVector{<:Integer}`: data vector for fixed effect group identifier
 * `fedfadj::Bool=true`: true if small-sample adjustment should reflect number of fixed effects (if any)
@@ -368,5 +370,5 @@ Order the columns of `clustid` this way:
 be restricted to the estimation sample.
 
 """
-wildboottest(   R, r; args...) = _wildboottest(                                                  R, r; Dict(a.first => (isa(a.second, AbstractString) ? eval(Meta.parse(a.second)) : a.second) for a ∈ args)...)
-wildboottest(T, R, r; args...) = _wildboottest(isa(T, AbstractString) ? eval(Meta.parse(T)) : T, R, r; Dict(a.first => (isa(a.second, AbstractString) ? eval(Meta.parse(a.second)) : a.second) for a ∈ args)...)
+wildboottest(   R, r; kwargs...) = _wildboottest(                                                  R, r; Dict(a.first => (isa(a.second, AbstractString) ? eval(Meta.parse(a.second)) : a.second) for a ∈ kwargs)...)
+wildboottest(T, R, r; kwargs...) = _wildboottest(isa(T, AbstractString) ? eval(Meta.parse(T)) : T, R, r; Dict(a.first => (isa(a.second, AbstractString) ? eval(Meta.parse(a.second)) : a.second) for a ∈ kwargs)...)

@@ -1,9 +1,11 @@
 # stuff done once per exucution--not depending on r
 function InitWRE!(o::StrBootTest{T}) where T
+	iszero(o.granular) && (o.Repl.Zperp = o.DGP.Zperp = Matrix{T}(undef,0,0))  # drop this potentially large array
+
 	o.LIML && o.Repl.kZ==1 && o.Nw==1 && (o.As = o.β̈s = zeros(1, o.B+1))
 
-	o.S✻ZperpU              = [Matrix{T}(undef, ncols(o.Repl.Zperp), o.N✻) for _ ∈ 0:o.Repl.kZ]
-	o.invZperpZperpS✻ZperpU = [Matrix{T}(undef, ncols(o.Repl.Zperp), o.N✻) for _ ∈ 0:o.Repl.kZ]
+	o.S✻ZperpU              = [Matrix{T}(undef, ncols(o.Repl.RperpX), o.N✻) for _ ∈ 0:o.Repl.kZ]
+	o.invZperpZperpS✻ZperpU = [Matrix{T}(undef, ncols(o.Repl.RperpX), o.N✻) for _ ∈ 0:o.Repl.kZ]
 	o.S✻YU                  = [Vector{T}(undef, o.N✻) for _ ∈ 0:o.Repl.kZ, _ ∈ 0:o.Repl.kZ]
 	o.S✻XU                  = [Matrix{T}(undef, o.DGP.kX, o.N✻) for _ ∈ 0:o.Repl.kZ]
 	o.invXXS✻XU             = [Matrix{T}(undef, o.DGP.kX, o.N✻) for _ ∈ 0:o.Repl.kZ]
@@ -27,7 +29,6 @@ function InitWRE!(o::StrBootTest{T}) where T
 		end
 		o.NFE>0 && (o.bootstrapt || !isone(o.κ) || o.LIML) && (o.CTFEU = Vector{Matrix{T}}(undef, o.Repl.kZ+1))
 	end
-
 	o.S✻⋂XY₂      = o.Repl.S✻⋂XY₂     - o.Repl.S✻⋂XZperp     * o.Repl.invZperpZperpZperpY₂  - o.Repl.invZperpZperpZperpX' * (o.Repl.S✻⋂ZperpY₂  - o.Repl.S✻⋂ZperpZperp * o.Repl.invZperpZperpZperpY₂ )
 	o.S✻⋂XX       = o.Repl.S✻⋂XX      - o.Repl.S✻⋂XZperp     * o.Repl.invZperpZperpZperpX   - o.Repl.invZperpZperpZperpX' * (o.Repl.S✻⋂XZperp'  - o.Repl.S✻⋂ZperpZperp * o.Repl.invZperpZperpZperpX  )
 	o.S✻⋂XDGPZ    = o.DGP.S✻⋂XZpar    - o.Repl.S✻⋂XZperp     * o.DGP.invZperpZperpZperpZpar - o.Repl.invZperpZperpZperpX' * (o.DGP.S✻⋂ZperpZpar - o.Repl.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpZpar)
@@ -83,10 +84,10 @@ function InitWRE!(o::StrBootTest{T}) where T
 			o.PXZ    = X₁₂B(o, o.Repl.X₁, o.Repl.X₂, o.Repl.invXXXZ)
 		else
 			inds = o.subcluster>0 ?
-							[CartesianIndex(i,j) for (j,v) ∈ enumerate(o.info⋂_✻⋂) for i ∈ v] :  # crosstab *,∩ is tall
+							[CartesianIndex(j,i) for (j,v) ∈ enumerate(o.info⋂_✻⋂) for i ∈ v] :  # crosstab ∩,* is wide
 							o.NClustVar == o.nbootclustvar ?
 									[CartesianIndex(i,i) for i ∈ 1:o.N✻⋂] :  # crosstab *,∩ is square
-									[CartesianIndex(j,i) for (j,v) ∈ enumerate(o.clust[o.BootClust].info) for i ∈ v]  # crosstab *,∩ is wide
+									[CartesianIndex(i,j) for (j,v) ∈ enumerate(o.clust[o.BootClust].info) for i ∈ v]  # crosstab ∩,* is tall
 			inds = [CartesianIndex(k,I) for I ∈ inds for k ∈ 1:o.Repl.kX]
 			o.crosstab⋂✻ind = LinearIndices(FakeArray(Tuple(max(inds...))...))[inds]
 
@@ -161,7 +162,6 @@ function PrepWRE!(o::StrBootTest{T}) where T
 	S✻⋂XU₂RparY = S✻⋂XU₂ * o.Repl.RparY
 	S✻XU₂ = o.S✻XY₂ - o.S✻XX * o.DGP.Π̂
 	S✻XU₂RparY = S✻XU₂ * o.Repl.RparY
-	
 	S✻ZperpU₂ = o.S✻ZperpY₂ - o.S✻ZperpX * o.DGP.Π̂
 	S✻ZperpU₂RparY = S✻ZperpU₂ * o.Repl.RparY
 	invZperpZperpS✻ZperpU₂ = o.invZperpZperpS✻ZperpY₂ - o.invZperpZperpS✻ZperpX * o.DGP.Π̂
@@ -190,11 +190,11 @@ function PrepWRE!(o::StrBootTest{T}) where T
 			S✻ReplZDGPZR₁r₁ = o.S✻ReplZDGPZR₁ * r₁
 			o.Repl.restricted && (S✻ReplZR₁r₁DGPZR₁r₁ = o.r₁S✻ReplZR₁DGPZR₁ * r₁)
 		end
+	end
 
-		if o.NFE>0
-			CT✻FEU = o.CT✻FEY₂ - o.CT✻FEX * o.DGP.Π̂
-			CT✻FEURparY = CT✻FEU * o.Repl.RparY
-		end
+	if (o.LIML || o.bootstrapt || !isone(o.κ)) && o.NFE>0
+		CT✻FEU = o.CT✻FEY₂ - o.CT✻FEX * o.DGP.Π̂
+		CT✻FEURparY = CT✻FEU * o.Repl.RparY
 	end
 
   @inbounds for i ∈ 0:o.Repl.kZ  # precompute various clusterwise sums
@@ -418,7 +418,7 @@ function FillingLoop2!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::
 			dest[i,:]   = colsum(PXY✻ .* (o.Repl.y₁[S] .- view(o.S✻UMZperp[1],S,:) * o.v))
 		else
 			dest[i,:] .-= colsum(PXY✻ .* (o.Repl.Yendog[ind2+1] ? o.Repl.Z[S,ind2] * _β̈ .- view(o.S✻UMZperp[ind2+1],S,:) * β̈v :
-																																o.Repl.Z[S,ind2] * _β̈                                       ))
+																														o.Repl.Z[S,ind2] * _β̈                                       ))
 		end
 	end
 	nothing
@@ -433,11 +433,9 @@ end
 function Filling(o::StrBootTest{T}, ind1::Integer, β̈s::AbstractMatrix) where T
 	if o.granular
    	if o.Nw == 1  # create or avoid NxB matrix?
-			PXY✻ = reshape(o.PXZ[:,ind1], :, 1)  # store as matrix to reduce compiler confusion
+			PXY✻ = reshape(view(o.PXZ,:,ind1), :, 1)
 			o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ o.S✻UPX[ind1+1] * o.v)
-
 			dest = @panelsum(o, PXY✻ .* (o.Repl.y₁ .- o.S✻UMZperp[1] * o.v), o.info⋂)
-
 			@inbounds for ind2 ∈ 1:o.Repl.kZ
 				_β̈ = view(β̈s,ind2,:)'
 				dest .-= @panelsum(o, PXY✻ .* (o.Repl.Yendog[ind2+1] ? view(o.Repl.Z,:,ind2) * _β̈ .- o.S✻UMZperp[ind2+1] * (o.v .* _β̈) :
@@ -447,12 +445,7 @@ function Filling(o::StrBootTest{T}, ind1::Integer, β̈s::AbstractMatrix) where 
 			dest = Matrix{T}(undef, o.N⋂, ncols(o.v))  # XXX preallocate this & turn Filling into Filling! ?
 			@inbounds for ind2 ∈ 0:o.Repl.kZ
 				ind2>0 && (β̈v = o.v .* (_β̈ = view(β̈s,ind2,:)'))
-
-				if o.purerobust
-					FillingLoop1!(o, dest, ind1, ind2, _β̈, β̈v)
-				else
-					FillingLoop2!(o, dest, ind1, ind2, _β̈, β̈v)
-				end
+				(o.purerobust ? FillingLoop1! : FillingLoop2!)(o, dest, ind1, ind2, _β̈, β̈v)
 			end
     end
   else  # coarse error clustering
@@ -511,17 +504,16 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 		end
 
 		if o.null
-			o.numerw =_β̈s  .+ (o.Repl.Rt₁ - o.r) / o.Repl.RRpar
+			o.numerw = _β̈s .+ (o.Repl.Rt₁ - o.r) / o.Repl.RRpar
 		else
 			o.numerw = _β̈s .- o.DGP.β̈
 			isone(w) && (o.numerw[1] = _β̈s[1] + (o.Repl.Rt₁[1] - o.r[1]) / o.Repl.RRpar[1])
 		end
 
 		@storeWtGrpResults!(o.numer, o.numerw)
-
 		if o.bootstrapt
 			if o.robust
-				J⋂s = Filling(o, 1, _β̈s); J⋂s ./= o.As  # preallocate J⋂s
+				J⋂s = Filling(o, 1, _β̈s); J⋂s ./= o.As  # XXX preallocate J⋂s
 				@inbounds for c ∈ 1:o.NErrClustCombs  # sum sandwich over error clusterings
 					nrows(o.clust[c].order)>0 && 
 						(J⋂s = J⋂s[o.clust[c].order,:])
@@ -530,7 +522,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			else
 				denom = (HessianFixedkappa(o, [0], 0, zero(T), w) .- 2 .* _β̈s .* HessianFixedkappa(o, [0], 1, zero(T), w) .+ _β̈s.^2 .* HessianFixedkappa(o, [1], 1, zero(T), w)) ./ o._Nobs ./ o.As  # classical error variance
 			end
-			@storeWtGrpResults!(o.dist, o.sqrt ? o.numerw ./ sqrt.(denom) : o.numerw .^ 2 ./ denom)
+			@storeWtGrpResults!(o.dist, o.sqrt ? o.numerw ./ sqrtNaN.(denom) : o.numerw .^ 2 ./ denom)
 			denom *= o.Repl.RRpar[1]^2
 		end
 

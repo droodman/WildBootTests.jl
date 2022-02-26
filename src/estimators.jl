@@ -51,7 +51,6 @@ function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstrac
 	o.ü₁ = Vector{T}(undef, parent.Nobs)
   H = Symmetric(parent.X₁'parent.X₁)
   o.invH = Symmetric(inv(H))
-
   R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.invH : Symmetric(o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')  # for DGP regression
   o.β̈₀ = R₁AR₁ * (parent.X₁'o.y₁par)
   o.∂β̈∂r = R₁AR₁ * H * o.R₁invR₁R₁ - o.R₁invR₁R₁
@@ -110,7 +109,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	else
 		o.Zperp = parent.X₁ * o.RperpX
 		o.S✻⋂ZperpZperp = panelcross11(parent, o.Zperp, o.Zperp, parent.info✻⋂)
-		o.invZperpZperp = iszero(ncols(o.RperpX)) ? Symmetric(Matrix{T}(undef,0,0)) : inv(Symmetric(sumpanelcross(o.S✻⋂ZperpZperp)))
+		o.invZperpZperp = iszero(ncols(o.RperpX)) ? Symmetric(Matrix{T}(undef,0,0)) : invsym(sumpanelcross(o.S✻⋂ZperpZperp))
 
 		o.Xpar₁ = parent.X₁ * o.RperpXperp
 		S✻⋂X₁Zperp = panelcross11(parent, o.Xpar₁, o.Zperp, parent.info✻⋂)
