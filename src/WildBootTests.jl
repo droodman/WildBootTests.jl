@@ -110,3 +110,53 @@ include("precompile_WildBootTests.jl")  # source: https://timholy.github.io/Snoo
 _precompile_()
 
 end
+
+# using JLD
+# @load "C:/Users/drood/Downloads/tmp.jld"
+# test = WildBootTests.wildboottest(Float64, R, r; resp, predexog, predendog, inst, #=obswt,=# clustid, feid, nbootclustvar=1, nerrclustvar=2, turbo=true, issorted=true, getCI=true, reps=9999)
+# test
+# R = [1 zeros(1,251)]
+# r = [0]                                           
+# resp = rand(2605476)
+# predexog = rand(2605476, 251)
+# predendog = rand(2605476)
+# inst = np.asarray(Data.get("$inst"))
+# clustid = np.asarray(Data.get('$clustid')).astype(int)
+# test = wbt.wildboottest(R, r, resp=resp, predexog=predexog, predendog=predendog, inst=inst,
+#        clustid=clustid, nbootclustvar=1, nerrclustvar=1, reps=9999)
+
+
+# using StableRNGs, Random, BenchmarkTools
+# N=1_000_00; G=40; k=2; l=4
+# Random.seed!(1231)
+# β=rand(); γ=rand(k); Π=rand(l)
+# W = rand(N,l)
+# u₂ = randn(N)
+# y₂ = W * Π + u₂
+# u₁ = u₂ + randn(N)
+# Z = rand(N,k)
+# y₁ = y₂ * β + Z * γ + u₁
+# ID = floor.(Int8, collect(0:N-1) / (N/G))
+# R = [zeros(1,k) 1]; r = [0]
+# FEID = rand([1,2,3,4,5],N)
+# test = WildBootTests.wildboottest(Float32, R, .36; R1 = [1 zeros(1,k)], r1=[0], resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=99, issorted=true, rng=StableRNG(1231), LIML=true, feid=FEID)
+# test
+# # WildBootTests.wildboottest(Float64, R,#=.46=#.36; R1 = [1 zeros(1,k)], r1=[0], resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=999, issorted=true, rng=StableRNG(1231), LIML=true, feid=FEID)
+
+# N=1_000_000; G=40; k=12; l=40
+# Random.seed!(1231)
+# β=rand(); γ=rand(k); Π=rand(l)
+# W = rand(N,l)
+# u₂ = randn(N)
+# y₂ = W * Π + u₂
+# u₁ = u₂ + randn(N)
+# Z = rand(N,k)
+# y₁ = y₂ * β + Z * γ + u₁
+# ID = floor.(Int8, collect(0:N-1) / (N/G))
+# R = [zeros(1,k) 1]; r = [0]
+# WildBootTests.wildboottest(Float32, R,r; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=false)
+# WildBootTests.wildboottest(Float64, R,r; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=false)
+# @btime WildBootTests.wildboottest(Float32, R,r; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=false)
+# @btime WildBootTests.wildboottest(Float64, R,r; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=false)
+
+# @btime WildBootTests.wildboottest(Float32, R,.4; resp=y₁, predexog=Z, predendog=y₂, inst=W, clustid=ID, reps=9999, issorted=true, getCI=true);
