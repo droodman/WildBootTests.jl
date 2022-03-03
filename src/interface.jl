@@ -300,17 +300,17 @@ end
 
 _wildboottest(T::DataType, R, r::Number; kwargs...) = _wildboottest(T, R, [r]; kwargs...)
 _wildboottest(T::DataType, R::UniformScaling{Bool}, r; kwargs...) = _wildboottest(T, diagm(fill(T(R.λ),nrows(r))), r; kwargs...)
-_wildboottest(R::Union{UniformScaling{Bool},AbstractVecOrMat}, r::Union{Number,AbstractVecOrMat}; kwargs...) = _wildboottest(Float32, R, r; kwargs...)
+_wildboottest(R::Union{UniformScaling{Bool},AbstractVecOrMat}, r::Union{Number,AbstractVecOrMat}; kwargs...) = _wildboottest(Float64, R, r; kwargs...)
 
 
 """
-wildboottest([T::DataType=Float32,] R::AbstractMatrix, r::AbstractVector; 
+wildboottest([T::DataType=Float64,] R::AbstractMatrix, r::AbstractVector; 
              resp, <optional keyword arguments>) -> WildBootTests.BootTestResult
 
 Function to perform wild-bootstrap-based hypothesis test
 
 # Positional arguments
-* `T::DataType`: data type for inputs, results, and computations: Float32 (default) or Float64
+* `T::DataType`: data type for inputs, results, and computations: Float32 or Float64 (default)
 * `R::AbstractMatrix` and `r::AbstractVector`: required matrix and vector expressing the null Rβ=r; see notes below
 
 # Required keyword argument
