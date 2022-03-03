@@ -83,20 +83,20 @@ end
 function __wildboottest(
 	R::Matrix{T},
 	r::Vector{T};
-	resp::Vector{T},
+	resp::VecOrMat{T},
 	predexog::Matrix{T},
 	predendog::Matrix{T},
 	inst::Matrix{T},
 	R1::Matrix{T},
 	r1::Vector{T},
 	clustid::Matrix{Int64},
-	nbootclustvar::Int8,
-	nerrclustvar::Int8,
+	nbootclustvar::Int64,
+	nerrclustvar::Int64,
 	issorted::Bool,
 	hetrobust::Bool,
-	feid::Vector{Int64},
+	feid::VecOrMat{Int64},
 	fedfadj::Bool,
-	obswt::Vector{T},
+	obswt::VecOrMat{T},
 	fweights::Bool,
 	maxmatsize::Float16,
 	ptype::PType,
@@ -119,9 +119,9 @@ function __wildboottest(
 	scores::Matrix{T},
 	beta::Vector{T},
 	A::Symmetric{T,Matrix{T}},
-	gridmin::Vector{T},
-	gridmax::Vector{T},
-	gridpoints::Vector{Float32},
+	gridmin::VecOrMat{T},
+	gridmax::VecOrMat{T},
+	gridpoints::VecOrMat{T},
 	diststat::DistStatType,
 	getCI::Bool,
 	getplot::Bool,
@@ -142,7 +142,7 @@ function __wildboottest(
 		CI = plot = peak = nothing
 	end
 	
-	padj = getp(M)  # trigger central (re)computation
+	padj = getp(M)  # trigger main (re)computation
 
 	BootTestResult{T}(getstat(M),
 	                  isone(nrows(R)) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
@@ -158,20 +158,20 @@ matconvert(T::DataType, X) = Matrix(isa(X, AbstractArray) ? reshape(eltype(X)==T
 function _wildboottest(T::DataType,
 					  R::AbstractVecOrMat,
 						r::AbstractVecOrMat;
-					  resp::AbstractVector{<:Real},
+					  resp::AbstractVecOrMat{<:Real},
 					  predexog::AbstractVecOrMat{<:Real}=zeros(T,0,0),
 					  predendog::AbstractVecOrMat{<:Real}=zeros(T,0,0),
 					  inst::AbstractVecOrMat{<:Real}=zeros(T,0,0),
 					  R1::AbstractVecOrMat=zeros(T,0,0),
-						r1::AbstractVector=zeros(T,0),
+						r1::AbstractVecOrMat=zeros(T,0),
 					  clustid::AbstractVecOrMat{<:Integer}=zeros(Int,0,0),  # bootstrap-only clust vars, then boot&err clust vars, then err-only clust vars
 					  nbootclustvar::Integer=1,
 					  nerrclustvar::Integer=nbootclustvar,
 						issorted::Bool=false,
 					  hetrobust::Bool=true,
-					  feid::AbstractVector{<:Integer}=Int8[],
+					  feid::AbstractVecOrMat{<:Integer}=Int8[],
 					  fedfadj::Bool=true,
-					  obswt::AbstractVector{<:Real}=T[],
+					  obswt::AbstractVecOrMat{<:Real}=T[],
 					  fweights::Bool=false,
 					  maxmatsize::Number=0,
 					  ptype::PType=symmetric,
@@ -192,11 +192,11 @@ function _wildboottest(T::DataType,
 					  NH0::Integer=1,
 					  ML::Bool=false,
 					  scores::AbstractVecOrMat=Matrix{Float32}(undef,0,0),
-					  beta::AbstractVector=T[],
+					  beta::AbstractVecOrMat=T[],
 					  A::AbstractMatrix=zeros(T,0,0),
-					  gridmin::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Number = T[],
-					  gridmax::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Number = T[],
-					  gridpoints::Union{Vector{S},Vector{Union{S,Missing}}} where S<:Integer = Int32[],
+					  gridmin::Union{VecOrMat{S},VecOrMat{Union{S,Missing}}} where S<:Number = T[],
+					  gridmax::Union{VecOrMat{S},VecOrMat{Union{S,Missing}}} where S<:Number = T[],
+					  gridpoints::Union{VecOrMat{S},VecOrMat{Union{S,Missing}}} where S<:Number = Int64[],
 					  diststat::DistStatType=nodist,
 					  getCI::Bool=true,
 					  getplot::Bool=getCI,
@@ -205,15 +205,18 @@ function _wildboottest(T::DataType,
 
 	nrows(R)>2 && (getplot = getCI = false)
 
+	@assert ML || ncols(resp)==1 "resp should have one column"
   @assert length(predexog)==0 || nrows(predexog)==nrows(resp) "All data vectors/matrices must have same height"
   @assert length(predendog)==0 || nrows(predendog)==nrows(resp) "All data vectors/matrices must have same height"
   @assert length(inst)==0 || nrows(inst)==nrows(resp) "All data vectors/matrices must have same height"
 	@assert ncols(inst) >= ncols(predendog) "Model has fewer instruments than instrumented variables"
   @assert length(feid)==0 || nrows(feid)==nrows(resp) "feid vector must have same height as data matrices"
+	@assert ncols(feid)≤1 "feid should have one column"
   @assert length(clustid)==0 || nrows(clustid)==nrows(resp) "clustid must have same height as data matrices"
   @assert nrows(obswt)==0 || nrows(obswt)==nrows(resp) "obswt must have same height as data matrices"
+	@assert ncols(obswt)≤1 "obswt must have one column"
   @assert nrows(R)==nrows(r) "R and r must have same height"
-  @assert ncols(R)==ncols(predexog)+ncols(predendog) && isone(ncols(r)) "Wrong number of columns in null specification"
+  @assert (ncols(R) == (ML ? nrows(beta) : ncols(predexog)+ncols(predendog)) && isone(ncols(r))) "Wrong number of columns in null specification"
   @assert nrows(R1)==nrows(r1) "R₁ and r₁ must have same height"
   @assert length(R1)==0 || ncols(R1)==ncols(predexog)+ncols(predendog) "Wrong number of columns in model constraint specification"
 	@assert ncols(r)==1 "r should have one column"
@@ -228,11 +231,14 @@ function _wildboottest(T::DataType,
 		@assert iszero(length(gridmin   )) || length(gridmin   )==nrows(R) "Length of gridmin doesn't match number of hypotheses being jointly tested"
 		@assert iszero(length(gridmax   )) || length(gridmax   )==nrows(R) "Length of gridmax doesn't match number of hypotheses being jointly tested"
 		@assert iszero(length(gridpoints)) || length(gridpoints)==nrows(R) "Length of gridpoints doesn't match number of hypotheses being jointly tested"
+		@assert iszero(length(gridmin   )) || ncols(gridmin)   ==1 "gridmin should have one column"
+		@assert iszero(length(gridmax   )) || ncols(gridmax)   ==1 "gridmax should have one column"
+		@assert iszero(length(gridpoints)) || ncols(gridpoints)==1 "gridpoints should have one column"
 	end
 
 	_gridmin = Vector{T}(undef, length(gridmin))
 	_gridmax = Vector{T}(undef, length(gridmax))
-	_gridpoints = Vector{Float32}(undef, length(gridpoints))
+	_gridpoints = Vector{T}(undef, length(gridpoints))
 	for i ∈ 1:length(gridmin)  # cumbersome loops because map() and list comprehensions mess up type inference(?!)
 		_gridmin[i] = T(ismissing(gridmin[i]) ? NaN : gridmin[i])
 	end
@@ -253,8 +259,8 @@ function _wildboottest(T::DataType,
 		R1=matconvert(T,R1),
 		r1=vecconvert(T,r1),
 		clustid=matconvert(Int64,clustid),
-		nbootclustvar=Int8(nbootclustvar),
-		nerrclustvar=Int8(nerrclustvar),
+		nbootclustvar=Int64(nbootclustvar),
+		nerrclustvar=Int64(nerrclustvar),
 		issorted,
 		hetrobust,
 		feid=vecconvert(Int64,feid),

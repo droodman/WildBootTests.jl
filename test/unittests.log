@@ -1,37 +1,37 @@
 
 boottest post_self=.04, weight(webb)
-t=2.0194178 p=0.06406406 CI=Float32[0.038774844 0.069972485]
+t=2.0194173 p=0.06406406 CI=Float32[0.03772769 0.06311848]
 
 boottest post_self=.04, weight(webb) reps(9999999) noci
-t=2.0194178 p=0.075668104
+t=2.0194173 p=0.075657904
 
 regress hasinsurance selfemployed post post_self, cluster(year)
 boottest (post_self=.05) (post=-.02), reps(9999) weight(webb)
-F=0.33827606 p=0.82128215
+F=0.33827585 p=0.82128215
 
 constraint 1 ttl_exp = .2
 cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(industry)
 boottest tenure
-t=2.124947 p=0.0 CI=Float32[0.008769139 0.18435659]
+t=2.1249483 p=0.0 CI=Float32[0.02664767 0.12295436]
 
 ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
 boottest tenure, ptype(equaltail)
-t=2.6043198 p=0.044433594 CI=Float32[0.11888459 2.210037]
+t=2.603986 p=0.044433594 CI=Float32[0.11880045 2.2101312]
 
 boottest tenure, ptype(equaltail) reps(9999) weight(webb) stat(c)
-z=1.6447046 p=0.11061106 CI=Float32[-Inf Inf]
+z=1.6443853 p=0.11061106 CI=Float32[-Inf Inf]
 
 boottest, ar
-z=2.4454045 p=0.030273438 CI=Float32[0.06995928 1.2515638]
+z=2.4454045 p=0.030273438 CI=Float32[0.054771073 1.482021]
 
 boottest, ar nonull
-z=2.4454045 p=0.030273438 CI=Float32[0.05609699 1.4159625]
+z=2.4454045 p=0.030273438 CI=Float32[0.0560946 1.4158152]
 
 scoretest tenure
-z=2.3278525 p=0.01991994 CI=Float32[0.13670783 1.3236889]
+z=2.3278978 p=0.019917535 CI=Float32[0.13672073 1.3236897]
 
 waldtest tenure
-z=2.604242 p=0.009207769 CI=Float32[0.18210614 1.2900792]
+z=2.6042624 p=0.009207225 CI=Float32[0.18211043 1.290075]
 
 ivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)
 boottest tenure
@@ -39,11 +39,11 @@ z=7.584607 p=0.003003003 CI=Float32[0.33541003 0.8054995]
 
 ivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)
 boottest tenure, nograph weight(webb) reps(9999)
-z=4.036003 p=0.025102511 CI=Float32[-0.8829394 -0.3786855; 0.30636278 1.2490356]
+z=4.026446 p=0.0250025 CI=Float32[-0.89425623 -0.37764832; 0.309315 1.2543852]
 
 areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)
 boottest tenure, cluster(age occupation) bootcluster(occupation)
-t=0.4873998 p=0.6596597 CI=Float32[-0.041599616 0.11494793]
+t=0.4873998 p=0.6596597 CI=Float32[-0.038264863 0.06546521]
 
 global pix lnkm pixpetro pixdia pixwaterd pixcapdist pixmal pixsead pixsuit pixelev pixbdist
 global geo lnwaterkm lnkm2split mean_elev mean_suit malariasuit petroleum diamondd
@@ -53,9 +53,9 @@ qui areg lnl0708s centr_tribe lnpd0 $pix $geo $poly, absorb(ccode)
 boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode)
 boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(pixcluster)
 boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode pixcluster)
-t=3.52111 p=0.00750075 CI=Float32[0.046583228 0.25370395]
-t=3.5211232 p=0.00190019 CI=Float32[0.047285132 0.26115453]
-t=3.5211208 p=0.00210021 CI=Float32[0.056268312 0.25401092]
+t=3.5211082 p=0.00750075 CI=Float32[0.06599893 0.21314123]
+t=3.521122 p=0.00190019 CI=Float32[0.059831087 0.2219535]
+t=3.5211232 p=0.00210021 CI=Float32[0.064270444 0.2283149]
 
 infile coll merit male black asian year state chst using regm.raw, clear
 qui regress coll merit male black asian i.year i.state if !inlist(state,34,57,59,61,64,71,72,85,88), cluster(state)	
@@ -66,9 +66,9 @@ boottest merit, nogr reps(9999) gridpoints(10) bootcluster(state year)
 boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(state year)
 boottest merit, nogr reps(9999) gridpoints(10) bootcluster(individual)
 boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual)
-t=6.7126684 p=0.4919492 CI=Float32[-2.8158514 1.2842607]
+t=6.712657 p=0.49184918 CI=Float32[-1.6972356 1.7089918]
 t=6.7127285 p=0.0 CI=Float32[0.049524948 0.09481105]
-t=6.7126603 p=0.29282928 CI=Float32[-5.3421 4.526395]
+t=6.712668 p=0.2930293 CI=Float32[-4.571306 4.552784]
 t=6.7127123 p=0.08940894 CI=Float32[-0.011595316 0.15593131]
-t=6.7126637 p=0.37383738 CI=Float32[-0.099996775 0.24192499]
+t=6.712662 p=0.37383738 CI=Float32[-0.0999381 0.24207383]
 t=6.7127156 p=0.37593758 CI=Float32[-0.0941135 0.2384495]

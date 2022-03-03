@@ -32,14 +32,14 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 					if o.robust  # dof > 1 for an ARubin test with >1 instruments.
 						for d₁ ∈ 1:o.dof
 							for c ∈ 1:o.NErrClustCombs
-								o.∂Jcd∂r[h₁][c,d₁] = (o.Jcd[c,d₁] .- o.Jcd₀[c,d₁]) ./ o.poles[h₁]
+								o.∂Jcd∂r[h₁,c,d₁] = (o.Jcd[c,d₁] .- o.Jcd₀[c,d₁]) ./ o.poles[h₁]
 								for d₂ ∈ 1:d₁
-									tmp = coldot(o, o.Jcd₀[c,d₁], o.∂Jcd∂r[h₁][c,d₂])
-									d₁ ≠ d₂ && (coldotplus!(Val(o.turbo), tmp, o.Jcd₀[c,d₂], o.∂Jcd∂r[h₁][c,d₁]))  # for diagonal items, faster to just double after the c loop
-									@clustAccum!(o.∂denom∂r[h₁][d₁,d₂], c, tmp)
+									tmp = coldot(o, o.Jcd₀[c,d₁], o.∂Jcd∂r[h₁,c,d₂])
+									d₁ ≠ d₂ && (coldotplus!(Val(o.turbo), tmp, o.Jcd₀[c,d₂], o.∂Jcd∂r[h₁,c,d₁]))  # for diagonal items, faster to just double after the c loop
+									@clustAccum!(o.∂denom∂r[h₁,d₁,d₂], c, tmp)
 								end
 							end
-							o.∂denom∂r[h₁][d₁,d₁] .*= T(2)  # double diagonal terms
+							o.∂denom∂r[h₁,d₁,d₁] .*= T(2)  # double diagonal terms
 						end
 					end
 				end
@@ -48,7 +48,7 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 				@inbounds for h₁ ∈ 1:o.q, h₂ ∈ 1:h₁
 					if newPole[h₁] || newPole[h₂]
 						for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁, c ∈ 1:o.NErrClustCombs
-							@clustAccum!(o.∂²denom∂r²[h₁,h₂][d₁,d₂], c, coldot(o, o.∂Jcd∂r[h₁][c,d₁], o.∂Jcd∂r[h₂][c,d₂]))
+							@clustAccum!(o.∂²denom∂r²[h₁,h₂,d₁,d₂], c, coldot(o, o.∂Jcd∂r[h₁,c,d₁], o.∂Jcd∂r[h₂,c,d₂]))
 						end
 					end
 				end
@@ -76,16 +76,16 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 		if o.robust  # even if an anchor was just moved, and linear components just computed from scratch, do the quadratic interpolation now, from the updated linear factors
 			if isone(o.q)
 				@inbounds for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁
-					o.denom[d₁,d₂] .= o.denom₀[d₁,d₂] .+ o.∂denom∂r[d₁,d₂][1,1] .* Δ .+ o.∂²denom∂r²[d₁,d₂][1,1] .* Δ.^2
+					o.denom[d₁,d₂] .= o.denom₀[d₁,d₂] .+ o.∂denom∂r[1,d₁,d₂][1,1] .* Δ .+ o.∂²denom∂r²[1,1,d₁,d₂] .* Δ.^2
 				end
 			else  # q==2
 				@inbounds for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁
 					o.denom[d₁,d₂] .= o.denom₀[d₁,d₂] .+
-														o.∂denom∂r[1][d₁,d₂] .* Δ[1] .+
-														o.∂denom∂r[2][d₁,d₂] .* Δ[2] .+
-														o.∂²denom∂r²[1,1][d₁,d₂] .* (Δ[1] .^ 2) .+
-														o.∂²denom∂r²[2,1][d₁,d₂] .* (Δ[1] .* Δ[2]) .+
-														o.∂²denom∂r²[2,2][d₁,d₂] .* (Δ[2] .^ 2)
+														o.∂denom∂r[1,d₁,d₂] .* Δ[1] .+
+														o.∂denom∂r[2,d₁,d₂] .* Δ[2] .+
+														o.∂²denom∂r²[1,1,d₁,d₂] .* (Δ[1] .^ 2) .+
+														o.∂²denom∂r²[2,1,d₁,d₂] .* (Δ[1] .* Δ[2]) .+
+														o.∂²denom∂r²[2,2,d₁,d₂] .* (Δ[2] .^ 2)
 				end
 			end
 		end
@@ -120,17 +120,17 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 
 	o.SuwtXA = o.scorebs ?
 				o.B>0 ?
-					 o.NClustVar ?
+					 o.NClustVar>0 ?
 				      	@panelsum(o, o.uXAR, o.info✻) :
 					      o.uXAR                    :
-				        sum(o.uXAR,dims=1)  :
+				   sum(o.uXAR,dims=1)'  :
 			  o.DGP.A * panelsum2(o, o.X₁, o.X₂, o.ü, o.info✻)'  # same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined; X₂ empty except in Anderson-Rubin
 
 	if o.robust && o.bootstrapt && o.granular < o.NErrClustCombs
 		u✻XAR = @panelsum(o, o.uXAR, o.info✻⋂)  # collapse data to all-boot && error-cluster-var intersections. If no collapsing needed, panelsum() will still fold in any weights
 		if o.B>0
 			if o.scorebs
-				K = [zeros(T, o.N⋂, o.N✻) for _ in o.dof]::Vector{Matrix{T}}  # inefficient, but not optimizing for the score bootstrap
+				K = [zeros(T, o.N⋂, o.N✻) for _ in 1:o.dof]::Vector{Matrix{T}}  # inefficient, but not optimizing for the score bootstrap
 			else
 				K = [panelsum2(o, o.X₁, o.X₂, view(o.DGP.XAR,:,d), o.info⋂) * o.SuwtXA for d ∈ 1:o.dof]::Vector{Matrix{T}}
 			end
@@ -185,8 +185,8 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 	if isone(w)
 		if o.ARubin
 			o.numerw[:,1] = o.v_sd * o.DGP.β̈[o.kX₁+1:end]  # coefficients on excluded instruments in ARubin OLS
-		elseif !o.null
-			o.numerw[:,1] = o.v_sd * (o.R * (o.ML ? o.β̈ : o.M.β̈) - r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this.
+		elseif !o.null  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this.
+			o.numerw[:,1] = o.v_sd * (o.R * (o.ML ? o.β̈ : iszero(o.κ) ? o.M.β̈ : o.M.Rpar * o.M.β̈) - r)  # κ≂̸0  score bootstrap of IV ⇒ using FWL and must factor in R∥ 
 		end
 	end
 
@@ -197,7 +197,7 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 			if o.purerobust
 				o.u✻ = o.ü .* o.v
 				o.NFE>0 && partialFE!(o, o.u✻)
-				minusX₁₂B(o.u✻, o.X₁, o.X₂, o.β̈dev)
+				o.u✻ .-= o.X₁ * (@view o.β̈dev[1:o.kX₁,:]) .+ o.X₂ * (@view o.β̈dev[o.kX₁+1:end,:])
 			else  # clusters small but not all singletons
 				if o.NFE>0 && !o.FEboot
 					o.u✻ = o.ü .* view(o.v, o.ID✻, :)
@@ -276,7 +276,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 						o.u✻ .-= colsum(o.u✻) * o.ClustShare  # Center variance if interpolated
 					end
 				else
-					minusX₁₂B(o.u✻, o.X₁, o.X₂, o.β̈dev)  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
+					o.u✻ .-= o.X₁ * (@view o.β̈dev[1:o.kX₁,:]) .+ o.X₂ * (@view o.β̈dev[o.kX₁+1:end,:])  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
 				end
 				o.denom[1,1] .*= coldot(o,o.u✻)
 			end
@@ -301,7 +301,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 						if o.scorebs
 							o.u✻ .-= colsum(o.u✻) * o.ClustShare
 						else
-							minusX₁₂B(o.u✻, o.X₁, o.X₂, view(o.β̈dev,:,k))  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
+							o.u✻ .-= o.X₁ * (@view o.β̈dev[1:o.kX₁,:]) .+ o.X₂ * (@view o.β̈dev[o.kX₁+1:end,:])  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
 						end
 						o.dist[k+first(o.WeightGrp[w])-1] ./= (tmp = Symetric(o.u✻'o.u✻))
 					end
@@ -311,7 +311,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 					if o.scorebs
 						o.u✻ .-= colsum(o.u✻) * o.ClustShare  # Center variance if interpolated
 					else
-						minusX₁₂B(o.u✻, o.X₁, o.X₂, o.β̈dev)  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
+						o.u✻ .-= o.X₁ * (@view o.β̈dev[1:o.kX₁,:]) .+ o.X₂ * (@view o.β̈dev[o.kX₁+1:end,:])  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
 					end
 					o.dist[1] /= (tmp = Symmetric(o.u✻'o.u✻))
 				end

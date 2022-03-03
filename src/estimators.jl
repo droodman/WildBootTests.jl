@@ -107,6 +107,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.S✻⋂ZperpY₂ = parent.Repl.S✻⋂ZperpY₂
 		o.S✻Y₂y₁ = parent.Repl.S✻Y₂y₁
 	else
+		o.kZperp = ncols(o.RperpX)
 		o.Zperp = parent.X₁ * o.RperpX
 		o.S✻⋂ZperpZperp = panelcross11(parent, o.Zperp, o.Zperp, parent.info✻⋂)
 		o.invZperpZperp = iszero(ncols(o.RperpX)) ? Symmetric(Matrix{T}(undef,0,0)) : invsym(sumpanelcross(o.S✻⋂ZperpZperp))

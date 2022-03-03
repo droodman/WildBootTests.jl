@@ -2,12 +2,12 @@
 @inline ncols(X::AbstractArray) = size(X,2)
 @inline sqrtNaN(x) = x<0 ? typeof(x)(NaN) : sqrt(x)
 
-function invsym(X)  # inverse of symmetric matrix
-	# iszero(nrows(X)) && (return Symmetric(X))
-	# X, ipiv, info = LinearAlgebra.LAPACK.sytrf!('U', Matrix(X))
-	# iszero(info) && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)
-	Symmetric(pinv(X))
-end
+# iszero(nrows(X)) && (return Symmetric(X))
+# X, ipiv, info = LinearAlgebra.LAPACK.sytrf!('U', Matrix(X))
+# iszero(info) && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)
+@inline invsym(X) = Symmetric(pinv(Symmetric(X)))
+@inline invsym(X::Symmetric) = Symmetric(pinv(X))
+
 function invsymsingcheck(X)  # inverse of symmetric matrix, checking for singularity
 	iszero(nrows(X)) && (return (false, Symmetric(X)))
 	X, ipiv, info = LinearAlgebra.LAPACK.sytrf!('U', Matrix(X))
@@ -353,12 +353,12 @@ function panelsum!(turbo::Val{false}, dest::AbstractArray, X::AbstractArray{T,3}
   end
 end
 # groupwise inner product of two two data matrices
-# 1st dimension of result corresponds to columns of X, second to rows of both, third to columns of Y
+# 1st dimension of result corresponds to columns of X, second to rows of info, third to columns of Y
 function panelcross!(turbo::Val{false}, dest::AbstractArray{T,3}, X::AbstractMatrix{T}, Y::AbstractMatrix{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
 	iszero(length(X)) && return
-	if iszero(length(info)) || nrows(info)==nrows(X)
+	if iszero(nrows(info)) || nrows(info)==nrows(X)
 		@inbounds for i ∈ axes(Y,2)
-			dest[:,:,i] .= X .* view(Y,:,i)
+			dest[:,:,i] .= X' .* view(Y,:,i)'
 		end
 		return
 	elseif X===Y
@@ -376,7 +376,7 @@ end
 function panelcross!(turbo::Val{false}, dest::AbstractMatrix{T}, X::AbstractVecOrMat{T}, Y::AbstractVector{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
 	iszero(length(X)) && return
 	if iszero(length(info)) || nrows(info)==nrows(X)
-		dest .= X .* Y
+		dest .= X' .* Y'
 		return
 	end
 	if X===Y
@@ -396,7 +396,7 @@ function panelsum(o::StrBootTest, X::AbstractVector{T}, wt::AbstractVector{T}, i
 	if iszero(nrows(wt))
 		panelsum(o, X, info)
 	else
-		dest = Vector{T}(undef, length(info))
+		dest = Vector{T}(undef, iszero(length(info)) ? nrows(X) : length(info))
 		panelsum!(Val(o.turbo), dest, X, wt, info)
 		dest
 	end
@@ -405,23 +405,23 @@ function panelsum(o::StrBootTest, X::AbstractMatrix{T}, wt::AbstractVector{T}, i
 	if iszero(nrows(wt))
 		panelsum(o, X, info)
 	else
-		dest = Matrix{T}(undef, length(info), size(X,2))
+		dest = Matrix{T}(undef, iszero(length(info)) ? nrows(X) : length(info), size(X,2))
 		panelsum!(Val(o.turbo), dest, X, wt, info)
 		dest
 	end
 end
 function panelcross11(o::StrBootTest, X::AbstractVecOrMat{T}, Y::AbstractMatrix{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
-	dest = Array{T,3}(undef, size(X,2), length(info), size(Y,2))
+	dest = Array{T,3}(undef, size(X,2), iszero(length(info)) ? nrows(X) : length(info), size(Y,2))
 	panelcross!(Val(false), dest, X, Y, info)
 	dest
 end
 function panelcross11(o::StrBootTest, X::AbstractVecOrMat{T}, Y::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
-	dest = Matrix{T}(undef, size(X,2), length(info))
+	dest = Matrix{T}(undef, size(X,2), iszero(length(info)) ? nrows(X) : length(info))
 	panelcross!(Val(false), dest, X, Y, info)
 	dest
 end
 function panelsum(o::StrBootTest, X::AbstractVecOrMat, info::AbstractVector{UnitRange{T}} where T<:Integer)
-	dest = similar(X, length(info), size(X)[2:end]...)
+	dest = similar(X, iszero(length(info)) ? nrows(X) : length(info), size(X)[2:end]...)
 	panelsum!(Val(o.turbo), dest, X, info)
 	dest
 end
@@ -432,11 +432,11 @@ function panelsum(o::StrBootTest{T}, X::AbstractArray{T,3}, info::AbstractVector
 end
 function panelsum2(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	if iszero(length(X₁))
-		panelsum(o, X₂,wt,info)
+		panelsum(o,X₂,wt,info)
 	elseif iszero(length(X₂))
-		panelsum(o, X₁,wt,info)
+		panelsum(o,X₁,wt,info)
 	else
-		dest = Matrix{T}(undef, length(info), ncols(X₁)+ncols(X₂))
+		dest = Matrix{T}(undef, iszero(length(info)) ? nrows(X₁) : length(info), ncols(X₁)+ncols(X₂))
 		panelsum!(Val(o.turbo), view(dest, :,           1:ncols(X₁   )), X₁, wt, info)
 		panelsum!(Val(o.turbo), view(dest, :, ncols(X₁)+1:size(dest,2)), X₂, wt, info)
 		dest
@@ -448,7 +448,7 @@ function panelcross21(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractV
 	elseif iszero(ncols(X₂))
 		panelcross11(o,X₁,Y,info)
 	else
-		dest = Array{T,3}(undef, ncols(X₁)+ncols(X₂), length(info), ncols(Y))
+		dest = Array{T,3}(undef, ncols(X₁)+ncols(X₂), iszero(length(info)) ? nrows(X₁) : length(info), ncols(Y))
 		panelcross!(Val(false), view(dest,           1:ncols(X₁   ), :, :), X₁, Y, info)
 		panelcross!(Val(false), view(dest, ncols(X₁)+1:size(dest,1), :, :), X₂, Y, info)
 		dest
@@ -460,7 +460,7 @@ function panelcross21(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractV
 	elseif iszero(ncols(X₂))
 		panelcross11(o,X₁,Y,info)
 	else
-		dest = Matrix{T}(undef, ncols(X₁)+ncols(X₂), length(info))
+		dest = Matrix{T}(undef, ncols(X₁)+ncols(X₂), iszero(length(info)) ? nrows(X₁) : length(info))
 		panelcross!(Val(false), view(dest,           1:ncols(X₁   ), :), X₁, Y, info)
 		panelcross!(Val(false), view(dest, ncols(X₁)+1:size(dest,1), :), X₂, Y, info)
 		dest
@@ -472,7 +472,7 @@ function panelcross12(o::StrBootTest, X::AbstractVecOrMat{T}, Y₁::AbstractVecO
 	elseif iszero(ncols(Y₂))
 		panelcross11(o,X,Y₁,info)
 	else
-		dest = Array{T,3}(undef, ncols(X), length(info), ncols(Y₁)+ncols(Y₂))
+		dest = Array{T,3}(undef, ncols(X), iszero(length(info)) ? nrows(X) : length(info), ncols(Y₁)+ncols(Y₂))
 		panelcross!(Val(false), view(dest, :, :,           1:ncols(Y₁   )), X, Y₁, info)
 		panelcross!(Val(false), view(dest, :, :, ncols(Y₁)+1:size(dest,3)), X, Y₂, info)
 		dest
@@ -484,7 +484,7 @@ function panelcross22(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractV
 	elseif iszero(ncols(Y₂))
 		panelcross21(o,X₁,X₂,Y₁,info)
 	else
-		dest = Array{T,3}(undef, ncols(X₁)+ncols(X₂), length(info), ncols(Y₁)+ncols(Y₂))
+		dest = Array{T,3}(undef, ncols(X₁)+ncols(X₂), iszero(length(info)) ? nrows(X₁) : length(info), ncols(Y₁)+ncols(Y₂))
 		panelcross!(Val(false), view(dest, 1:ncols(X₁)             , :, 1:ncols(Y₁)             ), X₁, Y₁, info)
 		panelcross!(Val(false), view(dest, ncols(X₁)+1:size(dest,1), :, 1:ncols(Y₁)             ), X₂, Y₁, info)
 		panelcross!(Val(false), view(dest, 1:ncols(X₁)             , :, ncols(Y₁)+1:size(dest,3)), X₁, Y₂, info)

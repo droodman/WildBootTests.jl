@@ -1,6 +1,6 @@
 module WildBootTests
 export BootTestResult, wildboottest, AuxWtType, PType, MAdjType, DistStatType, 
-			teststat, stattype, p, padj, reps, repsfeas, nbootclust, dof, dof_r, plotpoints, peak, CI, dist, statnumer, statvar, auxweights
+			 teststat, stattype, p, padj, reps, repsfeas, nbootclust, dof, dof_r, plotpoints, peak, CI, dist, statnumer, statvar, auxweights
 
 using LinearAlgebra, Random, Distributions, SortingAlgorithms, LoopVectorization
 
@@ -79,7 +79,7 @@ function NoNullUpdate!(o::StrBootTest{T} where T)
 		EstimateARubin!(o.DGP, o, o.r)
 		o.numer[:,1] = o.v_sd * @view o.DGP.β̈[o.kX₁+1:end,:]  # coefficients on excluded instruments in ARubin OLS
 	else
-		o.numer[:,1] = o.v_sd * (o.R * (o.ML ? o.β̈ : o.M.β̈) - o.r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
+		o.numer[:,1] = o.v_sd * (o.R * (o.ML ? o.β̈ : iszero(o.κ) ? o.M.β̈ : o.M.Rpar * o.M.β̈) - o.r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
 	end
 	o.dist[1] = isone(o.dof) ? o.numer[1] / sqrt(o.statDenom[1]) : o.numer[:,1]'invsym(o.statDenom)*o.numer[:,1]
 	nothing

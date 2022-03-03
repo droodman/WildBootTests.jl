@@ -43,7 +43,7 @@ function plot!(o::StrBootTest{T}) where T
 	iszero(nrows(o.gridmax   )) && (o.gridmax    = fill(T(NaN), o.q))
 	iszero(nrows(o.gridpoints)) && (o.gridpoints = fill(Float32(NaN), o.q))
 
-	o.gridpoints[isnan.(o.gridpoints)] .= 25
+	o.gridpoints[isnan.(o.gridpoints) .| isinf.(o.gridpoints)] .= 25
 
   o.boottest!(o)
 

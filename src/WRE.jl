@@ -1,28 +1,40 @@
 # stuff done once per exucution--not depending on r
 function InitWRE!(o::StrBootTest{T}) where T
+	o.Repl.kZ>1 && (o.numer_b = Vector{T}(undef,nrows(o.Repl.RRpar)))
+
 	iszero(o.granular) && (o.Repl.Zperp = o.DGP.Zperp = Matrix{T}(undef,0,0))  # drop this potentially large array
 
 	o.LIML && o.Repl.kZ==1 && o.Nw==1 && (o.As = o.β̈s = zeros(1, o.B+1))
 
-	o.S✻ZperpU              = [Matrix{T}(undef, ncols(o.Repl.RperpX), o.N✻) for _ ∈ 0:o.Repl.kZ]
-	o.invZperpZperpS✻ZperpU = [Matrix{T}(undef, ncols(o.Repl.RperpX), o.N✻) for _ ∈ 0:o.Repl.kZ]
+	o.S✻ZperpU              = [Matrix{T}(undef, o.Repl.kZperp, o.N✻) for _ ∈ 0:o.Repl.kZ]
+	o.invZperpZperpS✻ZperpU = [Matrix{T}(undef, o.Repl.kZperp, o.N✻) for _ ∈ 0:o.Repl.kZ]
 	o.S✻YU                  = [Vector{T}(undef, o.N✻) for _ ∈ 0:o.Repl.kZ, _ ∈ 0:o.Repl.kZ]
 	o.S✻XU                  = [Matrix{T}(undef, o.DGP.kX, o.N✻) for _ ∈ 0:o.Repl.kZ]
 	o.invXXS✻XU             = [Matrix{T}(undef, o.DGP.kX, o.N✻) for _ ∈ 0:o.Repl.kZ]
 	o.S✻UU                  = [Vector{T}(undef, o.N✻) for _ ∈ 0:o.Repl.kZ, _ ∈ 0:o.Repl.kZ]
+	o.S✻⋂XU₂      = Array{T,3}(undef, o.Repl.kX, o.N✻⋂, o.kY₂)
+	o.S✻⋂XU₂RparY = Array{T,3}(undef, o.Repl.kX, o.N✻⋂, o.Repl.kZ)
+	o.invXXS✻XU₂  = Array{T,3}(undef, o.Repl.kX, o.N✻ , o.kY₂)
+	o.invXXS✻XU₂RparY = Array{T,3}(undef, o.Repl.kX, o.N✻, o.Repl.kZ)
+	o.S✻XU₂ = Array{T,3}(undef, o.Repl.kX, o.N✻, o.kY₂) 
+	o.S✻XU₂RparY = Array{T,3}(undef, o.Repl.kX, o.N✻, o.Repl.kZ) 
+	o.S✻ZperpU₂ = Array{T,3}(undef, o.Repl.kZperp, o.N✻, o.kY₂)
+	o.S✻ZperpU₂RparY = Array{T,3}(undef, o.Repl.kZperp, o.N✻, o.Repl.kZ)
+	o.invZperpZperpS✻ZperpU₂ = Array{T,3}(undef, o.Repl.kZperp, o.N✻, o.kY₂)
+	o.invZperpZperpS✻ZperpU₂RparY = Array{T,3}(undef, o.Repl.kZperp, o.N✻, o.Repl.kZ)
+
 	o.T1L = isone(o.Nw) ? [Matrix{T}(undef, o.Repl.kX, ncols(o.v))] :
 												[Matrix{T}(undef, o.Repl.kX, length(o.WeightGrp[1])), Matrix{T}(undef, o.Repl.kX, length(o.WeightGrp[end]))]
 	o.T1R = deepcopy(o.T1L)
+	o.T2 = Matrix{T}(undef, o.N✻, o.N✻)
 	o.robust && o.bootstrapt && iszero(o.granular) &&
 		(o.negS✻UMZperpX = [Array{T,3}(undef, o.Repl.kX, o.N⋂, o.N✻) for _ in 0:o.Repl.kZ])
 
 	if o.bootstrapt
-		o.δdenom_b = zeros(o.Repl.kZ, o.Repl.kZ)
 		if o.robust && o.granular
 			o.S✻UMZperp = [Matrix{T}(undef, o.Nobs, o.N✻) for _ ∈ 0:o.Repl.kZ]
 			o.S✻UPX     = [Matrix{T}(undef, o.Nobs, o.N✻) for _ ∈ 0:o.Repl.kZ]
 		end
-		o._J⋂ = zeros(o.N⋂, o.Repl.kZ)
 		if o.LIML || !o.robust
 			o.YY✻_b   = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
 			o.YPXY✻_b = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
@@ -79,13 +91,17 @@ function InitWRE!(o::StrBootTest{T}) where T
 		S⋂ZperpX  = @panelsum(o, S✻⋂ZperpX, o.info⋂_✻⋂)
 		o.S⋂Xy₁  = dropdims(@panelsum(o, reshape(o.S✻⋂Xy₁,Val(3)), o.info⋂_✻⋂); dims=3)
 
+		o.J⋂s = isone(o.Nw) ? [Array{T,3}(undef, o.N⋂, ncols(o.v), o.Repl.kZ)] :
+		                      [Array{T,3}(undef, o.N⋂, length(o.WeightGrp[1]), o.Repl.kZ), Array{T,3}(undef, o.N⋂, length(o.WeightGrp[end]), o.Repl.kZ)]
+
 		if o.granular
+			o.crosstab✻ind = o.Nobs==o.N✻ ? Vector(diagind(FakeArray(o.N✻,o.N✻))) : LinearIndices(FakeArray(o.Nobs,o.N✻))[CartesianIndex.(1:o.Nobs, o.ID✻)]
 			o.XinvXX = X₁₂B(o, o.Repl.X₁, o.Repl.X₂, o.Repl.invXX)
 			o.PXZ    = X₁₂B(o, o.Repl.X₁, o.Repl.X₂, o.Repl.invXXXZ)
 		else
 			inds = o.subcluster>0 ?
 							[CartesianIndex(j,i) for (j,v) ∈ enumerate(o.info⋂_✻⋂) for i ∈ v] :  # crosstab ∩,* is wide
-							o.NClustVar == o.nbootclustvar ?
+							o.NClustVar == o.NBootClustVar ?
 									[CartesianIndex(i,i) for i ∈ 1:o.N✻⋂] :  # crosstab *,∩ is square
 									[CartesianIndex(i,j) for (j,v) ∈ enumerate(o.clust[o.BootClust].info) for i ∈ v]  # crosstab ∩,* is tall
 			inds = [CartesianIndex(k,I) for I ∈ inds for k ∈ 1:o.Repl.kX]
@@ -93,7 +109,16 @@ function InitWRE!(o::StrBootTest{T}) where T
 
 			o.S⋂XZperpinvZperpZperp = S⋂ZperpX' * o.Repl.invZperpZperp
 
+			o.F1_0 = Vector{T}(undef, o.Repl.kX)
+			o.F1_1 = Matrix{T}(undef, o.Repl.kX, o.N✻)
+			o.F2_0 = Matrix{T}(undef, o.Repl.kX, o.N⋂)
+			o.F2_1 = Array{T,3}(undef, o.Repl.kX, o.N⋂, o.N✻)
+			o.Q    = Array{T,3}(undef, o.N✻, o.N⋂, o.N✻)
 			o.NFE>0 && (o.CT⋂FEX = o.invFEwt .* @panelsum(o, CT✻⋂FEX, o.info⋂_✻⋂))
+
+			o.β̈v = isone(o.Nw) ? [Matrix{T}(undef, o.N✻, ncols(o.v))] :
+			                     [Matrix{T}(undef, o.N✻, length(o.WeightGrp[1])), Matrix{T}(undef, o.N✻, length(o.WeightGrp[end]))]
+
 		end
 	end
 
@@ -158,27 +183,26 @@ function PrepWRE!(o::StrBootTest{T}) where T
   MakeResidualsIV!(o.DGP, o)
   o.robust && o.bootstrapt && o.granular && (Ü₂par = view(o.DGP.Ü₂ * o.Repl.RparY,:,:))
 
-	S✻⋂XU₂ = o.S✻⋂XY₂ - o.S✻⋂XX * o.DGP.Π̂  # XXX preallocate these
-	S✻⋂XU₂RparY = S✻⋂XU₂ * o.Repl.RparY
-	S✻XU₂ = o.S✻XY₂ - o.S✻XX * o.DGP.Π̂
-	S✻XU₂RparY = S✻XU₂ * o.Repl.RparY
-	S✻ZperpU₂ = o.S✻ZperpY₂ - o.S✻ZperpX * o.DGP.Π̂
-	S✻ZperpU₂RparY = S✻ZperpU₂ * o.Repl.RparY
-	invZperpZperpS✻ZperpU₂ = o.invZperpZperpS✻ZperpY₂ - o.invZperpZperpS✻ZperpX * o.DGP.Π̂
-	invZperpZperpS✻ZperpU₂RparY = invZperpZperpS✻ZperpU₂ * o.Repl.RparY
-
-	invXXS✻XU₂ = o.Repl.invXX * S✻XU₂
-	invXXS✻XU₂RparY = invXXS✻XU₂ * o.Repl.RparY
+	o.S✻⋂XU₂ .= o.S✻⋂XY₂ - o.S✻⋂XX * o.DGP.Π̂
+	o.S✻⋂XU₂RparY .= o.S✻⋂XU₂ * o.Repl.RparY
+	o.S✻XU₂ .= o.S✻XY₂ - o.S✻XX * o.DGP.Π̂
+	o.S✻XU₂RparY .= o.S✻XU₂ * o.Repl.RparY
+	o.S✻ZperpU₂ .= o.S✻ZperpY₂ - o.S✻ZperpX * o.DGP.Π̂
+	o.S✻ZperpU₂RparY .= o.S✻ZperpU₂ * o.Repl.RparY
+	o.invZperpZperpS✻ZperpU₂ .= o.invZperpZperpS✻ZperpY₂ - o.invZperpZperpS✻ZperpX * o.DGP.Π̂
+	o.invZperpZperpS✻ZperpU₂RparY .= o.invZperpZperpS✻ZperpU₂ * o.Repl.RparY
+	o.invXXS✻XU₂ .= o.Repl.invXX * o.S✻XU₂
+	o.invXXS✻XU₂RparY .= o.invXXS✻XU₂ * o.Repl.RparY
 	
 	if o.LIML || !o.robust || !isone(o.κ)
 		S✻U₂y₁ = o.S✻Y₂y₁ - o.DGP.Π̂' * o.S✻Xy₁
 		S✻U₂RparYy₁ = o.Repl.RparY' * S✻U₂y₁
 		S✻ZU₂ = o.S✻ReplZY₂ - o.S✻ReplZX * o.DGP.Π̂
 		S✻ZU₂RparY = S✻ZU₂ * o.Repl.RparY
-		Π̂S✻XÜ₂γ̈ = o.DGP.Π̂' * S✻XU₂ * o.DGP.γ̈
+		Π̂S✻XÜ₂γ̈ = o.DGP.Π̂' * o.S✻XU₂ * o.DGP.γ̈
 		S✻Ü₂Y₂ = o.S✻Y₂Y₂ - o.DGP.Π̂' * o.S✻XY₂
 		S✻Y₂Ü₂γ̈ = S✻Ü₂Y₂' * o.DGP.γ̈
-		S✻Ü₂parÜ₂par = o.Repl.RparY' * (S✻Ü₂Y₂ - S✻XU₂' * o.DGP.Π̂) * o.Repl.RparY
+		S✻Ü₂parÜ₂par = o.Repl.RparY' * (S✻Ü₂Y₂ - o.S✻XU₂' * o.DGP.Π̂) * o.Repl.RparY
 		S✻UUterm = o.S✻Y₂y₁ - o.S✻DGPZY₂' * o.DGP.β̈ - o.DGP.Π̂' * (o.S✻Xy₁  - o.S✻XDGPZ * o.DGP.β̈)
 
 		if o.Repl.restricted
@@ -200,28 +224,28 @@ function PrepWRE!(o::StrBootTest{T}) where T
   @inbounds for i ∈ 0:o.Repl.kZ  # precompute various clusterwise sums
 		# S_✻(u .* X), S_✻(u .* Zperp) for residuals u for each endog var; store transposed
 		if iszero(i)
-			o.S✻XU[1]      .= o.S✻Xy₁      - o.S✻XDGPZ      * o.DGP.β̈ + S✻XU₂      * o.DGP.γ̈
-			o.invXXS✻XU[1] .= o.invXXS✻Xy₁ - o.invXXS✻XDGPZ * o.DGP.β̈ + invXXS✻XU₂ * o.DGP.γ̈
+			o.S✻XU[1]      .= o.S✻Xy₁      - o.S✻XDGPZ      * o.DGP.β̈ + o.S✻XU₂      * o.DGP.γ̈
+			o.invXXS✻XU[1] .= o.invXXS✻Xy₁ - o.invXXS✻XDGPZ * o.DGP.β̈ + o.invXXS✻XU₂ * o.DGP.γ̈
 			if o.DGP.restricted
 				o.S✻XU[1]      .-= o.S✻XZR₁         * r₁
 				o.invXXS✻XU[1] .-= o.invXXS✻XDGPZR₁ * r₁
 			end
 		else
-			o.S✻XU[i+1]      .= view(S✻XU₂RparY,:,:,i)
-			o.invXXS✻XU[i+1] .= view(invXXS✻XU₂RparY,:,:,i)
+			o.S✻XU[i+1]      .= view(o.S✻XU₂RparY,:,:,i)
+			o.invXXS✻XU[i+1] .= view(o.invXXS✻XU₂RparY,:,:,i)
 		end
 
 		if o.LIML || !isone(o.κ) || o.bootstrapt
 			if iszero(i)
-				o.S✻ZperpU[1]              .= o.S✻Zperpy₁              - o.S✻ZperpDGPZ              * o.DGP.β̈ + S✻ZperpU₂              * o.DGP.γ̈
-				o.invZperpZperpS✻ZperpU[1] .= o.invZperpZperpS✻Zperpy₁ - o.invZperpZperpS✻ZperpDGPZ * o.DGP.β̈ + invZperpZperpS✻ZperpU₂ * o.DGP.γ̈
+				o.S✻ZperpU[1]              .= o.S✻Zperpy₁              - o.S✻ZperpDGPZ              * o.DGP.β̈ + o.S✻ZperpU₂              * o.DGP.γ̈
+				o.invZperpZperpS✻ZperpU[1] .= o.invZperpZperpS✻Zperpy₁ - o.invZperpZperpS✻ZperpDGPZ * o.DGP.β̈ + o.invZperpZperpS✻ZperpU₂ * o.DGP.γ̈
 				if o.DGP.restricted
 					o.S✻ZperpU[1]              .-= o.S✻ZperpDGPZR₁              * r₁
 					o.invZperpZperpS✻ZperpU[1] .-= o.invZperpZperpS✻ZperpDGPZR₁ * r₁
 				end
 			else
-				o.S✻ZperpU[i+1]              .= view(S✻ZperpU₂RparY,:,:,i)
-				o.invZperpZperpS✻ZperpU[i+1] .= view(invZperpZperpS✻ZperpU₂RparY,:,:,i)
+				o.S✻ZperpU[i+1]              .= view(o.S✻ZperpU₂RparY,:,:,i)
+				o.invZperpZperpS✻ZperpU[i+1] .= view(o.invZperpZperpS✻ZperpU₂RparY,:,:,i)
 			end
 	
 			if o.NFE>0
@@ -297,11 +321,11 @@ function PrepWRE!(o::StrBootTest{T}) where T
 			if o.Repl.Yendog[ind2+1]
 				o.negS✻UMZperpX[ind2+1] = o.S⋂XZperpinvZperpZperp * o.S✻ZperpU[ind2+1]  # S_* diag⁡(U ̈_(∥j) ) Z_⊥ (Z_⊥^' Z_⊥ )^(-1) Z_(⊥g)^' X_(∥g)
 				if iszero(ind2)  # - S_*  diag⁡(U ̈_(∥j) ) I_g^' X_(∥g)
-					o.negS✻UMZperpX[ind2+1][o.crosstab⋂✻ind] .-= vec(o.S✻⋂Xy₁ - o.S✻⋂XDGPZ * o.DGP.β̈ + S✻⋂XU₂ * o.DGP.γ̈)
+					o.negS✻UMZperpX[ind2+1][o.crosstab⋂✻ind] .-= vec(o.S✻⋂Xy₁ - o.S✻⋂XDGPZ * o.DGP.β̈ + o.S✻⋂XU₂ * o.DGP.γ̈)
 					o.DGP.restricted &&
 						(o.negS✻UMZperpX[ind2+1][o.crosstab⋂✻ind] .+= vec(o.S✻⋂X_DGPZR₁ * r₁))
 				else
-					o.negS✻UMZperpX[ind2+1][o.crosstab⋂✻ind] .-= vec(view(S✻⋂XU₂RparY,:,:,ind2))
+					o.negS✻UMZperpX[ind2+1][o.crosstab⋂✻ind] .-= vec(view(o.S✻⋂XU₂RparY,:,:,ind2))
 				end
 				o.NFE>0 &&
 					(o.negS✻UMZperpX[ind2+1] .+= o.CT⋂FEX'o.CTFEU[ind2+1])  # CT_(*,FE) (U ̈_(parj) ) (S_FE S_FE^' )^(-1) S_FE
@@ -373,14 +397,14 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, ind1::Integer
 		end
 		if !isone(κ)
 			if o.Repl.Yendog[ind1+1]
-				T2 = o.invZperpZperpS✻ZperpU[ind1+1]'o.S✻ZperpU[ind2+1]  # quadratic term
-				T2[diagind(T2)] .-= ind1 ≤ ind2 ? o.S✻UU[ind1+1, ind2+1] : o.S✻UU[ind2+1, ind1+1]  # minus diagonal crosstab
+				o.T2 .= o.invZperpZperpS✻ZperpU[ind1+1]'o.S✻ZperpU[ind2+1]  # quadratic term
+				o.T2[diagind(o.T2)] .-= ind1 ≤ ind2 ? o.S✻UU[ind1+1, ind2+1] : o.S✻UU[ind2+1, ind1+1]  # minus diagonal crosstab
 				o.NFE>0 &&
-					(T2 .+= o.CTFEU[ind1+1]' * (o.invFEwt .* o.CTFEU[ind2+1]))
+					(o.T2 .+= o.CTFEU[ind1+1]' * (o.invFEwt .* o.CTFEU[ind2+1]))
 				if iszero(κ)
-					dest .= o.Repl.YY[ind1+1,ind2+1] .+ colquadformminus!(o, (                            o.S✻YU[ind1+1,ind2+1] .+ o.S✻YU[ind2+1,ind1+1])'o.v, T2, o.v)
+					dest .= o.Repl.YY[ind1+1,ind2+1] .+ colquadformminus!(o, (                            o.S✻YU[ind1+1,ind2+1] .+ o.S✻YU[ind2+1,ind1+1])'o.v, o.T2, o.v)
 				else
-					dest .=   κ .* dest .+ (1 - κ)   .* colquadformminus!(o, (o.Repl.YY[ind1+1,ind2+1] .+ o.S✻YU[ind1+1,ind2+1] .+ o.S✻YU[ind2+1,ind1+1])'o.v, T2, o.v)
+					dest .= κ .* dest .+ (1 - κ)     .* colquadformminus!(o, (o.Repl.YY[ind1+1,ind2+1] .+ o.S✻YU[ind1+1,ind2+1] .+ o.S✻YU[ind2+1,ind1+1])'o.v, o.T2, o.v)
 				end
 			elseif iszero(κ)
 				dest .= o.Repl.YY[ind1+1,ind2+1]
@@ -395,7 +419,7 @@ end
 # put threaded loops in functions to prevent type instability https://discourse.julialang.org/t/type-inference-with-threads/2004/3
 function FillingLoop1!(o::StrBootTest{T}, dest::Matrix{T}, ind1::Integer, ind2::Integer, _β̈::AbstractMatrix{T}, β̈v::AbstractMatrix{T}) where T
 	Threads.@threads for i ∈ 1:o.N⋂
-		PXY✻ = hcat(o.PXZ[i,ind1])
+		PXY✻ = reshape(o.PXZ[i,ind1],:,1)
 		o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ view(o.S✻UPX[ind1+1],i,:)'o.v)
 
 		if iszero(ind2)
@@ -430,54 +454,58 @@ end
 # for all groups in the intersection of all error clusterings
 # return value has one row per ⋂ cluster, one col per bootstrap replication
 # that is, given i=ind1, β̈s = δ ̂_CRκ^(*), return, over all g, b (P_(X_∥ g) Z_(∥i)^(*b) )^' (M_(Z_⊥ ) y_(1∥)^(*b) )_g-(P_(X_∥ g) Z_(∥i)^(*b) )^' (M_(Z_⊥ ) Z_∥^(*b) )_g δ ̂_CRκ^(*b)
-function Filling(o::StrBootTest{T}, ind1::Integer, β̈s::AbstractMatrix) where T
+function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, ind1::Int64, β̈s::AbstractMatrix) where T
 	if o.granular
    	if o.Nw == 1  # create or avoid NxB matrix?
 			PXY✻ = reshape(view(o.PXZ,:,ind1), :, 1)
 			o.Repl.Yendog[ind1+1] && (PXY✻ = PXY✻ .+ o.S✻UPX[ind1+1] * o.v)
-			dest = @panelsum(o, PXY✻ .* (o.Repl.y₁ .- o.S✻UMZperp[1] * o.v), o.info⋂)
+			dest .= @panelsum(o, PXY✻ .* (o.Repl.y₁ .- o.S✻UMZperp[1] * o.v), o.info⋂)
 			@inbounds for ind2 ∈ 1:o.Repl.kZ
 				_β̈ = view(β̈s,ind2,:)'
 				dest .-= @panelsum(o, PXY✻ .* (o.Repl.Yendog[ind2+1] ? view(o.Repl.Z,:,ind2) * _β̈ .- o.S✻UMZperp[ind2+1] * (o.v .* _β̈) :
 															                                (view(o.Repl.Z,:,ind2) * _β̈)                                      ), o.info⋂)
 			end
 		else  # create pieces of each N x B matrix one at a time rather than whole thing at once
-			dest = Matrix{T}(undef, o.N⋂, ncols(o.v))  # XXX preallocate this & turn Filling into Filling! ?
 			@inbounds for ind2 ∈ 0:o.Repl.kZ
 				ind2>0 && (β̈v = o.v .* (_β̈ = view(β̈s,ind2,:)'))
 				(o.purerobust ? FillingLoop1! : FillingLoop2!)(o, dest, ind1, ind2, _β̈, β̈v)
 			end
     end
   else  # coarse error clustering
-		F1_0 = view(o.Repl.invXXXZ,:,ind1) #=(kX,)=#; F1_1 = o.Repl.Yendog[ind1+1] ? o.invXXS✻XU[ind1+1] #=(kX,N*)=# : Matrix{T}(undef,0,0)
-		F2_0 = o.S⋂Xy₁ #=(kX,N⋂)=#; F2_1 = o.negS✻UMZperpX[1] #=(kx,N⋂,N*)=#
-		if ncols(F1_1)>0  # add terms that are zero only if Zpar[ind1] is exogenous, i.e. if a null refers only to exogenous variables
-			dest = reshape(F1_0'F2_0,:,1) .- (dropdims(F1_0'F2_1; dims=1) - F2_0'F1_1) * o.v  # 0th- & 1st-order terms
-			Q = F1_1'F2_1
+		# (P_(X_∥ g) Z_∥^* )^' (M_(Z_⊥ ) y_(1∥)^* )_g
+		o.F1_0 .= view(o.Repl.invXXXZ,:,ind1)
+		o.F2_0 .= o.S⋂Xy₁
+		o.F2_1 .= o.negS✻UMZperpX[1]
+		if o.Repl.Yendog[ind1+1]  # add terms that are zero only if Zpar[ind1] is exogenous, i.e. if a null refers only to exogenous variables
+			o.F1_1 = o.invXXS✻XU[ind1+1]
+			dest .= reshape(o.F1_0'o.F2_0,:,1) .- (dropdims(o.F1_0'o.F2_1; dims=1) - o.F2_0'o.F1_1) * o.v  # 0th- & 1st-order terms
+			o.Q .= o.F1_1'o.F2_1
 			@inbounds for g ∈ 1:o.N⋂
-				colquadformminus!(Val(o.turbo), dest, g, o.v, Q[:,g,:], o.v)
+				colquadformminus!(Val(o.turbo), dest, g, o.v, o.Q[:,g,:], o.v)
 			end
 		else
-			dest = reshape(F1_0'F2_0,:,1) .- dropdims(F1_0'F2_1; dims=1) * o.v  # 0th- & 1st-order terms
+			dest .= reshape(o.F1_0'o.F2_0,:,1) .- dropdims(o.F1_0'o.F2_1; dims=1) * o.v  # 0th- & 1st-order terms
 		end
 
+		# -(P_(X_∥ g) Z_∥^* )^' (M_(Z_⊥ ) Z_∥^(*b) )_g δ ̂_CRκ^*
 		@inbounds for ind2 ∈ 1:o.Repl.kZ
-			F2_0 = view(o.S⋂ReplZX,ind2,:,:)' #=(kX,N⋂)=#; F2_1 =  o.Repl.Yendog[ind2+1] ? o.negS✻UMZperpX[ind2+1] #=(kx,N⋂,N*)=# : Array{T,3}(undef,0,0,0)
-			β̈v = o.v .* (_β̈ = -view(β̈s,ind2,:)')
-			if ncols(F1_1)>0
-				dest .+= reshape(F1_0'F2_0,:,1) .* _β̈ .+ (F2_0'F1_1 - dropdims(F1_0'F2_1; dims=1)) * β̈v  # "-" because S✻UMZperpX is stored negated as negS✻UMZperpX
-				Q .= F1_1'F2_1
+			o.F2_0 = view(o.S⋂ReplZX,ind2,:,:)'
+			β̈v = o.β̈v[isone(o.Nw) || w<o.Nw ? 1 : 2]; β̈v .= o.v .* (_β̈ = -view(β̈s,ind2,:)')
+			if o.Repl.Yendog[ind1+1]
+				o.F2_1 =  o.negS✻UMZperpX[ind2+1]
+				dest .+= reshape(o.F1_0'o.F2_0,:,1) .* _β̈ .+ (o.F2_0'o.F1_1 - dropdims(o.F1_0'o.F2_1; dims=1)) * β̈v  # "-" because S✻UMZperpX is stored negated as negS✻UMZperpX
+				o.Q .= o.F1_1'o.F2_1
 				for g ∈ 1:o.N⋂
-					colquadformminus!(Val(o.turbo), dest, g, o.v, Q[:,g,:], β̈v)
+					colquadformminus!(Val(o.turbo), dest, g, o.v, o.Q[:,g,:], β̈v)
 				end
-			elseif ncols(F2_1)>0
-				dest .+= reshape(F1_0'F2_0,:,1) .* _β̈ .- dropdims(F1_0'F2_1; dims=1) * β̈v
+			elseif o.Repl.Yendog[ind1+1]
+				dest .+= reshape(o.F1_0'o.F2_0,:,1) .* _β̈ .- dropdims(o.F1_0'o.F2_1; dims=1) * β̈v
 			else
-				dest .+= reshape(F1_0'F2_0,:,1) .* _β̈
+				dest .+= reshape(o.F1_0'o.F2_0,:,1) .* _β̈
 			end
 		end
   end
-  dest
+  nothing
 end
 
 function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
@@ -513,11 +541,12 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 		@storeWtGrpResults!(o.numer, o.numerw)
 		if o.bootstrapt
 			if o.robust
-				J⋂s = Filling(o, 1, _β̈s); J⋂s ./= o.As  # XXX preallocate J⋂s
+				J⋂s1 = dropdims(o.J⋂s[isone(o.Nw) || w<o.Nw ? 1 : 2]; dims=3)
+				Filling!(o, J⋂s1, 1, _β̈s); J⋂s1 ./= o.As
 				@inbounds for c ∈ 1:o.NErrClustCombs  # sum sandwich over error clusterings
 					nrows(o.clust[c].order)>0 && 
-						(J⋂s = J⋂s[o.clust[c].order,:])
-					@clustAccum!(denom, c, coldot(o, @panelsum(o, J⋂s, o.clust[c].info)))
+						(J⋂s1 .= J⋂s1[o.clust[c].order,:])
+					@clustAccum!(denom, c, coldot(o, @panelsum(o, J⋂s1, o.clust[c].info)))
 				end
 			else
 				denom = (HessianFixedkappa(o, [0], 0, zero(T), w) .- 2 .* _β̈s .* HessianFixedkappa(o, [0], 1, zero(T), w) .+ _β̈s.^2 .* HessianFixedkappa(o, [1], 1, zero(T), w)) ./ o._Nobs ./ o.As  # classical error variance
@@ -525,6 +554,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			@storeWtGrpResults!(o.dist, o.sqrt ? o.numerw ./ sqrtNaN.(denom) : o.numerw .^ 2 ./ denom)
 			denom *= o.Repl.RRpar[1]^2
 		end
+		w==1 && o.bootstrapt && (o.statDenom = fill(denom[1],1,1))  # original-sample denominator
 
   else  # WRE bootstrap for more than 1 retained coefficient in bootstrap regression
 
@@ -540,26 +570,32 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 					o.YY✻_b[1:i+1,i+1]   = YY✻[i+1][:,b]  # fill uppper triangles, which is all that invsym() looks at
 					o.YPXY✻_b[1:i+1,i+1] = YPXY✻[i+1][:,b]
 				end
-				o.κ = 1/(1 - eigvals(invsym(o.YY✻_b) * Symmetric(o.YPXY✻_b))[1])
+				o.κ = 1/(1 - real(eigvals(invsym(o.YY✻_b) * Symmetric(o.YPXY✻_b))[1]))
 				!iszero(o.Fuller) && (o.κ -= o.Fuller / (o._Nobs - o.kX))
 				β̈s[:,b] = (A[b] = invsym(o.κ*o.YPXY✻_b[2:end,2:end] + (1-o.κ)*o.YY✻_b[2:end,2:end])) * (o.κ*o.YPXY✻_b[1,2:end] + (1-o.κ)*o.YY✻_b[1,2:end])
 			end
 		else
 			δnumer =  HessianFixedkappa(o, collect(1:o.Repl.kZ), 0, o.κ, w)
 			δdenom = [HessianFixedkappa(o, collect(1:i), i, o.κ, w) for i ∈ 1:o.Repl.kZ]
-			
-			@inbounds Threads.@threads for b ∈ axes(o.v,2)
-				for i ∈ 1:o.Repl.kZ
-					o.δdenom_b[1:i,i] = view(δdenom[i],:,b)  # fill uppper triangle
+
+			nt = Threads.nthreads()
+  		cs = [round(Int, size(o.v,2)/nt*i) for i ∈ 0:nt]
+			@inbounds Threads.@threads for t ∈ 1:nt
+				δdenom_b = zeros(T, o.Repl.kZ, o.Repl.kZ)  # thread-safe scratch pad
+				@inbounds for b ∈ cs[t]+1:cs[t+1]
+					for i ∈ 1:o.Repl.kZ
+						δdenom_b[1:i,i] = view(δdenom[i],:,b)  # fill uppper triangle
+					end
+					β̈s[:,b] = (A[b] = invsym(δdenom_b)) * view(δnumer,:,b)
 				end
-				β̈s[:,b] = (A[b] = invsym(o.δdenom_b)) * view(δnumer,:,b)
 			end
 		end
 
 		if o.bootstrapt
 			if o.robust
-				@inbounds for i ∈ 1:o.Repl.kZ  # avoid list comprehension construction because of compiler type detection issue
-					o.Zyg[i] = Filling(o, i, β̈s)
+				J⋂s = o.J⋂s[isone(o.Nw) || w<o.Nw ? 1 : 2]
+				@inbounds for i ∈ 1:o.Repl.kZ  # avoid list comprehension construction for (compiler-perceived) type stability
+					Filling!(o, view(J⋂s,:,:,i), i, β̈s)
 				end
 			else
 				YY✻ = [HessianFixedkappa(o, collect(i:o.Repl.kZ), i, zero(T), w) for i ∈ 0:o.Repl.kZ]  # κ=0 => Y*MZperp*Y
@@ -567,18 +603,10 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 		end
 
 		@inbounds for b ∈ reverse(axes(o.v,2))
-			if o.null || w==1 && b==1
-				o.numer_b .= o.Repl.RRpar * view(β̈s,:,b) + o.Repl.Rt₁ - o.r
-			else
-				o.numer_b .= o.Repl.RRpar * (view(β̈s,:,b) - o.DGP.β̈₀)
-			end
-
+			o.numer_b .= o.null || w==1 && b==1 ? o.Repl.RRpar * view(β̈s,:,b) + o.Repl.Rt₁ - o.r : o.Repl.RRpar * (view(β̈s,:,b) - o.DGP.β̈₀)
 			if o.bootstrapt
 				if o.robust  # Compute denominator for this WRE test stat
-					for i ∈ 1:o.Repl.kZ  # XXX replace with 3-D array?
-						o._J⋂[:,i] = view(o.Zyg[i],:,b)
-					end
-					J⋂ = o._J⋂ * (A[b] * o.Repl.RRpar')
+					J⋂ = view(J⋂s,:,b,:) * (A[b] * o.Repl.RRpar')
 
 					for c ∈ 1:o.NErrClustCombs
 						(!isone(o.NClustVar) && nrows(o.clust[c].order)>0) &&
@@ -592,15 +620,11 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 					end
 					denom = (o.Repl.RRpar * A[b] * o.Repl.RRpar') * [-one(T) ; β̈s[:,b]]'Symmetric(o.YY✻_b) * [-one(T) ; β̈s[:,b]] / o._Nobs  # 2nd half is sig2 of errors
 				end
-				if o.sqrt
-					o.dist[b+first(o.WeightGrp[w])-1] = o.numer_b[1] / sqrt(denom[1])
-				else
-					o.dist[b+first(o.WeightGrp[w])-1] = o.numer_b'invsym(denom)*o.numer_b  # hand-code for 2-dimensional?
-				end
+				o.dist[b+first(o.WeightGrp[w])-1] = o.sqrt ? o.numer_b[1] / sqrt(denom[1]) : o.numer_b'invsym(denom)*o.numer_b  # hand-code for 2-dimensional?
 			end
 			o.numer[:,b+first(o.WeightGrp[w])-1] = o.numer_b  # slight inefficiency: in usual bootstrap-t case, only need to save numerators in numer if getdist("numer") is coming because of svmat(numer)
 		end
+		w==1 && o.bootstrapt && (o.statDenom = denom)  # original-sample denominator
 	end
-	w==1 && o.bootstrapt && (o.statDenom = denom)  # original-sample denominator
 	nothing
 end
