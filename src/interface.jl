@@ -125,13 +125,12 @@ function __wildboottest(
 	diststat::DistStatType,
 	getCI::Bool,
 	getplot::Bool,
-	getauxweights::Bool,
-	turbo::Bool) where T
+	getauxweights::Bool) where T
 
 	M = StrBootTest{T}(R, r, R1, r1, resp, predexog, predendog, inst, obswt, fweights, LIML, Fuller, kappa, ARubin,
 	                   reps, auxwttype, rng, maxmatsize, ptype, imposenull, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, issorted, hetrobust, small,
 	                   feid, fedfadj, level, rtol, madjtype, NH0, ML, beta, A, scores, getplot,
-	                   gridmin, gridmax, gridpoints, turbo)
+	                   gridmin, gridmax, gridpoints)
 
 	if getplot || (level<1 && getCI)
 		plot!(M)
@@ -200,8 +199,7 @@ function _wildboottest(T::DataType,
 					  diststat::DistStatType=nodist,
 					  getCI::Bool=true,
 					  getplot::Bool=getCI,
-					  getauxweights::Bool=false,
-						turbo::Bool=false)
+					  getauxweights::Bool=false)
 
 	nrows(R)>2 && (getplot = getCI = false)
 
@@ -294,8 +292,7 @@ function _wildboottest(T::DataType,
 		diststat,
 		getCI,
 		getplot,
-		getauxweights,
-		turbo)
+		getauxweights)
 end
 
 _wildboottest(T::DataType, R, r::Number; kwargs...) = _wildboottest(T, R, [r]; kwargs...)
@@ -358,7 +355,6 @@ Function to perform wild-bootstrap-based hypothesis test
 * `getCI::Bool=true`: whether to return CI
 * `getplot::Bool=getCI`: whether to generate plot data
 * `getauxweights::Bool=false`: whether to save auxilliary weight matrix (v)
-* `turbo::Bool=false`: whether to exploit acceleration of the LoopVectorization package: slower on first use in a session, faster after
 
 # Notes
 `T`, `ptype`, `auxwttype`, `madjtype`, and `diststat` may also be strings. Examples: `"Float32"` and `"webb"`.

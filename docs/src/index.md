@@ -19,4 +19,4 @@ The interface is low-level: the exported function `wildboottest()` accepts scala
 `wildboottest()` accepts many optional arguments. Most correspond to options of the Stata package `boottest`, which are documented in [Roodman et al. (2019), §7](https://www.econ.queensu.ca/sites/econ.queensu.ca/files/qed_wp_1406.pdf#page=28). Julia-specific additions include an optional first argument `T`, which can be `Float32` or `Float64` to specify the precision of computation; and `rng`, which takes a random number generator such as `MersenneTwister(2302394)`.
 
 ## On latency
-The first time you run `wildboottest()` in a session, Julia's just-in-time compilation will take ~10 seconds. The same will happen the first time you switch between turbo and non-turbo modes or between Float32 and Float64 calculations, or between OLS and IV/2SLS estimation. (Non-turbo and Float32 are defaults.)
+The first time you run `wildboottest()` in a session, Julia's just-in-time compilation will take ~10 seconds. The same will happen the first time you switch between Float32 and Float64 calculations, or between OLS and IV/2SLS estimation.

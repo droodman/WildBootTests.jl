@@ -35,7 +35,7 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 								o.∂Jcd∂r[h₁,c,d₁] = (o.Jcd[c,d₁] .- o.Jcd₀[c,d₁]) ./ o.poles[h₁]
 								for d₂ ∈ 1:d₁
 									tmp = coldot(o, o.Jcd₀[c,d₁], o.∂Jcd∂r[h₁,c,d₂])
-									d₁ ≠ d₂ && (coldotplus!(Val(o.turbo), tmp, o.Jcd₀[c,d₂], o.∂Jcd∂r[h₁,c,d₁]))  # for diagonal items, faster to just double after the c loop
+									d₁ ≠ d₂ && (o.coldotplus!(tmp, o.Jcd₀[c,d₂], o.∂Jcd∂r[h₁,c,d₁]))  # for diagonal items, faster to just double after the c loop
 									@clustAccum!(o.∂denom∂r[h₁,d₁,d₂], c, tmp)
 								end
 							end

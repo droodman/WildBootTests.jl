@@ -12,3 +12,4 @@ compilation tests.jl
 Stata examples.do
 
 src/investigate turbo.jl
+src/debug.jl

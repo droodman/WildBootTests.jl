@@ -83,7 +83,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   peak::NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
 
 	Nobs::Int64; NClustVar::Int8; kX₁::Int64; kX₂::Int64; kY₂::Int64; WREnonARubin::Bool; boottest!::Function
-	turbo::Bool
+	coldotplus!::Function; colquadformminus!::Function; matmulplus!::Function; panelsum!::Function
 
   sqrt::Bool; _Nobs::T; kZ::Int64; sumwt::T; haswt::Bool; sqrtwt::Vector{T}; REst::Bool; multiplier::T; smallsample::T
 		dof::Int64; dof_r::T; p::T; BootClust::Int8
@@ -125,7 +125,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 
 	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
 	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, NBootClustVar, NErrClustVar, issorted, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,
-								 β̈, A, sc, willplot, gridmin, gridmax, gridpoints, turbo) where T<:Real =
+								 β̈, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real =
 		begin
 			kX₂ = ncols(X₂)
 			scorebs = scorebs || iszero(B) || ML
@@ -143,7 +143,10 @@ mutable struct StrBootTest{T<:AbstractFloat}
 				Matrix{T}(undef,0,0),
 				(X = Vector{T}(undef,0), p = T(NaN)),
 				nrows(X₁), ncols(ID), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!, 
-				turbo)
+				coldotplus_nonturbo!, 
+				colquadformminus_nonturbo!, 
+				matmulplus_nonturbo!, 
+				panelsum_nonturbo!)
 		end
 end
 
@@ -154,7 +157,7 @@ function getdist(o::StrBootTest, diststat::DistStatType=nodist)
 	  sort!(o.distCDR)
   elseif nrows(o.distCDR)==0  # return test stats
     if length(o.dist) > 1
-	    o.distCDR = (@view o.dist[2:end])' * o.multiplier
+	    o.distCDR = (@view o.dist[1,2:end])' * o.multiplier
 	    sort!(o.distCDR, dims=1)
 	  else
 	    o.distCDR = zeros(0,1)

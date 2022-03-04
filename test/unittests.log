@@ -1,49 +1,49 @@
 
 boottest post_self=.04, weight(webb)
-t=2.0194173 p=0.06406406 CI=Float32[0.03772769 0.06311848]
+t=2.0194206531626717 p=0.06406406406406406 CI=[0.0377277121391649 0.06311849981819215]
 
 boottest post_self=.04, weight(webb) reps(9999999) noci
-t=2.0194173 p=0.075657904
+t=2.0194206531626717 p=0.07565740756574076
 
 regress hasinsurance selfemployed post post_self, cluster(year)
 boottest (post_self=.05) (post=-.02), reps(9999) weight(webb)
-F=0.33827585 p=0.82128215
+F=0.33827457514744147 p=0.8212821282128213
 
 constraint 1 ttl_exp = .2
 cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(industry)
 boottest tenure
-t=2.1249483 p=0.0 CI=Float32[0.02664767 0.12295436]
+t=2.1249477239156653 p=0.0 CI=[0.026647674181956252 0.12295449984800949]
 
 ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
 boottest tenure, ptype(equaltail)
-t=2.603986 p=0.044433594 CI=Float32[0.11880045 2.2101312]
+t=2.6039655318894654 p=0.04443359375 CI=[0.11879520637810304 2.210140489560841]
 
 boottest tenure, ptype(equaltail) reps(9999) weight(webb) stat(c)
-z=1.6443853 p=0.11061106 CI=Float32[-Inf Inf]
+z=1.644362808515832 p=0.11061106110611062 CI=[-Inf Inf]
 
 boottest, ar
-z=2.4454045 p=0.030273438 CI=Float32[0.054771073 1.482021]
+z=2.445404334991311 p=0.0302734375 CI=[0.054771111282430895 1.4820188959856755]
 
 boottest, ar nonull
-z=2.4454045 p=0.030273438 CI=Float32[0.0560946 1.4158152]
+z=2.445404334991311 p=0.0302734375 CI=[0.05609461478488329 1.4158133502119372]
 
 scoretest tenure
-z=2.3278978 p=0.019917535 CI=Float32[0.13672073 1.3236897]
+z=2.327876626488991 p=0.019918655708991383 CI=[0.13671744945002545 1.3236703862292276]
 
 waldtest tenure
-z=2.6042624 p=0.009207225 CI=Float32[0.18211043 1.290075]
+z=2.60396553188883 p=0.00921520238393883 CI=[0.18201297125563132 1.289894993740782]
 
 ivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)
 boottest tenure
-z=7.584607 p=0.003003003 CI=Float32[0.33541003 0.8054995]
+z=7.584660623759073 p=0.003003003003003003 CI=[0.3354116214161779 0.8054981794681694]
 
 ivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)
 boottest tenure, nograph weight(webb) reps(9999)
-z=4.026446 p=0.0250025 CI=Float32[-0.89425623 -0.37764832; 0.309315 1.2543852]
+z=4.026749656314305 p=0.025002500250025 CI=[-0.8936673730384521 -0.3868407849393217; 0.30942376213398465 1.252858328860761]
 
 areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)
 boottest tenure, cluster(age occupation) bootcluster(occupation)
-t=0.4873998 p=0.6596597 CI=Float32[-0.038264863 0.06546521]
+t=0.4874002209250657 p=0.6596596596596597 CI=[-0.038264851984474824 0.06546520168585249]
 
 global pix lnkm pixpetro pixdia pixwaterd pixcapdist pixmal pixsead pixsuit pixelev pixbdist
 global geo lnwaterkm lnkm2split mean_elev mean_suit malariasuit petroleum diamondd
@@ -53,9 +53,9 @@ qui areg lnl0708s centr_tribe lnpd0 $pix $geo $poly, absorb(ccode)
 boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode)
 boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(pixcluster)
 boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode pixcluster)
-t=3.5211082 p=0.00750075 CI=Float32[0.06599893 0.21314123]
-t=3.521122 p=0.00190019 CI=Float32[0.059831087 0.2219535]
-t=3.5211232 p=0.00210021 CI=Float32[0.064270444 0.2283149]
+t=3.5211275994028437 p=0.0021002100210021 CI=[0.08061929476890324 0.20599651150146012]
+t=3.521127599402857 p=0.0026002600260026003 CI=[0.05987418904867205 0.21766281509368804]
+t=3.521127599402853 p=0.0033003300330033004 CI=[0.06516805210796749 0.22205157414738774]
 
 infile coll merit male black asian year state chst using regm.raw, clear
 qui regress coll merit male black asian i.year i.state if !inlist(state,34,57,59,61,64,71,72,85,88), cluster(state)	
@@ -66,9 +66,9 @@ boottest merit, nogr reps(9999) gridpoints(10) bootcluster(state year)
 boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(state year)
 boottest merit, nogr reps(9999) gridpoints(10) bootcluster(individual)
 boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual)
-t=6.712657 p=0.49184918 CI=Float32[-1.6972356 1.7089918]
-t=6.7127285 p=0.0 CI=Float32[0.049524948 0.09481105]
-t=6.712668 p=0.2930293 CI=Float32[-4.571306 4.552784]
-t=6.7127123 p=0.08940894 CI=Float32[-0.011595316 0.15593131]
-t=6.712662 p=0.37383738 CI=Float32[-0.0999381 0.24207383]
-t=6.7127156 p=0.37593758 CI=Float32[-0.0941135 0.2384495]
+t=6.712662505405624 p=0.49184918491849183 CI=[-1.6972356330940566 1.7089914995826039]
+t=6.712662505405481 p=0.0 CI=[0.04952434609992312 0.0948105717390142]
+t=6.712662505405635 p=0.29282928292829286 CI=[-4.57172804659997 4.552785237378814]
+t=6.712662505405505 p=0.0894089408940894 CI=[-0.01160136628259633 0.15593628412153365]
+t=6.712662505405632 p=0.37383738373837383 CI=[-0.09995592657316615 0.24207396310704127]
+t=6.7126625054055 p=0.37593759375937597 CI=[-0.09411414230150893 0.23844906014044626]

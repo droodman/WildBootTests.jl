@@ -137,10 +137,10 @@ function InitWRE!(o::StrBootTest{T}) where T
 			
 			o.r₁S✻ReplZR₁Y₂     = o.r₁' * (o.Repl.S✻ZR₁Y₂ - _S✻ZperpReplZR₁' * o.Repl.invZperpZperpZperpY₂ - o.Repl.invZperpZperpZperpZR₁' * o.S✻ZperpY₂)  
 			o.r₁S✻ReplZR₁X      = o.r₁' * (_S✻⋂XReplZR₁'  - _S✻ZperpReplZR₁' * o.Repl.invZperpZperpZperpX  - o.Repl.invZperpZperpZperpZR₁' * o.S✻ZperpX )
-			o.r₁S✻ReplZR₁DGPZ   = o.r₁' * panelcross11(o, o.Repl.ZR₁, o.DGP.Z, o.info✻)   
+			o.r₁S✻ReplZR₁DGPZ   = o.r₁' * panelcross(o.Repl.ZR₁, o.DGP.Z, o.info✻)   
 			o.r₁S✻ReplZR₁y₁     = o.r₁' * (o.Repl.S✻ZR₁y₁ - _S✻ZperpReplZR₁' * o.Repl.invZperpZperpZperpy₁ - o.Repl.invZperpZperpZperpZR₁' * o.S✻Zperpy₁)
 			o.DGP.restricted &&
-				(o.r₁S✻ReplZR₁DGPZR₁ = o.r₁' * panelcross11(o, o.Repl.ZR₁, o.DGP.ZR₁, o.info✻))
+				(o.r₁S✻ReplZR₁DGPZR₁ = o.r₁' * panelcross(o.Repl.ZR₁, o.DGP.ZR₁, o.info✻))
 		end
 
 		_S✻ZperpReplZpar = @panelsum(o, o.Repl.S✻⋂ZperpZpar, o.info✻_✻⋂)
@@ -148,13 +148,13 @@ function InitWRE!(o::StrBootTest{T}) where T
 
 		o.S✻ReplZY₂      = o.Repl.S✻ZparY₂ - _S✻ZperpReplZpar' * o.Repl.invZperpZperpZperpY₂ - o.Repl.invZperpZperpZperpZpar' * o.S✻ZperpY₂
 		o.S✻ReplZX       = _S✻ReplXZ'      - _S✻ZperpReplZpar' * o.Repl.invZperpZperpZperpX  - o.Repl.invZperpZperpZperpZpar' * o.S✻ZperpX
-		o.S✻ReplZDGPZ    = panelcross11(o, o.Repl.Z, o.DGP.Z, o.info✻)   
+		o.S✻ReplZDGPZ    = panelcross(o.Repl.Z, o.DGP.Z, o.info✻)   
 		o.S✻ReplZy₁      = o.Repl.S✻Zpary₁ - _S✻ZperpReplZpar' * o.Repl.invZperpZperpZperpy₁ - o.Repl.invZperpZperpZperpZpar' * o.S✻Zperpy₁
 		
 		if o.DGP.restricted
 			_S✻⋂XDGPZR₁ = @panelsum(o, o.DGP.S✻⋂XZR₁, o.info✻_✻⋂)
 
-			o.S✻ReplZDGPZR₁  = panelcross11(o, o.Repl.Z, o.DGP.ZR₁, o.info✻)   
+			o.S✻ReplZDGPZR₁  = panelcross(o.Repl.Z, o.DGP.ZR₁, o.info✻)   
 			o.S✻DGPZR₁Y₂     = o.DGP.S✻ZR₁Y₂  - _S✻ZperpDGPZR₁' * o.Repl.invZperpZperpZperpY₂  - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpY₂
 			o.S✻DGPZR₁DGPZR₁ = o.DGP.S✻ZR₁ZR₁ - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpZR₁  - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpDGPZR₁
 			o.S✻DGPZR₁DGPZ   = o.DGP.S✻ZR₁Z   - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpZpar - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpDGPZ
@@ -481,7 +481,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, ind1::Int64, β̈s
 			dest .= reshape(o.F1_0'o.F2_0,:,1) .- (dropdims(o.F1_0'o.F2_1; dims=1) - o.F2_0'o.F1_1) * o.v  # 0th- & 1st-order terms
 			o.Q .= o.F1_1'o.F2_1
 			@inbounds for g ∈ 1:o.N⋂
-				colquadformminus!(Val(o.turbo), dest, g, o.v, o.Q[:,g,:], o.v)
+				o.colquadformminus!(dest, g, o.v, o.Q[:,g,:], o.v)
 			end
 		else
 			dest .= reshape(o.F1_0'o.F2_0,:,1) .- dropdims(o.F1_0'o.F2_1; dims=1) * o.v  # 0th- & 1st-order terms
@@ -496,7 +496,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, ind1::Int64, β̈s
 				dest .+= reshape(o.F1_0'o.F2_0,:,1) .* _β̈ .+ (o.F2_0'o.F1_1 - dropdims(o.F1_0'o.F2_1; dims=1)) * β̈v  # "-" because S✻UMZperpX is stored negated as negS✻UMZperpX
 				o.Q .= o.F1_1'o.F2_1
 				for g ∈ 1:o.N⋂
-					colquadformminus!(Val(o.turbo), dest, g, o.v, o.Q[:,g,:], β̈v)
+					o.colquadformminus!(dest, g, o.v, o.Q[:,g,:], β̈v)
 				end
 			elseif o.Repl.Yendog[ind1+1]
 				dest .+= reshape(o.F1_0'o.F2_0,:,1) .* _β̈ .- dropdims(o.F1_0'o.F2_1; dims=1) * β̈v

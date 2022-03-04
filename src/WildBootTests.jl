@@ -2,7 +2,7 @@ module WildBootTests
 export BootTestResult, wildboottest, AuxWtType, PType, MAdjType, DistStatType, 
 			 teststat, stattype, p, padj, reps, repsfeas, nbootclust, dof, dof_r, plotpoints, peak, CI, dist, statnumer, statvar, auxweights
 
-using LinearAlgebra, Random, Distributions, SortingAlgorithms, LoopVectorization
+using LinearAlgebra, Random, Distributions, SortingAlgorithms #, LoopVectorization
 
 include("StrBootTest.jl")
 include("utilities.jl")
@@ -100,13 +100,13 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T, w::Integer)
 		if o.sqrt
 			o.dist .= o.numer ./ sqrtNaN.(o.statDenom)
 		else
-			negcolquadform!(o.dist, -invsym(o.statDenom), o.numer)  # to reduce latency by minimizing @tturbo instances, work with negative of colquadform in order to fuse code with colquadformminus!
+			negcolquadform!(o.dist, -invsym(o.statDenom), o.numer)  # to reduce latency by minimizing #=@tturbo=# instances, work with negative of colquadform in order to fuse code with colquadformminus!
 		end
 	end
 	nothing
 end
 
-include("precompile_WildBootTests.jl")  # source: https://timholy.github.io/SnoopCompile.jl/stable/snoopi_deep_parcel/#SnoopCompile.write
+include("precompile_WildBootTests.jl")  # https://timholy.github.io/SnoopCompile.jl/stable/snoopi_deep_parcel/#SnoopCompile.write
 _precompile_()
 
 end

@@ -43,18 +43,18 @@ end
 
 function X₁₂B(o::StrBootTest, X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractMatrix)
 	dest = X₁ * view(B,1:size(X₁,2),:)
-	length(dest)>0 && length(X₂)>0 && matmulplus!(Val(o.turbo), dest, X₂, B[size(X₁,2)+1:end,:])
+	length(dest)>0 && length(X₂)>0 && o.matmulplus!(dest, X₂, B[size(X₁,2)+1:end,:])
 	dest
 end
 function X₁₂B(o::StrBootTest, X₁::AbstractArray, X₂::AbstractArray, B::AbstractVector)
 	dest = X₁ * view(B,1:size(X₁,2))
-	length(dest)>0 && length(X₂)>0 && matmulplus!(Val(o.turbo), dest, X₂, B[size(X₁,2)+1:end])
+	length(dest)>0 && length(X₂)>0 && o.matmulplus!(dest, X₂, B[size(X₁,2)+1:end])
 	dest
 end
 
 function coldot!(o::StrBootTest, dest::AbstractMatrix{T}, A::AbstractMatrix{T}, B::AbstractMatrix{T}) where T  # colsum(A .* B)
   fill!(dest, zero(T))
-	coldotplus!(Val(o.turbo), dest, A, B)
+	o.coldotplus!(dest, A, B)
 	nothing
 end
 function coldot(o::StrBootTest, A::AbstractMatrix{T}, B::AbstractMatrix{T}) where T
@@ -66,13 +66,7 @@ coldot(o::StrBootTest, A::AbstractMatrix) = coldot(o, A, A)
 coldot(o::StrBootTest, A::AbstractVector, B::AbstractVector) = [dot(A,B)]
 
 # colsum(A .* B); dest should be a one-row matrix
-function coldotplus!(turbo::Val{true}, dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)
-  @tturbo for i ∈ eachindex(axes(A,2),axes(B,2)), j ∈ eachindex(axes(A,1),axes(B,1))
-	  dest[i] += A[j,i] * B[j,i]
-  end
-	nothing
-end
-function coldotplus!(turbo::Val{false}, dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)
+function coldotplus_nonturbo!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)
 	@inbounds Threads.@threads for i ∈ eachindex(axes(A,2),axes(B,2))
 		@inbounds for j ∈ eachindex(axes(A,1),axes(B,1))
 			dest[i] += A[j,i] * B[j,i]
@@ -82,13 +76,7 @@ function coldotplus!(turbo::Val{false}, dest::AbstractMatrix, A::AbstractMatrix,
 end
 
  # From given row of given matrix, substract inner products of corresponding cols of A & B with quadratic form Q; despite "!", puts result in return value too
-function colquadformminus!(turbo::Val{true}, dest::AbstractMatrix, row::Integer, A::AbstractMatrix, Q::AbstractMatrix, B::AbstractMatrix)
-  @tturbo for i ∈ axes(A,2), j ∈ axes(A,1), k ∈ axes(A,1)
-    dest[row,i] -= A[j,i] * Q[k,j] * B[k,i]
-  end
-  dest
-end
-function colquadformminus!(turbo::Val{false}, dest::AbstractMatrix{T}, row::Integer, A::AbstractMatrix, Q::AbstractMatrix, B::AbstractMatrix) where T
+function colquadformminus_nonturbo!(dest::AbstractMatrix{T}, row::Integer, A::AbstractMatrix, Q::AbstractMatrix, B::AbstractMatrix) where T
   nt = Threads.nthreads()
   cs = [round(Int, size(A,2)/nt*i) for i ∈ 0:nt]
   if A===B 
@@ -111,7 +99,7 @@ function colquadformminus!(turbo::Val{false}, dest::AbstractMatrix{T}, row::Inte
 	end
 	dest
 end
-# function colquadformminus!(turbo::Val{false}, dest::AbstractMatrix{T}, A::AbstractMatrix, Q::AbstractArray{T,3}, B::AbstractMatrix) where T
+# function colquadformminus_nonturbo!(dest::AbstractMatrix{T}, A::AbstractMatrix, Q::AbstractArray{T,3}, B::AbstractMatrix) where T
 #   nt = Threads.nthreads()
 #   cs = [round(Int, size(A,2)/nt*i) for i ∈ 0:nt]
 #   if A===B 
@@ -134,27 +122,14 @@ end
 # 	end
 # 	dest
 # end
-colquadformminus!(o::StrBootTest, dest::AbstractMatrix, Q::AbstractMatrix, A::AbstractMatrix) = colquadformminus!(Val(o.turbo),dest,1,A,Q,A)
+colquadformminus!(o::StrBootTest, dest::AbstractMatrix, Q::AbstractMatrix, A::AbstractMatrix) = o.colquadformminus!(dest,1,A,Q,A)
 # compute negative of the norm of each col of A using quadratic form Q; dest should be a one-row matrix
 function negcolquadform!(o::StrBootTest, dest::AbstractMatrix{T}, Q::AbstractMatrix{T}, A::AbstractMatrix{T}) where T
   fill!(dest, zero(T))
-	colquadformminus!(Val(o.turbo),dest,1,A,Q,A)
+	o.colquadformminus!(dest,1,A,Q,A)
 	nothing
 end
-
-function matmulplus!(turbo::Val{true}, A::Matrix, B::Matrix, C::Matrix)  # add B*C to A in place
-	@tturbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
-		A[i,k] += B[i,j] * C[j,k]
-	end
-	nothing
-end
-function matmulplus!(turbo::Val{true}, A::Vector, B::Matrix, C::Vector)  # add B*C to A in place
-	@tturbo for j ∈ eachindex(axes(B,2),C), i ∈ eachindex(axes(A,1),axes(B,1))
-		A[i] += B[i,j] * C[j]
-	end
-	nothing
-end
-function matmulplus!(turbo::Val{false}, A::VecOrMat{T}, B::Matrix{T}, C::VecOrMat{T}) where T  # add B*C to A in place
+function matmulplus_nonturbo!(A::VecOrMat{T}, B::Matrix{T}, C::VecOrMat{T}) where T  # add B*C to A in place
 	BLAS.gemm!('N','N',one(T),B,C,one(T),A)
 	nothing
 end
@@ -208,31 +183,8 @@ count_binary(N::Integer, lo::Number, hi::Number) = N≤1 ? [lo  hi] :
 														   [fill(lo, 1, ncols(tmp)) fill(hi, 1, ncols(tmp)) ;
 																			            tmp                     tmp     ])
 
-# unweighted panelsum!() along first axis of a VecOrMat
-function panelsum!(turbo::Val{true}, dest::AbstractVecOrMat, X::AbstractVecOrMat, info::AbstractVector{UnitRange{T}} where T<:Integer)
-	iszero(length(X)) && return
-	J = CartesianIndices(axes(X)[2:end])
-	eachindexJ = eachindex(J)
-	@inbounds for g in eachindex(info)
-		f, l = first(info[g]), last(info[g])
-		fl = f+1:l
-		if f<l
-			for j ∈ eachindexJ
-				Jj = J[j]
-				tmp = X[f,Jj]
-				@tturbo for i ∈ fl
-					tmp += X[i,Jj]
-				end
-				dest[g,Jj] = tmp
-			end
-		else
-			@simd for j ∈ eachindexJ
-				dest[g,J[j]] = X[f,J[j]]
-			end
-		end
-	end
-end
-function panelsum!(turbo::Val{false}, dest::AbstractVecOrMat, X::AbstractVecOrMat, info::AbstractVector{UnitRange{T}} where T<:Integer)
+
+function panelsum_nonturbo!(dest::AbstractVecOrMat, X::AbstractVecOrMat, info::AbstractVector{UnitRange{T}} where T<:Integer)
 	iszero(length(X)) && return
 	J = CartesianIndices(axes(X)[2:end])
 	eachindexJ = eachindex(J)
@@ -256,55 +208,7 @@ function panelsum!(turbo::Val{false}, dest::AbstractVecOrMat, X::AbstractVecOrMa
 	end
 end
 # single-weighted panelsum!() along first axis of a VecOrMat
-function panelsum!(turbo::Val{true}, dest::AbstractVecOrMat{T}, X::AbstractVecOrMat{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
-	iszero(length(X)) && return
-	if iszero(length(info)) || nrows(info)==nrows(X)
-		dest .= X .* wt
-		return
-	end
-	J = CartesianIndices(axes(X)[2:end])
-	eachindexJ = eachindex(J)
-	@inbounds for g in eachindex(info)
-		f, l = first(info[g]), last(info[g])
-    fl = f+1:l
-		_wt = wt[f]
-		if f<l
-			for j ∈ eachindexJ
-				Jj = J[j]
-				tmp = X[f,Jj] * _wt
-				@tturbo for i ∈ fl
-					tmp += X[i,Jj] * wt[i]
-				end
-				dest[g,Jj] = tmp
-			end
-		else
-			for j ∈ eachindexJ
-				dest[g,J[j]] = X[f,J[j]] * _wt
-			end
-		end
-	end
-end
-function panelsum!(turbo::Val{true}, dest::AbstractArray, X::AbstractArray{T,3} where T, info::Vector{UnitRange{S}} where S<:Integer)
-  iszero(length(X)) && return
-  @inbounds for g in eachindex(info)
-    f, l = first(info[g]), last(info[g])
-    fl = f+1:l
-    if f<l
-      for i ∈ axes(X,1), k ∈ axes(X,3)
-        tmp = X[i,f,k]
-        @tturbo for j ∈ fl
-          tmp += X[i,j,k]
-        end
-        dest[i,g,k] = tmp
-      end
-    else
-      for i ∈ axes(X,1), k ∈ axes(X,3)
-        dest[i,g,k] = X[i,f,k]
-      end
-    end
-  end
-end
-function panelsum!(turbo::Val{false}, dest::AbstractArray, X::AbstractArray, wt::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer)
+function panelsum_nonturbo!(dest::AbstractArray, X::AbstractArray, wt::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer)
   iszero(length(X)) && return
   if iszero(length(info)) || nrows(info)==nrows(X)
     dest .= X .* wt
@@ -332,7 +236,7 @@ function panelsum!(turbo::Val{false}, dest::AbstractArray, X::AbstractArray, wt:
     end
   end
 end
-function panelsum!(turbo::Val{false}, dest::AbstractArray, X::AbstractArray{T,3} where T, info::Vector{UnitRange{S}} where S<:Integer)
+function panelsum_nonturbo!(dest::AbstractArray, X::AbstractArray{T,3} where T, info::Vector{UnitRange{S}} where S<:Integer)
   iszero(length(X)) && return
   @inbounds Threads.@threads for g in eachindex(info)
     f, l = first(info[g]), last(info[g])
@@ -354,7 +258,7 @@ function panelsum!(turbo::Val{false}, dest::AbstractArray, X::AbstractArray{T,3}
 end
 # groupwise inner product of two two data matrices
 # 1st dimension of result corresponds to columns of X, second to rows of info, third to columns of Y
-function panelcross!(turbo::Val{false}, dest::AbstractArray{T,3}, X::AbstractMatrix{T}, Y::AbstractMatrix{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+function panelcross!(dest::AbstractArray{T,3}, X::AbstractMatrix{T}, Y::AbstractMatrix{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
 	iszero(length(X)) && return
 	if iszero(nrows(info)) || nrows(info)==nrows(X)
 		@inbounds for i ∈ axes(Y,2)
@@ -373,7 +277,7 @@ function panelcross!(turbo::Val{false}, dest::AbstractArray{T,3}, X::AbstractMat
     end
   end
 end
-function panelcross!(turbo::Val{false}, dest::AbstractMatrix{T}, X::AbstractVecOrMat{T}, Y::AbstractVector{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+function panelcross!(dest::AbstractMatrix{T}, X::AbstractVecOrMat{T}, Y::AbstractVector{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
 	iszero(length(X)) && return
 	if iszero(length(info)) || nrows(info)==nrows(X)
 		dest .= X' .* Y'
@@ -397,7 +301,7 @@ function panelsum(o::StrBootTest, X::AbstractVector{T}, wt::AbstractVector{T}, i
 		panelsum(o, X, info)
 	else
 		dest = Vector{T}(undef, iszero(length(info)) ? nrows(X) : length(info))
-		panelsum!(Val(o.turbo), dest, X, wt, info)
+		o.panelsum!(dest, X, wt, info)
 		dest
 	end
 end
@@ -406,28 +310,28 @@ function panelsum(o::StrBootTest, X::AbstractMatrix{T}, wt::AbstractVector{T}, i
 		panelsum(o, X, info)
 	else
 		dest = Matrix{T}(undef, iszero(length(info)) ? nrows(X) : length(info), size(X,2))
-		panelsum!(Val(o.turbo), dest, X, wt, info)
+		o.panelsum!(dest, X, wt, info)
 		dest
 	end
 end
-function panelcross11(o::StrBootTest, X::AbstractVecOrMat{T}, Y::AbstractMatrix{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+function panelcross(X::AbstractVecOrMat{T}, Y::AbstractMatrix{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	dest = Array{T,3}(undef, size(X,2), iszero(length(info)) ? nrows(X) : length(info), size(Y,2))
-	panelcross!(Val(false), dest, X, Y, info)
+	panelcross!(dest, X, Y, info)
 	dest
 end
-function panelcross11(o::StrBootTest, X::AbstractVecOrMat{T}, Y::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+function panelcross(X::AbstractVecOrMat{T}, Y::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	dest = Matrix{T}(undef, size(X,2), iszero(length(info)) ? nrows(X) : length(info))
-	panelcross!(Val(false), dest, X, Y, info)
+	panelcross!(dest, X, Y, info)
 	dest
 end
 function panelsum(o::StrBootTest, X::AbstractVecOrMat, info::AbstractVector{UnitRange{T}} where T<:Integer)
 	dest = similar(X, iszero(length(info)) ? nrows(X) : length(info), size(X)[2:end]...)
-	panelsum!(Val(o.turbo), dest, X, info)
+	o.panelsum!(dest, X, info)
 	dest
 end
 function panelsum(o::StrBootTest{T}, X::AbstractArray{T,3}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	dest = Array{T,3}(undef, size(X,1), size(info,1), size(X,3))
-	panelsum!(Val(o.turbo), dest, X, info)
+	o.panelsum!(dest, X, info)
 	dest
 end
 function panelsum2(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
@@ -437,58 +341,8 @@ function panelsum2(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecO
 		panelsum(o,X₁,wt,info)
 	else
 		dest = Matrix{T}(undef, iszero(length(info)) ? nrows(X₁) : length(info), ncols(X₁)+ncols(X₂))
-		panelsum!(Val(o.turbo), view(dest, :,           1:ncols(X₁   )), X₁, wt, info)
-		panelsum!(Val(o.turbo), view(dest, :, ncols(X₁)+1:size(dest,2)), X₂, wt, info)
-		dest
-	end
-end
-function panelcross21(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, Y::AbstractMatrix{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
-	if iszero(ncols(X₁))
-		panelcross11(o,X₂,Y,info)
-	elseif iszero(ncols(X₂))
-		panelcross11(o,X₁,Y,info)
-	else
-		dest = Array{T,3}(undef, ncols(X₁)+ncols(X₂), iszero(length(info)) ? nrows(X₁) : length(info), ncols(Y))
-		panelcross!(Val(false), view(dest,           1:ncols(X₁   ), :, :), X₁, Y, info)
-		panelcross!(Val(false), view(dest, ncols(X₁)+1:size(dest,1), :, :), X₂, Y, info)
-		dest
-	end
-end
-function panelcross21(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, Y::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
-	if iszero(ncols(X₁))
-		panelcross11(o,X₂,Y,info)
-	elseif iszero(ncols(X₂))
-		panelcross11(o,X₁,Y,info)
-	else
-		dest = Matrix{T}(undef, ncols(X₁)+ncols(X₂), iszero(length(info)) ? nrows(X₁) : length(info))
-		panelcross!(Val(false), view(dest,           1:ncols(X₁   ), :), X₁, Y, info)
-		panelcross!(Val(false), view(dest, ncols(X₁)+1:size(dest,1), :), X₂, Y, info)
-		dest
-	end
-end
-function panelcross12(o::StrBootTest, X::AbstractVecOrMat{T}, Y₁::AbstractVecOrMat{T}, Y₂::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
-	if iszero(ncols(Y₁))
-		panelcross11(o,X,Y₂,info)
-	elseif iszero(ncols(Y₂))
-		panelcross11(o,X,Y₁,info)
-	else
-		dest = Array{T,3}(undef, ncols(X), iszero(length(info)) ? nrows(X) : length(info), ncols(Y₁)+ncols(Y₂))
-		panelcross!(Val(false), view(dest, :, :,           1:ncols(Y₁   )), X, Y₁, info)
-		panelcross!(Val(false), view(dest, :, :, ncols(Y₁)+1:size(dest,3)), X, Y₂, info)
-		dest
-	end
-end
-function panelcross22(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, Y₁::AbstractVecOrMat{T}, Y₂::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
-	if iszero(ncols(Y₁))
-		panelcross21(o,X₁,X₂,Y₂,info)
-	elseif iszero(ncols(Y₂))
-		panelcross21(o,X₁,X₂,Y₁,info)
-	else
-		dest = Array{T,3}(undef, ncols(X₁)+ncols(X₂), iszero(length(info)) ? nrows(X₁) : length(info), ncols(Y₁)+ncols(Y₂))
-		panelcross!(Val(false), view(dest, 1:ncols(X₁)             , :, 1:ncols(Y₁)             ), X₁, Y₁, info)
-		panelcross!(Val(false), view(dest, ncols(X₁)+1:size(dest,1), :, 1:ncols(Y₁)             ), X₂, Y₁, info)
-		panelcross!(Val(false), view(dest, 1:ncols(X₁)             , :, ncols(Y₁)+1:size(dest,3)), X₁, Y₂, info)
-		panelcross!(Val(false), view(dest, ncols(X₁)+1:size(dest,1), :, ncols(Y₁)+1:size(dest,3)), X₂, Y₂, info)
+		o.panelsum!(view(dest, :,           1:ncols(X₁   )), X₁, wt, info)
+		o.panelsum!(view(dest, :, ncols(X₁)+1:size(dest,2)), X₂, wt, info)
 		dest
 	end
 end
