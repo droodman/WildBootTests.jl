@@ -273,7 +273,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		end
 	end
 
-  o.dof_r = o.small ? o.NClustVar>0 ? minN - one(T) : o._Nobs - (o.kZ + o.NFE) : 0  # floating-point dof_r allows for fractional fweights, FWIW...
+  o.dof_r = o.small ? o.NClustVar>0 ? minN - one(T) : o._Nobs - (o.kZ + o.NFE) : zero(T)  # floating-point dof_r allows for fractional fweights, FWIW...
 
   o.sqrt = isone(o.dof)  # work with t/z stats instead of F/chi2?
 

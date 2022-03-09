@@ -66,7 +66,7 @@ function plot!(o::StrBootTest{T}) where T
 				lo = isnan(o.gridmin[1]) ? o.confpeak - halfwidth : o.gridmin
 				hi = isnan(o.gridmax[1]) ? o.confpeak + halfwidth : o.gridmax
 			else
-				tmp = vec(sqrtNaN.(o.statDenom)) * (o.small ? cquantile(TDist{T}(o.dof_r), α/2) : cquantile(Normal{T}(zero(T),one(T)), α/2))
+				tmp = [sqrtNaN.(o.statDenom[1,1])] * (o.small ? cquantile(TDist{T}(o.dof_r), α/2) : cquantile(Normal{T}(zero(T),one(T)), α/2))
 				lo = isnan(o.gridmin[1]) ? o.confpeak - tmp : o.gridmin
 				hi = isnan(o.gridmax[1]) ? o.confpeak + tmp : o.gridmax
 				if o.scorebs && !o.null && !o.willplot  # if doing simple Wald test with no graph, we're done
