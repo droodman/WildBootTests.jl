@@ -1,9 +1,5 @@
 ```@docs
 wildboottest
-AuxWtType
-PType
-MAdjType
-DistStatType
 teststat
 stattype
 p

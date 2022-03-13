@@ -1,6 +1,5 @@
 module WildBootTests
-export BootTestResult, wildboottest, AuxWtType, PType, MAdjType, DistStatType, 
-			 teststat, stattype, p, padj, reps, repsfeas, nbootclust, dof, dof_r, plotpoints, peak, CI, dist, statnumer, statvar, auxweights
+export BootTestResult, wildboottest, teststat, stattype, p, padj, reps, repsfeas, nbootclust, dof, dof_r, plotpoints, peak, CI, dist, statnumer, statvar, auxweights
 
 using LinearAlgebra, Random, Distributions, SortingAlgorithms #, LoopVectorization
 
@@ -105,7 +104,7 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T, w::Integer)
 	end
 	nothing
 end
-
+ 
 include("precompile_WildBootTests.jl")  # https://timholy.github.io/SnoopCompile.jl/stable/snoopi_deep_parcel/#SnoopCompile.write
 _precompile_()
 

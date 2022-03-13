@@ -67,7 +67,7 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 
 	X₂X₁ = parent.X₂'parent.X₁
   H = Symmetric([parent.X₁'parent.X₁ X₂X₁' ; X₂X₁ parent.X₂'parent.X₂])
-  o.A = inv(H)
+  o.A = invsym(H)
   o.AR = o.A * parent.R'
   (parent.scorebs || parent.robust) && (o.XAR = X₁₂B(parent, parent.X₁, parent.X₂, o.AR))
 

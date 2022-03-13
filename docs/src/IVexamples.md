@@ -18,7 +18,7 @@ R = [0 0 0 1]; r = [0]
 wildboottest(R, r; resp, predexog, predendog, inst, clustid=df.industry)
 
 # use equal-tailed instead of symmetric p value
-wildboottest(R, r; resp, predexog, predendog, inst, clustid=df.industry, ptype=WildBootTests.equaltail)
+wildboottest(R, r; resp, predexog, predendog, inst, clustid=df.industry, ptype=:equaltail)
 
 # perform bootstrap-c instead of bootstrap-t, as advocated by Young (2019)
 wildboottest(R, r; resp, predexog, predendog, inst, clustid=df.industry, bootstrapc=true)

@@ -51,7 +51,7 @@ julia> plot(plotpoints(test)...)  # plot confidence curve
 using WildBootTests, CSV, DataFrames, StatsModels, GLM, Plots
 
 # use Webb instead of Rademacher weights, 99,999 bootstrap replications instead of 999
-wildboottest(R, r; resp, predexog, clustid, reps=99999, auxwttype=WildBootTests.webb)
+wildboottest(R, r; resp, predexog, clustid, reps=99999, auxwttype=:webb)
 
 # bootstrap in double-precision (Float64) instead of single (Float32)
 # slow on first use because of recompile

@@ -20,7 +20,7 @@ function search(o::StrBootTest{T}, α::T, f₁::T, x₁::T, f₂::T, x₂::T) wh
 			x₃, x₂, x₁, f₃, f₂, f₁ = x₂, x₁, x, f₂, f₁, fx
 		end
 
-		((o.B>0 && abs(fx - α) < (1+(o.ptype==equaltail)) / o.BFeas * 1.000001) || ≈(x₂, x₁, rtol=o.rtol)) &&
+		((o.B>0 && abs(fx - α) < (1+(o.ptype == :equaltail)) / o.BFeas * 1.000001) || ≈(x₂, x₁, rtol=o.rtol)) &&
 			return abs(f₁ - α) < abs(f₂ - α) ? x₁ : x₂
 
 		ϕ₁ = (f₁ - f₂) / (f₃ - f₂)
@@ -76,7 +76,7 @@ function plot!(o::StrBootTest{T}) where T
 			end
 
 			if abs(lo[1] - o.r[1]) > abs(hi[1] - o.r[1])  # brute force way to ensure that first trial bound tested is the farther one from r, for better interpolation
-				if isnan(o.gridmin[1]) && o.ptype≠lower  # unless lower-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
+				if isnan(o.gridmin[1]) && o.ptype ≠ :lower  # unless lower-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
 					for _ ∈ 1:10
 						p_lo = r_to_p(o, lo)
 						p_lo < α && break
@@ -85,7 +85,7 @@ function plot!(o::StrBootTest{T}) where T
 						isnan(o.gridmax[1]) && o.twotailed && (hi .+= diff)  # maintain rough symmetry unless user specified upper bound
 					end
 				end
-				if isnan(o.gridmax[1]) && o.ptype≠upper  # ditto for high side
+				if isnan(o.gridmax[1]) && o.ptype ≠ :upper  # ditto for high side
 					for _ ∈ 1:10
 						p_hi = r_to_p(o, hi)
 						p_hi < α && break
@@ -95,7 +95,7 @@ function plot!(o::StrBootTest{T}) where T
 					end
 				end
 			else
-				if isnan(o.gridmax[1]) && o.ptype≠upper  # ditto for high side
+				if isnan(o.gridmax[1]) && o.ptype ≠ :upper  # ditto for high side
 					for _ ∈ 1:10
 						p_hi = r_to_p(o, hi)
 						p_hi < α && break
@@ -104,7 +104,7 @@ function plot!(o::StrBootTest{T}) where T
 						hi .+= diff
 					end
 				end
-				if isnan(o.gridmin[1]) && o.ptype≠lower  # unless upper-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
+				if isnan(o.gridmin[1]) && o.ptype ≠ :lower  # unless upper-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
 					for _ ∈ 1:10
 						p_lo = r_to_p(o, lo)
 						p_lo < α && break
@@ -124,7 +124,7 @@ function plot!(o::StrBootTest{T}) where T
 		o.plotY = fill(T(NaN), _gridpoints[1])
 		o.plotY[1  ] = p_lo
 		o.plotY[end] = p_hi
-		p_confpeak = o.WREnonARubin ? T(NaN) : o.twotailed ? one(T) : T(.5)
+		p_confpeak = o.WRE ? T(NaN) : o.twotailed ? one(T) : T(.5)
 
 		c = clamp((floor(Int, (o.confpeak[1] - lo[1]) / (hi[1] - lo[1]) * (_gridpoints[1] - 1)) + 2), 1, _gridpoints[1]+1)  # insert original point estimate into grid
 		insert!(o.plotX[1], c, o.confpeak[1])

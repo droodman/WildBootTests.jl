@@ -1,17 +1,5 @@
 # Definition of StrBootTest "class" for holding intermediate results, with associated utilities and get functions
 
-"Auxilliary weight types: `rademacher`, `mammen`, `webb`, `normal`, `gamma`"
-@enum AuxWtType rademacher mammen webb normal gamma
-
-"p value types: `symmetric`, `equaltail`, `lower`, `upper`"
-@enum PType symmetric equaltail lower upper
-
-"Multiple hypothesis adjustment types: `nomadj`, `bonferroni`, `sidak`"
-@enum MAdjType nomadj bonferroni sidak
-
-"Bootstrap distribution statistics optionally returned"
-@enum DistStatType nodist t numer
-
 struct StrClust{T<:Real}
 	N::Int; multiplier::T; even::Bool
 	order::Vector{Int64}
@@ -63,12 +51,12 @@ mutable struct StrBootTest{T<:AbstractFloat}
   y₁::Vector{T}; X₁::Matrix{T}; Y₂::Matrix{T}; X₂::Matrix{T}
   wt::Vector{T}; fweights::Bool
   LIML::Bool; Fuller::T; κ::T; ARubin::Bool
-  B::Int64; auxtwtype::AuxWtType; rng::AbstractRNG; maxmatsize::Float16
-  ptype::PType; null::Bool; bootstrapt::Bool
-	ID::Matrix{Int64}; NBootClustVar::Int8; NErrClustVar::Int8; issorted::Bool; small::Bool
-  FEID::Vector{Int64}; FEdfadj::Bool
+  B::Int64; auxtwtype::Symbol; rng::AbstractRNG; maxmatsize::Float16
+  ptype::Symbol; null::Bool; bootstrapt::Bool
+	ID::Matrix{Int64}; NBootClustVar::Int8; NErrClustVar::Int8; issorted::Bool; small::Bool; clusteradj::Bool; clustermin::Bool
+  FEID::Vector{Int64}; FEdfadj::Int64
   level::T; rtol::T
-  madjtype::MAdjType; NH₀::Int16
+  madjtype::Symbol; NH₀::Int16
   ML::Bool; β̈::Vector{T}; A::Symmetric{T,Matrix{T}}; sc::Matrix{T}
   willplot::Bool; gridmin::Vector{T}; gridmax::Vector{T}; gridpoints::Vector{Float32}
 
@@ -124,7 +112,8 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	F1_0::Vector{T}; F1_1::Matrix{T}; F2_0::Matrix{T}; F2_1::Array{T,3}
 
 	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
-	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, NBootClustVar, NErrClustVar, issorted, robust, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,
+	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, NBootClustVar, NErrClustVar, issorted, robust, small, clusteradj, clustermin,
+								 NFE, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,
 								 β̈, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real =
 		begin
 			kX₂ = ncols(X₂)
@@ -132,10 +121,11 @@ mutable struct StrBootTest{T<:AbstractFloat}
 			WREnonARubin = !(iszero(kX₂) || scorebs) && !ARubin
 
 			new(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML || !iszero(Fuller), 
-					Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, ID, NBootClustVar, NErrClustVar, issorted, small, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML, 
+					Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, ID, NBootClustVar, NErrClustVar, issorted, small, clusteradj, clustermin, 
+					FEID, FEdfadj, level, rtol, madjtype, NH₀, ML, 
 					β̈, A, sc, willplot, gridmin, gridmax, gridpoints,
-				nrows(R), ptype==symmetric || ptype==equaltail, scorebs, robust || NErrClustVar>0,
-				false, false, 0, false, false, 0, 0, 0, false,
+				nrows(R), ptype == :symmetric || ptype == :equaltail, scorebs, robust || NErrClustVar>0,
+				false, false, NFE, false, false, 0, 0, 0, false,
 				one(T), true,
 				[zero(T)],
 				Vector{Int64}(undef,0), Vector{Int64}(undef,0),
@@ -150,8 +140,8 @@ mutable struct StrBootTest{T<:AbstractFloat}
 		end
 end
 
-function getdist(o::StrBootTest, diststat::DistStatType=nodist)
-  if diststat == numer
+function getdist(o::StrBootTest, diststat::Symbol=:none)
+  if diststat == :numer
 	  _numer = isone(o.v_sd) ? o.numer : o.numer / o.v_sd
 	  o.distCDR = (@view _numer[:,2:end]) .+ o.r
 	  sort!(o.distCDR)
@@ -194,10 +184,10 @@ function getp(o::StrBootTest{T}) where T
   tmp = o.dist[1]
   isnan(tmp) && return tmp
   if o.B>0
-  	if o.sqrt && o.ptype ≠ upper
-  	  if o.ptype==symmetric
+  	if o.sqrt && o.ptype ≠ :upper
+  	  if o.ptype == :symmetric
   	    n = sumlessabs(abs(tmp), o.dist)   # symmetric p value; do so as not to count missing entries in *dist
-  	  elseif o.ptype==equaltail
+  	  elseif o.ptype == :equaltail
   	    n = 2min(sumgreater(tmp, o.dist) , sumless(tmp, o.dist))
   	  else
   		  n = sumgreater(tmp,  o.dist)  # lower-tailed p value
@@ -211,12 +201,12 @@ function getp(o::StrBootTest{T}) where T
 		o.p = ccdf(o.small ? FDist{T}(T(o.dof), o.dof_r) : Chisq{T}(T(o.dof)), o.sqrt ? tmp^2 : tmp)
 		if o.sqrt && !o.twotailed
 			o.p /= 2
-			(o.ptype==upper) == (tmp<0) && (o.p = 1 - o.p)
+			(o.ptype == :upper) == (tmp<0) && (o.p = 1 - o.p)
 		end
   end
 	
-	if o.madjtype==bonferroni min(one(T), o.NH₀ * o.p)
-  elseif o.madjtype==sidak  one(T) - (one(T) - o.p) ^ o.NH₀
+	if o.madjtype == :bonferroni min(one(T), o.NH₀ * o.p)
+  elseif o.madjtype == :sidak  one(T) - (one(T) - o.p) ^ o.NH₀
   else o.p
   end
 end

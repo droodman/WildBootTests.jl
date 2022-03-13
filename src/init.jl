@@ -126,12 +126,8 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 					N = nrows(info)
 		    end
 
-		    if o.small
-					multiplier = T(N / (N-1))
-					minN = min(minN,N)
-				else
-					multiplier = one(T)
-				end
+		    o.small && (minN = min(minN,N))
+				multiplier = o.clusteradj && !o.clustermin ? T(N / (N-1)) : one(T)
 				o.clust[c] = StrClust{T}(N, multiplier, even, order, info)
 	    end
 
@@ -173,7 +169,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		end
 	end
 
-	o.enumerate = o.B>0 && o.auxtwtype==rademacher && o.N✻*log(2) < log(o.B)+1e-6  # generate full Rademacher set?
+	o.enumerate = o.B>0 && o.auxtwtype == :rademacher && o.N✻*log(2) < log(o.B)+1e-6  # generate full Rademacher set?
 	o.enumerate && (o.maxmatsize = 0)
 
 	o.Nw = iszero(o.maxmatsize) ? one(Int64) : ceil(Int64, (o.B+1) * Float64(max(nrows(o.ID✻), length(o.ID✻_✻⋂), o.N✻) * sizeof(T)) / o.maxmatsize / 1073741824) # 1073741824 = giga(byte)
@@ -277,16 +273,13 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
   o.sqrt = isone(o.dof)  # work with t/z stats instead of F/chi2?
 
-  if o.small
-		o.multiplier = (o.smallsample = (o._Nobs - o.kZ - o.FEdfadj * o.NFE) / (o._Nobs - o.robust)) / o.dof  # divide by # of constraints because F stat is so defined
-  else
-		o.multiplier = o.smallsample = 1
-  end
-
+  o.smallsample = o.small ? (o._Nobs - o.kZ - o.FEdfadj) / (o._Nobs - o.robust) : one(T)
+	o.clustermin && (o.smallsample *= (minN - 1) / minN)  # ivreg2-style adjustment when multiway clustering
+	o.multiplier = o.small ? o.smallsample / o.dof : o.smallsample  # divide by # of constraints because F stat is so defined
   !(o.robust || o.ML) && (o.multiplier *= o._Nobs)  # will turn sum of squared errors in denom of t/z into mean
   o.sqrt && (o.multiplier = √o.multiplier)
 
-  o.dist = fill(T(NaN), 1, o.B+1)
+	o.dist = fill(T(NaN), 1, o.B+1)
   (o.Nw>1 || o.WREnonARubin || (!o.null && o.dof≤2)) && (o.numer = fill(T(NaN), o.dof, o.B+1))
 
   if !o.WREnonARubin
@@ -350,9 +343,14 @@ function InitFEs(o::StrBootTest{T}) where T
 		o.FEs[i_FE] = StrFE{T}(is, wt, _sqrtwt)
 		o.robust && ((o.B>0 && o.granular < o.NErrClustVar) || (o.WREnonARubin && o.granular && o.bootstrapt)) &&
 			(o.invFEwt[i_FE] = 1 / sumFEwt)
-		o.NFE = i_FE
-		resize!(o.invFEwt, o.NFE)
-		resize!(o.FEs    , o.NFE)
+
+		if iszero(o.NFE)
+			o.NFE = i_FE
+			resize!(o.invFEwt, o.NFE)
+			resize!(o.FEs    , o.NFE)
+		end
+		o.FEdfadj==-1 && (o.FEdfadj = o.NFE)
+
 		if o.FEboot  # are all of this FE's obs in same bootstrapping cluster?
 			tmp = o.ID[is, 1:o.NBootClustVar]
 			o.FEboot = all(tmp .== @view tmp[1,:])
@@ -366,6 +364,8 @@ function InitFEs(o::StrBootTest{T}) where T
 		o.X₂ = partialFE(o, o.X₂)
 		o.y₁ = partialFE(o, o.y₁)
 		o.Y₂ = partialFE(o, o.Y₂)
+	else
+		o.FEdfadj = 0
 	end
 	nothing
 end
@@ -378,16 +378,16 @@ function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) wher
     if o.enumerate
 			o.v = o.WREnonARubin ? [zeros(o.N✻) count_binary(o.N✻, -2, 0)] :  # complete Rademacher set
 								             [ones( o.N✻) count_binary(o.N✻, -1, 1)]
-		elseif o.auxtwtype==normal
+		elseif o.auxtwtype == :normal
 			o.v = randn(o.rng, T, o.N✻, _B+first)
 			o.WREnonARubin && (o.v .-= one(T))
-		elseif o.auxtwtype==gamma
+		elseif o.auxtwtype == :gamma
 			tmp = quantile.(Gamma(4,.5), rand(o.rng, o.N✻, _B+first))
 			o.v = T==Float64 ? tmp : T.(tmp)
 			o.WREnonARubin && (o.v .-= one(T))
-		elseif o.auxtwtype==webb
+		elseif o.auxtwtype == :webb
 			o.v = rand(o.rng, T.([-√1.5, -1, -√.5, √.5, 1, √1.5] .- o.WREnonARubin), o.N✻, _B+first)
-		elseif o.auxtwtype == mammen
+		elseif o.auxtwtype == :mammen
 			o.v = getindex.(Ref(T.([1-ϕ; ϕ] .- o.WREnonARubin)), ceil.(Int16, rand(o.rng, o.N✻, _B+first) ./ (ϕ/√5)))
 		elseif o.WREnonARubin  # Rademacher
 			o.v = -2rand(o.rng, Bool, o.N✻, _B+first)
