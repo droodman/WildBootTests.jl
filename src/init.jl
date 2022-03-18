@@ -143,7 +143,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
 		o.purerobust = o.robust && !o.scorebs && iszero(o.subcluster) && o.N✻==o.Nobs  # do we ever error-cluster *and* bootstrap-cluster by individual?
 		o.granular   = o.WREnonARubin ? 2*o.Nobs*o.B*(2*o.N✻+1) < o.N✻*(o.N✻*o.Nobs+o.N⋂*o.B*(o.N✻+1)) :
-											o.NClustVar>0 && !o.scorebs && (o.purerobust || (o.N⋂+o.N✻)*o.kZ*o.B + (o.N⋂-o.N✻)*o.B + o.kZ*o.B < o.N⋂*o.kZ^2 + o.Nobs*o.kZ + o.N⋂ * o.N✻ * o.kZ + o.N⋂ * o.N✻)
+											o.robust && !o.scorebs && (o.purerobust || (o.N⋂+o.N✻)*o.kZ*o.B + (o.N⋂-o.N✻)*o.B + o.kZ*o.B < o.N⋂*o.kZ^2 + o.Nobs*o.kZ + o.N⋂ * o.N✻ * o.kZ + o.N⋂ * o.N✻)
 
 		if o.robust && !o.purerobust
 			(o.subcluster>0 || o.granular) && !o.WREnonARubin && 
@@ -324,7 +324,7 @@ function InitFEs(o::StrBootTest{T}) where T
 
 				j = i
 
-				if o.FEboot  # are all of this FE's obs in same bootstrapping cluster? (But no need to check if B=0 for then CT_WE in 2nd term of (62) orthogonal to v = col of 1's)
+				if o.FEboot  # are all of this FE's obs in same bootstrapping cluster? (But no need to check if B=0 for then CT(W.*E) in 2nd term of (62) orthogonal to v = col of 1's)
 					tmp = o.ID[is, 1:o.NBootClustVar]
 					o.FEboot = all(tmp .== view(tmp, 1,:)')
 				end

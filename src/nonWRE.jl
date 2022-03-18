@@ -29,7 +29,7 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 
 					o.∂numer∂r[h₁] = (o.numer .- o.numer₀) ./ o.poles[h₁]
 					o.interpolate_u && (o.∂u∂r[h₁] = (o.ü .- o.ü₀) ./ o.poles[h₁])
-					if o.robust  # dof > 1 for an ARubin test with >1 instruments.
+					if o.robust && !o.purerobust  # dof > 1 for an ARubin test with >1 instruments.
 						for d₁ ∈ 1:o.dof
 							for c ∈ 1:o.NErrClustCombs
 								o.∂Jcd∂r[h₁,c,d₁] = (o.Jcd[c,d₁] .- o.Jcd₀[c,d₁]) ./ o.poles[h₁]
@@ -44,7 +44,7 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 					end
 				end
 			end
-			if o.robust  # quadratic interaction terms
+			if o.robust && !o.purerobust  # quadratic interaction terms
 				@inbounds for h₁ ∈ 1:o.q, h₂ ∈ 1:h₁
 					if newPole[h₁] || newPole[h₂]
 						for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁, c ∈ 1:o.NErrClustCombs
@@ -73,10 +73,10 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 			end
 		end
 
-		if o.robust  # even if an anchor was just moved, and linear components just computed from scratch, do the quadratic interpolation now, from the updated linear factors
+		if o.robust && !o.purerobust  # even if an anchor was just moved, and linear components just computed from scratch, do the quadratic interpolation now, from the updated linear factors
 			if isone(o.q)
 				@inbounds for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁
-					o.denom[d₁,d₂] .= o.denom₀[d₁,d₂] .+ o.∂denom∂r[1,d₁,d₂][1,1] .* Δ .+ o.∂²denom∂r²[1,1,d₁,d₂] .* Δ.^2
+					o.denom[d₁,d₂] .= o.denom₀[d₁,d₂] .+ o.∂denom∂r[1,d₁,d₂] .* Δ .+ o.∂²denom∂r²[1,1,d₁,d₂] .* Δ.^2
 				end
 			else  # q==2
 				@inbounds for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁
@@ -135,10 +135,8 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 				K = [panelsum2(o, o.X₁, o.X₂, view(o.DGP.XAR,:,d), o.info⋂) * o.SuwtXA for d ∈ 1:o.dof]::Vector{Matrix{T}}
 			end
 
-			o.NFE>0 && !o.FEboot && (o.CT_WE = crosstabFE(o, o.ü, o.info✻))
-
 			if o.NFE>0 && !o.FEboot
-				tmp = o.invFEwt .* o.CT_WE
+				tmp = o.invFEwt .* crosstabFE(o, o.ü, o.info✻)
 				@inbounds for d ∈ 1:o.dof
 					K[d] .+= o.M.CT_XAR[d] * tmp
 				end

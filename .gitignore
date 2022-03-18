@@ -13,3 +13,4 @@ Stata examples.do
 
 src/investigate turbo.jl
 src/debug.jl
+test/debug.jl
