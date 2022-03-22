@@ -1,7 +1,7 @@
 module WildBootTests
 export BootTestResult, wildboottest, teststat, stattype, p, padj, reps, repsfeas, nbootclust, dof, dof_r, plotpoints, peak, CI, dist, statnumer, statvar, auxweights
 
-using LinearAlgebra, Random, Distributions, SortingAlgorithms #, LoopVectorization
+using LinearAlgebra, Random, Distributions, SortingAlgorithms
 
 include("StrBootTest.jl")
 include("utilities.jl")
@@ -80,7 +80,7 @@ function NoNullUpdate!(o::StrBootTest{T} where T)
 	else
 		o.numer[:,1] = o.v_sd * (o.R * (o.ML ? o.β̈ : iszero(o.κ) ? o.M.β̈ : o.M.Rpar * o.M.β̈) - o.r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
 	end
-	o.dist[1] = isone(o.dof) ? o.numer[1] / sqrt(o.statDenom[1]) : o.numer[:,1]'invsym(o.statDenom)*o.numer[:,1]
+	o.dist[1] = isone(o.dof) ? o.numer[1] / sqrtNaN(o.statDenom[1]) : o.numer[:,1]'invsym(o.statDenom)*o.numer[:,1]
 	nothing
 end
 
@@ -91,15 +91,15 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T, w::Integer)
 		o.statDenom = o.numer * o.numer' - tmp * tmp'
 		o.numersum = rowsum(o.numer) - tmp
 	else
-		statDenom .+= o.numer * o.numer'
-		numersum .+= rowsum(o.numer)
+		o.statDenom .+= o.numer * o.numer'
+		o.numersum .+= rowsum(o.numer)
 	end
 	if w == o.Nw  # last weight group?
 		o.statDenom .= (o.statDenom - o.numersum * o.numersum' / o.B) / o.B
 		if o.sqrt
 			o.dist .= o.numer ./ sqrtNaN.(o.statDenom)
 		else
-			negcolquadform!(o.dist, -invsym(o.statDenom), o.numer)  # to reduce latency by minimizing #=@tturbo=# instances, work with negative of colquadform in order to fuse code with colquadformminus!
+			negcolquadform!(o, o.dist, -invsym(o.statDenom), o.numer)  # to reduce latency by minimizing #=@tturbo=# instances, work with negative of colquadform in order to fuse code with colquadformminus!
 		end
 	end
 	nothing

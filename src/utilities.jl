@@ -5,8 +5,18 @@
 # iszero(nrows(X)) && (return Symmetric(X))
 # X, ipiv, info = LinearAlgebra.LAPACK.sytrf!('U', Matrix(X))
 # iszero(info) && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)
-@inline invsym(X) = Symmetric(pinv(Symmetric(X)))
-@inline invsym(X::Symmetric) = Symmetric(pinv(X))
+invsym(X) =
+	try
+		Symmetric(pinv(Symmetric(X)))
+	catch _
+		fill(eltype(X)(NaN), size(X))
+	end
+invsym(X::Symmetric) =
+	try
+		Symmetric(pinv(X))
+	catch _
+		fill(eltype(X)(NaN), size(X))
+	end
 
 function invsymsingcheck(X)  # inverse of symmetric matrix, checking for singularity
 	iszero(nrows(X)) && (return (false, Symmetric(X)))
@@ -14,28 +24,6 @@ function invsymsingcheck(X)  # inverse of symmetric matrix, checking for singula
 	singular = info>0
 	!singular && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)
 	singular, Symmetric(X)
-end
-
-@inline symcross(X::AbstractVecOrMat, wt::AbstractVector) = Symmetric(cross(X,wt,X))  # maybe bad name since it means cross product in Julia
-function cross(X::AbstractVecOrMat{T}, wt::AbstractVector{T}, Y::AbstractVecOrMat{T}) where T
-	dest = Matrix{T}(undef, ncols(X), ncols(Y))
-	if iszero(nrows(wt))
-		mul!(dest, X', Y)
-	elseif ncols(X)>ncols(Y)
-		mul!(dest, X', wt.*Y)
-	else
-		mul!(dest, (X.*wt)', Y)
-	end
-end
-function crossvec(X::AbstractMatrix{T}, wt::AbstractVector{T}, Y::AbstractVector{T}) where T
-  dest = Vector{T}(undef, ncols(X))
-  if iszero(nrows(wt))
-		mul!(dest, X', Y)
-	elseif ncols(X)>ncols(Y)
-		mul!(dest, X', wt.*Y)
-	else
-		mul!(dest, (X.*wt)', Y)
-	end
 end
 
 @inline colsum(X::AbstractArray) = iszero(length(X)) ? similar(X, 1, size(X)[2:end]...) : sum(X, dims=1)
@@ -99,29 +87,6 @@ function colquadformminus_nonturbo!(dest::AbstractMatrix{T}, row::Integer, A::Ab
 	end
 	dest
 end
-# function colquadformminus_nonturbo!(dest::AbstractMatrix{T}, A::AbstractMatrix, Q::AbstractArray{T,3}, B::AbstractMatrix) where T
-#   nt = Threads.nthreads()
-#   cs = [round(Int, size(A,2)/nt*i) for i ∈ 0:nt]
-#   if A===B 
-# 		@inbounds Threads.@threads for t ∈ 1:nt
-# 			tmp = Matrix{T}(undef, size(Q,1), size(Q,2))  # thread-safe scratchpad to minimize allocations
-# 			@inbounds for i ∈ cs[t]+1:cs[t+1]
-# 				v = view(A,:,i)
-# 				mul!(tmp, Q, v)
-# 				mul!(dest[:,i], tmp', v)
-# 			end
-# 		end
-# 	else
-# 		@inbounds Threads.@threads for t ∈ 1:nt
-# 			tmp = Matrix{T}(undef, size(Q,1), size(Q,2))  # thread-safe scratchpad to minimize allocations
-# 			@inbounds for i ∈ cs[t]+1:cs[t+1]
-# 				mul!(tmp, Q, view(B,:,i))
-# 				mul!(dest[:,i], tmp', view(A,:,i))
-# 			end
-# 		end
-# 	end
-# 	dest
-# end
 colquadformminus!(o::StrBootTest, dest::AbstractMatrix, Q::AbstractMatrix, A::AbstractMatrix) = o.colquadformminus!(dest,1,A,Q,A)
 # compute negative of the norm of each col of A using quadratic form Q; dest should be a one-row matrix
 function negcolquadform!(o::StrBootTest, dest::AbstractMatrix{T}, Q::AbstractMatrix{T}, A::AbstractMatrix{T}) where T
@@ -137,6 +102,7 @@ end
 # like Mata panelsetup() but can group on multiple columns, like sort(). But doesn't take minobs, maxobs arguments.
 function panelsetup(X::AbstractArray{S} where S, colinds::AbstractVector{T} where T<:Integer)
   N = nrows(X)
+	iszero(N) && return(Vector{UnitRange{Int64}}(undef,0))
   info = Vector{UnitRange{Int64}}(undef, N)
   lo = p = 1
   @inbounds for hi ∈ 2:N
@@ -297,22 +263,14 @@ function panelcross!(dest::AbstractMatrix{T}, X::AbstractVecOrMat{T}, Y::Abstrac
 end
 
 function panelsum(o::StrBootTest, X::AbstractVector{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
-	if iszero(nrows(wt))
-		panelsum(o, X, info)
-	else
-		dest = Vector{T}(undef, iszero(length(info)) ? nrows(X) : length(info))
-		o.panelsum!(dest, X, wt, info)
-		dest
-	end
+	dest = Vector{T}(undef, iszero(length(info)) ? nrows(X) : length(info))
+	o.panelsum!(dest, X, wt, info)
+	dest
 end
 function panelsum(o::StrBootTest, X::AbstractMatrix{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
-	if iszero(nrows(wt))
-		panelsum(o, X, info)
-	else
-		dest = Matrix{T}(undef, iszero(length(info)) ? nrows(X) : length(info), size(X,2))
-		o.panelsum!(dest, X, wt, info)
-		dest
-	end
+	dest = Matrix{T}(undef, iszero(length(info)) ? nrows(X) : length(info), size(X,2))
+	o.panelsum!(dest, X, wt, info)
+	dest
 end
 function panelcross(X::AbstractVecOrMat{T}, Y::AbstractMatrix{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	dest = Array{T,3}(undef, size(X,2), iszero(length(info)) ? nrows(X) : length(info), size(Y,2))
@@ -335,9 +293,7 @@ function panelsum(o::StrBootTest{T}, X::AbstractArray{T,3}, info::AbstractVector
 	dest
 end
 function panelsum2(o::StrBootTest, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
-	if iszero(length(X₁))
-		panelsum(o,X₂,wt,info)
-	elseif iszero(length(X₂))
+	if iszero(length(X₂))
 		panelsum(o,X₁,wt,info)
 	else
 		dest = Matrix{T}(undef, iszero(length(info)) ? nrows(X₁) : length(info), ncols(X₁)+ncols(X₂))
@@ -349,7 +305,7 @@ end
 
 # macros to efficiently handle result = input
 macro panelsum(o, X, info)
-	:(local _X = $(esc(X)); iszero(length($(esc(info)))) || length($(esc(info)))==nrows(_X) ? _X : panelsum($(esc(o)), _X, $(esc(info)) ) )
+	:(local _X = $(esc(X)); iszero(length($(esc(info)))) || length($(esc(info)))==size(_X,ndims(_X)==3 ? 2 : 1) ? _X : panelsum($(esc(o)), _X, $(esc(info)) ) )
 end
 macro panelsum(o, X, wt, info)
 	:( panelsum($(esc(o)), $(esc(X)), $(esc(wt)), $(esc(info))) )
@@ -466,7 +422,6 @@ function crosstabFE(o::StrBootTest{T}, v::AbstractMatrix{T}, info::Vector{UnitRa
   dest
 end
 
-
 # partial any fixed effects out of a data matrix
 function partialFE!(o::StrBootTest, In::AbstractArray)
   if length(In)>0
@@ -506,9 +461,9 @@ macro storeWtGrpResults!(dest, content)  # poor hygiene in referencing caller's 
   if dest == :(o.dist)
 		return quote
 			if isone($(esc(:o)).Nw)
-				$(esc(dest)) .= $(esc(content))
+				$(esc(dest)) = $(esc(content))
 			else
-				$(esc(dest))[$(esc(:o)).WeightGrp[$(esc(:w))]] .= $(esc(content))
+				$(esc(dest))[$(esc(:o)).WeightGrp[$(esc(:w))]] = reshape($(esc(content)),:)
 			end
 		end
   else

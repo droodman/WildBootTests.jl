@@ -166,11 +166,11 @@ function _wildboottest(T::DataType,
 					  inst::AbstractVecOrMat{<:Real}=zeros(T,0,0),
 					  R1::AbstractVecOrMat=zeros(T,0,0),
 						r1::AbstractVecOrMat=zeros(T,0),
+					  hetrobust::Bool=true,
 					  clustid::AbstractVecOrMat{<:Integer}=zeros(Int,0,0),  # bootstrap-only clust vars, then boot&err clust vars, then err-only clust vars
-					  nbootclustvar::Integer=1,
+					  nbootclustvar::Integer=ncols(clustid),
 					  nerrclustvar::Integer=nbootclustvar,
 						issorted::Bool=false,
-					  hetrobust::Bool=true,
 						nfe::Integer=0,
 					  feid::AbstractVecOrMat{<:Integer}=Int8[],
 					  fedfadj::Integer=length(feid)>0 ? -1 : 0,
@@ -235,6 +235,11 @@ function _wildboottest(T::DataType,
   @assert level ≥ 0. && level≤1. "level must be in the range [0,1]"
   @assert rtol > 0. "rtol ≤ 0"
   @assert NH0 > 0 "NH0 ≤ 0"
+	@assert !LIML || (ncols(predendog)>0 && ncols(inst)>0) "For LIML, non-empty predendog and inst arguments are needed"
+	@assert Fuller==0 || (ncols(predendog)>0 && ncols(inst)>0) "For Fuller LIML, non-empty predendog and inst arguments are needed"
+	@assert iszero(ncols(predendog)) || ncols(inst)>0 "predendog provided without inst"
+	@assert !ARubin || ncols(predendog)>0 "Anderson-Rubin test requested but predendog not provided"
+
 	if getplot || getCI
 		@assert iszero(length(gridmin   )) || length(gridmin   )==nrows(R) "Length of gridmin doesn't match number of hypotheses being jointly tested"
 		@assert iszero(length(gridmax   )) || length(gridmax   )==nrows(R) "Length of gridmax doesn't match number of hypotheses being jointly tested"

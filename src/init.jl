@@ -62,10 +62,10 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	    o.info✻, o.ID✻ = panelsetupID(o.ID, 1:o.NBootClustVar)
   
 	  end
-  elseif !iszero(o.NClustVar)
-	  o.info✻ = panelsetup(o.ID, 1:min(o.NClustVar,o.NBootClustVar))  # bootstrap cluster grouping defs rel to original data
+  elseif iszero(o.NClustVar)
+	  o.info✻ = [i:i for i in 1:o.Nobs]  # causes no collapsing of data in panelsum() calls
   else
-	  o.info✻ = [i:i for i in 1:o.Nobs]  # causes no collapsing of data in panelsum() calls, only multiplying by weights if any
+	  o.info✻ = panelsetup(o.ID, 1:min(o.NClustVar,o.NBootClustVar))  # bootstrap cluster grouping defs rel to original data
   end
 	o.N✻ = nrows(o.info✻)
 
@@ -138,7 +138,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
       o.clust = [StrClust{T}(o.Nobs, o.small ? o._Nobs / (o._Nobs - one(T)) : one(T), true, Vector{Int64}(undef,0), Vector{UnitRange{Int64}}(undef,0))]
       o.NErrClustCombs = one(Int16)
       (o.scorebs || !o.WREnonARubin) &&
-    		(o.ClustShare = o.haswt ? o.wt/o.sumwt : fill(one(T)/o.Nobs, o.Nobs))
+    		(o.ClustShare = o.haswt ? o.wt/o.sumwt : [one(T)/o.Nobs])
     end
 
 		o.purerobust = o.robust && !o.scorebs && iszero(o.subcluster) && o.N✻==o.Nobs  # do we ever error-cluster *and* bootstrap-cluster by individual?
@@ -152,7 +152,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 				(o.JN⋂N✻ = zeros(T, o.N⋂, o.N✻))
 		end
 
-		if o.WREnonARubin && o.robust && o.bootstrapt && !o.granular && !isdefined(o, :_ID✻⋂)
+		if o.WREnonARubin && o.bootstrapt && !o.granular && o.NClustVar > o.NBootClustVar
 			_, o._ID✻⋂ = panelsetupID(o.ID, 1:o.NClustVar)
 		end
   else
@@ -160,10 +160,9 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	end
 
 	InitFEs(o)
-
 	if o.B>0 && o.robust && o.granular && !o.purerobust && o.bootstrapt && !o.WREnonARubin
 		if o.NFE>0 && !o.FEboot
-			_, o.ID✻ = panelsetupID(o.ID   , 1:o.NBootClustVar)
+			_, o.ID✻    = panelsetupID(o.ID  , 1:o.NBootClustVar)
 		else
 			_, o.ID✻_✻⋂ = panelsetupID(o.ID✻⋂, 1:o.NBootClustVar)
 		end
@@ -288,7 +287,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		if o.interpolable
 			o.∂numer∂r = Vector{Matrix{T}}(undef, o.q)
 			o.interpolate_u = !(o.robust || o.ML)
-			o.interpolate_u && (o.∂u∂r = Vector{Matrix{T}}(undef, o.q))
+			o.interpolate_u && (o.∂u∂r = Vector{Vector{T}}(undef, o.q))
 			if o.robust
 				o.∂denom∂r   = fill(Matrix{T}(undef,0,0), o.q, o.dof, o.dof)
 				o.∂²denom∂r² = fill(Matrix{T}(undef,0,0), o.q, o.q, o.dof, o.dof)
@@ -382,7 +381,7 @@ function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) wher
 			o.v = randn(o.rng, T, o.N✻, _B+first)
 			o.WREnonARubin && (o.v .-= one(T))
 		elseif o.auxtwtype == :gamma
-			tmp = quantile.(Gamma(4,.5), rand(o.rng, o.N✻, _B+first))
+			tmp = quantile.(Gamma(4,.5),  rand(o.rng, o.N✻, _B+first))
 			o.v = T==Float64 ? tmp : T.(tmp)
 			o.WREnonARubin && (o.v .-= one(T))
 		elseif o.auxtwtype == :webb

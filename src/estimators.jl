@@ -50,7 +50,7 @@ function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstrac
   o.y₁par = parent.y₁
 	o.ü₁ = Vector{T}(undef, parent.Nobs)
   H = Symmetric(parent.X₁'parent.X₁)
-  o.invH = Symmetric(inv(H))
+  o.invH = Symmetric(pinv(H))
   R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.invH : Symmetric(o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')  # for DGP regression
   o.β̈₀ = R₁AR₁ * (parent.X₁'o.y₁par)
   o.∂β̈∂r = R₁AR₁ * H * o.R₁invR₁R₁ - o.R₁invR₁R₁
@@ -200,7 +200,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
   if o.restricted
 		_ZR₁ = X₁₂B(parent, parent.X₁, parent.Y₂, o.R₁invR₁R₁)
 		S✻⋂X₁ZR₁ = panelcross(o.Xpar₁, _ZR₁, parent.info✻⋂)
-		S✻⋂X₂ZR₁ = panelcross(parent.X₂, _ZR₁, parent.info⋂)
+		S✻⋂X₂ZR₁ = panelcross(parent.X₂, _ZR₁, parent.info✻⋂)
 		o.S✻⋂XZR₁ = [S✻⋂X₁ZR₁ ; S✻⋂X₂ZR₁]
 		o.S✻⋂ZperpZR₁ = panelcross(o.Zperp, _ZR₁, parent.info✻⋂)
 		o.ZperpZR₁ = sumpanelcross(o.S✻⋂ZperpZR₁)
@@ -256,7 +256,7 @@ end
 # inconsistency: for replication regression of Anderson-Rubin, r₁ refers to the *null*, not the maintained constraints, because that's what affects the endogenous variables
 # For OLS, compute β̈₀ (β̈ when r=0) and ∂β̈∂r without knowing r₁, for efficiency
 # For WRE, should only be called once for the replication regressions, since for them r₁ is the unchanging model constraints
-function EstimateOLS!(o::StrEstimator{T} where T, r₁::AbstractVector)
+function EstimateOLS!(o::StrEstimator, r₁::AbstractVector)
   o.β̈ = o.β̈₀ - o.∂β̈∂r * r₁
 	nothing
 end
