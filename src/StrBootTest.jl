@@ -63,7 +63,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   q::Int16; twotailed::Bool; scorebs::Bool; robust::Bool
 
   WRE::Bool; initialized::Bool; NFE::Int64; FEboot::Bool; granular::Bool; NErrClustCombs::Int16; subcluster::Int8; BFeas::Int64; interpolating::Bool
-  v_sd::T; notplotted::Bool
+  v_sd::T
   confpeak::Vector{T}
   ID✻::Vector{Int64}; ID✻_✻⋂::Vector{Int64}
   anchor::Vector{T}; poles::Vector{T}; numer::Matrix{T}
@@ -82,14 +82,14 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	YY✻_b::Matrix{T}; YPXY✻_b::Matrix{T}; numerw::Matrix{T}; numer_b::Vector{T}; dist::Matrix{T}
 		
 	distCDR::Matrix{T}; plotX::Vector{Vector{T}}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
-  numersum::Vector{T}; ü₀::Vector{T}; invFEwt::Vector{T}
+  numersum::Vector{T}; u✻₀::Matrix{T}; invFEwt::Vector{T}
 	β̈s::Matrix{T}; As::Matrix{T}
 	info✻⋂::Vector{UnitRange{Int64}}; info⋂::Vector{UnitRange{Int64}}; ID✻⋂::Matrix{T}
 	ü::Vector{T}
 	DGP::StrEstimator{T}; Repl::StrEstimator{T}; M::StrEstimator{T}
 	clust::Vector{StrClust{T}}
 	denom::Matrix{Matrix{T}}; Kcd::Matrix{Matrix{T}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; S✻UU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
-	∂u∂r::Vector{Vector{T}}; ∂numer∂r::Vector{Matrix{T}}; S✻XU::Vector{Matrix{T}}; invXXS✻XU::Vector{Matrix{T}}; invZperpZperpS✻ZperpU::Vector{Matrix{T}}; S✻YU::Matrix{Vector{T}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻ZperpU::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
+	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; S✻XU::Vector{Matrix{T}}; invXXS✻XU::Vector{Matrix{T}}; invZperpZperpS✻ZperpU::Vector{Matrix{T}}; S✻YU::Matrix{Vector{T}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻ZperpU::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
   ∂denom∂r::Array{Matrix{T},3}; ∂Jcd∂r::Array{Matrix{T},3}; ∂²denom∂r²::Array{Matrix{T},4}
 	FEs::Vector{StrFE{T}}
   T1L::Vector{Matrix{T}}; T1R::Vector{Matrix{T}}; T2::Matrix{T}; J⋂s::Vector{Array{T,3}}; Q::Array{T,3}; β̈v::Vector{Matrix{T}}
@@ -109,7 +109,6 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	XinvXX::Matrix{T}; PXZ::Matrix{T}; FillingT₀::Matrix{Matrix{T}}
 	S⋂ReplZX::Array{T,3}; S⋂Xy₁::Matrix{T}
 	S✻⋂XU₂::Array{T,3}; S✻⋂XU₂RparY::Array{T,3}; S✻XU₂::Array{T,3}; S✻XU₂RparY::Array{T,3}; S✻ZperpU₂::Array{T,3}; S✻ZperpU₂RparY::Array{T,3}; invZperpZperpS✻ZperpU₂::Array{T,3}; invZperpZperpS✻ZperpU₂RparY::Array{T,3}; invXXS✻XU₂::Array{T,3}; invXXS✻XU₂RparY::Array{T,3}
-	F1_0::Vector{T}; F1_1::Matrix{T}; F2_0::Matrix{T}; F2_1::Array{T,3}
 
 	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
 	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, NBootClustVar, NErrClustVar, issorted, robust, small, clusteradj, clustermin,
@@ -126,7 +125,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 					β̈, A, sc, willplot, gridmin, gridmax, gridpoints,
 				nrows(R), ptype == :symmetric || ptype == :equaltail, scorebs, robust || NErrClustVar>0,
 				false, false, NFE, false, false, 0, 0, 0, false,
-				one(T), true,
+				one(T),
 				[zero(T)],
 				Vector{Int64}(undef,0), Vector{Int64}(undef,0),
 				Vector{T}(undef,0), Vector{T}(undef,0), Matrix{T}(undef,0,0),
@@ -144,11 +143,11 @@ function getdist(o::StrBootTest, diststat::Symbol=:none)
   if diststat == :numer
 	  _numer = isone(o.v_sd) ? o.numer : o.numer / o.v_sd
 	  o.distCDR = (@view _numer[:,2:end]) .+ o.r
-	  sort!(o.distCDR, dims=1)
+	  # sort!(o.distCDR, dims=1)
   elseif nrows(o.distCDR)==0  # return test stats
     if length(o.dist) > 1
 	    o.distCDR = (@view o.dist[1,2:end])' * o.multiplier
-	    sort!(o.distCDR, dims=1)
+	    # sort!(o.distCDR, dims=1)
 	  else
 	    o.distCDR = zeros(0,1)
 	  end

@@ -194,6 +194,5 @@ function plot!(o::StrBootTest{T}) where T
   end
 
 	o.r = _r  # restore backup
-	o.notplotted = false
 	nothing
 end

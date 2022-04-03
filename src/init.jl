@@ -268,11 +268,16 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		end
 	end
 
-  o.dof_r = o.small ? o.NClustVar>0 ? minN - one(T) : o._Nobs - (o.kZ + o.NFE) : zero(T)  # floating-point dof_r allows for fractional fweights, FWIW...
-
   o.sqrt = isone(o.dof)  # work with t/z stats instead of F/chi2?
 
-  o.smallsample = o.small ? (o._Nobs - o.kZ - o.FEdfadj) / (o._Nobs - o.robust) : one(T)
+  if o.small
+		_dof = o._Nobs - o.kZ + ncols(o.Repl.R₁invR₁R₁) - o.FEdfadj
+		o.dof_r = o.NClustVar>0 ? minN - one(T) : _dof  # floating-point dof_r allows for fractional fweights, FWIW...
+		o.smallsample = _dof / (o._Nobs - o.robust)
+	else
+		o.smallsample = one(T)
+		o.dof_r = zero(T)
+	end
 	o.clustermin && (o.smallsample *= (minN - 1) / minN)  # ivreg2-style adjustment when multiway clustering
 	o.multiplier = o.small ? o.smallsample / o.dof : o.smallsample  # divide by # of constraints because F stat is so defined
   !(o.robust || o.ML) && (o.multiplier *= o._Nobs)  # will turn sum of squared errors in denom of t/z into mean
@@ -283,11 +288,11 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
   if !o.WREnonARubin
 		o.poles = o.anchor = zeros(T,0)
-		o.interpolable = o.bootstrapt && o.B>0 && o.null && o.Nw==1 && (iszero(o.κ) || o.ARubin)
+		o.interpolable = o.bootstrapt && o.null && o.Nw==1 && (iszero(o.κ) || o.ARubin)
+		o.interpolate_u = !(o.robust || o.ML)
 		if o.interpolable
 			o.∂numer∂r = Vector{Matrix{T}}(undef, o.q)
-			o.interpolate_u = !(o.robust || o.ML)
-			o.interpolate_u && (o.∂u∂r = Vector{Vector{T}}(undef, o.q))
+			o.interpolate_u && (o.∂u∂r = Vector{Matrix{T}}(undef, o.q))
 			if o.robust
 				o.∂denom∂r   = fill(Matrix{T}(undef,0,0), o.q, o.dof, o.dof)
 				o.∂²denom∂r² = fill(Matrix{T}(undef,0,0), o.q, o.q, o.dof, o.dof)
@@ -374,27 +379,14 @@ const ϕ = (1 + √5)/2
 
 function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) where T
   if _B>0  # in scoretest or waldtest WRE, still make v a col of 1's
-    if o.enumerate
-			o.v = o.WREnonARubin ? [zeros(o.N✻) count_binary(o.N✻, -2, 0)] :  # complete Rademacher set
-								             [ones( o.N✻) count_binary(o.N✻, -1, 1)]
-		elseif o.auxtwtype == :normal
-			o.v = randn(o.rng, T, o.N✻, _B+first)
-			o.WREnonARubin && (o.v .-= one(T))
-		elseif o.auxtwtype == :gamma
-			tmp = quantile.(Gamma(4,.5),  rand(o.rng, o.N✻, _B+first))
-			o.v = T==Float64 ? tmp : T.(tmp)
-			o.WREnonARubin && (o.v .-= one(T))
-		elseif o.auxtwtype == :webb
-			o.v = rand(o.rng, T.([-√1.5, -1, -√.5, √.5, 1, √1.5] .- o.WREnonARubin), o.N✻, _B+first)
-		elseif o.auxtwtype == :mammen
-			o.v = getindex.(Ref(T.([1-ϕ; ϕ] .- o.WREnonARubin)), ceil.(Int16, rand(o.rng, o.N✻, _B+first) ./ (ϕ/√5)))
-		elseif o.WREnonARubin  # Rademacher
-			o.v = -2rand(o.rng, Bool, o.N✻, _B+first)
-		else
-			o.v = rand(o.rng, Bool, o.N✻, _B+first) .- T(.5)  # rand(o.rng, Bool, o.N✻, _B+first) .- T(.5)
-			o.v_sd = .5
-		end
-
+    o.v = o.enumerate ? o.WREnonARubin ? [zeros(o.N✻) count_binary(o.N✻, -2, 0)] :  # complete Rademacher set
+								                         [ones( o.N✻) count_binary(o.N✻, -1, 1)] :
+					o.auxtwtype == :normal ? randn(o.rng, T, o.N✻, _B+first) .- o.WREnonARubin :
+					o.auxtwtype == :gamma  ? quantile.(Gamma{T}(4,.5),  rand(o.rng, T, o.N✻, _B+first)) .- (2 - o.WREnonARubin) :
+					o.auxtwtype == :webb   ? rand(o.rng, T.([-√1.5, -1, -√.5, √.5, 1, √1.5] .- o.WREnonARubin), o.N✻, _B+first) :
+				  o.auxtwtype == :mammen ? getindex.(Ref(T.([1-ϕ; ϕ] .- o.WREnonARubin)), ceil.(Int16, rand(o.rng, o.N✻, _B+first) ./ (ϕ/√5))) :
+		      o.WREnonARubin         ? -2rand(o.rng, Bool, o.N✻, _B+first) : # Rademacher
+			                             (o.v_sd = .5; rand(o.rng, Bool, o.N✻, _B+first) .- T(.5))
 		first && !(o.enumerate && isone(o.v_sd)) && (o.v[:,1] .= o.WREnonARubin ? zero(T) : o.v_sd)  # keep original residuals in first entry to compute base model stat
   else
 		o.v = Matrix{T}(undef,0,1)  # in places, ncols(v) indicates B -- 1 for classical tests

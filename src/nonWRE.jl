@@ -7,7 +7,7 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 			o.anchor = o.r
 			_MakeInterpolables!(o, o.anchor)
 			o.numer₀ = o.numer
-			o.interpolate_u && (o.ü₀ = copy(o.ü))
+			o.interpolate_u && (o.u✻₀ = copy(o.u✻))
 			o.robust && (o.Jcd₀ = deepcopy(o.Jcd))
 			return
 		end
@@ -28,7 +28,7 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 					_MakeInterpolables!(o, thisr)  # calculate linear stuff at new anchor
 
 					o.∂numer∂r[h₁] = (o.numer .- o.numer₀) ./ o.poles[h₁]
-					o.interpolate_u && (o.∂u∂r[h₁] = (o.ü .- o.ü₀) ./ o.poles[h₁])
+					o.interpolate_u && (o.∂u∂r[h₁] = (o.u✻ .- o.u✻₀) ./ o.poles[h₁])
 					if o.robust && !o.purerobust  # dof > 1 for an ARubin test with >1 instruments.
 						for d₁ ∈ 1:o.dof
 							for c ∈ 1:o.NErrClustCombs
@@ -59,7 +59,7 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 			if o.q==2  # in this case we haven't yet actually computed interpolables at r, so interpolate them
 				o.numerw .= o.numer₀ .+ o.∂numer∂r[1] .* Δ[1] .+ o.∂numer∂r[2] .* Δ[2]
 				if o.interpolate_u
-					o.ü = o.ü₀ .+ o.∂u∂r[1] .* Δ[1] .+ o.∂u∂r[2] .* Δ[2]
+					o.u✻ = o.u✻₀ .+ o.∂u∂r[1] .* Δ[1] .+ o.∂u∂r[2] .* Δ[2]
 				end
 			end
 
@@ -68,8 +68,8 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 			o.numerw .= o.numer₀ .+ o.∂numer∂r[1] .* Δ[1]
 			o.q > 1 && (o.numerw .+= o.∂numer∂r[2] .* Δ[2])
 			if o.interpolate_u
-				o.ü .= o.ü₀ .+ o.∂u∂r[1] .* Δ[1]
-				o.q > 1 && (o.ü .+= o.∂u∂r[2] .* Δ[2])
+				o.u✻ .= o.u✻₀ .+ o.∂u∂r[1] .* Δ[1]
+				o.q > 1 && (o.u✻ .+= o.∂u∂r[2] .* Δ[2])
 			end
 		end
 
@@ -121,8 +121,8 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 	o.SuwtXA = o.scorebs ?
 				o.B>0 ?
 					 o.NClustVar>0 ?
-				      	@panelsum(o, o.uXAR, o.info✻) :
-					      o.uXAR                    :
+			      	@panelsum(o, o.uXAR, o.info✻) :
+				      o.uXAR                    :
 				   sum(o.uXAR,dims=1)'  :
 			  o.DGP.A * panelsum2(o, o.X₁, o.X₂, o.ü, o.info✻)'  # same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined; X₂ empty except in Anderson-Rubin
 
@@ -180,6 +180,16 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 				  	 o.R * (o.β̈dev = o.SuwtXA * o.v) :
 				 		(o.R * o.SuwtXA) * o.v)
 
+
+	if o.interpolate_u
+		o.u✻ = o.B>0 ? o.v .* o.ü : reshape(o.ü,:,1)
+		if o.scorebs
+			o.u✻ .-= o.ClustShare * colsum(o.u✻)
+		else
+			o.u✻ .-= o.X₁ * (@view o.β̈dev[1:o.kX₁,:]) .+ o.X₂ * (@view o.β̈dev[o.kX₁+1:end,:])  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
+		end
+	end
+
 	if isone(w)
 		if o.ARubin
 			o.numerw[:,1] = o.v_sd * o.DGP.β̈[o.kX₁+1:end]  # coefficients on excluded instruments in ARubin OLS
@@ -198,10 +208,10 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 				o.u✻ .-= o.X₁ * (@view o.β̈dev[1:o.kX₁,:]) .+ o.X₂ * (@view o.β̈dev[o.kX₁+1:end,:])
 			else  # clusters small but not all singletons
 				if o.NFE>0 && !o.FEboot
-					u✻ = o.ü .* view(o.v, o.ID✻, :)
-					partialFE!(o, u✻)
+					o.u✻ = o.ü .* view(o.v, o.ID✻, :)
+					partialFE!(o, o.u✻)
 					@inbounds for d ∈ 1:o.dof
-						o.Jcd[1,d] = @panelsum(o, u✻, view(o.M.WXAR,:,d), o.info⋂)                                - panelsum2(o, o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂) * o.β̈dev
+						o.Jcd[1,d] = @panelsum(o, o.u✻, view(o.M.WXAR,:,d), o.info⋂)                                - panelsum2(o, o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂) * o.β̈dev
 					end
 				else
 					_v = view(o.v,o.ID✻_✻⋂,:)
@@ -225,8 +235,8 @@ function MakeNonWRELoop1!(o::StrBootTest, tmp::Matrix, w::Integer)
 				tmp[j,i] = o.denom[i,j][k]  # fill upper triangle, which is all invsym() looks at
 			end
 		end
-		numer_l = view(o.numerw,:,k)
-		o.dist[k+first(o.WeightGrp[w])-1] = numer_l'invsym(tmp)*numer_l  # in degenerate cases, cross() would turn cross(.,.) into 0
+		numer_k = view(o.numerw,:,k)
+		o.dist[k+first(o.WeightGrp[w])-1] = numer_k'invsym(tmp)*numer_k  # in degenerate cases, cross() would turn cross(.,.) into 0
 	end
 	nothing
 end
@@ -265,15 +275,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 		AR = o.ML ? o.AR : o.M.AR
 		if isone(o.dof)  # optimize for one null constraint
 			o.denom[1,1] = o.R * AR
-			if !o.ML
-				u✻ = o.B>0 ? o.v .* o.ü : reshape(o.ü,:,1)  # reshape for type stability
-				if o.scorebs
-					u✻ .-= o.haswt ? o.ClustShare'u✻ : colsum(u✻) * o.ClustShare[1]  # Center variance if interpolated
-				else
-					u✻ .-= o.X₁ * (@view o.β̈dev[1:o.kX₁,:]) .+ o.X₂ * (@view o.β̈dev[o.kX₁+1:end,:])  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
-				end
-				o.denom[1,1] = o.denom[1,1] .* coldot(o,u✻)
-			end
+			!o.ML && (o.denom[1,1] = o.denom[1,1] .* coldot(o,o.u✻))
 
 			@storeWtGrpResults!(o.dist, o.numerw ./ sqrtNaN.(o.denom[1,1]))
 			isone(w) && (o.statDenom = o.denom[1,1])  # original-sample denominator
@@ -281,29 +283,20 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 			o.denom[1,1] = o.R * AR
 			if o.ML
 				for k ∈ 1:ncols(o.v)
-					numer_l = view(o.numerw,:,k)
-					o.dist[k+first(o.WeightGrp[w])-1] = numer_l'invsym(o.denom[1,1])*numer_l
+					numer_k = view(o.numerw,:,k)
+					o.dist[k+first(o.WeightGrp[w])-1] = numer_k'invsym(o.denom[1,1])*numer_k
 				end
 				isone(w) && (o.statDenom = o.denom[1,1])  # original-sample denominator
 			else
 				invdenom = invsym(o.denom[1,1])
 				if o.B>0
 					for k ∈ 1:ncols(o.v)
-						numer_l = view(o.numerw,:,k)
-						o.dist[k+first(o.WeightGrp[w])-1] = numer_l'invdenom*numer_l
-						u✻ = view(o.v,:,k) .* o.ü
-						if o.scorebs
-							u✻ .-= colsum(u✻) * o.ClustShare
-						else
-							u✻ .-= o.X₁ * (@view o.β̈dev[1:o.kX₁,k]) .+ o.X₂ * (@view o.β̈dev[o.kX₁+1:end,k])  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
-						end
-						o.dist[k+first(o.WeightGrp[w])-1] /= (tmp = u✻'u✻)
+						numer_k = view(o.numerw,:,k)
+						u✻_k   = view(o.u✻,:,k)
+						o.dist[k+first(o.WeightGrp[w])-1] = numer_k'invdenom*numer_k / (tmp = u✻_k'u✻_k)
 					end
 				else
-					o.dist[1] = (o.numerw'invdenom*o.numerw)[1]
-					u✻ = o.ü .- (o.scorebs ? colsum(o.ü)[1] * o.ClustShare :  # Center variance if interpolated
-																	 o.X₁ * (@view o.β̈dev[1:o.kX₁,:]) .+ o.X₂ * (@view o.β̈dev[o.kX₁+1:end,:]))  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
-					o.dist[1] /= (tmp = u✻'u✻)
+					o.dist[1] = (o.numerw'invdenom*o.numerw)[1] / (tmp = dot(o.u✻,o.u✻))
 				end
 				isone(w) && (o.statDenom = o.denom[1,1] * tmp)  # original-sample denominator
 			end

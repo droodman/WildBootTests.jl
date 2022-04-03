@@ -2,152 +2,309 @@
 regress hasinsurance selfemployed post post_self, cluster(year)
 
 boottest post_self=.04, weight(webb)
-t=2.0194206531626726 p=0.06406406406406406 CI=[0.03877486500472515 0.06997250562963922]
-t=2.0194206531626726 p=0.06406406406406406 CI=[0.03877486500472515 0.06997250562963922]
+t(7) = 2.0194
+p    = 0.0641
+CI   = [0.03877 0.06997]
+
+t(7) = 2.0194
+p    = 0.0641
+CI   = [0.03877 0.06997]
+
 
 boottest post_self=.04, weight(webb) reps(9999999) noci
-t=2.0194206531626726 p=0.07565740756574076
+t(7) = 2.0194
+p    = 0.0757
+
 
 boottest post_self=.04, weight(normal) reps(9999) noci
-t=2.0194206531626726 p=0.059705970597059704
+t(7) = 2.0194
+p    = 0.0597
+
 
 boottest post_self=.04, weight(gamma) reps(9999) noci svv
-t=2.0194206531626726 p=0.3116311631163116
+t(7) = 2.0194
+p    = 0.0723
+
 
 boottest post_self=.04, weight(mammen) reps(9999) noci
-t=2.0194206531626726 p=0.104010401040104
+t(7) = 2.0194
+p    = 0.1040
+
 
 boottest post_self=.04, weight(mammen) reps(9999) boottype(score)
-t=1.8479468428614956 p=0.16511651165116512
+t(7) = 1.8479
+p    = 0.1651
+CI   = [0.03173 0.07798]
+
 
 regress hasinsurance selfemployed post post_self, robust
 
 boottest post_self=.04, weight(webb)
-t=1.5096995399896855 p=0.15515515515515516 CI=[0.03327951807763214 0.07969662516931636]
+t(12) = 1.5097
+p     = 0.1552
+CI    = [0.03328 0.0797]
+
 
 regress hasinsurance selfemployed post post_self, cluster(year)
 boottest (post_self=.05) (post=-.02), reps(9999) weight(webb)
-F=0.33827457514744136 p=0.8212821282128213
-F=0.3443840039190105 p=0.7331733173317332
+F(2, 7) = 0.3383
+p       = 0.8213
+
+F(2, 7) = 0.3444
+p       = 0.7332
+
 boottest (post_self=.05) (post=-.02) (selfemployed=-.15), reps(9999) weight(webb)
-F=0.8533952695828528 p=0.7337733773377337
+F(3, 7) = 0.8534
+p       = 0.7525
+
 
 regress hasinsurance selfemployed post post_self
 
 boottest post_self=.04, weight(webb)
-t=0.4624918250951193 p=0.4244244244244244 CI=[0.008530836768164374 0.08892007982073168]
-boottest (post_self=.05) (post=-.02), reps(9999) weight(webb)
-t=0.07771791449191402 p=0.8598598598598599 CI=Matrix{Float64}(undef, 0, 0)
+t(12) = 1.5215
+p     = 0.1592
+CI    = [0.03414 0.0778]
+
+boottest (post_self=.05) (post=-.02), reps(999) weight(webb)
+F(2, 12) = 0.1895
+p        = 0.7968
+
 scoretest (post_self=.05)
-t=0.4924127195430437 p=0.6313132779077872 CI=[0.027490421167340375 0.08222509619461855]
+t(12) = 0.4924
+p     = 0.6313
+CI    = [0.02749 0.08223]
+
 scoretest (post_self=.05) (post=-.02)
-t=0.18366389967635297 p=0.8345113428730144 CI=Matrix{Float64}(undef, 0, 0)
+F(2, 12) = 0.1837
+p        = 0.8345
+
 boottest (post_self=.08), boottype(score)
-t=-2.0664440628988823 p=0.021021021021021023 CI=[0.035209918274252044 0.07604576723469082]
+t(12) = -2.0664
+p     = 0.0140
+CI    = [0.03593 0.07418]
+
 boottest (post_self=.05) (post=-.02), boottype(score)
-t=0.18366389967635316 p=0.7807807807807807 CI=Matrix{Float64}(undef, 0, 0)
+F(2, 12) = 0.1837
+p        = 0.7808
+
 
 constraint 1 ttl_exp = .2
 cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(industry)
 boottest tenure
-t=2.1249477239156653 p=0.0 CI=[0.00876915188431322 0.1843567231637485]
-t=3.342595667196234 p=0.0 CI=[0.027507531808873806 0.10568524016083147]
-t=0.7604495709931289 p=0.3939393939393939 CI=[-0.03120468629196696 0.07268414816892516]
+t(11) = 2.1254
+p     = 0.0000
+CI    = [0.008795 0.1843]
+
+t(1216) = 3.3434
+p       = 0.0007
+CI      = [0.02699 0.1033]
+
+t(1216) = 0.7604
+p       = 0.4655
+CI      = [-0.02845 0.06412]
+
 
 ivregress liml wage ttl_exp collgrad (tenure = union), cluster(industry)
-boottest tenure, ptype(equaltail)
-t=2.6039655318894654 p=0.04443359375 CI=[0.11879520637810304 2.210140489560841]
-boottest tenure, nonull
-boottest tenure, ptype(upper) svmat(t)
-t=2.6039655318894654 p=0.022216796875 CI=[0.27692364095062555 Inf]
-boottest tenure, ptype(upper) svmat(numer)
-t=2.6039655318894654 p=0.9775390625 CI=[-Inf 1.7932217161846864]
+boottest tenure, ptype(equaltail) reps(9999)
+z  = 2.6040
+p  = 0.0444
+CI = [0.1188 2.21]
+
+boottest tenure, nonull reps(9999) matsize(.1)
+z  = 2.6040
+p  = 0.0000
+CI = [0.2193 1.253]
+
+boottest tenure, ptype(upper) svmat(t) reps(9999)
+z  = 2.6040
+p  = 0.0222
+CI = [0.2769 Inf]
+
+boottest tenure, ptype(lower) svmat(numer) reps(9999)
+z  = 2.6040
+p  = 0.9775
+CI = [-Inf 1.793]
+
 
 ivregress liml wage ttl_exp collgrad (tenure = union), cluster(industry)
-boottest tenure, ptype(equaltail)
-t=2.6039655318894654 p=0.04443359375 CI=[0.11879520637810304 2.210140489560841]
+boottest tenure, ptype(equaltail) reps(9999)
+z  = 2.6040
+p  = 0.0444
+CI = [0.1188 2.21]
 
-ivregress liml wage ttl_exp collgrad (tenure = union), robust
-boottest tenure, ptype(equaltail)
-t=3.5823242223107483 p=0.0 CI=nothing
 
-ivregress 2sls wage ttl_exp collgrad (tenure = union), robust
-boottest tenure, ptype(equaltail)
-t=3.5823242223107483 p=0.0 CI=nothing
-boottest collgrad tenure, ptype(equaltail)
-t=139.07930595930245 p=0.0 CI=nothing
+ivregress liml wage ttl_exp collgrad (tenure = union) if industry<., robust
+boottest tenure, ptype(equaltail) reps(99) noci
+z  = 3.5823
+p  = 0.0000
 
-ivregress 2sls wage ttl_exp collgrad (tenure = union)
-boottest tenure, ptype(equaltail)
-t=160.76749800494983 p=0.0 CI=nothing
-boottest tenure, ptype(equaltail)
-t=311987.2756543595 p=0.0 CI=nothing
 
-boottest tenure, ptype(equaltail) reps(9999) weight(webb) stat(c)
-z=1.7165441537324613 p=0.0920920920920921 CI=[-Inf Inf]
-z=1.124492442070511 p=0.14414414414414414 CI=Matrix{Float64}(undef, 0, 0)
-z=3.5882513189440153 p=0.0 CI=nothing
-z=5.144043627468802 p=0.0 CI=nothing
+ivregress 2sls wage ttl_exp collgrad (tenure = union) if industry<., robust
+boottest tenure, ptype(equaltail) reps(99) noci
+z  = 3.5823
+p  = 0.0000
+
+boottest collgrad tenure, ptype(equaltail) reps(99) noci
+χ²(2) = 139.0793
+p     = 0.0000
+
+
+ivregress 2sls wage ttl_exp collgrad (tenure = union) if industry<.
+boottest tenure, ptype(equaltail) reps(99) noci
+z  = 160.7675
+p  = 0.0000
+
+boottest tenure collgrad, ptype(equaltail) reps(99) noci
+χ²(2) = 311987.2757
+p     = 0.0000
+
+
+ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
+
+boottest tenure, ptype(equaltail) weight(webb) stat(c) gridmin(-5) gridmax(5) gridpoints(100)
+z  = 1.7165
+p  = 0.0921
+CI = [-Inf Inf]
+
+
+boottest tenure, ptype(equaltail) weight(webb) stat(c) gridmin(-5) gridmax(5) gridpoints(100) maxmatsize(.01)
+z  = 1.5907
+p  = 0.1441
+CI = [-Inf Inf]
+
+
+ivregress 2sls wage ttl_exp collgrad (tenure = union) if industry<., robust
+
+boottest tenure, ptype(equaltail) maxmatsize(0.005) noci weight(webb) ptype(equaltail)
+z  = 3.5823
+p  = 0.0000
+
+z  = 1.0000
+p  = 0.5465
+
+
+ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
 
 boottest, ar
-z=2.445404334991577 p=0.037037037037037035 CI=[0.04217434269986506 1.250825907203259]
+z  = 2.4454
+p  = 0.0370
+CI = [0.04217 1.251]
+
 
 boottest, ar nonull
-z=2.445404334991577 p=0.037037037037037035 CI=[0.03580530435549856 1.4361026606413216]
+z  = 2.4454
+p  = 0.0370
+CI = [0.03581 1.436]
+
 
 scoretest tenure
-z=2.327876626488991 p=0.019918655708991383 CI=[0.13671744945002545 1.3236703862292276]
+z  = 2.3279
+p  = 0.0199
+CI = [0.1367 1.324]
+
 
 waldtest tenure, pytpe(upper)
-z=2.60396553188883 p=0.004607601191969415 CI=[0.18201297125563132 1.289894993740782]
+z  = 2.6040
+p  = 0.0046
+CI = [0.182 1.29]
+
 
 ivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)
 boottest tenure
-z=7.584660623759073 p=0.003003003003003003 CI=[0.3354116214161779 0.8054981794681694]
+z  = 7.5847
+p  = 0.0030
+CI = [0.3354 0.8055]
+
 
 ivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)
 boottest tenure, nograph weight(webb) reps(9999)
-z=4.026749656314305 p=0.025002500250025 CI=[-0.8936673730384521 -0.3868407849393217; 0.30942376213398465 1.252858328860761]
-boottest tenure, noci bootcluster(individual) weight(webb) reps(9999)
+z  = 4.0267
+p  = 0.0250
+CI = [-0.8937 -0.3868; 0.3094 1.253]
+
+boottest tenure, noci bootcluster(individual) weight(webb)
+z  = 4.0267
+p  = 0.0080
+
 boottest tenure, nograph bootcluster(collgrad) cluster(collgrad industry) weight(webb) reps(9999)
+z  = 3.9420
+p  = 0.2088
+CI = [-Inf -1.637e9; -1.503e9 -1.315e9; -1.21e9 -7.317e8; -7.067e8 -4.335e8; -2.135e8 5.338e8; 6.405e8 7.829e8; 8.896e8 Inf]
+
 
 areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)
 boottest tenure, cluster(age occupation) bootcluster(occupation)
-t=1.429416629484122 p=0.12612612612612611 CI=[-0.010931610591833561 0.1230289149647582]
+t(12) = 1.4294
+p     = 0.1261
+CI    = [-0.01093 0.123]
+
 
 areg wage ttl_exp collgrad tenure if occupation<., robust absorb(industry)
 boottest tenure
-t=1.660171182364248 p=0.1001001001001001 CI=[-0.00527679920532493 0.07369174340077164]
+t(1833) = 1.6602
+p       = 0.1001
+CI      = [-0.005277 0.07369]
+
 
 areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., robust absorb(industry)
 boottest tenure
-t=1.6264835206392447 p=0.1091091091091091 CI=[-0.007348060144110267 0.07589024453043616]
+t(1833) = 1.6265
+p       = 0.1091
+CI      = [-0.007348 0.07589]
+
 
 ivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours], liml cluster(industry) absorb(industry)
 boottest tenure
-t=0.8152582233166814 p=0.2682682682682683 CI=[-0.022713864747320393 0.06910292556788983]
-boottest occupation
-t=1.5352141559391461 p=0.1981981981981982 CI=[-0.4695230020241058 2.011603352180054]
+t(11) = 0.8177
+p     = 0.3964
+CI    = [-0.02642 0.06477]
 
-ivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours], liml cluster(industry) absorb(age)
-boottest tenure
-t=0.6067512572259817 p=0.6056056056056056 CI=Matrix{Float64}(undef, 0, 0)
-boottest collgrad tenure
-t=3.5295006361161256 p=0.15151515151515152 CI=Matrix{Float64}(undef, 0, 0)
 boottest occupation
-t=1.109149189151697 p=0.21621621621621623 CI=[-0.5630976326566628 Inf]
+t(11) = 1.5398
+p     = 0.1982
+CI    = [-0.4649 2.001]
+
+
+ivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours] if grade<., liml cluster(industry) absorb(age)
+boottest tenure
+t(11) = 0.6068
+p     = 0.4935
+CI    = [-0.03728 0.05498]
+
+boottest collgrad tenure
+F(2, 11) = 3.5295
+p        = 0.2222
+
+boottest occupation
+t(11) = 1.1091
+p     = 0.2162
+CI    = [-0.5631 Inf]
+
 boottest tenure | _b[collgrad] = 0
-t=-2.054581957181603 p=0.1031031031031031 CI=[-0.18868234599731307 0.015883218557179078]
+t(11) = -2.0551
+p     = 0.1101
+CI    = [-0.1931 0.06372; 0.613 Inf]
+
+t(11) = -2.0551
+p     = 0.1101
+CI    = [-0.1931 0.06372; 0.613 Inf]
+
 
 areg n w k, absorb(ind)
 
-boottest k, cluster(id year) bootcluster(id year)
-t=27.213680130555932 p=0.0 CI=[0.8367858231615878 0.8811307817894026]
+boottest k, cluster(id year)
+t(8) = 28.5012
+p    = 0.0000
+CI   = [0.8452 0.8838]
+
 
 areg n w k [aw=ys], absorb(ind)
 
-boottest k, cluster(id year) bootcluster(id year)
-t=27.078970220900384 p=0.0 CI=[0.8365658063729046 0.8805195518369825]
+boottest k, cluster(id year)
+t(8) = 28.4248
+p    = 0.0000
+CI   = [0.8447 0.8837]
+
 
 global pix lnkm pixpetro pixdia pixwaterd pixcapdist pixmal pixsead pixsuit pixelev pixbdist
 global geo lnwaterkm lnkm2split mean_elev mean_suit malariasuit petroleum diamondd
@@ -157,9 +314,18 @@ qui areg lnl0708s centr_tribe lnpd0 $pix $geo $poly, absorb(ccode)
 boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode)
 boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(pixcluster)
 boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode pixcluster)
-t=3.5211275993861033 p=0.0021002100210021 CI=[0.0559227704974934 0.2509298415483838]
-t=3.5211275994021687 p=0.0026002600260026003 CI=[0.045336257137688823 0.26123059493265444]
-t=3.521127599402167 p=0.0033003300330033004 CI=[0.054486277390041145 0.24806156868756055]
+t(48) = 3.5211
+p     = 0.0021
+CI    = [0.05592 0.2509]
+
+t(48) = 3.5211
+p     = 0.0026
+CI    = [0.04534 0.2612]
+
+t(48) = 3.5211
+p     = 0.0033
+CI    = [0.05449 0.2481]
+
 
 infile coll merit male black asian year state chst using regm.raw, clear
 qui regress coll merit male black asian i.year i.state if !inlist(state,34,57,59,61,64,71,72,85,88), cluster(state)	
@@ -171,10 +337,31 @@ boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(state year)
 boottest merit, nogr reps(9999) gridpoints(10) bootcluster(individual)
 boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual)
 boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual) maxmatsize(.1)
-t=6.712662505405559 p=0.49184918491849183 CI=[-2.8158549838135363 1.2845857204961453]
-t=6.712662505405576 p=0.0 CI=[0.04952434609992435 0.09481057173901564]
-t=6.71266250540558 p=0.29282928292829286 CI=[-5.341756188852069 4.531954723674787]
-t=6.71266250540557 p=0.0894089408940894 CI=[-0.011601366282595732 0.1559362841215357]
-t=6.712662505405577 p=0.37383738373837383 CI=[-0.09999685970899214 0.24184973590899347]
-t=6.712662505405571 p=0.37593759375937597 CI=[-0.09411414230150891 0.2384490601404489]
-t=6.712662505405571 p=0.38283828382838286 CI=[-0.092608620509705 0.23694353834864498]
+t(41) = 6.7127
+p     = 0.4918
+CI    = [-2.816 1.285]
+
+t(41) = 6.7127
+p     = 0.0000
+CI    = [0.04952 0.09481]
+
+t(41) = 6.7127
+p     = 0.2928
+CI    = [-5.342 4.532]
+
+t(41) = 6.7127
+p     = 0.0894
+CI    = [-0.0116 0.1559]
+
+t(41) = 6.7127
+p     = 0.3738
+CI    = [-0.1 0.2418]
+
+t(41) = 6.7127
+p     = 0.3759
+CI    = [-0.09411 0.2384]
+
+t(41) = 6.7127
+p     = 0.3828
+CI    = [-0.09261 0.2369]
+

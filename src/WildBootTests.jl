@@ -1,7 +1,7 @@
 module WildBootTests
 export BootTestResult, wildboottest, teststat, stattype, p, padj, reps, repsfeas, nbootclust, dof, dof_r, plotpoints, peak, CI, dist, statnumer, statvar, auxweights
 
-using LinearAlgebra, Random, Distributions, SortingAlgorithms
+using LinearAlgebra, Random, Distributions, SortingAlgorithms, Printf
 
 include("StrBootTest.jl")
 include("utilities.jl")
@@ -28,13 +28,12 @@ function boottestOLSARubin!(o::StrBootTest{T}) where T
 
 	MakeInterpolables!(o)  # make stuff that depends linearly on r, possibly by interpolating, for first weight group
 
-	for w ∈ 1:o.Nw  # do group 1 first because it includes col 1, which is all that might need updating in constructing CI in WCU
-		w > 1 && MakeWildWeights!(o, length(o.WeightGrp[w]), first=false)
-
+	MakeNonWREStats!(o, 1)
+	for w ∈ 2:o.Nw  # do group 1 first because it includes col 1, which is all that might need updating in constructing CI in WCU
+		MakeWildWeights!(o, length(o.WeightGrp[w]), first=false)
 		MakeNonWREStats!(o, w)
-
-		!o.bootstrapt && UpdateBootstrapcDenom!(o, w)
 	end
+	!o.bootstrapt && UpdateBootstrapcDenom!(o)
 
 	o.BFeas = isnan(o.dist[1]) ? 0 : sum(.!(isnan.(o.dist) .| isinf.(o.dist))) - 1
 	o.distCDR = zeros(T,0,0)
@@ -57,13 +56,12 @@ function boottestWRE!(o::StrBootTest{T}) where T
 
 	PrepWRE!(o)
 
-	for w ∈ 1:o.Nw  # do group 1 first because it includes col 1, which is all that might need updating in constructing CI in WCU
-		w > 1 && MakeWildWeights!(o, length(o.WeightGrp[w]), first=false)
-
+	MakeWREStats!(o, 1)
+	for w ∈ 2:o.Nw  # do group 1 first because it includes col 1, which is all that might need updating in constructing CI in WCU
+		MakeWildWeights!(o, length(o.WeightGrp[w]), first=false)
 		MakeWREStats!(o, w)
-
-		!o.bootstrapt && UpdateBootstrapcDenom!(o, w)
 	end
+	!o.bootstrapt && UpdateBootstrapcDenom!(o)
 
 	o.BFeas = isnan(o.dist[1]) ? 0 : sum(.!(isnan.(o.dist) .| isinf.(o.dist))) - 1
 	o.distCDR = zeros(T,0,0)
@@ -85,22 +83,14 @@ function NoNullUpdate!(o::StrBootTest{T} where T)
 end
 
 # compute bootstrap-c denominator from all bootstrap numerators
-function UpdateBootstrapcDenom!(o::StrBootTest{T} where T, w::Integer)
-	if isone(w)
-		tmp = o.numer[:,1]
-		o.statDenom = o.numer * o.numer' - tmp * tmp'
-		o.numersum = rowsum(o.numer) - tmp
+function UpdateBootstrapcDenom!(o::StrBootTest{T} where T)
+	numer1 = o.numer[:,1]
+	o.numersum = rowsum(o.numer) - numer1
+	o.statDenom = (o.numer * o.numer' - numer1 * numer1' - o.numersum * o.numersum' / o.B) / o.B
+	if o.sqrt
+		o.dist .= o.numer ./ sqrtNaN.(o.statDenom)
 	else
-		o.statDenom .+= o.numer * o.numer'
-		o.numersum .+= rowsum(o.numer)
-	end
-	if w == o.Nw  # last weight group?
-		o.statDenom .= (o.statDenom - o.numersum * o.numersum' / o.B) / o.B
-		if o.sqrt
-			o.dist .= o.numer ./ sqrtNaN.(o.statDenom)
-		else
-			negcolquadform!(o, o.dist, -invsym(o.statDenom), o.numer)  # to reduce latency by minimizing #=@tturbo=# instances, work with negative of colquadform in order to fuse code with colquadformminus!
-		end
+		negcolquadform!(o, o.dist, -invsym(o.statDenom), o.numer)  # to reduce latency by minimizing #=@tturbo=# instances, work with negative of colquadform in order to fuse code with colquadformminus!
 	end
 	nothing
 end

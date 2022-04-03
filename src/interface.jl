@@ -71,12 +71,13 @@ dist(o::BootTestResult) = o.dist
 "Return auxilliary weight matrix for wild bootstrap"
 auxweights(o::BootTestResult) = o.auxweights
 
-using Printf
+strint(x) = iszero(mod(x,1)) ? "$(Int64(x))" : "$x"
 function Base.show(io::IO, o::BootTestResult{T}) where T
-	print(io, "WildBootTests.BootTestResult{$T}\n\n")
-	Printf.@printf(io, "%s = %5.3f\n", stattype(o)*repeat(' ',2-length(stattype(o))), teststat(o))
-	Printf.@printf(io, "p  = %5.3f\n", p(o))
-	isdefined(o, :CI) && !isnothing(o.CI) && length(o.CI)>0 && print(io, "CI = $(CI(o))\n")
+	s = stattype(o) * ( iszero(dof_r(o)) ? isone(dof(o)) ? " " : "(" * strint(dof(o)) * ")" :                                                     # z, χ²
+	                                       isone(dof(o)) ? "(" * strint(dof_r(o)) * ")" : "(" * strint(dof(o)) * ", " * strint(dof_r(o)) * ")" )  # t, F
+	Printf.@printf(io, "%s = %6.4f\n", s, teststat(o))
+	Printf.@printf(io, "p%s = %6.4f\n", repeat(" ", length(s)-1), p(o))
+	isdefined(o, :CI) && !isnothing(o.CI) && length(o.CI)>0 && print(io, "CI" * repeat(" ", length(s)-2) * " = $(round.(CI(o); sigdigits=4))\n")
 end
 
 # single entry point with arguments already converted to standardized types, to allow a smaller set of precompile() calls(?)
