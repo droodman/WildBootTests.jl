@@ -343,8 +343,8 @@ Function to perform wild-bootstrap-based hypothesis test
 * `issorted:Bool=false`: time-saving flag: data matrices are already sort by column types 2, then 3, then 1 (see notes)
 * `hetrobust::Bool=true`: true unless errors are treated as iid
 * `nfe::Integer=0`: number of fixed-effect groups; if 0 yet `feid` is provided, will be computed
-* `feid::AbstractVector{<:Integer}`: data vector for fixed effect group identifier
-* `fedfadj::Integer=nfe`: degrees of freedom that fixed effects (if any) should be taken to consume
+* `feid::AbstractVector{<:Integer}`: data vector for one-way fixed effect group identifier
+* `fedfadj::Integer=nfe`: degrees of freedom that fixed effects (if any) consume
 * `obswt::AbstractVector=[]`: observation weight vector; default is equal weighting
 * `fweights::Bool=false`: true for frequency weights
 * `maxmatsize::Number`: maximum size of auxilliary weight matrix (v), in gigabytes
@@ -354,7 +354,9 @@ Function to perform wild-bootstrap-based hypothesis test
 * `Fuller::Number`: Fuller LIML factor
 * `kappa::Number`: fixed κ for _k_-class estimation
 * `ARubin::Bool=false`: true for Anderson-Rubin test
-* `small::Bool=true`: true for small-sample corrections
+* `small::Bool=true`: true to multiply test statistics by G/(G-1) × N/(N-k), where G, N, k are number of clusters, observations, and predictors
+* `clusteradj::Bool=true`: false to drop G/(G-1) factor
+* `clustermin::Bool=false``: for multiway clustering, true to base G/(G-1) factor for all clusterings ]on the smallest G across clusterings
 * `scorebs::Bool=false`: true for score bootstrap instead of wild bootstrap
 * `reps::Integer=999`: number of bootstrap replications; `reps` = 0 requests classical Rao (or Wald) test if `imposenull` = `true` (or `false`)
 * `imposenull::Bool=true`: true to impose null

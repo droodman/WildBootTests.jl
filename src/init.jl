@@ -126,7 +126,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 					N = nrows(info)
 		    end
 
-		    o.small && (minN = min(minN,N))
+		    minN = min(minN,N)
 				multiplier = o.clusteradj && !o.clustermin ? T(N / (N-1)) : one(T)
 				o.clust[c] = StrClust{T}(N, multiplier, even, order, info)
 	    end
