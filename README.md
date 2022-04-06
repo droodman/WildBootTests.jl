@@ -41,7 +41,7 @@ test <- WildBootTests$wildboottest(R, r, resp=df$y, predexog=cbind(1, df$x), clu
 test
 WildBootTests$teststat(test)
 WildBootTests$p(test)
-WildBootTests$CI(test)
+WildBootTests$ci(test)
 plotpoints <- WildBootTests$plotpoints(test)
 plot(plotpoints$X[[1]], plotpoints$p, type="l")
 ```
@@ -61,7 +61,7 @@ clustid = df.firm.values
 test = wbt.wildboottest(R, r, resp=resp, predexog=predexog, clustid=clustid)
 wbt.teststat(test)
 wbt.p(test)
-wbt.CI(test)
+wbt.ci(test)
 plotpoints = wbt.plotpoints(test)
 plt.plot(plotpoints.X[0], plotpoints.p)
 ```
@@ -81,6 +81,6 @@ clustid = np.asarray(Data.get('firm'))
 test = wbt.wildboottest(R, r, resp=resp, predexog=predexog, clustid=clustid)
 wbt.p(test)
 wbt.teststat(test)
-wbt.CI(test)
+wbt.ci(test)
 end
 ```

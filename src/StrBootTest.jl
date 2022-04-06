@@ -13,7 +13,7 @@ struct StrFE{T<:Real}
 end
 
 mutable struct StrEstimator{T<:AbstractFloat}
-  isDGP::Bool; LIML::Bool; Fuller::T; κ::T
+  isDGP::Bool; liml::Bool; fuller::T; κ::T
   R₁perp::Matrix{T}; Rpar::Matrix{T}
 
   kZ::Int64
@@ -43,21 +43,21 @@ mutable struct StrEstimator{T<:AbstractFloat}
 	Xpar₁::Matrix{T}
 	invZperpZperpZperpX₁::Matrix{T}; invZperpZperpZperpX₂::Matrix{T}; invZperpZperpZperpy₁::Vector{T}; invZperpZperpZperpY₂::Matrix{T}; S✻UY₂::Matrix{T}; invZperpZperpZperpZpar::Matrix{T}; invZperpZperpZperpZR₁::Matrix{T}
 
-  StrEstimator{T}(isDGP, LIML, Fuller, κ) where T<:AbstractFloat = new(isDGP, LIML, Fuller, κ, Matrix{T}(undef,0,0))
+  StrEstimator{T}(isDGP, liml, fuller, κ) where T<:AbstractFloat = new(isDGP, liml, fuller, κ, Matrix{T}(undef,0,0))
 end
 
 mutable struct StrBootTest{T<:AbstractFloat}
   R::Matrix{T}; r::Vector{T}; R₁::Matrix{T}; r₁::Vector{T}
   y₁::Vector{T}; X₁::Matrix{T}; Y₂::Matrix{T}; X₂::Matrix{T}
   wt::Vector{T}; fweights::Bool
-  LIML::Bool; Fuller::T; κ::T; ARubin::Bool
+  liml::Bool; fuller::T; κ::T; arubin::Bool
   B::Int64; auxtwtype::Symbol; rng::AbstractRNG; maxmatsize::Float16
   ptype::Symbol; null::Bool; bootstrapt::Bool
 	ID::Matrix{Int64}; NBootClustVar::Int8; NErrClustVar::Int8; issorted::Bool; small::Bool; clusteradj::Bool; clustermin::Bool
   FEID::Vector{Int64}; FEdfadj::Int64
   level::T; rtol::T
   madjtype::Symbol; NH₀::Int16
-  ML::Bool; β̈::Vector{T}; A::Symmetric{T,Matrix{T}}; sc::Matrix{T}
+  ml::Bool; β̈::Vector{T}; A::Symmetric{T,Matrix{T}}; sc::Matrix{T}
   willplot::Bool; gridmin::Vector{T}; gridmax::Vector{T}; gridpoints::Vector{Float32}
 
   q::Int16; twotailed::Bool; scorebs::Bool; robust::Bool
@@ -67,7 +67,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   confpeak::Vector{T}
   ID✻::Vector{Int64}; ID✻_✻⋂::Vector{Int64}
   anchor::Vector{T}; poles::Vector{T}; numer::Matrix{T}
-  CI::Matrix{T}
+  ci::Matrix{T}
   peak::NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
 
 	Nobs::Int64; NClustVar::Int8; kX₁::Int64; kX₂::Int64; kY₂::Int64; WREnonARubin::Bool; boottest!::Function
@@ -110,18 +110,18 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	S⋂ReplZX::Array{T,3}; S⋂Xy₁::Matrix{T}
 	S✻⋂XU₂::Array{T,3}; S✻⋂XU₂RparY::Array{T,3}; S✻XU₂::Array{T,3}; S✻XU₂RparY::Array{T,3}; S✻ZperpU₂::Array{T,3}; S✻ZperpU₂RparY::Array{T,3}; invZperpZperpS✻ZperpU₂::Array{T,3}; invZperpZperpS✻ZperpU₂RparY::Array{T,3}; invXXS✻XU₂::Array{T,3}; invXXS✻XU₂RparY::Array{T,3}
 
-	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML, 
-	               Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, NBootClustVar, NErrClustVar, issorted, robust, small, clusteradj, clustermin,
-								 NFE, FEID, FEdfadj, level, rtol, madjtype, NH₀, ML,
+	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, liml, 
+	               fuller, κ, arubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, NBootClustVar, NErrClustVar, issorted, robust, small, clusteradj, clustermin,
+								 NFE, FEID, FEdfadj, level, rtol, madjtype, NH₀, ml,
 								 β̈, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real =
 		begin
 			kX₂ = ncols(X₂)
-			scorebs = scorebs || iszero(B) || ML
-			WREnonARubin = !(iszero(kX₂) || scorebs) && !ARubin
+			scorebs = scorebs || iszero(B) || ml
+			WREnonARubin = !(iszero(kX₂) || scorebs) && !arubin
 
-			new(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, LIML || !iszero(Fuller), 
-					Fuller, κ, ARubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, ID, NBootClustVar, NErrClustVar, issorted, small, clusteradj, clustermin, 
-					FEID, FEdfadj, level, rtol, madjtype, NH₀, ML, 
+			new(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, liml || !iszero(fuller), 
+					fuller, κ, arubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, ID, NBootClustVar, NErrClustVar, issorted, small, clusteradj, clustermin, 
+					FEID, FEdfadj, level, rtol, madjtype, NH₀, ml, 
 					β̈, A, sc, willplot, gridmin, gridmax, gridpoints,
 				nrows(R), ptype == :symmetric || ptype == :equaltail, scorebs, robust || NErrClustVar>0,
 				false, false, NFE, false, false, 0, 0, 0, false,

@@ -48,7 +48,7 @@ function plot!(o::StrBootTest{T}) where T
   o.boottest!(o)
 
 	Phi = quantile(Normal{T}(zero(T),one(T)), α/2)
-  if o.ARubin
+  if o.arubin
 		p = o.dist[1] * o.multiplier
 		p = ccdf(Chisq{T}(T(o.dof)), o.sqrt ? p^2 : p)
 		halfwidth = abs.(o.confpeak) * quantile(Normal{T}(zero(T),one(T)), p/2) / Phi
@@ -59,7 +59,7 @@ function plot!(o::StrBootTest{T}) where T
   end
 
 	if isone(o.q)  # 1D plot
-		α≤0 && (α = T(.05))  # if level=100, no CI constructed, but we need a reasonable α to choose graphing bounds
+		α≤0 && (α = T(.05))  # if level=100, no ci constructed, but we need a reasonable α to choose graphing bounds
 		p_lo = p_hi = T(NaN)
 		if isnan(o.gridmin[1]) || isnan(o.gridmax[1])
 			if o.B>0  # initial guess based on classical distribution
@@ -70,7 +70,7 @@ function plot!(o::StrBootTest{T}) where T
 				lo = isnan(o.gridmin[1]) ? o.confpeak - tmp : o.gridmin
 				hi = isnan(o.gridmax[1]) ? o.confpeak + tmp : o.gridmax
 				if o.scorebs && !o.null && !o.willplot  # if doing simple Wald test with no graph, we're done
-					o.CI = [lo hi]
+					o.ci = [lo hi]
 					return
 				end
 			end
@@ -155,8 +155,8 @@ function plot!(o::StrBootTest{T}) where T
 	end
 
 	if any(isnan.(o.plotY))
-		o.CI = [T(-Inf) T(Inf)]
-	elseif isone(o.q) && o.level<100 # find CI bounds
+		o.ci = [T(-Inf) T(Inf)]
+	elseif isone(o.q) && o.level<100 # find ci bounds
 		_CI = Vector{T}(undef, nrows(o.plotY))
 		for i in eachindex(_CI)  # map() version hampers type inference in Julia 1.6.2
 			_CI[i] = isnan(o.plotY[i]) ? o.plotY[i] : T(o.plotY[i] > α)
@@ -165,7 +165,7 @@ function plot!(o::StrBootTest{T}) where T
 		lo = T.(findall(x->x== 1, _CI))
 		hi = T.(findall(x->x==-1, _CI))
 		if iszero(length(lo)) && iszero(length(hi))
-			o.CI = [T(-Inf) T(Inf)]
+			o.ci = [T(-Inf) T(Inf)]
 		else
 			if iszero(length(lo))
 				lo = [T(-Inf)]
@@ -175,12 +175,12 @@ function plot!(o::StrBootTest{T}) where T
 				lo[1  ] > hi[1  ] && (lo = [T(-Inf) ; lo    ]) # non-rejection ranges that are not within grid range
 				lo[end] > hi[end] && (hi = [hi      ; T(Inf)])
 			end
-			o.CI = [lo hi]
+			o.ci = [lo hi]
 
 			for i ∈ 1:length(lo), j ∈ 1:2
-				if !isinf(o.CI[i,j])
-					t = Int(o.CI[i,j])
-					o.CI[i,j] = search(o, α, o.plotY[t], o.plotX[1][t], o.plotY[t+1], o.plotX[1][t+1])
+				if !isinf(o.ci[i,j])
+					t = Int(o.ci[i,j])
+					o.ci[i,j] = search(o, α, o.plotY[t], o.plotX[1][t], o.plotY[t+1], o.plotX[1][t+1])
 				end
 			end
 		end

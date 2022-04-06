@@ -29,7 +29,7 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 
 					o.∂numer∂r[h₁] = (o.numer .- o.numer₀) ./ o.poles[h₁]
 					o.interpolate_u && (o.∂u∂r[h₁] = (o.u✻ .- o.u✻₀) ./ o.poles[h₁])
-					if o.robust && !o.purerobust  # dof > 1 for an ARubin test with >1 instruments.
+					if o.robust && !o.purerobust  # dof > 1 for an arubin test with >1 instruments.
 						for d₁ ∈ 1:o.dof
 							for c ∈ 1:o.NErrClustCombs
 								o.∂Jcd∂r[h₁,c,d₁] = (o.Jcd[c,d₁] .- o.Jcd₀[c,d₁]) ./ o.poles[h₁]
@@ -97,10 +97,10 @@ end
 
 # Construct stuff that depends linearly or quadratically on r and doesn't depend on v. No interpolation.
 function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
-	if o.ML
+	if o.ml
 		o.uXAR = o.sc * (o.AR = o.A * o.R')
 	else
-		if o.ARubin
+		if o.arubin
 			EstimateARubin!(o.DGP, o, thisr)
 			MakeResidualsOLSARubin!(o.DGP, o)
 		elseif iszero(o.κ)  # regular OLS
@@ -191,10 +191,10 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 	end
 
 	if isone(w)
-		if o.ARubin
-			o.numerw[:,1] = o.v_sd * o.DGP.β̈[o.kX₁+1:end]  # coefficients on excluded instruments in ARubin OLS
+		if o.arubin
+			o.numerw[:,1] = o.v_sd * o.DGP.β̈[o.kX₁+1:end]  # coefficients on excluded instruments in arubin OLS
 		elseif !o.null  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this.
-			o.numerw[:,1] = o.v_sd * (o.R * (o.ML ? o.β̈ : iszero(o.κ) ? o.M.β̈ : o.M.Rpar * o.M.β̈) - r)  # κ≂̸0  score bootstrap of IV ⇒ using FWL and must factor in R∥ 
+			o.numerw[:,1] = o.v_sd * (o.R * (o.ml ? o.β̈ : iszero(o.κ) ? o.M.β̈ : o.M.Rpar * o.M.β̈) - r)  # κ≂̸0  score bootstrap of IV ⇒ using FWL and must factor in R∥ 
 		end
 	end
 
@@ -272,16 +272,16 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 			isone(w) && (o.statDenom = tmp)  # original-sample denominator
 		end
 	else  # non-robust
-		AR = o.ML ? o.AR : o.M.AR
+		AR = o.ml ? o.AR : o.M.AR
 		if isone(o.dof)  # optimize for one null constraint
 			o.denom[1,1] = o.R * AR
-			!o.ML && (o.denom[1,1] = o.denom[1,1] .* coldot(o,o.u✻))
+			!o.ml && (o.denom[1,1] = o.denom[1,1] .* coldot(o,o.u✻))
 
 			@storeWtGrpResults!(o.dist, o.numerw ./ sqrtNaN.(o.denom[1,1]))
 			isone(w) && (o.statDenom = o.denom[1,1])  # original-sample denominator
 		else
 			o.denom[1,1] = o.R * AR
-			if o.ML
+			if o.ml
 				for k ∈ 1:ncols(o.v)
 					numer_k = view(o.numerw,:,k)
 					o.dist[k+first(o.WeightGrp[w])-1] = numer_k'invsym(o.denom[1,1])*numer_k

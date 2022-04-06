@@ -1,5 +1,5 @@
 module WildBootTests
-export BootTestResult, wildboottest, teststat, stattype, p, padj, reps, repsfeas, nbootclust, dof, dof_r, plotpoints, peak, CI, dist, statnumer, statvar, auxweights
+export BootTestResult, wildboottest, teststat, stattype, p, padj, reps, repsfeas, nbootclust, dof, dof_r, plotpoints, peak, ci, dist, statnumer, statvar, auxweights
 
 using LinearAlgebra, Random, Distributions, SortingAlgorithms, Printf
 
@@ -12,7 +12,7 @@ include("nonWRE.jl")
 include("plot-CI.jl")
 include("interface.jl")
 
-# top-level computation routine for OLS/ARubin (and score BS on IV/2SLS); split off to reduce latency when just doing WRE
+# top-level computation routine for OLS/arubin (and score BS on IV/2SLS); split off to reduce latency when just doing WRE
 function boottestOLSARubin!(o::StrBootTest{T}) where T
 	if !o.initialized
 		Init!(o)
@@ -40,7 +40,7 @@ function boottestOLSARubin!(o::StrBootTest{T}) where T
 	nothing
 end
 
-# top-level computation routine for non-ARubin WRE; split off to reduce latency when just doing other tests
+# top-level computation routine for non-arubin WRE; split off to reduce latency when just doing other tests
 function boottestWRE!(o::StrBootTest{T}) where T
 	if !o.initialized
 		Init!(o)
@@ -72,11 +72,11 @@ end
 function NoNullUpdate!(o::StrBootTest{T} where T)
 	if o.WREnonARubin
 		o.numer[:,1] = o.R * o.DGP.Rpar * o.β̈s[1] - o.r
-	elseif o.ARubin
+	elseif o.arubin
 		EstimateARubin!(o.DGP, o, o.r)
-		o.numer[:,1] = o.v_sd * @view o.DGP.β̈[o.kX₁+1:end,:]  # coefficients on excluded instruments in ARubin OLS
+		o.numer[:,1] = o.v_sd * @view o.DGP.β̈[o.kX₁+1:end,:]  # coefficients on excluded instruments in arubin OLS
 	else
-		o.numer[:,1] = o.v_sd * (o.R * (o.ML ? o.β̈ : iszero(o.κ) ? o.M.β̈ : o.M.Rpar * o.M.β̈) - o.r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
+		o.numer[:,1] = o.v_sd * (o.R * (o.ml ? o.β̈ : iszero(o.κ) ? o.M.β̈ : o.M.Rpar * o.M.β̈) - o.r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
 	end
 	o.dist[1] = isone(o.dof) ? o.numer[1] / sqrtNaN(o.statDenom[1]) : o.numer[:,1]'invsym(o.statDenom)*o.numer[:,1]
 	nothing

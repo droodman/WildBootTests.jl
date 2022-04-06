@@ -33,14 +33,14 @@ julia> test = wildboottest(R, r; resp=resp, predexog=predexog, clustid=clustid)
 WildBootTests.BootTestResult{Float32}
 
 p  = 0.492
-CI = Float32[0.93461335 1.1347668]
+ci = Float32[0.93461335 1.1347668]
 
 julia> test = wildboottest(R, r; resp, predexog, clustid);  # same, using Julia syntactic sugar
 
 julia> p(test)  # programmatically extract p value
 0.49459493f0
 
-julia> CI(test)  # programmatically extract confidence interval
+julia> ci(test)  # programmatically extract confidence interval
 1×2 Matrix{Float32}:
  0.934961  1.13469
 

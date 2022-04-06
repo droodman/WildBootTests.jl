@@ -4,7 +4,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 
 	iszero(o.granular) && (o.Repl.Zperp = o.DGP.Zperp = Matrix{T}(undef,0,0))  # drop this potentially large array
 
-	o.LIML && o.Repl.kZ==1 && o.Nw==1 && (o.As = o.β̈s = zeros(1, o.B+1))
+	o.liml && o.Repl.kZ==1 && o.Nw==1 && (o.As = o.β̈s = zeros(1, o.B+1))
 
 	o.S✻ZperpU              = [Matrix{T}(undef, o.Repl.kZperp, o.N✻) for _ ∈ 0:o.Repl.kZ]
 	o.invZperpZperpS✻ZperpU = [Matrix{T}(undef, o.Repl.kZperp, o.N✻) for _ ∈ 0:o.Repl.kZ]
@@ -35,11 +35,11 @@ function InitWRE!(o::StrBootTest{T}) where T
 			o.S✻UMZperp = [Matrix{T}(undef, o.Nobs, o.N✻) for _ ∈ 0:o.Repl.kZ]
 			o.S✻UPX     = [Matrix{T}(undef, o.Nobs, o.N✻) for _ ∈ 0:o.Repl.kZ]
 		end
-		if o.LIML || !o.robust
+		if o.liml || !o.robust
 			o.YY✻_b   = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
 			o.YPXY✻_b = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
 		end
-		o.NFE>0 && (o.bootstrapt || !isone(o.κ) || o.LIML) && (o.CTFEU = Vector{Matrix{T}}(undef, o.Repl.kZ+1))
+		o.NFE>0 && (o.bootstrapt || !isone(o.κ) || o.liml) && (o.CTFEU = Vector{Matrix{T}}(undef, o.Repl.kZ+1))
 	end
 	o.S✻⋂XY₂      = o.Repl.S✻⋂XY₂     - o.Repl.S✻⋂XZperp     * o.Repl.invZperpZperpZperpY₂  - o.Repl.invZperpZperpZperpX' * (o.Repl.S✻⋂ZperpY₂  - o.Repl.S✻⋂ZperpZperp * o.Repl.invZperpZperpZperpY₂ )
 	o.S✻⋂XX       = o.Repl.S✻⋂XX      - o.Repl.S✻⋂XZperp     * o.Repl.invZperpZperpZperpX   - o.Repl.invZperpZperpZperpX' * (o.Repl.S✻⋂XZperp'  - o.Repl.S✻⋂ZperpZperp * o.Repl.invZperpZperpZperpX  )
@@ -76,7 +76,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 		o.S✻ZperpDGPZR₁ = @panelsum(o, o.DGP.S✻⋂ZperpZR₁ , o.info✻_✻⋂) - S✻ZperpZperp * o.DGP.invZperpZperpZperpZR₁
 	end
 
-	if o.NFE>0 && (o.LIML || !isone(o.κ) || o.bootstrapt)
+	if o.NFE>0 && (o.liml || !isone(o.κ) || o.bootstrapt)
 		  CT✻⋂FEX  = [crosstabFE(o, o.Repl.X₁, o.info✻⋂) crosstabFE(o, o.Repl.X₂, o.info✻⋂)]
 		o.CT✻FEX   = @panelsum(o, CT✻⋂FEX, o.info✻_✻⋂)
 		o.CT✻FEY₂  = crosstabFE(o, o.DGP.Y₂, o.info✻)
@@ -86,7 +86,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 			(o.CT✻FEZR₁ = crosstabFE(o, o.DGP.ZR₁, o.info✻))
 	end
 
-	if ((o.robust && o.bootstrapt) || o.LIML || !o.robust || !isone(o.κ))
+	if ((o.robust && o.bootstrapt) || o.liml || !o.robust || !isone(o.κ))
 		S✻⋂ReplZX = (o.Repl.S✻⋂XZpar - o.Repl.S✻⋂XZperp * o.Repl.invZperpZperpZperpZpar - o.Repl.invZperpZperpZperpX' * (o.Repl.S✻⋂ZperpZpar - o.Repl.S✻⋂ZperpZperp * o.Repl.invZperpZperpZperpZpar))'
 	end
 
@@ -124,7 +124,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 		end
 	end
 
-	if o.LIML || !o.robust || !isone(o.κ)  # cluster-wise moments after FWL
+	if o.liml || !o.robust || !isone(o.κ)  # cluster-wise moments after FWL
 		o.S✻Y₂Y₂     = o.Repl.S✻Y₂Y₂    - _S✻ZperpY₂'   * o.DGP.invZperpZperpZperpY₂   - o.DGP.invZperpZperpZperpY₂'   * o.S✻ZperpY₂
 		o.S✻DGPZDGPZ = o.DGP.S✻ZparZpar - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpZpar - o.DGP.invZperpZperpZperpZpar' * o.S✻ZperpDGPZ
 		o.S✻DGPZY₂   = o.DGP.S✻ZparY₂   - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpY₂   - o.DGP.invZperpZperpZperpZpar' * o.S✻ZperpY₂
@@ -197,7 +197,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 	o.invXXS✻XU₂ .= o.Repl.invXX * o.S✻XU₂
 	o.invXXS✻XU₂RparY .= o.invXXS✻XU₂ * o.Repl.RparY
 	
-	if o.LIML || !o.robust || !isone(o.κ)
+	if o.liml || !o.robust || !isone(o.κ)
 		S✻U₂y₁ = o.S✻Y₂y₁ - o.DGP.Π̂' * o.S✻Xy₁
 		S✻U₂RparYy₁ = o.Repl.RparY' * S✻U₂y₁
 		S✻ZU₂ = o.S✻ReplZY₂ - o.S✻ReplZX * o.DGP.Π̂
@@ -219,7 +219,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 		end
 	end
 
-	if (o.LIML || o.bootstrapt || !isone(o.κ)) && o.NFE>0
+	if (o.liml || o.bootstrapt || !isone(o.κ)) && o.NFE>0
 		CT✻FEU = o.CT✻FEY₂ - o.CT✻FEX * o.DGP.Π̂
 		CT✻FEURparY = CT✻FEU * o.Repl.RparY
 	end
@@ -238,7 +238,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 			o.invXXS✻XU[i+1] .= view(o.invXXS✻XU₂RparY,:,:,i)
 		end
 
-		if o.LIML || !isone(o.κ) || o.bootstrapt
+		if o.liml || !isone(o.κ) || o.bootstrapt
 			if iszero(i)
 				o.S✻ZperpU[1]              .= o.S✻Zperpy₁              - o.S✻ZperpDGPZ              * o.DGP.β̈ + o.S✻ZperpU₂              * o.DGP.γ̈
 				o.invZperpZperpS✻ZperpU[1] .= o.invZperpZperpS✻Zperpy₁ - o.invZperpZperpS✻ZperpDGPZ * o.DGP.β̈ + o.invZperpZperpS✻ZperpU₂ * o.DGP.γ̈
@@ -262,7 +262,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 			end
 		end
 
-		if o.LIML || !isone(o.κ) || !o.robust
+		if o.liml || !isone(o.κ) || !o.robust
 			if iszero(i)  # panelsum2(o, o.Repl.y₁par, o.Repl.Z, uwt, o.info✻)
 				o.S✻YU[1,1] .= o.S✻y₁y₁ - o.S✻DGPZy₁'o.DGP.β̈ + S✻U₂y₁'o.DGP.γ̈
 				o.DGP.restricted &&
@@ -514,7 +514,7 @@ end
 
 function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
   if isone(o.Repl.kZ)  # optimized code for 1 coefficient in bootstrap regression
-		if o.LIML
+		if o.liml
 			YY₁₁   = HessianFixedkappa(o, [0], 0, zero(T), w)  # κ=0 => Y*MZperp*Y
 			YY₁₂   = HessianFixedkappa(o, [0], 1, zero(T), w)
 			YY₂₂   = HessianFixedkappa(o, [1], 1, zero(T), w)
@@ -527,7 +527,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			x₂₁ = YY₁₁ .* YPXY₁₂ .- YY₁₂ .* YPXY₁₁
 			x₂₂ = YY₁₁ .* YPXY₂₂ .- YY₁₂YPXY₁₂
 			κs = (x₁₁ .+ x₂₂)./2; κs .= 1 ./ (1 .- (κs .- sqrtNaN.(κs.^2 .- x₁₁ .* x₂₂ .+ x₁₂ .* x₂₁)) ./ (YY₁₁ .* YY₂₂ .- YY₁₂ .* YY₁₂))  # solve quadratic equation for smaller eignenvalue; last term is det(YY✻)
-			!iszero(o.Fuller) && (κs .-= o.Fuller / (o._Nobs - o.kX))
+			!iszero(o.fuller) && (κs .-= o.fuller / (o._Nobs - o.kX))
 			o.As = κs .* (YPXY₂₂ .- YY₂₂) .+ YY₂₂
 			o.β̈s = (κs .* (YPXY₁₂ .- YY₁₂) .+ YY₁₂) ./ o.As
 		else
@@ -566,7 +566,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 		β̈s = zeros(T, o.Repl.kZ, ncols(o.v))
 		A = Vector{Matrix{T}}(undef, ncols(o.v))
 
-		if o.LIML
+		if o.liml
 			YY✻   = [HessianFixedkappa(o, collect(0:i), i, zero(T), w) for i ∈ 0:o.Repl.kZ] # κ=0 => Y*MZperp*Y
 			YPXY✻ = [HessianFixedkappa(o, collect(0:i), i,  one(T), w) for i ∈ 0:o.Repl.kZ] # κ=1 => Y*PXpar*Y
 
@@ -576,7 +576,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 					o.YPXY✻_b[1:i+1,i+1] = YPXY✻[i+1][:,b]
 				end
 				o.κ = 1/(1 - real(eigvals(invsym(o.YY✻_b) * Symmetric(o.YPXY✻_b))[1]))
-				!iszero(o.Fuller) && (o.κ -= o.Fuller / (o._Nobs - o.kX))
+				!iszero(o.fuller) && (o.κ -= o.fuller / (o._Nobs - o.kX))
 				β̈s[:,b] = (A[b] = invsym(o.κ*o.YPXY✻_b[2:end,2:end] + (1-o.κ)*o.YY✻_b[2:end,2:end])) * (o.κ*o.YPXY✻_b[1,2:end] + (1-o.κ)*o.YY✻_b[1,2:end])
 			end
 		else

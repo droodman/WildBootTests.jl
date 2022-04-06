@@ -11,7 +11,7 @@ dof
 dof_r
 plotpoints
 peak
-CI
+ci
 dist
 statnumer
 statvar

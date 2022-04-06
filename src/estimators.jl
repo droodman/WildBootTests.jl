@@ -125,7 +125,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.invZperpZperpZperpX₂ = o.invZperpZperp * ZperpX₂
 		o.invZperpZperpZperpX = [o.invZperpZperpZperpX₁ o.invZperpZperpZperpX₂]
 
-		if parent.NFE>0 && (parent.LIML || !isone(parent.κ) || parent.bootstrapt)  ||  parent.granular && parent.robust && parent.bootstrapt  ||  !o.LIML && !isempty(Rperp)
+		if parent.NFE>0 && (parent.liml || !isone(parent.κ) || parent.bootstrapt)  ||  parent.granular && parent.robust && parent.bootstrapt  ||  !o.liml && !isempty(Rperp)
 			o.X₁ = o.Xpar₁ - o.Zperp * o.invZperpZperpZperpX₁  # shrink and FWL-process X₁; do it as an O(N) operation because it can be so size-reducing
 			o.X₂ = o.Zperp * o.invZperpZperpZperpX₂; o.X₂ .= parent.X₂ .- o.X₂  # FWL-process X₂
 		end
@@ -144,12 +144,12 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.S✻⋂ZperpY₂ = panelcross(o.Zperp, parent.Y₂, parent.info✻⋂)
 		ZperpY₂ = sumpanelcross(o.S✻⋂ZperpY₂)
 		o.invZperpZperpZperpY₂ = o.invZperpZperp * ZperpY₂
-		((parent.NFE>0 && (parent.LIML || !isone(parent.κ) || parent.bootstrapt)) || (parent.robust && parent.bootstrapt && parent.granular)) &&
+		((parent.NFE>0 && (parent.liml || !isone(parent.κ) || parent.bootstrapt)) || (parent.robust && parent.bootstrapt && parent.granular)) &&
 			(o.Y₂ = parent.Y₂ - o.Zperp * o.invZperpZperpZperpY₂)
 		o.S✻⋂Zperpy₁ = panelcross(o.Zperp, parent.y₁, parent.info✻⋂)
 		Zperpy₁ = sumpanelcross(o.S✻⋂Zperpy₁)
 		o.invZperpZperpZperpy₁ = o.invZperpZperp * Zperpy₁
-		((parent.NFE>0 && (parent.LIML || !isone(parent.κ) || parent.bootstrapt)) || (parent.scorebs || parent.robust && parent.bootstrapt && parent.granular)) &&
+		((parent.NFE>0 && (parent.liml || !isone(parent.κ) || parent.bootstrapt)) || (parent.scorebs || parent.robust && parent.bootstrapt && parent.granular)) &&
 			(o.y₁ = parent.y₁ - o.Zperp * o.invZperpZperpZperpy₁)
 
 	  o.S✻⋂X₁Y₂ = panelcross(o.Xpar₁, parent.Y₂, parent.info✻⋂)
@@ -237,13 +237,13 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	
 	o.Z .-= o.Zperp * o.invZperpZperpZperpZpar
 
-  o.V =  o.invXX * o.XZ  # in 2SLS case, estimator is (V' XZ)^-1 * (V'Xy₁). Also used in k-class and LIML robust VCV by Stata convention
+  o.V =  o.invXX * o.XZ  # in 2SLS case, estimator is (V' XZ)^-1 * (V'Xy₁). Also used in k-class and liml robust VCV by Stata convention
 
   if o.isDGP
 		parent.WREnonARubin && (o.ZY₂ = sumpanelcross(o.S✻ZparY₂) - ZperpZpar'o.invZperpZperpZperpY₂)
 		o.H_2SLS = Symmetric(o.V'o.XZ)  # Hessian
-		(o.LIML || !isone(o.κ)) && (o.H_2SLSmZZ = o.H_2SLS - o.ZZ)
-		!o.LIML && MakeH!(o, parent, !isempty(Rperp)) # DGP is LIML except possibly when getting confidence peak for A-R plot; but LIML=0 when exactly id'd, for then κ=1 always and Hessian doesn't depend on r₁ and can be computed now
+		(o.liml || !isone(o.κ)) && (o.H_2SLSmZZ = o.H_2SLS - o.ZZ)
+		!o.liml && MakeH!(o, parent, !isempty(Rperp)) # DGP is liml except possibly when getting confidence peak for A-R plot; but liml=0 when exactly id'd, for then κ=1 always and Hessian doesn't depend on r₁ and can be computed now
 	else
 	  o.kZ = ncols(o.Rpar)
 	  o.Yendog = [true colsum(o.RparY .!= zero(T)).!=0]  # columns of Y = [y₁par Zpar] that are endogenous (normally all)
@@ -252,7 +252,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 end
 
 
-# do most of estimation; for LIML r₁ must be passed now in order to solve eigenvalue problem involving it
+# do most of estimation; for liml r₁ must be passed now in order to solve eigenvalue problem involving it
 # inconsistency: for replication regression of Anderson-Rubin, r₁ refers to the *null*, not the maintained constraints, because that's what affects the endogenous variables
 # For OLS, compute β̈₀ (β̈ when r=0) and ∂β̈∂r without knowing r₁, for efficiency
 # For WRE, should only be called once for the replication regressions, since for them r₁ is the unchanging model constraints
@@ -296,9 +296,9 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, r₁::AbstractV
   o.YPXY = Symmetric([[o.invXXXy₁par'o.Xy₁par] o.ZXinvXXXy₁par' ; o.ZXinvXXXy₁par  o.ZXinvXXXZ])
 
   if o.isDGP
-	  if o.LIML
+	  if o.liml
 	    o.κ = 1/(1 - real(eigvals(invsym(o.YY) * o.YPXY)[1]))  # like Fast & Wild (81), but more stable, at least in Mata
-	    !iszero(o.Fuller) && (o.κ -= o.Fuller / (parent._Nobs - parent.kX))
+	    !iszero(o.fuller) && (o.κ -= o.fuller / (parent._Nobs - parent.kX))
 	    MakeH!(o, parent)
 	  end
 
@@ -338,7 +338,7 @@ end
 
 # non-WRE stuff that only depends on r in A-R case, for test stat denominators in replication regressions
 # since the non-AR OLS code never creates an object for replication regresssions, in that case this is called on the DGP regression object
-# depends on results of Estimate() only when doing OLS-style bootstrap on an overidentified IV/GMM regression--score bootstrap or A-R. Then κ from DGP LIML affects Hessian, H.
+# depends on results of Estimate() only when doing OLS-style bootstrap on an overidentified IV/GMM regression--score bootstrap or A-R. Then κ from DGP liml affects Hessian, H.
 function InitTestDenoms!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
   if parent.bootstrapt && (parent.scorebs || parent.robust)
 	  (parent.granular || parent.purerobust) && (o.WXAR = o.XAR)  # XXX simplify

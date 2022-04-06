@@ -5,16 +5,16 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	o.kX₂==0 && (o.X₂ = zeros(T,o.Nobs,0))
   iszero(o.kY₂) && (o.Y₂ = zeros(T,o.Nobs,0))
   o.kZ = o.kX₁ + o.kY₂
-  if o.LIML && o.kX₂==o.kY₂  # exactly identified LIML = 2SLS
+  if o.liml && o.kX₂==o.kY₂  # exactly identified liml = 2SLS
   	o.κ = one(T)
-  	o.LIML = false
+  	o.liml = false
   end
   if !(o.REst = length(o.R₁)>0)  # base model contains no restrictions?
     o.R₁ = zeros(T,0,o.kZ)
     o.r₁ = zeros(T,0)
   end
   isnan(o.κ) && (o.κ = o.kX₂>0 ? one(T) : zero(T))  # if κ in κ-class estimation not specified, it's 0 or 1 for OLS or 2SLS
-  o.WRE = !(iszero(o.κ) || o.scorebs) || o.ARubin
+  o.WRE = !(iszero(o.κ) || o.scorebs) || o.arubin
 
   iszero(o.B) && (o.scorebs = true)
 
@@ -184,26 +184,26 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.WeightGrp[end] = first(o.WeightGrp[end]):o.B+1
 	end
 
-	if o.ML
+	if o.ml
 		o.dof = nrows(o.R)
 	else
-		if o.ARubin
+		if o.arubin
 			o.R = hcat(zeros(o.kX₂,o.kX₁), Matrix(I(o.kX₂)))  # attack surface is all endog vars
 			o.R₁ = o.kX₁>0 && nrows(o.R₁)>0 ? hcat(o.R₁[:,1:o.kX₁], zeros(nrows(o.R₁),o.kX₂)) : zeros(0, o.kX)  # and convert model constraints from referring to X₁, Y₂ to X₁, X₂
 		end
 		o.dof = nrows(o.R)
 
 		if !o.WRE && iszero(o.κ)  # regular OLS
-			o.DGP = StrEstimator{T}(true, o.LIML, o.Fuller, o.κ)
+			o.DGP = StrEstimator{T}(true, o.liml, o.fuller, o.κ)
 			o.Repl = StrEstimator{T}(true, false, zero(T), zero(T))  # XXX isDGP=1 for Repl? doesn't matter?
 			setR!(o.DGP, o, o.null ? [o.R₁ ; o.R] : o.R₁)  # DGP constraints: model constraints + null if imposed
 			setR!(o.Repl, o, o.R₁)  # model constraints only
 			InitVarsOLS!(o.DGP, o, o.Repl.R₁perp)
 			InitTestDenoms!(o.DGP, o)
 			o.M = o.DGP  # StrEstimator object from which to get A, AR, XAR
-		elseif o.ARubin
+		elseif o.arubin
 			if o.willplot  # for plotting/CI purposes get original point estimate since not normally generated
-				o.DGP = StrEstimator{T}(true, o.LIML, o.Fuller, o.κ)
+				o.DGP = StrEstimator{T}(true, o.liml, o.fuller, o.κ)
 				setR!(o.DGP, o, o.R₁, zeros(T,0,o.kZ))  # no-null model
 				InitVarsIV!(o.DGP, o)
 				EstimateIV!(o.DGP, o, o.r₁)
@@ -218,7 +218,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			o.kZ = o.kX
 
 		elseif o.WREnonARubin
-			o.Repl = StrEstimator{T}(false, o.LIML, o.Fuller, o.κ)
+			o.Repl = StrEstimator{T}(false, o.liml, o.fuller, o.κ)
 			setR!(o.Repl, o, o.R₁, o.R)
 			InitVarsIV!(o.Repl, o)
 			EstimateIV!(o.Repl, o, o.r₁)
@@ -235,10 +235,10 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
 		else  # the score bootstrap for IV/GMM uses a IV/GMM DGP but then masquerades as an OLS test because most factors are fixed during the bootstrap. To conform, need DGP and Repl objects with different R, R₁, one with FWL, one not
 
-			o.DGP = StrEstimator{T}(true, o.LIML, o.Fuller, o.κ)
+			o.DGP = StrEstimator{T}(true, o.liml, o.fuller, o.κ)
 			setR!(o.DGP, o, o.null ? [o.R₁ ; o.R] : o.R₁, zeros(T,0,o.kZ))  # DGP constraints: model constraints + null if imposed
 			InitVarsIV!(o.DGP, o)
-			o.Repl = StrEstimator{T}(true, o.LIML, o.Fuller, o.κ)
+			o.Repl = StrEstimator{T}(true, o.liml, o.fuller, o.κ)
 			setR!(o.Repl, o, o.R₁, I)  # process replication restraints = model constraints only
 			InitVarsIV!(o.Repl, o, o.Repl.R₁perp)
 			EstimateIV!(o.Repl, o, o.r₁)  # bit inefficient to estimate in both objects, but maintains the conformity
@@ -280,7 +280,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	end
 	o.clustermin && (o.smallsample *= (minN - 1) / minN)  # ivreg2-style adjustment when multiway clustering
 	o.multiplier = o.small ? o.smallsample / o.dof : o.smallsample  # divide by # of constraints because F stat is so defined
-  !(o.robust || o.ML) && (o.multiplier *= o._Nobs)  # will turn sum of squared errors in denom of t/z into mean
+  !(o.robust || o.ml) && (o.multiplier *= o._Nobs)  # will turn sum of squared errors in denom of t/z into mean
   o.sqrt && (o.multiplier = √o.multiplier)
 
 	o.dist = fill(T(NaN), 1, o.B+1)
@@ -288,8 +288,8 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
   if !o.WREnonARubin
 		o.poles = o.anchor = zeros(T,0)
-		o.interpolable = o.bootstrapt && o.null && o.Nw==1 && (iszero(o.κ) || o.ARubin)
-		o.interpolate_u = !(o.robust || o.ML)
+		o.interpolable = o.bootstrapt && o.null && o.Nw==1 && (iszero(o.κ) || o.arubin)
+		o.interpolate_u = !(o.robust || o.ml)
 		if o.interpolable
 			o.∂numer∂r = Vector{Matrix{T}}(undef, o.q)
 			o.interpolate_u && (o.∂u∂r = Vector{Matrix{T}}(undef, o.q))

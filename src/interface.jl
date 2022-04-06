@@ -9,7 +9,7 @@ struct BootTestResult{T}
   dof::Int64; dof_r::T
   plot::Union{Nothing, NamedTuple{(:X, :p), Tuple{Tuple{Vararg{Vector{T}, N} where N},Vector{T}}}}
   peak::Union{Nothing, NamedTuple{(:X, :p), Tuple{Vector{T}, T}}}
-  CI::Union{Nothing, Matrix{T}}
+  ci::Union{Nothing, Matrix{T}}
   dist::Matrix{T}
   b::Vector{T}
   V::Matrix{T}
@@ -63,7 +63,7 @@ plotpoints(o::BootTestResult) = o.plot
 peak(o::BootTestResult) = o.peak
 
 "Return confidence interval matrix from test, one row per disjoint piece"
-CI(o::BootTestResult) = o.CI
+ci(o::BootTestResult) = o.ci
 
 "Return bootstrap distribution of statistic or statistic numerator in bootstrap test"
 dist(o::BootTestResult) = o.dist
@@ -77,7 +77,7 @@ function Base.show(io::IO, o::BootTestResult{T}) where T
 	                                       isone(dof(o)) ? "(" * strint(dof_r(o)) * ")" : "(" * strint(dof(o)) * ", " * strint(dof_r(o)) * ")" )  # t, F
 	Printf.@printf(io, "%s = %6.4f\n", s, teststat(o))
 	Printf.@printf(io, "p%s = %6.4f\n", repeat(" ", length(s)-1), p(o))
-	isdefined(o, :CI) && !isnothing(o.CI) && length(o.CI)>0 && print(io, "CI" * repeat(" ", length(s)-2) * " = $(round.(CI(o); sigdigits=4))\n")
+	isdefined(o, :ci) && !isnothing(o.ci) && length(o.ci)>0 && print(io, "CI" * repeat(" ", length(s)-2) * " = $(round.(ci(o); sigdigits=4))\n")
 end
 
 # single entry point with arguments already converted to standardized types, to allow a smaller set of precompile() calls(?)
@@ -103,10 +103,10 @@ function __wildboottest(
 	maxmatsize::Float16,
 	ptype::Symbol,
 	bootstrapc::Bool,
-	LIML::Bool,
-	Fuller::T,
+	liml::Bool,
+	fuller::T,
 	kappa::T,
-	ARubin::Bool,
+	arubin::Bool,
 	small::Bool,
 	clusteradj::Bool,
 	clustermin::Bool,
@@ -118,8 +118,8 @@ function __wildboottest(
 	level::T,
 	rtol::T,
 	madjtype::Symbol,
-	NH0::Int16,
-	ML::Bool,
+	nH0::Int16,
+	ml::Bool,
 	scores::Matrix{T},
 	beta::Vector{T},
 	A::Symmetric{T,Matrix{T}},
@@ -127,29 +127,29 @@ function __wildboottest(
 	gridmax::VecOrMat{T},
 	gridpoints::VecOrMat{T},
 	diststat::Symbol,
-	getCI::Bool,
+	getci::Bool,
 	getplot::Bool,
 	getauxweights::Bool) where T
 
-	M = StrBootTest{T}(R, r, R1, r1, resp, predexog, predendog, inst, obswt, fweights, LIML, Fuller, kappa, ARubin,
+	M = StrBootTest{T}(R, r, R1, r1, resp, predexog, predendog, inst, obswt, fweights, liml, fuller, kappa, arubin,
 	                   reps, auxwttype, rng, maxmatsize, ptype, imposenull, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, issorted, hetrobust, small, clusteradj, clustermin,
-	                   nfe, feid, fedfadj, level, rtol, madjtype, NH0, ML, beta, A, scores, getplot,
+	                   nfe, feid, fedfadj, level, rtol, madjtype, nH0, ml, beta, A, scores, getplot,
 	                   gridmin, gridmax, gridpoints)
 
-	if getplot || (level<1 && getCI)
+	if getplot || (level<1 && getci)
 		plot!(M)
 		plot = getplot & isdefined(M, :plotX) ? (X=Tuple(M.plotX), p=M.plotY) : nothing
 		peak = M.peak
-		CI = level<1 & getCI ? M.CI : nothing
+		ci = level<1 & getci ? M.ci : nothing
 	else
-		CI = plot = peak = nothing
+		ci = plot = peak = nothing
 	end
 	
 	padj = getp(M)  # trigger main (re)computation
 
 	BootTestResult{T}(getstat(M),
 	                  isone(nrows(R)) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
-	                  M.p, padj, M.B, M.BFeas, M.N✻, M.dof, M.dof_r, plot, peak, CI,
+	                  M.p, padj, M.B, M.BFeas, M.N✻, M.dof, M.dof_r, plot, peak, ci,
 	                  getdist(M, diststat),
 	                  getb(M), getV(M),
 	                  getauxweights && reps>0 ? getv(M) : nothing #=, M=#)
@@ -180,10 +180,10 @@ function _wildboottest(T::DataType,
 					  maxmatsize::Number=0,
 					  ptype::Symbol=:symmetric,
 					  bootstrapc::Bool=false,
-					  LIML::Bool=false,
-					  Fuller::Number=0,
+					  liml::Bool=false,
+					  fuller::Number=0,
 					  kappa::Number=NaN,
-					  ARubin::Bool=false,
+					  arubin::Bool=false,
 					  small::Bool=true,
 						clusteradj::Bool=small,
 						clustermin::Bool=false,
@@ -195,8 +195,8 @@ function _wildboottest(T::DataType,
 					  level::Number=.95,
 					  rtol::Number=1e-6,
 					  madjtype::Symbol=:none,
-					  NH0::Integer=1,
-					  ML::Bool=false,
+					  nH0::Integer=1,
+					  ml::Bool=false,
 					  scores::AbstractVecOrMat=Matrix{Float32}(undef,0,0),
 					  beta::AbstractVecOrMat=T[],
 					  A::AbstractMatrix=zeros(T,0,0),
@@ -204,17 +204,17 @@ function _wildboottest(T::DataType,
 					  gridmax::Union{VecOrMat{S},VecOrMat{Union{S,Missing}}} where S<:Number = T[],
 					  gridpoints::Union{VecOrMat{S},VecOrMat{Union{S,Missing}}} where S<:Number = Int64[],
 					  diststat::Symbol=:none,
-					  getCI::Bool=true,
-					  getplot::Bool=getCI,
+					  getci::Bool=true,
+					  getplot::Bool=getci,
 					  getauxweights::Bool=false)
 
-	nrows(R)>2 && (getplot = getCI = false)
+	nrows(R)>2 && (getplot = getci = false)
 
 	@assert any(auxwttype .== (:rademacher, :mammen, :webb, :gamma, :normal)) "auxwttype shoud be :rademacher, :mammen, :webb, :gamma, or :normal"
 	@assert any(ptype .==(:symmetric, :equaltail, :lower, :upper)) "ptype should be :symmetric, :equaltail, :lower, or :upper"
 	@assert any(madjtype .== (:none, :bonferroni, :sidak)) "madjtype should be :none, :bonferroni, or :sidak"
 	@assert any(diststat .== (:none, :t, :numer))
-	@assert ML || ncols(resp)==1 "resp should have one column"
+	@assert ml || ncols(resp)==1 "resp should have one column"
   @assert (length(predexog)==0 || nrows(predexog)==nrows(resp)) && 
 	        (length(predendog)==0 || nrows(predendog)==nrows(resp)) &&
 					(length(inst)==0 || nrows(inst)==nrows(resp)) "All data vectors/matrices must have same height"
@@ -225,7 +225,7 @@ function _wildboottest(T::DataType,
   @assert nrows(obswt)==0 || nrows(obswt)==nrows(resp) "obswt must have same height as data matrices"
 	@assert ncols(obswt)≤1 "obswt must have one column"
   @assert nrows(R)==nrows(r) "R and r must have same height"
-  @assert (ncols(R) == (ML ? nrows(beta) : ncols(predexog)+ncols(predendog)) && isone(ncols(r))) "Wrong number of columns in null specification"
+  @assert (ncols(R) == (ml ? nrows(beta) : ncols(predexog)+ncols(predendog)) && isone(ncols(r))) "Wrong number of columns in null specification"
   @assert nrows(R1)==nrows(r1) "R₁ and r₁ must have same height"
   @assert length(R1)==0 || ncols(R1)==ncols(predexog)+ncols(predendog) "Wrong number of columns in model constraint specification"
 	@assert ncols(r)==1 "r should have one column"
@@ -235,13 +235,13 @@ function _wildboottest(T::DataType,
   @assert reps ≥ 0 "reps < 0"
   @assert level ≥ 0. && level≤1. "level must be in the range [0,1]"
   @assert rtol > 0. "rtol ≤ 0"
-  @assert NH0 > 0 "NH0 ≤ 0"
-	@assert !LIML || (ncols(predendog)>0 && ncols(inst)>0) "For LIML, non-empty predendog and inst arguments are needed"
-	@assert Fuller==0 || (ncols(predendog)>0 && ncols(inst)>0) "For Fuller LIML, non-empty predendog and inst arguments are needed"
+  @assert nH0 > 0 "nH0 ≤ 0"
+	@assert !liml || (ncols(predendog)>0 && ncols(inst)>0) "For liml, non-empty predendog and inst arguments are needed"
+	@assert fuller==0 || (ncols(predendog)>0 && ncols(inst)>0) "For Fuller liml, non-empty predendog and inst arguments are needed"
 	@assert iszero(ncols(predendog)) || ncols(inst)>0 "predendog provided without inst"
-	@assert !ARubin || ncols(predendog)>0 "Anderson-Rubin test requested but predendog not provided"
+	@assert !arubin || ncols(predendog)>0 "Anderson-Rubin test requested but predendog not provided"
 
-	if getplot || getCI
+	if getplot || getci
 		@assert iszero(length(gridmin   )) || length(gridmin   )==nrows(R) "Length of gridmin doesn't match number of hypotheses being jointly tested"
 		@assert iszero(length(gridmax   )) || length(gridmax   )==nrows(R) "Length of gridmax doesn't match number of hypotheses being jointly tested"
 		@assert iszero(length(gridpoints)) || length(gridpoints)==nrows(R) "Length of gridpoints doesn't match number of hypotheses being jointly tested"
@@ -285,10 +285,10 @@ function _wildboottest(T::DataType,
 		maxmatsize=Float16(maxmatsize),
 		ptype,
 		bootstrapc,
-		LIML,
-		Fuller=T(Fuller),
+		liml,
+		fuller=T(fuller),
 		kappa=T(kappa),
-		ARubin,
+		arubin,
 		small,
 		clusteradj,
 		clustermin,
@@ -300,8 +300,8 @@ function _wildboottest(T::DataType,
 		level=T(level),
 		rtol=T(rtol),
 		madjtype,
-		NH0=Int16(NH0),
-		ML,
+		nH0=Int16(nH0),
+		ml,
 		scores=matconvert(T,scores),
 		beta=vecconvert(T,beta),
 		A=Symmetric(matconvert(T,A)),
@@ -309,7 +309,7 @@ function _wildboottest(T::DataType,
 		gridmax=_gridmax,
 		gridpoints=_gridpoints,
 		diststat,
-		getCI,
+		getci,
 		getplot,
 		getauxweights)
 end
@@ -350,10 +350,10 @@ Function to perform wild-bootstrap-based hypothesis test
 * `maxmatsize::Number`: maximum size of auxilliary weight matrix (v), in gigabytes
 * `ptype::Symbol=:symmetric`: p value type (`:symmetric`, `:equaltail`, `:lower`, `:upper`)
 * `bootstrapc::Bool=false`: true to request bootstrap-c instead of bootstrap-t
-* `LIML::Bool=false`: true for LIML or Fuller LIML
-* `Fuller::Number`: Fuller LIML factor
+* `liml::Bool=false`: true for LIML or Fuller LIML
+* `fuller::Number`: Fuller LIML factor
 * `kappa::Number`: fixed κ for _k_-class estimation
-* `ARubin::Bool=false`: true for Anderson-Rubin test
+* `arubin::Bool=false`: true for Anderson-Rubin test
 * `small::Bool=true`: true to multiply test statistics by G/(G-1) × N/(N-k), where G, N, k are number of clusters, observations, and predictors
 * `clusteradj::Bool=true`: false to drop G/(G-1) factor
 * `clustermin::Bool=false``: for multiway clustering, true to base G/(G-1) factor for all clusterings ]on the smallest G across clusterings
@@ -363,10 +363,10 @@ Function to perform wild-bootstrap-based hypothesis test
 * `auxwttype::Symbol=:rademacher`: auxilliary weight type (`:rademacher`, `:mammen`, `:webb`, `:normal`, `:gamma`)
 * `rng::AbstractRNG=MersenneTwister()`: randon number generator
 * `level::Number=.95`: significance level (0-1)
-* `rtol::Number=1e-6`: tolerance for CI bound determination
+* `rtol::Number=1e-6`: tolerance for ci bound determination
 * `madjtype::Symbol=:none`: multiple hypothesis adjustment (`none`, `:bonferroni`, `:sidak`)
-* `NH0::Integer=1`: number of hypotheses tested, including one being tested now
-* `ML::Bool=false`: true for (nonlinear) ML estimation
+* `nH0::Integer=1`: number of hypotheses tested, including one being tested now
+* `ml::Bool=false`: true for (nonlinear) ML estimation
 * `scores::AbstractVecOrMat`: for ML, pre-computed scores
 * `beta::AbstractVector`: for ML, parameter estimates
 * `A::AbstractMatrix`: for ML, covariance estimates
@@ -374,8 +374,8 @@ Function to perform wild-bootstrap-based hypothesis test
 * `gridmax`: vector of graph upper bounds; `missing`/`NaN` entries ask wildboottest() to choose
 * `gridpoints`: vector of number of sampling points; `missing`/`NaN` entries ask wildboottest() to choose
 * `diststat::Symbole=:none`: `:t` to save bootstrap distribution of t/z/F/χ² statistics; `:numer` to save numerators thereof
-* `getCI::Bool=true`: whether to return CI
-* `getplot::Bool=getCI`: whether to generate plot data
+* `getci::Bool=true`: whether to return confidence interval
+* `getplot::Bool=getci`: whether to generate plot data
 * `getauxweights::Bool=false`: whether to save auxilliary weight matrix (v)
 
 # Notes
