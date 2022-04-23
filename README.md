@@ -21,9 +21,9 @@ test                                                 # display results summary
 plot(plotpoints(test)...)                            # plot confidence curve
 ```
 
-## R example, via wildboottestjlr
+## R example, via fwildclusterboot
 ```
-library(wildboottestjlr)
+library(fwildclusterboot)
 df <- read.csv("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv")
 lm_fit <- lm(y ~ x, data = fd)
 boot_lm <- boottest(lm_fit, clustid = "firm", param = "x", beta0 = 1, B = 999)
