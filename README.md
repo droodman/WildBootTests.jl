@@ -66,7 +66,8 @@ plotpoints = wbt.plotpoints(test)
 plt.plot(plotpoints.X[0], plotpoints.p)
 ```
 
-## Stata example, via boottest 
+## Stata example, via boottest
+```
 import delimited https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv
 regress y x, cluster(firm)
 boottest x, reps(999) julia
