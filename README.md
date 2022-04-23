@@ -23,6 +23,7 @@ plot(plotpoints(test)...)                            # plot confidence curve
 
 ## R example, via fwildclusterboot
 ```
+library(fwildclusterboot)
 df <- read.csv("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv")
 lm_fit <- lm(y ~ x, data = df)
 boot_lm <- boottest(lm_fit, clustid = "firm", param = "x", r = 1, B = 999,  boot_algo = "WildBootTests.jl")
