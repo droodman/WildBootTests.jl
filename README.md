@@ -21,13 +21,14 @@ test                                                 # display results summary
 plot(plotpoints(test)...)                            # plot confidence curve
 ```
 
-## R example, via wildboottestjlr
+## R example, via fwildclusterboot
 ```
-library(wildboottestjlr)
+library(fwildclusterboot)
 df <- read.csv("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv")
-lm_fit <- lm(y ~ x, data = fd)
-boot_lm <- boottest(lm_fit, clustid = "firm", param = "x", beta0 = 1, B = 999)
+lm_fit <- lm(y ~ x, data = df)
+boot_lm <- boottest(lm_fit, clustid = "firm", param = "x", r = 1, B = 999,  boot_algo = "WildBootTests.jl")
 summary(boot_lm)
+plot(boot_lm)
 ```
 
 ## R example, via JuliaConnectoR
@@ -64,6 +65,13 @@ wbt.p(test)
 wbt.ci(test)
 plotpoints = wbt.plotpoints(test)
 plt.plot(plotpoints.X[0], plotpoints.p)
+```
+
+## Stata example, via boottest
+```
+import delimited https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv
+regress y x, cluster(firm)
+boottest x, reps(999) julia
 ```
 
 ## Stata example, via Python and PyJulia
