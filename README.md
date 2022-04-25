@@ -4,7 +4,8 @@ WildBootTests.jl performs wild bootstrap-based hypothesis tests at extreme speed
 ## Documentation
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://droodman.github.io/WildBootTests.jl/dev)
 
-## Julia example
+## Examples
+### From Julia
 
 ```
 using WildBootTests, CSV, DataFrames, StatsModels, Plots
@@ -21,7 +22,7 @@ test                                                 # display results summary
 plot(plotpoints(test)...)                            # plot confidence curve
 ```
 
-## R example, via fwildclusterboot
+### From R via fwildclusterboot
 ```
 library(fwildclusterboot)
 df <- read.csv("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv")
