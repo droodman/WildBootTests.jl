@@ -32,7 +32,7 @@ summary(boot_lm)
 plot(boot_lm)
 ```
 
-## R example, via JuliaConnectoR
+### From via JuliaConnectoR
 ```
 library(JuliaConnectoR)
 startJuliaServer()
@@ -48,7 +48,7 @@ plotpoints <- WildBootTests$plotpoints(test)
 plot(plotpoints$X[[1]], plotpoints$p, type="l")
 ```
 
-## Python example, via PyJulia
+### From Python via PyJulia
 ```
 from julia import WildBootTests as wbt
 import pandas as pd
@@ -68,14 +68,14 @@ plotpoints = wbt.plotpoints(test)
 plt.plot(plotpoints.X[0], plotpoints.p)
 ```
 
-## Stata example, via boottest
+### From Stata via boottest
 ```
 import delimited https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv
 regress y x, cluster(firm)
 boottest x, reps(999) julia
 ```
 
-## Stata example, via Python and PyJulia
+### From Stata via Python and PyJulia
 ```
 import delimited https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv
 python
