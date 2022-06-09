@@ -4,7 +4,8 @@ WildBootTests.jl performs wild bootstrap-based hypothesis tests at extreme speed
 ## Documentation
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://droodman.github.io/WildBootTests.jl/dev)
 
-## Julia example
+## Examples
+### From Julia
 
 ```
 using WildBootTests, CSV, DataFrames, StatsModels, Plots
@@ -21,16 +22,17 @@ test                                                 # display results summary
 plot(plotpoints(test)...)                            # plot confidence curve
 ```
 
-## R example, via wildboottestjlr
+### From R via fwildclusterboot
 ```
-library(wildboottestjlr)
+library(fwildclusterboot)
 df <- read.csv("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv")
-lm_fit <- lm(y ~ x, data = fd)
-boot_lm <- boottest(lm_fit, clustid = "firm", param = "x", beta0 = 1, B = 999)
+lm_fit <- lm(y ~ x, data = df)
+boot_lm <- boottest(lm_fit, clustid = "firm", param = "x", r = 1, B = 999,  boot_algo = "WildBootTests.jl")
 summary(boot_lm)
+plot(boot_lm)
 ```
 
-## R example, via JuliaConnectoR
+### From via JuliaConnectoR
 ```
 library(JuliaConnectoR)
 startJuliaServer()
@@ -46,7 +48,7 @@ plotpoints <- WildBootTests$plotpoints(test)
 plot(plotpoints$X[[1]], plotpoints$p, type="l")
 ```
 
-## Python example, via PyJulia
+### From Python via PyJulia
 ```
 from julia import WildBootTests as wbt
 import pandas as pd
@@ -66,7 +68,14 @@ plotpoints = wbt.plotpoints(test)
 plt.plot(plotpoints.X[0], plotpoints.p)
 ```
 
-## Stata example, via Python and PyJulia
+### From Stata via boottest
+```
+import delimited https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv
+regress y x, cluster(firm)
+boottest x, reps(999) julia
+```
+
+### From Stata via Python and PyJulia
 ```
 import delimited https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv
 python
