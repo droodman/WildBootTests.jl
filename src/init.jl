@@ -9,7 +9,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   	o.κ = one(T)
   	o.liml = false
   end
-  if !(o.REst = length(o.R₁)>0)  # base model contains no restrictions?
+  if iszero(length(o.R₁))  # base model contains no restrictions?
     o.R₁ = zeros(T,0,o.kZ)
     o.r₁ = zeros(T,0)
   end
@@ -271,7 +271,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   o.sqrt = isone(o.dof)  # work with t/z stats instead of F/chi2?
 
   if o.small
-		_dof = o._Nobs - o.kZ + (o.ml ? 0 : ncols(o.Repl.R₁invR₁R₁)) - o.FEdfadj
+		_dof = o._Nobs - o.kZ + (o.ml ? 0 : nrows(o.R₁)) - o.FEdfadj
 		o.dof_r = o.NClustVar>0 ? minN - one(T) : _dof  # floating-point dof_r allows for fractional fweights, FWIW...
 		o.smallsample = _dof / (o._Nobs - o.robust)
 	else
