@@ -102,10 +102,10 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 	else
 		if o.arubin
 			EstimateARubin!(o.DGP, o, thisr)
-			MakeResidualsOLSARubin!(o.DGP, o)
+			MakeResidualsARubin!(o.DGP, o)
 		elseif iszero(o.κ)  # regular OLS
 			EstimateOLS!(o.DGP, o.null ? [o.r₁ ; thisr] : o.r₁)
-			MakeResidualsOLSARubin!(o.DGP, o)
+			MakeResidualsOLS!(o.DGP, o)
 		elseif o.null  # in score bootstrap for IV/GMM, if imposing null, then DGP constraints, κ, Hessian, etc. do vary with r and must be set now
 			EstimateIV!(o.DGP, o, [o.r₁ ; thisr])
 			InitTestDenoms!(o.DGP, o)
@@ -194,7 +194,7 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 		if o.arubin
 			o.numerw[:,1] = o.v_sd * o.DGP.β̈[o.kX₁+1:end]  # coefficients on excluded instruments in arubin OLS
 		elseif !o.null  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this.
-			o.numerw[:,1] = o.v_sd * (o.R * (o.ml ? o.β̈ : iszero(o.κ) ? o.M.β̈ : o.M.Rpar * o.M.β̈) - r)  # κ≂̸0  score bootstrap of IV ⇒ using FWL and must factor in R∥ 
+			o.numerw[:,1] = o.v_sd * (o.R * (o.ml ? o.β̈ : iszero(o.κ) ? view(o.M.β̈  ,:,1) : o.M.Rpar * view(o.M.β̈  ,:,1)) - r)  # κ≂̸0  score bootstrap of IV ⇒ using FWL and must factor in R∥ 
 		end
 	end
 

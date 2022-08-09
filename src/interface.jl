@@ -110,6 +110,7 @@ function __wildboottest(
 	small::Bool,
 	clusteradj::Bool,
 	clustermin::Bool,
+	jk::Bool,
 	scorebs::Bool,
 	reps::Int64,
 	imposenull::Bool,
@@ -132,7 +133,7 @@ function __wildboottest(
 	getauxweights::Bool) where T
 
 	M = StrBootTest{T}(R, r, R1, r1, resp, predexog, predendog, inst, obswt, fweights, liml, fuller, kappa, arubin,
-	                   reps, auxwttype, rng, maxmatsize, ptype, imposenull, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, issorted, hetrobust, small, clusteradj, clustermin,
+	                   reps, auxwttype, rng, maxmatsize, ptype, imposenull, jk, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, issorted, hetrobust, small, clusteradj, clustermin,
 	                   nfe, feid, fedfadj, level, rtol, madjtype, nH0, ml, beta, A, scores, getplot,
 	                   gridmin, gridmax, gridpoints)
 
@@ -187,6 +188,7 @@ function _wildboottest(T::DataType,
 					  small::Bool=true,
 						clusteradj::Bool=small,
 						clustermin::Bool=false,
+					  jk::Bool=false,
 					  scorebs::Bool=false,
 					  reps::Integer=999,
 					  imposenull::Bool=true,
@@ -292,6 +294,7 @@ function _wildboottest(T::DataType,
 		small,
 		clusteradj,
 		clustermin,
+		jk,
 		scorebs,
 		reps=Int64(reps),
 		imposenull,
@@ -357,6 +360,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `small::Bool=true`: true to multiply test statistics by G/(G-1) × N/(N-k), where G, N, k are number of clusters, observations, and predictors
 * `clusteradj::Bool=true`: false to drop G/(G-1) factor
 * `clustermin::Bool=false``: for multiway clustering, true to base G/(G-1) factor for all clusterings ]on the smallest G across clusterings
+* `jk::Bool=false`: true to base the bootstrap on jackknifed residuals
 * `scorebs::Bool=false`: true for score bootstrap instead of wild bootstrap
 * `reps::Integer=999`: number of bootstrap replications; `reps` = 0 requests classical Rao (or Wald) test if `imposenull` = `true` (or `false`)
 * `imposenull::Bool=true`: true to impose null

@@ -207,7 +207,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 				setR!(o.DGP, o, o.R₁, zeros(T,0,o.kZ))  # no-null model
 				InitVarsIV!(o.DGP, o)
 				EstimateIV!(o.DGP, o, o.r₁)
-				o.confpeak = o.DGP.β̈  # estimated coordinate of confidence peak
+				o.confpeak = view(o.DGP.β̈  ,:,1)  # estimated coordinate of confidence peak
 			end
 
 			o.DGP = StrEstimator{T}(true, false, zero(T), zero(T))

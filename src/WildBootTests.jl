@@ -76,7 +76,7 @@ function NoNullUpdate!(o::StrBootTest{T} where T)
 		EstimateARubin!(o.DGP, o, o.r)
 		o.numer[:,1] = o.v_sd * @view o.DGP.β̈[o.kX₁+1:end,:]  # coefficients on excluded instruments in arubin OLS
 	else
-		o.numer[:,1] = o.v_sd * (o.R * (o.ml ? o.β̈ : iszero(o.κ) ? o.M.β̈ : o.M.Rpar * o.M.β̈) - o.r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
+		o.numer[:,1] = o.v_sd * (o.R * (o.ml ? o.β̈  : iszero(o.κ) ? view(o.M.β̈  ,:,1) : o.M.Rpar * view(o.M.β̈  ,:,1)) - o.r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
 	end
 	o.dist[1] = isone(o.dof) ? o.numer[1] / sqrtNaN(o.statDenom[1]) : o.numer[:,1]'invsym(o.statDenom)*o.numer[:,1]
 	nothing
@@ -99,3 +99,18 @@ include("precompile_WildBootTests.jl")  # https://timholy.github.io/SnoopCompile
 _precompile_()
 
 end
+
+
+# using StableRNGs, StatFiles, DataFrames, CategoricalArrays, StatsModels
+# # cd("test")
+# df = DataFrame(load("nlsw88.dta"))[:,[:wage; :tenure; :ttl_exp; :collgrad; :industry]]
+# dropmissing!(df)
+# desc = describe(df, :eltype)
+# f = @formula(wage ~ 1 + tenure + ttl_exp + collgrad)
+# f = apply_schema(f, schema(f, df))
+# resp, predexog = modelcols(f, df)
+
+# println(log, "\nconstraint 1 ttl_exp = .2")
+# println(log, "cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(industry)")
+# println(log, "boottest tenure")
+# test = WildBootTests.wildboottest([0 1 0 0], [0]; R1=[0 0 1 0], r1=[.2], resp, predexog, clustid=df.industry, rng=StableRNG(1231), jk=false)

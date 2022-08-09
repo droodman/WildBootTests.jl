@@ -17,11 +17,11 @@ mutable struct StrEstimator{T<:AbstractFloat}
   R₁perp::Matrix{T}; Rpar::Matrix{T}
 
   kZ::Int64
-  y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β̈::Vector{T}; γ̈::Vector{T}; β̈₀::Vector{T}; invXXXy₁par::Vector{T}
+  y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β̈::Matrix{T}; γ̈::Vector{T}; β̈₀::Matrix{T}; invXXXy₁par::Vector{T}
   Yendog::Matrix{Bool}
   invZperpZperp::Symmetric{T,Matrix{T}}; invZperpZperpZperpX::Matrix{T}; XZ::Matrix{T}; YPXY::Symmetric{T,Matrix{T}}; R₁invR₁R₁::Matrix{T}
 	restricted::Bool; RperpX::Matrix{T}; RperpXperp::Matrix{T}; RRpar::Matrix{T}; RparX::Matrix{T}; RparY::Matrix{T}; RR₁invR₁R₁::Matrix{T}
-	∂β̈∂r::Matrix{T}; YY::Symmetric{T,Matrix{T}}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; Rt₁::Vector{T}
+	∂β̈∂r::Array{T,3}; YY::Symmetric{T,Matrix{T}}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; Rt₁::Vector{T}
 	invXX::Symmetric{T,Matrix{T}}; Y₂::Matrix{T}; X₂::Matrix{T}; invH::Symmetric{T,Matrix{T}}
 	y₁par::Vector{T}; Xy₁par::Vector{T}
 	A::Symmetric{T,Matrix{T}}; Z::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
@@ -60,7 +60,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   ml::Bool; β̈::Vector{T}; A::Symmetric{T,Matrix{T}}; sc::Matrix{T}
   willplot::Bool; gridmin::Vector{T}; gridmax::Vector{T}; gridpoints::Vector{Float32}
 
-  q::Int16; twotailed::Bool; scorebs::Bool; robust::Bool
+  q::Int16; twotailed::Bool; jk::Bool; scorebs::Bool; robust::Bool
 
   WRE::Bool; initialized::Bool; NFE::Int64; FEboot::Bool; granular::Bool; NErrClustCombs::Int16; subcluster::Int8; BFeas::Int64; interpolating::Bool
   v_sd::T
@@ -89,7 +89,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	DGP::StrEstimator{T}; Repl::StrEstimator{T}; M::StrEstimator{T}
 	clust::Vector{StrClust{T}}
 	denom::Matrix{Matrix{T}}; Kcd::Matrix{Matrix{T}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; S✻UU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
-	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; S✻XU::Vector{Matrix{T}}; invXXS✻XU::Vector{Matrix{T}}; invZperpZperpS✻ZperpU::Vector{Matrix{T}}; S✻YU::Matrix{Vector{T}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻ZperpU::Vector{Matrix{T}}; CTFEU::Vector{Matrix{T}}
+	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; S✻XU::Vector{Matrix{T}}; invXXS✻XU::Vector{Matrix{T}}; invZperpZperpS✻ZperpU::Vector{Matrix{T}}; S✻YU::Matrix{Vector{T}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻ZperpU::Vector{Matrix{T}}; CT✻FEU::Vector{Matrix{T}}
   ∂denom∂r::Array{Matrix{T},3}; ∂Jcd∂r::Array{Matrix{T},3}; ∂²denom∂r²::Array{Matrix{T},4}
 	FEs::Vector{StrFE{T}}
   T1L::Vector{Matrix{T}}; T1R::Vector{Matrix{T}}; T2::Matrix{T}; J⋂s::Vector{Array{T,3}}; Q::Array{T,3}; β̈v::Vector{Matrix{T}}
@@ -111,7 +111,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	S✻⋂XU₂::Array{T,3}; S✻⋂XU₂RparY::Array{T,3}; S✻XU₂::Array{T,3}; S✻XU₂RparY::Array{T,3}; S✻ZperpU₂::Array{T,3}; S✻ZperpU₂RparY::Array{T,3}; invZperpZperpS✻ZperpU₂::Array{T,3}; invZperpZperpS✻ZperpU₂RparY::Array{T,3}; invXXS✻XU₂::Array{T,3}; invXXS✻XU₂RparY::Array{T,3}
 
 	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, liml, 
-	               fuller, κ, arubin, B, auxtwtype, rng, maxmatsize, ptype, null, scorebs, bootstrapt, ID, NBootClustVar, NErrClustVar, issorted, robust, small, clusteradj, clustermin,
+	               fuller, κ, arubin, B, auxtwtype, rng, maxmatsize, ptype, null, jk, scorebs, bootstrapt, ID, NBootClustVar, NErrClustVar, issorted, robust, small, clusteradj, clustermin,
 								 NFE, FEID, FEdfadj, level, rtol, madjtype, NH₀, ml,
 								 β̈, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real =
 		begin
@@ -123,7 +123,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 					fuller, κ, arubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, ID, NBootClustVar, NErrClustVar, issorted, small, clusteradj, clustermin, 
 					FEID, FEdfadj, level, rtol, madjtype, NH₀, ml, 
 					β̈, A, sc, willplot, gridmin, gridmax, gridpoints,
-				nrows(R), ptype == :symmetric || ptype == :equaltail, scorebs, robust || NErrClustVar>0,
+				nrows(R), ptype == :symmetric || ptype == :equaltail, jk, scorebs, robust || NErrClustVar>0,
 				false, false, NFE, false, false, 0, 0, 0, false,
 				one(T),
 				[zero(T)],

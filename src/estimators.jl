@@ -49,11 +49,30 @@ end
 function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::AbstractMatrix{T}) where T # Rperp is for replication regression--no null imposed
   o.y₁par = parent.y₁
 	o.ü₁ = Vector{T}(undef, parent.Nobs)
-  H = Symmetric(parent.X₁'parent.X₁)
+	S✻X₁y₁ = panelcross(parent.X₁, parent.y₁, parent.info✻)
+	X₁y₁ = sumpanelcross(S✻X₁y₁)
+	S✻X₁X₁ = panelcross(parent.X₁  , parent.X₁, parent.info✻)
+  H = sumpanelcross(S✻X₁X₁)
   o.invH = Symmetric(pinv(H))
   R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.invH : Symmetric(o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')  # for DGP regression
-  o.β̈₀ = R₁AR₁ * (parent.X₁'o.y₁par)
-  o.∂β̈∂r = R₁AR₁ * H * o.R₁invR₁R₁ - o.R₁invR₁R₁
+  if parent.jk
+		o.β̈₀   = Matrix{T}(undef, parent.kX₁, parent.N✻ + 1)
+		o.∂β̈∂r = Array{T,3}(undef, parent.kX₁, parent.N✻ + 1, ncols(o.R₁invR₁R₁))
+		_X₁y₁ = reshape(X₁y₁, parent.kX₁, 1            ) .- S✻X₁y₁
+		_X₁X₁ = reshape(   H, parent.kX₁, 1, parent.kX₁) .- S✻X₁X₁
+		o.β̈₀[:,1] .= R₁AR₁ * X₁y₁
+  	o.∂β̈∂r[:,1,:] .= R₁AR₁ * H * o.R₁invR₁R₁ - o.R₁invR₁R₁
+    for g ∈	1:parent.N✻
+      _H = Symmetric(view(_X₁X₁,:,g,:))
+			_invH = Symmetric(pinv(_H))
+      _R₁AR₁ = iszero(nrows(o.R₁perp)) ? _invH : Symmetric(o.R₁perp * invsym(o.R₁perp'_H*o.R₁perp) * o.R₁perp')
+      o.β̈₀[:,g+1]     .= _R₁AR₁ * view(_X₁y₁,:,g)
+      o.∂β̈∂r[:,g+1,:] .= _R₁AR₁ * _H * o.R₁invR₁R₁ - o.R₁invR₁R₁
+		end
+	else
+		o.β̈₀ = reshape(R₁AR₁ * X₁y₁, Val(2))
+  	t = R₁AR₁ * H * o.R₁invR₁R₁ - o.R₁invR₁R₁; o.∂β̈∂r = reshape(t, nrows(t), 1, ncols(t))
+	end
 
   o.A = iszero(nrows(Rperp)) ? o.invH : Symmetric(Rperp * invsym(Rperp'H*Rperp) * Rperp')  # for replication regression
   o.AR = o.A * parent.R'
@@ -72,8 +91,8 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
   (parent.scorebs || parent.robust) && (o.XAR = X₁₂B(parent, parent.X₁, parent.X₂, o.AR))
 
   R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.A : Symmetric(o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')
-  o.β̈₀   = R₁AR₁ * [parent.X₁'parent.y₁ ; parent.X₂'parent.y₁]
-  o.∂β̈∂r = R₁AR₁ * [parent.X₁'parent.Y₂ ; parent.X₂'parent.Y₂]
+  o.β̈₀   = reshape(R₁AR₁ * [parent.X₁'parent.y₁ ; parent.X₂'parent.y₁], Val(2))
+  t = R₁AR₁ * [parent.X₁'parent.Y₂ ; parent.X₂'parent.Y₂]; o.∂β̈∂r = reshape(t, nrows(t), 1, ncols(t))
 	nothing
 end
 
@@ -302,7 +321,7 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, r₁::AbstractV
 	    MakeH!(o, parent)
 	  end
 
-	  o.β̈ = o.invH * (isone(o.κ) ? o.ZXinvXXXy₁par : o.κ * (o.ZXinvXXXy₁par - o.Zy₁par) + o.Zy₁par)
+	  o.β̈ = reshape(o.invH * (isone(o.κ) ? o.ZXinvXXXy₁par : o.κ * (o.ZXinvXXXy₁par - o.Zy₁par) + o.Zy₁par), Val(2))
 	  o.t₁Y = o.R₁invR₁R₁Y * r₁
   elseif parent.WREnonARubin  # if not score bootstrap of IV/GMM
 	  o.Rt₁ = o.RR₁invR₁R₁ * r₁
@@ -311,7 +330,19 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, r₁::AbstractV
 end
 
 
-@inline function MakeResidualsOLSARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
+function MakeResidualsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
+	if parent.jk
+    for g ∈ 1:parent.N✻
+			s = parent.info✻[g]
+      o.ü₁[s] .= view(o.y₁par,s) .- view(parent.X₁,s,:) * view(o.β̈ , :,g+1)
+		end
+	else
+  	o.ü₁ .= o.y₁par .- X₁₂B(parent, parent.X₁, parent.X₂, o.β̈)
+	end
+	nothing
+end
+
+@inline function MakeResidualsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
   o.ü₁ .= o.y₁par .- X₁₂B(parent, parent.X₁, parent.X₂, o.β̈)
 	nothing
 end
@@ -326,10 +357,10 @@ function MakeResidualsIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	  Xu = o.Xy₁par - o.XZ * o.β̈  # after DGP regression, compute Y₂ residuals by regressing Y₂ on X while controlling for y₁ residuals, done through FWL
 	  negXuinvuu = Xu / -uu
 	  o.Π̂ = invsym(o.XX + negXuinvuu * Xu') * (negXuinvuu * (o.Y₂y₁par - o.ZY₂'o.β̈)' + o.XY₂)
-		o.γ̈ = o.RparY * o.β̈ + o.t₁Y
+		o.γ̈ = o.RparY * view(o.β̈ ,:,1) + o.t₁Y
 	  if parent.robust && parent.bootstrapt && parent.granular
 			o.Ü₂ .= o.Y₂ .- X₁₂B(parent, o.X₁, o.X₂, o.Π̂)
-			o.u⃛₁ .= o.y₁par .- o.Z * o.β̈ .+ o.Ü₂ * o.γ̈
+			o.u⃛₁ .= o.y₁par .- o.Z * view(o.β̈ ,:,1) .+ o.Ü₂ * o.γ̈
 		end
   end
 	nothing
@@ -350,3 +381,4 @@ function InitTestDenoms!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
   end
 	nothing
 end
+

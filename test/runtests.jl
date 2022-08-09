@@ -1,8 +1,9 @@
 pushfirst!(LOAD_PATH, ".")
-using WildBootTests, StableRNGs, StatFiles, DataFrames, CategoricalArrays, StatsModels
+using WildBootTests
+using StableRNGs, StatFiles, DataFrames, CategoricalArrays, StatsModels
 
-open("test/unittests.log", "w") do log  # use Github Desktop to detect changes in output
-  df = DataFrame(load("test/collapsed.dta"))
+open("unittests.log", "w") do log  # use Github Desktop to detect changes in output
+  df = DataFrame(load("collapsed.dta"))
   dropmissing!(df)
   f = @formula(hasinsurance ~ 1 + selfemployed + post + post_self)
   f = apply_schema(f, schema(f, df, Dict(:hasinsurance => ContinuousTerm)))
@@ -73,7 +74,7 @@ open("test/unittests.log", "w") do log  # use Github Desktop to detect changes i
   test = wildboottest([0 0 0 1; 0 0 1 0], [.05; -.02]; resp, predexog, hetrobust=false, scorebs=true, rng=StableRNG(1231))
   println(log, test)
   
-  df = DataFrame(load("test/nlsw88.dta"))[:,[:wage; :tenure; :ttl_exp; :collgrad; :industry]]
+  df = DataFrame(load("nlsw88.dta"))[:,[:wage; :tenure; :ttl_exp; :collgrad; :industry]]
   dropmissing!(df)
   desc = describe(df, :eltype)
   f = @formula(wage ~ 1 + tenure + ttl_exp + collgrad)
@@ -95,7 +96,7 @@ open("test/unittests.log", "w") do log  # use Github Desktop to detect changes i
   println(log, "\nivregress liml wage ttl_exp collgrad (tenure = union), cluster(industry)")
   println(log, "boottest tenure, ptype(equaltail) reps(9999)")
   
-  df = DataFrame(load("test/nlsw88.dta"))
+  df = DataFrame(load("nlsw88.dta"))
   df = df[:, [:wage; :tenure; :ttl_exp; :collgrad; :industry; :union]]
   dropmissing!(df)
   f = @formula(wage ~ 1 + ttl_exp + collgrad)
@@ -183,7 +184,7 @@ open("test/unittests.log", "w") do log  # use Github Desktop to detect changes i
   
   println(log, "\nivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)")
   println(log, "boottest tenure")
-  df = DataFrame(load("test/nlsw88.dta"))
+  df = DataFrame(load("nlsw88.dta"))
   df = df[:, [:wage, :tenure, :ttl_exp, :collgrad, :industry]]
   dropmissing!(df)
   f = @formula(wage ~ 1)
@@ -197,7 +198,7 @@ open("test/unittests.log", "w") do log  # use Github Desktop to detect changes i
   
   println(log, "\nivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)")
   println(log, "boottest tenure, nograph weight(webb) reps(9999)")
-  df = DataFrame(load("test/nlsw88.dta"))
+  df = DataFrame(load("nlsw88.dta"))
   df = df[:, [:wage, :tenure, :ttl_exp, :collgrad, :smsa, :race, :age, :union, :married, :industry]]
   dropmissing!(df)
   f = @formula(wage ~ 1 + collgrad + smsa + race + age)
@@ -219,7 +220,7 @@ open("test/unittests.log", "w") do log  # use Github Desktop to detect changes i
   
   println(log, "\nareg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)")
   println(log, "boottest tenure, cluster(age occupation) bootcluster(occupation)")
-  df = DataFrame(load("test/nlsw88.dta"))
+  df = DataFrame(load("nlsw88.dta"))
   dropmissing!(df)
   f = @formula(wage ~ ttl_exp + collgrad + tenure)  # constant unneeded in FE model
   f = apply_schema(f, schema(f, df))
@@ -265,7 +266,7 @@ open("test/unittests.log", "w") do log  # use Github Desktop to detect changes i
   test = wildboottest([0 1 0], [0];                         resp, predexog=predexog[:,[1,3]], predendog, inst=[inst predexog[:,2]], clustid=df.industry, obswt=df.hours, feid=df.age, rng=StableRNG(1231), liml=true, gridmin=[-1], gridmax=[1])
   println(log, test)
   
-  df = DataFrame(load("test/abdata.dta"))[:,[:n; :w; :k; :ys; :id; :year; :ind]]
+  df = DataFrame(load("abdata.dta"))[:,[:n; :w; :k; :ys; :id; :year; :ind]]
   dropmissing!(df)
   f = @formula(n ~ w + k)  # constant unneeded in FE model
   f = apply_schema(f, schema(f, df))
@@ -287,7 +288,7 @@ open("test/unittests.log", "w") do log  # use Github Desktop to detect changes i
   println(log, "boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode)")
   println(log, "boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(pixcluster)")
   println(log, "boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode pixcluster)")
-  df = DataFrame(load("test/pixel-level-baseline-final.dta"))
+  df = DataFrame(load("pixel-level-baseline-final.dta"))
   pix  = [:lnkm, :pixpetro, :pixdia, :pixwaterd, :pixcapdist, :pixmal, :pixsead, :pixsuit, :pixelev, :pixbdist]
   geo  = [:lnwaterkm, :lnkm2split, :mean_elev, :mean_suit, :malariasuit, :petroleum, :diamondd]
   poly = [:capdistance1, :seadist1, :borderdist1]
@@ -317,7 +318,7 @@ open("test/unittests.log", "w") do log  # use Github Desktop to detect changes i
   println(log, "boottest merit, nogr reps(9999) gridpoints(10) bootcluster(individual)")
   println(log, "boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual)")
   println(log, "boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual) maxmatsize(.1)")
-  df = DataFrame(load("test/regm.dta"))
+  df = DataFrame(load("regm.dta"))
   df = DataFrame(coll=Bool.(df.coll), merit=Bool.(df.merit), male=Bool.(df.male), black=Bool.(df.black), asian=Bool.(df.asian), state=categorical(Int8.(df.state)), year=categorical(Int16.(df.year)))
   dropmissing!(df)
   df = df[df.state .∉ Ref([34,57,59,61,64,71,72,85,88]),:]
