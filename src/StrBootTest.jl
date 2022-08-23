@@ -17,11 +17,11 @@ mutable struct StrEstimator{T<:AbstractFloat}
   R₁perp::Matrix{T}; Rpar::Matrix{T}
 
   kZ::Int64
-  y₁::Vector{T}; ü₁::Vector{T}; u⃛₁::Vector{T}; β̈::Matrix{T}; γ̈::Vector{T}; β̈₀::Matrix{T}; invXXXy₁par::Vector{T}
+  y₁::Vector{T}; ü₁::Vector{Vector{T}}; u⃛₁::Vector{Vector{T}}; β̈::Matrix{T}; γ̈::Vector{T}; β̈₀::Matrix{T}; invXXXy₁par::Vector{T}
   Yendog::Matrix{Bool}
   invZperpZperp::Symmetric{T,Matrix{T}}; invZperpZperpZperpX::Matrix{T}; XZ::Matrix{T}; YPXY::Symmetric{T,Matrix{T}}; R₁invR₁R₁::Matrix{T}
 	restricted::Bool; RperpX::Matrix{T}; RperpXperp::Matrix{T}; RRpar::Matrix{T}; RparX::Matrix{T}; RparY::Matrix{T}; RR₁invR₁R₁::Matrix{T}
-	∂β̈∂r::Array{T,3}; YY::Symmetric{T,Matrix{T}}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Matrix{T}; Rt₁::Vector{T}
+	∂β̈∂r::Array{T,3}; YY::Symmetric{T,Matrix{T}}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Vector{Matrix{T}}; Rt₁::Vector{T}
 	invXX::Symmetric{T,Matrix{T}}; Y₂::Matrix{T}; X₂::Matrix{T}; invH::Symmetric{T,Matrix{T}}
 	y₁par::Vector{T}; Xy₁par::Vector{T}
 	A::Symmetric{T,Matrix{T}}; Z::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
@@ -78,14 +78,13 @@ mutable struct StrBootTest{T<:AbstractFloat}
 		purerobust::Bool; N✻::Int64; N⋂::Int64; N✻⋂::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX::Int64
   _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; u✻::Matrix{T}
   info✻::Vector{UnitRange{Int64}}; info✻_✻⋂::Vector{UnitRange{Int64}}; infoBootAll::Vector{UnitRange{Int64}}; info⋂_✻⋂::Vector{UnitRange{Int64}}
-  JN⋂N✻::Matrix{T}; statDenom::Matrix{T}; uXAR::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; β̈dev::Matrix{T}
+  JN⋂N✻::Matrix{T}; statDenom::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; β̈dev::Matrix{T}
 	YY✻_b::Matrix{T}; YPXY✻_b::Matrix{T}; numerw::Matrix{T}; numer_b::Vector{T}; dist::Matrix{T}
 		
 	distCDR::Matrix{T}; plotX::Vector{Vector{T}}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
   numersum::Vector{T}; u✻₀::Matrix{T}; invFEwt::Vector{T}
 	β̈s::Matrix{T}; As::Matrix{T}
 	info✻⋂::Vector{UnitRange{Int64}}; info⋂::Vector{UnitRange{Int64}}; ID✻⋂::Matrix{T}
-	ü::Vector{T}
 	DGP::StrEstimator{T}; Repl::StrEstimator{T}; M::StrEstimator{T}
 	clust::Vector{StrClust{T}}
 	denom::Matrix{Matrix{T}}; Kcd::Matrix{Matrix{T}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; S✻UU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}

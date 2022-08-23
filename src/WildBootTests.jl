@@ -28,8 +28,8 @@ function boottestOLSARubin!(o::StrBootTest{T}) where T
 
 	MakeInterpolables!(o)  # make stuff that depends linearly on r, possibly by interpolating, for first weight group
 
-	MakeNonWREStats!(o, 1)
-	for w ∈ 2:o.Nw  # do group 1 first because it includes col 1, which is all that might need updating in constructing CI in WCU
+	MakeNonWREStats!(o, 1)  # do group 1 first because it includes col 1, which is all that might need updating in constructing CI in WCU
+	for w ∈ 2:o.Nw
 		MakeWildWeights!(o, length(o.WeightGrp[w]), first=false)
 		MakeNonWREStats!(o, w)
 	end
@@ -73,7 +73,7 @@ function NoNullUpdate!(o::StrBootTest{T} where T)
 	if o.WREnonARubin
 		o.numer[:,1] = o.R * o.DGP.Rpar * o.β̈s[1] - o.r
 	elseif o.arubin
-		EstimateARubin!(o.DGP, o, o.r)
+		EstimateARubin!(o.DGP, o, false, o.r)
 		o.numer[:,1] = o.v_sd * @view o.DGP.β̈[o.kX₁+1:end,:]  # coefficients on excluded instruments in arubin OLS
 	else
 		o.numer[:,1] = o.v_sd * (o.R * (o.ml ? o.β̈  : iszero(o.κ) ? view(o.M.β̈  ,:,1) : o.M.Rpar * view(o.M.β̈  ,:,1)) - o.r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this

@@ -98,91 +98,112 @@ end
 # Construct stuff that depends linearly or quadratically on r and doesn't depend on v. No interpolation.
 function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 	if o.ml
-		o.uXAR = o.sc * (o.AR = o.A * o.R')
+		uXAR = o.sc * (o.AR = o.A * o.R')
 	else
 		if o.arubin
-			EstimateARubin!(o.DGP, o, thisr)
-			MakeResidualsARubin!(o.DGP, o)
+			EstimateARubin!(o.DGP, o, o.jk, thisr)
+			MakeResidualsOLS!(o.DGP, o)
 		elseif iszero(o.κ)  # regular OLS
-			EstimateOLS!(o.DGP, o.null ? [o.r₁ ; thisr] : o.r₁)
+			EstimateOLS!(o.DGP, o.jk, o.null ? [o.r₁ ; thisr] : o.r₁)
 			MakeResidualsOLS!(o.DGP, o)
 		elseif o.null  # in score bootstrap for IV/GMM, if imposing null, then DGP constraints, κ, Hessian, etc. do vary with r and must be set now
 			EstimateIV!(o.DGP, o, [o.r₁ ; thisr])
 			InitTestDenoms!(o.DGP, o)
 			MakeResidualsIV!(o.DGP, o)
 		end
-
-		o.ü = o.DGP.ü₁
-
-		(o.scorebs || (o.robust && o.granular < o.NErrClustCombs)) &&
-			(o.uXAR = o.DGP.ü₁ .* o.M.XAR)
 	end
 
-	o.SuwtXA = o.scorebs ?
-				o.B>0 ?
-					 o.NClustVar>0 ?
-			      	@panelsum(o, o.uXAR, o.info✻) :
-				      o.uXAR                    :
-				   sum(o.uXAR,dims=1)'  :
-			  o.DGP.A * panelsum2(o, o.X₁, o.X₂, o.ü, o.info✻)'  # same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined; X₂ empty except in Anderson-Rubin
+	for _jk in o.jk:-1:0  # if jackknifing, first do jk, then full original sample to get test stat  
+		if o.scorebs || (o.robust && o.granular < o.NErrClustCombs)
+			uXAR = o.DGP.ü₁[1+_jk] .* o.M.XAR
+		end
 
-	if o.robust && o.bootstrapt && o.granular < o.NErrClustCombs
-		u✻XAR = @panelsum(o, o.uXAR, o.info✻⋂)  # collapse data to all-boot && error-cluster-var intersections. If no collapsing needed, panelsum() will still fold in any weights
-		if o.B>0
-			if o.scorebs
-				K = [zeros(T, o.N⋂, o.N✻) for _ in 1:o.dof]::Vector{Matrix{T}}  # inefficient, but not optimizing for the score bootstrap
-			else
-				K = [panelsum2(o, o.X₁, o.X₂, view(o.DGP.XAR,:,d), o.info⋂) * o.SuwtXA for d ∈ 1:o.dof]::Vector{Matrix{T}}
-			end
+		o.SuwtXA = o.scorebs ?
+									o.B>0 ?
+										 o.NClustVar>0 ?
+								      	@panelsum(o, uXAR, o.info✻) :
+									      uXAR                    :
+									   sum(uXAR,dims=1)'  :
+								  o.DGP.A * panelsum2(o, o.X₁, o.X₂, o.DGP.ü₁[1+_jk], o.info✻)'  # same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined; X₂ empty except in Anderson-Rubin
 
-			if o.NFE>0 && !o.FEboot
-				tmp = o.invFEwt .* crosstabFE(o, o.ü, o.info✻)
+		if o.robust && o.bootstrapt && o.granular < o.NErrClustCombs
+			u✻XAR = @panelsum(o, uXAR, o.info✻⋂)  # collapse data to all-boot && error-cluster-var intersections. If no collapsing needed, panelsum() will still fold in any weights
+			if o.B>0
+				if o.scorebs
+					K = [zeros(T, o.N⋂, o.N✻) for _ in 1:o.dof]::Vector{Matrix{T}}  # inefficient, but not optimizing for the score bootstrap
+				else
+					K = [panelsum2(o, o.X₁, o.X₂, view(o.DGP.XAR,:,d), o.info⋂) * o.SuwtXA for d ∈ 1:o.dof]::Vector{Matrix{T}}
+				end
+
+				if o.NFE>0 && !o.FEboot
+					tmp = o.invFEwt .* crosstabFE(o, o.DGP.ü₁[1+_jk], o.info✻)
+					@inbounds for d ∈ 1:o.dof
+						K[d] .+= o.M.CT_XAR[d] * tmp
+					end
+				end
 				@inbounds for d ∈ 1:o.dof
-					K[d] .+= o.M.CT_XAR[d] * tmp
+					K[d][o.crosstab⋂✻ind] .-= view(u✻XAR,:,d)  # subtract crosstab of u✻XAR wrt bootstrapping cluster and all-cluster-var intersections from M
+					o.scorebs && (K[d] .-= o.ClustShare * colsum(K[d]))  # recenter
 				end
-			end
-			@inbounds for d ∈ 1:o.dof
-				K[d][o.crosstab⋂✻ind] .-= view(u✻XAR,:,d)  # subtract crosstab of u✻XAR wrt bootstrapping cluster and all-cluster-var intersections from M
-				o.scorebs && (K[d] .-= o.ClustShare * colsum(K[d]))  # recenter
-			end
 
-			@inbounds for c ∈ 1+o.granular:o.NErrClustCombs
-				for d ∈ 1:o.dof
-					nrows(o.clust[c].order)>0 &&
-						(K[d] = K[d][o.clust[c].order,:])
-					o.Kcd[c,d] = @panelsum(o, K[d], o.clust[c].info)
+				@inbounds for c ∈ 1+o.granular:o.NErrClustCombs
+					for d ∈ 1:o.dof
+						nrows(o.clust[c].order)>0 &&
+							(K[d] = K[d][o.clust[c].order,:])
+						o.Kcd[c,d] = @panelsum(o, K[d], o.clust[c].info)
+					end
 				end
-			end
-		else  # B = 0. In this case, only 1st term of (64) is non-zero after multiplying by v* (= all 1's), and it is then a one-way sum by c
-			o.scorebs &&
-				(u✻XAR .-= o.ClustShare * colsum(u✻XAR))  # recenter if OLS
-			@inbounds for c ∈ 1:o.NErrClustCombs
-				nrows(o.clust[c].order)>0 &&
-					(u✻XAR = u✻XAR[o.clust[c].order,:])
-				tmp = @panelsum(o, u✻XAR, o.clust[c].info)
-				for d ∈ 1:o.dof
-					o.Kcd[c,d] = reshape(view(tmp,:,d),:,1)
+			else  # B = 0. In this case, only 1st term of (64) is non-zero after multiplying by v* (= all 1's), and it is then a one-way sum by c
+				o.scorebs &&
+					(u✻XAR .-= o.ClustShare * colsum(u✻XAR))  # recenter if OLS
+				@inbounds for c ∈ 1:o.NErrClustCombs
+					nrows(o.clust[c].order)>0 &&
+						(u✻XAR = u✻XAR[o.clust[c].order,:])
+					tmp = @panelsum(o, u✻XAR, o.clust[c].info)
+					for d ∈ 1:o.dof
+						o.Kcd[c,d] = reshape(view(tmp,:,d),:,1)
+					end
 				end
 			end
 		end
+		MakeNumerAndJ!(o, 1, Bool(_jk), thisr)  # compute J = κ * v; if Nw > 1, then this is for 1st group; if interpolating, it is only group, and may be needed now to prep interpolation
 	end
-	MakeNumerAndJ!(o, 1, thisr)  # compute J = κ * v; if Nw > 1, then this is for 1st group; if interpolating, it is only group, and may be needed now to prep interpolation
 	nothing
 end
 
 # compute stuff depending linearly on v, needed to prep for interpolation
-function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{T}(undef,0)) where T  # called to *prepare* interpolation, or when w>1, in which case there is no interpolation
-	o.numerw = o.scorebs ?
-			   (o.B>0 ?
-				 	o.SuwtXA'o.v :
-				 	o.SuwtXA * o.v_sd    ) :
-			   (!o.robust || o.granular || o.purerobust ?
-				  	 o.R * (o.β̈dev = o.SuwtXA * o.v) :
-				 		(o.R * o.SuwtXA) * o.v)
+function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVector=Vector{T}(undef,0)) where T  # called to *prepare* interpolation, or when w>1, in which case there is no interpolation
+	if o.jk && !_jk && !o.arubin && o.null
+		o.numer[:,1] = o.v_sd * (
+										o.scorebs ?
+										   (o.B>0 ?
+											 	colsum(o.SuwtXA)' :
+											 	o.SuwtXA         ) :
+										   (!o.robust || o.granular || o.purerobust ?
+											  	 o.R * (o.β̈dev = rowsum(o.SuwtXA)) :
+											 		 rowsum(o.R * o.SuwtXA)))
+	else
+		o.numerw = o.scorebs ?
+			(o.B>0 ?
+				o.SuwtXA'o.v :
+				o.SuwtXA * o.v_sd    ) :
+			(!o.robust || o.granular || o.purerobust ?
+					o.R * (o.β̈dev = o.SuwtXA * o.v) :
+					(o.R * o.SuwtXA) * o.v)
 
+		if isone(w)
+			if o.arubin
+				o.numerw[:,1] = o.v_sd * o.DGP.β̈[o.kX₁+1:end]  # coefficients on excluded instruments in arubin OLS
+			elseif !o.null  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this.
+				o.numerw[:,1] = o.v_sd * (o.R * (o.ml ? o.β̈ : iszero(o.κ) ? view(o.M.β̈  ,:,1) : o.M.Rpar * view(o.M.β̈  ,:,1)) - r)  # κ≂̸0  score bootstrap of IV ⇒ using FWL and must factor in R∥ 
+			end
+		end
+
+		@storeWtGrpResults!(o.numer, o.numerw)
+	end
 
 	if o.interpolate_u
-		o.u✻ = o.B>0 ? o.v .* o.ü : reshape(o.ü,:,1)
+		o.u✻ = o.B>0 ? o.v .* o.DGP.ü₁[1+_jk] : reshape(o.DGP.ü₁[1+_jk],:,1)
 		if o.scorebs
 			o.u✻ .-= o.ClustShare * colsum(o.u✻)
 		else
@@ -190,39 +211,35 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, r::AbstractVector=Vector{
 		end
 	end
 
-	if isone(w)
-		if o.arubin
-			o.numerw[:,1] = o.v_sd * o.DGP.β̈[o.kX₁+1:end]  # coefficients on excluded instruments in arubin OLS
-		elseif !o.null  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this.
-			o.numerw[:,1] = o.v_sd * (o.R * (o.ml ? o.β̈ : iszero(o.κ) ? view(o.M.β̈  ,:,1) : o.M.Rpar * view(o.M.β̈  ,:,1)) - r)  # κ≂̸0  score bootstrap of IV ⇒ using FWL and must factor in R∥ 
-		end
-	end
-
-	@storeWtGrpResults!(o.numer, o.numerw)
-
 	if o.B>0 && o.robust && o.bootstrapt
-		if o.granular || o.purerobust  # optimized treatment when bootstrapping by many/small groups
-			if o.purerobust
-				o.u✻ = o.ü .* o.v
-				o.NFE>0 && partialFE!(o, o.u✻)
-				o.u✻ .-= o.X₁ * (@view o.β̈dev[1:o.kX₁,:]) .+ o.X₂ * (@view o.β̈dev[o.kX₁+1:end,:])
-			else  # clusters small but not all singletons
-				if o.NFE>0 && !o.FEboot
-					o.u✻ = o.ü .* view(o.v, o.ID✻, :)
-					partialFE!(o, o.u✻)
-					@inbounds for d ∈ 1:o.dof
-						o.Jcd[1,d] = @panelsum(o, o.u✻, view(o.M.WXAR,:,d), o.info⋂)                                - panelsum2(o, o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂) * o.β̈dev
-					end
-				else
-					_v = view(o.v,o.ID✻_✻⋂,:)
-					@inbounds for d ∈ 1:o.dof
-						o.Jcd[1,d] = panelsum(o, panelsum(o, o.ü, view(o.M.WXAR,:,d), o.info✻⋂) .* _v, o.info⋂_✻⋂) - panelsum2(o, o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂) * o.β̈dev
+		if o.jk && !_jk
+			@inbounds	for c ∈ 1:o.NErrClustCombs, d ∈ eachindex(axes(o.Jcd, 2), axes(o.Kcd, 2))
+				o.Jcd[c,d][:,1] .= rowsum(o.Kcd[c,d]) .* o.v_sd
+			end
+		else
+			if o.granular || o.purerobust  # optimized treatment when bootstrapping by many/small groups
+				if o.purerobust
+					o.u✻ = o.DGP.ü₁[1+_jk] .* o.v
+					o.NFE>0 && partialFE!(o, o.u✻)
+					o.u✻ .-= o.X₁ * (@view o.β̈dev[1:o.kX₁,:]) .+ o.X₂ * (@view o.β̈dev[o.kX₁+1:end,:])
+				else  # clusters small but not all singletons
+					if o.NFE>0 && !o.FEboot
+						o.u✻ = o.DGP.ü₁[1+_jk] .* view(o.v, o.ID✻, :)
+						partialFE!(o, o.u✻)
+						@inbounds for d ∈ 1:o.dof
+							o.Jcd[1,d] = @panelsum(o, o.u✻, view(o.M.WXAR,:,d), o.info⋂)                                - panelsum2(o, o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂) * o.β̈dev
+						end
+					else
+						_v = view(o.v,o.ID✻_✻⋂,:)
+						@inbounds for d ∈ 1:o.dof
+							o.Jcd[1,d] = panelsum(o, panelsum(o, o.DGP.ü₁[1+_jk], view(o.M.WXAR,:,d), o.info✻⋂) .* _v, o.info⋂_✻⋂) - panelsum2(o, o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂) * o.β̈dev
+						end
 					end
 				end
 			end
-		end
-		@inbounds	for c ∈ o.granular+1:o.NErrClustCombs, d ∈ eachindex(axes(o.Jcd, 2), axes(o.Kcd, 2))
-			o.Jcd[c,d] = o.Kcd[c,d] * o.v
+			@inbounds	for c ∈ o.granular+1:o.NErrClustCombs, d ∈ eachindex(axes(o.Jcd, 2), axes(o.Kcd, 2))
+				o.Jcd[c,d] = o.Kcd[c,d] * o.v
+			end
 		end
 	end
 	nothing
@@ -242,7 +259,7 @@ function MakeNonWRELoop1!(o::StrBootTest, tmp::Matrix, w::Integer)
 end
 
 function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
-	w > 1 && MakeNumerAndJ!(o, w)
+	w > 1 && MakeNumerAndJ!(o, w, o.jk)
 	!o.bootstrapt && return
 
 	if o.robust

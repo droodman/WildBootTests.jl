@@ -185,7 +185,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
   EstimateIV!(o.DGP, o, r₁)
   MakeResidualsIV!(o.DGP, o)
 	_β̈  = view(o.DGP.β̈  ,:,1)
-  o.robust && o.bootstrapt && o.granular && (Ü₂par = view(o.DGP.Ü₂ * o.Repl.RparY,:,:))
+  o.robust && o.bootstrapt && o.granular && (Ü₂par = view(o.DGP.Ü₂[1] * o.Repl.RparY,:,:))
 
 	o.S✻⋂XU₂ .= o.S✻⋂XY₂ - o.S✻⋂XX * o.DGP.Π̂
 	o.S✻⋂XU₂RparY .= o.S✻⋂XU₂ * o.Repl.RparY
@@ -310,7 +310,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 
 			o.S✻UMZperp[i+1] .= o.Repl.Zperp * o.invZperpZperpS✻ZperpU[i+1] 
 			if iszero(i)  # subtract crosstab of observation by ∩-group of u
-				o.S✻UMZperp[   1][o.crosstab✻ind] .-= o.DGP.u⃛₁
+				o.S✻UMZperp[   1][o.crosstab✻ind] .-= o.DGP.u⃛₁[1]
 			else
 				o.S✻UMZperp[i+1][o.crosstab✻ind] .-= view(Ü₂par,:,i)
 			end

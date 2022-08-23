@@ -48,10 +48,10 @@ end
 # stuff that can be done before r set, and depends only on exogenous variables, which are fixed throughout all bootstrap methods
 function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::AbstractMatrix{T}) where T # Rperp is for replication regression--no null imposed
   o.y₁par = parent.y₁
-	o.ü₁ = Vector{T}(undef, parent.Nobs)
+	o.ü₁ = [Vector{T}(undef, parent.Nobs) for _ in 0:parent.jk]
 	S✻X₁y₁ = panelcross(parent.X₁, parent.y₁, parent.info✻)
 	X₁y₁ = sumpanelcross(S✻X₁y₁)
-	S✻X₁X₁ = panelcross(parent.X₁  , parent.X₁, parent.info✻)
+	S✻X₁X₁ = panelcross(parent.X₁, parent.X₁, parent.info✻)
   H = sumpanelcross(S✻X₁X₁)
   o.invH = Symmetric(pinv(H))
   R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.invH : Symmetric(o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')  # for DGP regression
@@ -82,7 +82,7 @@ end
 
 function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	o.y₁par = Vector{T}(undef, parent.Nobs)
-	o.ü₁    = Vector{T}(undef, parent.Nobs)
+	o.ü₁    = [Vector{T}(undef, parent.Nobs) for _ in 0:parent.jk]
 
 	X₂X₁ = parent.X₂'parent.X₁
   H = Symmetric([parent.X₁'parent.X₁ X₂X₁' ; X₂X₁ parent.X₂'parent.X₂])
@@ -247,10 +247,10 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 
 	if o.isDGP
 		if parent.scorebs
-			o.ü₁ = Vector{T}(undef, parent.Nobs)
+			o.ü₁ = [Vector{T}(undef, parent.Nobs) for _ in 0:parent.jk]
 		elseif parent.robust && parent.bootstrapt && parent.granular
-			o.Ü₂ = Matrix{T}(undef, parent.Nobs, parent.kY₂)
-			o.u⃛₁ = Vector{T}(undef, parent.Nobs)
+			o.Ü₂ = [Matrix{T}(undef, parent.Nobs, parent.kY₂) for _ in 0:parent.jk]
+			o.u⃛₁ = [Vector{T}(undef, parent.Nobs) for _ in 0:parent.jk]
 		end
 	end
 	
@@ -275,13 +275,17 @@ end
 # inconsistency: for replication regression of Anderson-Rubin, r₁ refers to the *null*, not the maintained constraints, because that's what affects the endogenous variables
 # For OLS, compute β̈₀ (β̈ when r=0) and ∂β̈∂r without knowing r₁, for efficiency
 # For WRE, should only be called once for the replication regressions, since for them r₁ is the unchanging model constraints
-function EstimateOLS!(o::StrEstimator, r₁::AbstractVector)
-  o.β̈ = o.β̈₀ - o.∂β̈∂r * r₁
+function EstimateOLS!(o::StrEstimator, _jk::Bool, r₁::AbstractVector)
+	if _jk
+  	o.β̈ = o.β̈₀ - o.∂β̈∂r * r₁
+	else
+  	o.β̈ = reshape(view(o.β̈₀,:,1) - view(o.∂β̈∂r,:,1,:) * r₁, nrows(o.β̈₀), 1)
+	end
 	nothing
 end
 
-function EstimateARubin!(o::StrEstimator{T}, parent::StrBootTest{T}, r₁::AbstractVector) where T
-  o.β̈ = o.β̈₀ - o.∂β̈∂r * r₁
+function EstimateARubin!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁::AbstractVector) where T
+	EstimateOLS!(o, _jk, r₁)
   o.y₁par .= parent.y₁ .- parent.Y₂ * r₁
 	nothing
 end
@@ -297,7 +301,7 @@ function MakeH!(o::StrEstimator{T}, parent::StrBootTest{T}, makeXAR::Bool=false)
 	nothing
 end
 
-function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, r₁::AbstractVector) where T
+function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, #=_jk::Bool,=# r₁::AbstractVector) where T
   if o.restricted
     o.y₁pary₁par = o.y₁y₁ - (o.twoZR₁y₁'r₁)[1] + r₁'o.ZR₁ZR₁ * r₁
 	  o.Y₂y₁par = o.Y₂y₁  - o.ZR₁Y₂'r₁
@@ -331,25 +335,20 @@ end
 
 
 function MakeResidualsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
+	o.ü₁[1] .= o.y₁par .- X₁₂B(parent, parent.X₁, parent.X₂, view(o.β̈ , :,1))
 	if parent.jk
+		m = sqrt((parent.N✻ - 1) / T(parent.N✻))
     for g ∈ 1:parent.N✻
 			s = parent.info✻[g]
-      o.ü₁[s] .= view(o.y₁par,s) .- view(parent.X₁,s,:) * view(o.β̈ , :,g+1)
+      o.ü₁[2][s] .= m * (view(o.y₁par,s) .- view(parent.X₁,s,:) * view(o.β̈ , :,g+1))
 		end
-	else
-  	o.ü₁ .= o.y₁par .- X₁₂B(parent, parent.X₁, parent.X₂, o.β̈)
 	end
-	nothing
-end
-
-@inline function MakeResidualsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
-  o.ü₁ .= o.y₁par .- X₁₂B(parent, parent.X₁, parent.X₂, o.β̈)
 	nothing
 end
 
 function MakeResidualsIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
   if parent.scorebs
-		o.ü₁ .= o.y₁par .- o.Z * o.β̈
+		o.ü₁[1] .= o.y₁par .- o.Z * o.β̈
 	else
 		_β = [1 ; -o.β̈]
 	  uu = _β'o.YY * _β
@@ -359,8 +358,8 @@ function MakeResidualsIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	  o.Π̂ = invsym(o.XX + negXuinvuu * Xu') * (negXuinvuu * (o.Y₂y₁par - o.ZY₂'o.β̈)' + o.XY₂)
 		o.γ̈ = o.RparY * view(o.β̈ ,:,1) + o.t₁Y
 	  if parent.robust && parent.bootstrapt && parent.granular
-			o.Ü₂ .= o.Y₂ .- X₁₂B(parent, o.X₁, o.X₂, o.Π̂)
-			o.u⃛₁ .= o.y₁par .- o.Z * view(o.β̈ ,:,1) .+ o.Ü₂ * o.γ̈
+			o.Ü₂[1] .= o.Y₂ .- X₁₂B(parent, o.X₁, o.X₂, o.Π̂)
+			o.u⃛₁[1] .= o.y₁par .- o.Z * view(o.β̈ ,:,1) .+ o.Ü₂[1] * o.γ̈
 		end
   end
 	nothing

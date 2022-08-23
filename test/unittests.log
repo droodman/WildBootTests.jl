@@ -33,8 +33,8 @@ p    = 0.1040
 
 boottest post_self=.04, weight(mammen) reps(9999) boottype(score)
 t(7) = 1.8479
-p    = 0.1651
-CI   = [0.03173 0.07798]
+p    = 0.0903
+CI   = [-0.629 -0.5546; -0.5249 -0.4283; -0.2127 -0.1384; 0.01026 0.08459; 0.1441 0.2035; 0.5008 0.7015]
 
 
 regress hasinsurance selfemployed post post_self, robust
@@ -55,7 +55,7 @@ p       = 0.7332
 
 boottest (post_self=.05) (post=-.02) (selfemployed=-.15), reps(9999) weight(webb)
 F(3, 7) = 0.8534
-p       = 0.7525
+p       = 0.7486
 
 
 regress hasinsurance selfemployed post post_self
@@ -179,8 +179,8 @@ boottest tenure, ptype(equaltail) maxmatsize(0.005) noci weight(webb) ptype(equa
 z  = 3.5823
 p  = 0.0000
 
-z  = 1.0000
-p  = 0.5465
+z  = 6.9581
+p  = 0.4064
 
 
 ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)

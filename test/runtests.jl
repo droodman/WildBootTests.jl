@@ -153,12 +153,12 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, auxwttype=:webb, bootstrapc=true, ptype=:equaltail, rng=StableRNG(1231), gridmin=[-5], gridmax=[5], gridpoints=[100])
   println(log, test)
   
-  println(log, "\nboottest tenure, ptype(equaltail) weight(webb) stat(c) gridmin(-5) gridmax(5) gridpoints(100) maxmatsize(.01)")
+  println(log, "\nboottest tenure, ptype(equaltail) weight(webb) stat(c) gridmin(-5) gridmax(5) gridpoints(100) matsize(.01)")
   test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, auxwttype=:webb, bootstrapc=true, ptype=:equaltail, rng=StableRNG(1231), gridmin=[-5], gridmax=[5], gridpoints=[100], maxmatsize=.01)
   println(log, test)
   
   println(log, "\nivregress 2sls wage ttl_exp collgrad (tenure = union) if industry<., robust")
-  println(log, "\nboottest tenure, ptype(equaltail) maxmatsize(0.005) noci weight(webb) ptype(equaltail)")
+  println(log, "\nboottest tenure, ptype(equaltail) matsize(0.005) noci weight(webb)")
   test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, small=false, auxwttype=:webb, ptype=:equaltail, rng=StableRNG(1231), getci=false, maxmatsize=.005)
   println(log, test)
   
@@ -317,7 +317,7 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   println(log, "boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(state year)")
   println(log, "boottest merit, nogr reps(9999) gridpoints(10) bootcluster(individual)")
   println(log, "boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual)")
-  println(log, "boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual) maxmatsize(.1)")
+  println(log, "boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual) matsize(.1)")
   df = DataFrame(load("regm.dta"))
   df = DataFrame(coll=Bool.(df.coll), merit=Bool.(df.merit), male=Bool.(df.male), black=Bool.(df.black), asian=Bool.(df.asian), state=categorical(Int8.(df.state)), year=categorical(Int16.(df.year)))
   dropmissing!(df)
