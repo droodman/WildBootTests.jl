@@ -14,7 +14,7 @@ struct BootTestResult{T}
   b::Vector{T}
   V::Matrix{T}
   auxweights::Union{Nothing,Matrix{T}}
-  # M::StrBootTest
+  M::StrBootTest
 end
 
 "Return test statistic"
@@ -153,7 +153,7 @@ function __wildboottest(
 	                  M.p, padj, M.B, M.BFeas, M.N✻, M.dof, M.dof_r, plot, peak, ci,
 	                  getdist(M, diststat),
 	                  getb(M), getV(M),
-	                  getauxweights && reps>0 ? getv(M) : nothing #=, M=#)
+	                  getauxweights && reps>0 ? getv(M) : nothing , M)
 end
 
 vecconvert(T::DataType, X) = Vector(isa(X, AbstractArray) ? vec(    eltype(X)==T ? X : T.(X)) : X)
@@ -360,7 +360,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `small::Bool=true`: true to multiply test statistics by G/(G-1) × N/(N-k), where G, N, k are number of clusters, observations, and predictors
 * `clusteradj::Bool=true`: false to drop G/(G-1) factor
 * `clustermin::Bool=false``: for multiway clustering, true to base G/(G-1) factor for all clusterings ]on the smallest G across clusterings
-* `jk::Bool=false`: true to base the bootstrap on jackknifed residuals
+* `jk::Bool=false`: true to base the bootstrap data-generating process on residuals jackknifed by bootstrap cluster
 * `scorebs::Bool=false`: true for score bootstrap instead of wild bootstrap
 * `reps::Integer=999`: number of bootstrap replications; `reps` = 0 requests classical Rao (or Wald) test if `imposenull` = `true` (or `false`)
 * `imposenull::Bool=true`: true to impose null

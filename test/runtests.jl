@@ -37,6 +37,10 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   test = wildboottest([0 0 0 1], [.04]; resp, predexog, clustid=Int32.(df.year), reps=9999, auxwttype=:mammen, scorebs=true, rng=StableRNG(1231))
   println(log, test)
   
+  println(log, "\nboottest post_self=.04, reps(9999) jk")
+  test = wildboottest([0 0 0 1], [.04]; resp, predexog, clustid=Int32.(df.year), reps=9999, jk=true, rng=StableRNG(1231))
+  println(log, test)
+  
   println(log, "\nregress hasinsurance selfemployed post post_self, robust")
   println(log, "\nboottest post_self=.04, weight(webb)")
   test = wildboottest([0 0 0 1], [.04]; resp, predexog, auxwttype=:webb, rng=StableRNG(1231))
@@ -168,6 +172,10 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   println(log, "\nivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)")
   println(log, "\nboottest, ar")
   test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, arubin=true, rng=StableRNG(1231))
+  println(log, test)
+  
+  println(log, "\nboottest, ar jk")
+  test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, arubin=true, jk=true, rng=StableRNG(1231))
   println(log, test)
   
   println(log, "\nboottest, ar nonull")

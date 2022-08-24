@@ -72,13 +72,13 @@ function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstrac
 		_X₁y₁ = reshape(X₁y₁, parent.kX₁, 1            ) .- S✻X₁y₁
 		_X₁X₁ = reshape(   H, parent.kX₁, 1, parent.kX₁) .- S✻X₁X₁
 		o.β̈₀[:,1] .= R₁AR₁ * X₁y₁
-  	o.∂β̈∂r[:,1,:] .= R₁AR₁ * H * o.R₁invR₁R₁ - o.R₁invR₁R₁
+  	o.∂β̈∂r[:,1,:] .= R₁AR₁ * H * o.R₁invR₁R₁ .- o.R₁invR₁R₁
     for g ∈	1:parent.N✻
       _H = Symmetric(view(_X₁X₁,:,g,:))
 			_invH = Symmetric(pinv(_H))
       _R₁AR₁ = iszero(nrows(o.R₁perp)) ? _invH : Symmetric(o.R₁perp * invsym(o.R₁perp'_H*o.R₁perp) * o.R₁perp')
-      o.β̈₀[:,g+1]     .= _R₁AR₁ * view(_X₁y₁,:,g)
-      o.∂β̈∂r[:,g+1,:] .= _R₁AR₁ * _H * o.R₁invR₁R₁ - o.R₁invR₁R₁
+      o.β̈₀[  :,g+1  ] .= _R₁AR₁ * view(_X₁y₁,:,g)
+      o.∂β̈∂r[:,g+1,:] .= _R₁AR₁ * _H * o.R₁invR₁R₁ .- o.R₁invR₁R₁
 		end
 	else
 		o.β̈₀ = reshape(R₁AR₁ * X₁y₁, Val(2))
@@ -134,8 +134,8 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
   R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.A : Symmetric(o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')
 
 	if parent.jk
-		o.β̈₀   = Matrix{T}(undef, parent.kX₁+parent.kX₂, parent.N✻ + 1)
-		o.∂β̈∂r = Array{T,3}(undef, parent.kX₁+parent.kX₂, parent.N✻ + 1, parent.kY₂)
+		o.β̈₀   = Matrix{T}(undef, parent.kX, parent.N✻ + 1)
+		o.∂β̈∂r = Array{T,3}(undef, parent.kX, parent.N✻ + 1, parent.kY₂)
 		o.β̈₀[  :,1  ] .= R₁AR₁ * [X₁y₁ ; X₂y₁]
 		o.∂β̈∂r[:,1,:] .= R₁AR₁ * [X₁Y₂ ; X₂Y₂]
 		_X₁y₁ = reshape(X₁y₁, parent.kX₁, 1            ) .- S✻X₁y₁
@@ -401,12 +401,12 @@ end
 
 
 function MakeResidualsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
-	o.ü₁[1] .= o.y₁par .- X₁₂B(parent, parent.X₁, parent.X₂, view(o.β̈ , :,1))
+	o.ü₁[1] .= o.y₁par .- X₁₂B(parent, parent.X₁, parent.X₂, view(o.β̈ , :,1))   # ordinary non-jk residuals
 	if parent.jk
-		m = sqrt((parent.N✻ - 1) / T(parent.N✻))
+		m = sqrt((parent.N✻ - 1) / T(parent.N✻))  # move to parent.multiplier?
     for g ∈ 1:parent.N✻
-			s = parent.info✻[g]
-      o.ü₁[2][s] .= m * (view(o.y₁par,s) .- X₁₂B(parent, view(parent.X₁,s,:), view(parent.X₂,s,:), view(o.β̈ , :,g+1)))
+			S = parent.info✻[g]
+      o.ü₁[2][S] .= m .* (view(o.y₁par,S) .- X₁₂B(parent, view(parent.X₁,S,:), view(parent.X₂,S,:), view(o.β̈ , :,g+1)))
 		end
 	end
 	nothing

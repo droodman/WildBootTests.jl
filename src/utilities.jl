@@ -9,13 +9,13 @@ invsym(X) =
 	try
 		Symmetric(pinv(Symmetric(X)))
 	catch _
-		fill(eltype(X)(NaN), size(X))
+		Symmetric(fill(eltype(X)(NaN), size(X)))
 	end
 invsym(X::Symmetric) =
 	try
 		Symmetric(pinv(X))
 	catch _
-		fill(eltype(X)(NaN), size(X))
+		Symmetric(fill(eltype(X)(NaN), size(X)))
 	end
 
 function invsymsingcheck(X)  # inverse of symmetric matrix, checking for singularity
@@ -27,6 +27,7 @@ function invsymsingcheck(X)  # inverse of symmetric matrix, checking for singula
 end
 
 @inline colsum(X::AbstractArray) = iszero(length(X)) ? similar(X, 1, size(X)[2:end]...) : sum(X, dims=1)
+@inline colsum(X::AbstractArray{Bool}) = iszero(length(X)) ? Array{Int}(undef, 1, size(X)[2:end]...) : sum(X, dims=1)  # type-stable
 @inline rowsum(X::AbstractArray) = vec(sum(X, dims=2))
 
 function X₁₂B(o::StrBootTest, X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractMatrix)

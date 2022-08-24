@@ -176,20 +176,20 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 	if o.jk && !_jk && !o.arubin && o.null
 		o.numer[:,1] = o.v_sd * (
 										o.scorebs ?
-										   (o.B>0 ?
-											 	colsum(o.SuwtXA)' :
-											 	o.SuwtXA         ) :
-										   (!o.robust || o.granular || o.purerobust ?
-											  	 o.R * (o.β̈dev = rowsum(o.SuwtXA)) :
-											 		 rowsum(o.R * o.SuwtXA)))
+										   o.B>0 ?
+												 	colsum(o.SuwtXA)' :
+												 	o.SuwtXA          :
+										   !o.robust || o.granular || o.purerobust ?
+											  	o.R * (o.β̈dev = rowsum(o.SuwtXA)) :
+											 		rowsum(o.R * o.SuwtXA))
 	else
 		o.numerw = o.scorebs ?
-			(o.B>0 ?
-				o.SuwtXA'o.v :
-				o.SuwtXA * o.v_sd    ) :
-			(!o.robust || o.granular || o.purerobust ?
-					o.R * (o.β̈dev = o.SuwtXA * o.v) :
-					(o.R * o.SuwtXA) * o.v)
+								o.B>0 ?
+									o.SuwtXA'o.v :
+									o.SuwtXA * o.v_sd     :
+								!o.robust || o.granular || o.purerobust ?
+										o.R * (o.β̈dev = o.SuwtXA * o.v) :
+										(o.R * o.SuwtXA) * o.v
 
 		if isone(w)
 			if o.arubin

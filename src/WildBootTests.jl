@@ -99,18 +99,3 @@ include("precompile_WildBootTests.jl")  # https://timholy.github.io/SnoopCompile
 _precompile_()
 
 end
-
-
-# using StableRNGs, StatFiles, DataFrames, CategoricalArrays, StatsModels
-# # cd("test")
-# df = DataFrame(load("nlsw88.dta"))[:,[:wage; :tenure; :ttl_exp; :collgrad; :industry]]
-# dropmissing!(df)
-# desc = describe(df, :eltype)
-# f = @formula(wage ~ 1 + tenure + ttl_exp + collgrad)
-# f = apply_schema(f, schema(f, df))
-# resp, predexog = modelcols(f, df)
-
-# println(log, "\nconstraint 1 ttl_exp = .2")
-# println(log, "cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(industry)")
-# println(log, "boottest tenure")
-# test = WildBootTests.wildboottest([0 1 0 0], [0]; R1=[0 0 1 0], r1=[.2], resp, predexog, clustid=df.industry, rng=StableRNG(1231), jk=false)
