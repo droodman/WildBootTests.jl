@@ -94,7 +94,7 @@ function negcolquadform!(o::StrBootTest, dest::AbstractMatrix{T}, Q::AbstractMat
 	o.colquadformminus!(dest,1,A,Q,A)
 	nothing
 end
-function matmulplus_nonturbo!(A::VecOrMat{T}, B::Matrix{T}, C::VecOrMat{T}) where T  # add B*C to A in place
+function matmulplus_nonturbo!(A::VecOrMat{T}, B::AbstractMatrix{T}, C::VecOrMat{T}) where T  # add B*C to A in place
 	BLAS.gemm!('N','N',one(T),B,C,one(T),A)
 	nothing
 end
@@ -512,6 +512,7 @@ import Base.*, Base.adjoint, Base.hcat  # extend * to left- and right-multiply 3
 @inline *(A::AbstractVecOrMat, B::AbstractArray) = reshape(A * reshape(B, size(B,1), size(B,2) * size(B,3)), size(A,1), size(B,2), size(B,3))
 @inline adjoint(A::AbstractArray{T,3} where T) = permutedims(A,(3,2,1))
 @inline hcat(A::Array{T,3}, B::Array{T,3}) where T = cat(A,B; dims=3)::Array{T,3}
+@inline vcat(A::Array{T,3}, B::Array{T,3}) where T = cat(A,B; dims=1)::Array{T,3}
 
 # 5-argument version of mul!() for 3-arrays but forces α=1, β=0
 # import LinearAlgebra.mul!

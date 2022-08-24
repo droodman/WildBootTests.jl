@@ -34,7 +34,7 @@ p    = 0.1040
 boottest post_self=.04, weight(mammen) reps(9999) boottype(score)
 t(7) = 1.8479
 p    = 0.0903
-CI   = [-0.629 -0.5546; -0.5249 -0.4283; -0.2127 -0.1384; 0.01026 0.08459; 0.1441 0.2035; 0.5008 0.7015]
+CI   = [0.02513 0.08459; 0.1837 0.2233]
 
 
 regress hasinsurance selfemployed post post_self, robust
@@ -55,7 +55,7 @@ p       = 0.7332
 
 boottest (post_self=.05) (post=-.02) (selfemployed=-.15), reps(9999) weight(webb)
 F(3, 7) = 0.8534
-p       = 0.7486
+p       = 0.7450
 
 
 regress hasinsurance selfemployed post post_self
@@ -167,7 +167,7 @@ p  = 0.0921
 CI = [-Inf Inf]
 
 
-boottest tenure, ptype(equaltail) weight(webb) stat(c) gridmin(-5) gridmax(5) gridpoints(100) maxmatsize(.01)
+boottest tenure, ptype(equaltail) weight(webb) stat(c) gridmin(-5) gridmax(5) gridpoints(100) matsize(.01)
 z  = 1.5907
 p  = 0.1441
 CI = [-Inf Inf]
@@ -175,12 +175,12 @@ CI = [-Inf Inf]
 
 ivregress 2sls wage ttl_exp collgrad (tenure = union) if industry<., robust
 
-boottest tenure, ptype(equaltail) maxmatsize(0.005) noci weight(webb) ptype(equaltail)
+boottest tenure, ptype(equaltail) matsize(0.005) noci weight(webb)
 z  = 3.5823
 p  = 0.0000
 
-z  = 6.9581
-p  = 0.4064
+z  = 10.3219
+p  = 0.1381
 
 
 ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
@@ -336,7 +336,7 @@ boottest merit, nogr reps(9999) gridpoints(10) bootcluster(state year)
 boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(state year)
 boottest merit, nogr reps(9999) gridpoints(10) bootcluster(individual)
 boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual)
-boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual) maxmatsize(.1)
+boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual) matsize(.1)
 t(41) = 6.7127
 p     = 0.4918
 CI    = [-2.816 1.285]

@@ -49,13 +49,24 @@ end
 function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::AbstractMatrix{T}) where T # Rperp is for replication regression--no null imposed
   o.y₁par = parent.y₁
 	o.ü₁ = [Vector{T}(undef, parent.Nobs) for _ in 0:parent.jk]
-	S✻X₁y₁ = panelcross(parent.X₁, parent.y₁, parent.info✻)
-	X₁y₁ = sumpanelcross(S✻X₁y₁)
-	S✻X₁X₁ = panelcross(parent.X₁, parent.X₁, parent.info✻)
-  H = sumpanelcross(S✻X₁X₁)
+
+	if parent.granular
+		X₁y₁ = parent.X₁'parent.y₁
+		H    = parent.X₁'parent.X₁
+		if parent.jk  # potentially very costly!
+			S✻X₁y₁ = panelcross(parent.X₁, parent.y₁, parent.info✻)
+			S✻X₁X₁ = panelcross(parent.X₁, parent.X₁, parent.info✻)
+		end
+	else	
+		S✻X₁y₁ = panelcross(parent.X₁, parent.y₁, parent.info✻)
+		X₁y₁ = sumpanelcross(S✻X₁y₁)
+		S✻X₁X₁ = panelcross(parent.X₁, parent.X₁, parent.info✻)
+	  H = sumpanelcross(S✻X₁X₁)
+	end
   o.invH = Symmetric(pinv(H))
   R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.invH : Symmetric(o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')  # for DGP regression
-  if parent.jk
+
+	if parent.jk
 		o.β̈₀   = Matrix{T}(undef, parent.kX₁, parent.N✻ + 1)
 		o.∂β̈∂r = Array{T,3}(undef, parent.kX₁, parent.N✻ + 1, ncols(o.R₁invR₁R₁))
 		_X₁y₁ = reshape(X₁y₁, parent.kX₁, 1            ) .- S✻X₁y₁
@@ -84,15 +95,70 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	o.y₁par = Vector{T}(undef, parent.Nobs)
 	o.ü₁    = [Vector{T}(undef, parent.Nobs) for _ in 0:parent.jk]
 
-	X₂X₁ = parent.X₂'parent.X₁
-  H = Symmetric([parent.X₁'parent.X₁ X₂X₁' ; X₂X₁ parent.X₂'parent.X₂])
+	if parent.granular
+		X₁y₁ = parent.X₁'parent.y₁
+		X₂y₁ = parent.X₂'parent.y₁
+		X₁Y₂ = parent.X₁'parent.Y₂
+		X₂Y₂ = parent.X₂'parent.Y₂
+		X₂X₁ = parent.X₂'parent.X₁
+		X₁X₁ = parent.X₁'parent.X₁
+		X₂X₂ = parent.X₂'parent.X₂
+		if parent.jk  # potentially very costly!
+			S✻X₁y₁ = panelcross(parent.X₁, parent.y₁, parent.info✻)
+			S✻X₂y₁ = panelcross(parent.X₂, parent.y₁, parent.info✻)
+			S✻X₁Y₂ = panelcross(parent.X₁, parent.Y₂, parent.info✻)
+			S✻X₂Y₂ = panelcross(parent.X₂, parent.Y₂, parent.info✻)
+			S✻X₂X₁ = panelcross(parent.X₂, parent.X₁, parent.info✻)
+			S✻X₁X₁ = panelcross(parent.X₁, parent.X₁, parent.info✻)
+			S✻X₂X₂ = panelcross(parent.X₂, parent.X₂, parent.info✻)
+		end
+	else
+		S✻X₁y₁ = panelcross(parent.X₁, parent.y₁, parent.info✻)
+		X₁y₁ = sumpanelcross(S✻X₁y₁)
+		S✻X₂y₁ = panelcross(parent.X₂, parent.y₁, parent.info✻)
+		X₂y₁ = sumpanelcross(S✻X₂y₁)
+		S✻X₁Y₂ = panelcross(parent.X₁, parent.Y₂, parent.info✻)
+		X₁Y₂ = sumpanelcross(S✻X₁Y₂)
+		S✻X₂Y₂ = panelcross(parent.X₂, parent.Y₂, parent.info✻)
+		X₂Y₂ = sumpanelcross(S✻X₂Y₂)
+		S✻X₂X₁ = panelcross(parent.X₂, parent.X₁, parent.info✻)
+		X₂X₁ = sumpanelcross(S✻X₂X₁)
+		S✻X₁X₁ = panelcross(parent.X₁, parent.X₁, parent.info✻)
+		X₁X₁ = sumpanelcross(S✻X₁X₁)
+		S✻X₂X₂ = panelcross(parent.X₂, parent.X₂, parent.info✻)
+		X₂X₂ = sumpanelcross(S✻X₂X₂)
+	end
+
+  H = Symmetric([X₁X₁ X₂X₁' ; X₂X₁ X₂X₂])
   o.A = invsym(H)
+  R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.A : Symmetric(o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')
+
+	if parent.jk
+		o.β̈₀   = Matrix{T}(undef, parent.kX₁+parent.kX₂, parent.N✻ + 1)
+		o.∂β̈∂r = Array{T,3}(undef, parent.kX₁+parent.kX₂, parent.N✻ + 1, parent.kY₂)
+		o.β̈₀[  :,1  ] .= R₁AR₁ * [X₁y₁ ; X₂y₁]
+		o.∂β̈∂r[:,1,:] .= R₁AR₁ * [X₁Y₂ ; X₂Y₂]
+		_X₁y₁ = reshape(X₁y₁, parent.kX₁, 1            ) .- S✻X₁y₁
+		_X₂y₁ = reshape(X₂y₁, parent.kX₂, 1            ) .- S✻X₂y₁
+		_X₁Y₂ = reshape(X₁Y₂, parent.kX₁, 1,  parent.kY₂) .- S✻X₁Y₂
+		_X₂Y₂ = reshape(X₂Y₂, parent.kX₂, 1,  parent.kY₂) .- S✻X₂Y₂
+		_X₂X₁ = reshape(X₂X₁, parent.kX₂, 1,  parent.kX₁) .- S✻X₂X₁
+		_X₁X₁ = reshape(X₁X₁, parent.kX₁, 1,  parent.kX₁) .- S✻X₁X₁
+		_X₂X₂ = reshape(X₂X₂, parent.kX₂, 1,  parent.kX₂) .- S✻X₂X₂
+		for g ∈	1:parent.N✻
+			_H = Symmetric([view(_X₁X₁,:,g,:) view(_X₂X₁,:,g,:)' ; view(_X₂X₁,:,g,:) view(_X₂X₂,:,g,:)])
+			_A = invsym(_H)
+			_R₁AR₁ = iszero(nrows(o.R₁perp)) ? _A : Symmetric(o.R₁perp * invsym(o.R₁perp'_H*o.R₁perp) * o.R₁perp')
+			o.β̈₀[  :,g+1] .= _R₁AR₁ * [view(_X₁y₁,:,g )  ; view(_X₂y₁,:,g  )]
+			o.∂β̈∂r[:,g+1] .= _R₁AR₁ * [view(_X₁Y₂,:,g,:) ; view(_X₂Y₂,:,g,:)]
+		end
+	else
+		o.β̈₀ = reshape(R₁AR₁ * [X₁y₁ ; X₂y₁], Val(2))
+		t = R₁AR₁ * [X₁Y₂ ; X₂Y₂]; o.∂β̈∂r = reshape(t, nrows(t), 1, ncols(t))
+	end
+
   o.AR = o.A * parent.R'
   (parent.scorebs || parent.robust) && (o.XAR = X₁₂B(parent, parent.X₁, parent.X₂, o.AR))
-
-  R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.A : Symmetric(o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')
-  o.β̈₀   = reshape(R₁AR₁ * [parent.X₁'parent.y₁ ; parent.X₂'parent.y₁], Val(2))
-  t = R₁AR₁ * [parent.X₁'parent.Y₂ ; parent.X₂'parent.Y₂]; o.∂β̈∂r = reshape(t, nrows(t), 1, ncols(t))
 	nothing
 end
 
@@ -279,7 +345,7 @@ function EstimateOLS!(o::StrEstimator, _jk::Bool, r₁::AbstractVector)
 	if _jk
   	o.β̈ = o.β̈₀ - o.∂β̈∂r * r₁
 	else
-  	o.β̈ = reshape(view(o.β̈₀,:,1) - view(o.∂β̈∂r,:,1,:) * r₁, nrows(o.β̈₀), 1)
+  	o.β̈ = reshape(view(o.β̈₀,:,1) - view(o.∂β̈∂r,:,1,:) * r₁, Val(2))
 	end
 	nothing
 end
@@ -340,7 +406,7 @@ function MakeResidualsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 		m = sqrt((parent.N✻ - 1) / T(parent.N✻))
     for g ∈ 1:parent.N✻
 			s = parent.info✻[g]
-      o.ü₁[2][s] .= m * (view(o.y₁par,s) .- view(parent.X₁,s,:) * view(o.β̈ , :,g+1))
+      o.ü₁[2][s] .= m * (view(o.y₁par,s) .- X₁₂B(parent, view(parent.X₁,s,:), view(parent.X₂,s,:), view(o.β̈ , :,g+1)))
 		end
 	end
 	nothing
