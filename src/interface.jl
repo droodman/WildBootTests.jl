@@ -14,7 +14,7 @@ struct BootTestResult{T}
   b::Vector{T}
   V::Matrix{T}
   auxweights::Union{Nothing,Matrix{T}}
-  M::StrBootTest
+  # M::StrBootTest
 end
 
 "Return test statistic"
@@ -153,7 +153,7 @@ function __wildboottest(
 	                  M.p, padj, M.B, M.BFeas, M.N✻, M.dof, M.dof_r, plot, peak, ci,
 	                  getdist(M, diststat),
 	                  getb(M), getV(M),
-	                  getauxweights && reps>0 ? getv(M) : nothing , M)
+	                  getauxweights && reps>0 ? getv(M) : nothing #=, M=#)
 end
 
 vecconvert(T::DataType, X) = Vector(isa(X, AbstractArray) ? vec(    eltype(X)==T ? X : T.(X)) : X)
@@ -340,7 +340,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `predendog::AbstractVecOrMat`: endogenous predictors (Y₂)
 * `inst::AbstractVecOrMat`: instruments (X₂)
 * `R1::AbstractMatrix` and `r1::AbstractVector`: model constraints; same format as for `R` and `r`
-* `clustid::AbstractVecOrMat{<:Integer}`: data vector/matrix of error and bootstrapping cluster identifiers; see Notes 
+* `clustid::AbstractVecOrMat{<:Integer}`: data vector/matrix of error and bootstrapping cluster identifiers; see notes 
 * `nbootclustvar::Integer=1`: number of bootstrap-clustering variables
 * `nerrclustvar::Integer=nbootclustvar`: number of error-clustering variables
 * `issorted:Bool=false`: time-saving flag: data matrices are already sort by column types 2, then 3, then 1 (see notes)
@@ -367,7 +367,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `auxwttype::Symbol=:rademacher`: auxilliary weight type (`:rademacher`, `:mammen`, `:webb`, `:normal`, `:gamma`)
 * `rng::AbstractRNG=MersenneTwister()`: randon number generator
 * `level::Number=.95`: significance level (0-1)
-* `rtol::Number=1e-6`: tolerance for ci bound determination
+* `rtol::Number=1e-6`: tolerance for confidence set bound determination
 * `madjtype::Symbol=:none`: multiple hypothesis adjustment (`none`, `:bonferroni`, `:sidak`)
 * `nH0::Integer=1`: number of hypotheses tested, including one being tested now
 * `ml::Bool=false`: true for (nonlinear) ML estimation
@@ -392,7 +392,7 @@ Order the columns of `clustid` this way:
 1. Variables only used to define bootstrapping clusters, as in the subcluster bootstrap.
 2. Variables used to define both bootstrapping and error clusters.
 3. Variables only used to define error clusters.
-`nbootclustvar` is then the number of columns of type 1 or 2; `nerrclustvar` is the number of columns of type 2 or 3. Typically `clustid` is a single column of type 2. 
+`nbootclustvar` is then the number of columns of type 1 or 2; `nerrclustvar` is the number of columns of type 2 or 3. Typically `clustid` is a single column of type 2 and `nbootclustvar` and `nerrclustvar` default to 1.
 
 `wildboottest()` does not handle missing data values: all data and identifier matrices must 
 be restricted to the estimation sample.

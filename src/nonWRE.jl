@@ -114,7 +114,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 	end
 
 	for _jk in o.jk:-1:0  # if jackknifing, first do jk, then full original sample to get test stat  
-		if o.scorebs || (o.robust && o.granular < o.NErrClustCombs)
+		if !o.ml & (o.scorebs || (o.robust && o.granular < o.NErrClustCombs))
 			uXAR = o.DGP.ü₁[1+_jk] .* o.M.XAR
 		end
 
@@ -173,15 +173,17 @@ end
 
 # compute stuff depending linearly on v, needed to prep for interpolation
 function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVector=Vector{T}(undef,0)) where T  # called to *prepare* interpolation, or when w>1, in which case there is no interpolation
-	if o.jk && !_jk && !o.arubin && o.null
-		o.numer[:,1] = o.v_sd * (
-										o.scorebs ?
-										   o.B>0 ?
-												 	colsum(o.SuwtXA)' :
-												 	o.SuwtXA          :
-										   !o.robust || o.granular || o.purerobust ?
-											  	o.R * (o.β̈dev = rowsum(o.SuwtXA)) :
-											 		rowsum(o.R * o.SuwtXA))
+	if o.jk && !_jk
+		if !o.arubin && o.null
+			o.numer[:,1] = o.v_sd * (
+											o.scorebs ?
+											   o.B>0 ?
+													 	colsum(o.SuwtXA)' :
+													 	o.SuwtXA          :
+											   !o.robust || o.granular || o.purerobust ?
+												  	o.R * (o.β̈dev = rowsum(o.SuwtXA)) :
+												 		rowsum(o.R * o.SuwtXA))
+		end
 	else
 		o.numerw = o.scorebs ?
 								o.B>0 ?
