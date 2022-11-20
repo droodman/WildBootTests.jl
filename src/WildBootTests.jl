@@ -71,7 +71,7 @@ end
 # if not imposing null and we have returned to boottest!(), then dof=1 or 2; we're plotting or finding CI, and only test stat, not distribution, changes with r
 function NoNullUpdate!(o::StrBootTest{T} where T)
 	if o.WREnonARubin
-		o.numer[:,1] = o.R * o.DGP.Rpar * o.β̈s[1] - o.r
+		o.numer[:,1] = o.R * o.DGP.Rpar * o.β̈s[:,1] - o.r
 	elseif o.arubin
 		EstimateARubin!(o.DGP, o, false, o.r)
 		o.numer[:,1] = o.v_sd * @view o.DGP.β̈[o.kX₁+1:end,1]  # coefficients on excluded instruments in arubin OLS
@@ -95,7 +95,6 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T)
 	nothing
 end
  
-include("precompile_WildBootTests.jl")  # https://timholy.github.io/SnoopCompile.jl/stable/snoopi_deep_parcel/#SnoopCompile.write
-_precompile_()
+# include("precompiler.jl")  # https://timholy.github.io/SnoopCompile.jl/stable/snoopi_deep_parcel/#SnoopCompile.write
 
 end

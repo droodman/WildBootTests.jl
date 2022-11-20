@@ -181,9 +181,14 @@ function InitWRE!(o::StrBootTest{T}) where T
 end
 
 function PrepWRE!(o::StrBootTest{T}) where T
-	r₁ = o.null ? [o.r₁ ; o.r] : o.r₁
-  EstimateIV!(o.DGP, o, r₁)
-  MakeResidualsIV!(o.DGP, o)
+	if o.null
+		r₁ = [o.r₁ ; o.r]
+	  EstimateIV!(o.DGP, o, r₁)
+	  MakeResidualsIV!(o.DGP, o)
+	else
+		r₁ = o.r₁
+	end
+
 	_β̈  = view(o.DGP.β̈  ,:,1)
   o.robust && o.bootstrapt && o.granular && (Ü₂par = view(o.DGP.Ü₂[1] * o.Repl.RparY,:,:))
 
@@ -443,9 +448,9 @@ function FillingLoop2!(o::StrBootTest{T}, dest::Matrix{T}, i::Integer, j::Intege
 												 reshape(view(o.PXZ,S,i), :, 1)
 
 		if iszero(j)
-			dest[i,:]   = dropdims(colsum(PXY✻ .* (o.Repl.y₁[S] .- view(o.S✻UMZperp[1],S,:) * o.v)); dims=1)
+			dest[g,:]   = dropdims(colsum(PXY✻ .* (o.Repl.y₁[S] .- view(o.S✻UMZperp[1],S,:) * o.v)); dims=1)
 		else
-			dest[i,:] .-= dropdims(colsum(PXY✻ .* (o.Repl.Yendog[j+1] ? o.Repl.Z[S,j] * _β̈ .- view(o.S✻UMZperp[j+1],S,:) * β̈v :
+			dest[g,:] .-= dropdims(colsum(PXY✻ .* (o.Repl.Yendog[j+1] ? o.Repl.Z[S,j] * _β̈ .- view(o.S✻UMZperp[j+1],S,:) * β̈v :
 																														       o.Repl.Z[S,j] * _β̈                                       )); dims=1)
 		end
 	end
@@ -470,7 +475,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 				dest .-= @panelsum(o, PXY✻ .* (o.Repl.Yendog[j+1] ? view(o.Repl.Z,:,j) * _β̈ .- o.S✻UMZperp[j+1] * (o.v .* _β̈) :
 															                              (view(o.Repl.Z,:,j) * _β̈)                                    ), o.info⋂)
 			end
-		else  # create pieces of each N x B matrix one at a time rather than whole thing at once
+		else  # create pieces of each N x B matrix one at a time
 			@inbounds for j ∈ 0:o.Repl.kZ
 				j>0 && (β̈v = o.v .* (_β̈ = view(β̈s,j,:)'))
 				(o.purerobust ? FillingLoop1! : FillingLoop2!)(o, dest, i, j, _β̈, β̈v)

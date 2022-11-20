@@ -11,6 +11,7 @@ invsym(X) =
 	catch _
 		Symmetric(fill(eltype(X)(NaN), size(X)))
 	end
+	
 invsym(X::Symmetric) =
 	try
 		Symmetric(pinv(X))
@@ -64,7 +65,26 @@ function coldotplus_nonturbo!(dest::AbstractMatrix, A::AbstractMatrix, B::Abstra
 	nothing
 end
 
- # From given row of given matrix, substract inner products of corresponding cols of A & B with quadratic form Q; despite "!", puts result in return value too
+# Add Q-norms of rows of A to dest; despite "!", puts result in return value too
+function rowquadformplus_nonturbo!(dest::AbstractVector{T}, A::AbstractMatrix, Q::AbstractMatrix) where T
+  nt = Threads.nthreads()
+  cs = [round(Int, size(A,1)/nt*i) for i ∈ 0:nt]
+	@inbounds Threads.@threads for t ∈ 1:nt
+		tmp = Vector{T}(undef, size(Q,1))  # thread-safe scratchpad to minimize allocations
+		@inbounds for i ∈ cs[t]+1:cs[t+1]
+			v = view(A,i,:)
+			mul!(tmp, Q, v)
+			dest[i] += v'tmp
+		end
+	end
+	dest
+end
+function rowquadform_nonturbo(A::AbstractMatrix, Q::AbstractMatrix) where T
+	dest = Vector{T}(undef, size(A,1))
+	o.rowquadformplus!(dest, A, Q)
+end
+
+# From given row of given matrix, substract inner products of corresponding cols of A & B with quadratic form Q; despite "!", puts result in return value too
 function colquadformminus_nonturbo!(dest::AbstractMatrix{T}, row::Integer, A::AbstractMatrix, Q::AbstractMatrix, B::AbstractMatrix) where T
   nt = Threads.nthreads()
   cs = [round(Int, size(A,2)/nt*i) for i ∈ 0:nt]
@@ -507,13 +527,27 @@ struct FakeArray{N} <: AbstractArray{Bool,N} size::Tuple{Vararg{Int64,N}} end # 
 FakeArray(size...) = FakeArray{length(size)}(size)
 size(X::FakeArray) = X.size
 
-import Base.*, Base.adjoint, Base.hcat  # extend * to left- and right-multiply 3-arrays by vec or mat, 2nd index of 3-array corresponds to left and 3rd index to right
+# use 3-arrays to hold single-indexed sets of matrices. Index in _middle_ dimension.
+import Base.*, Base.adjoint, Base.hcat, Base.vcat, Base.-, Base.inv, LinearAlgebra.pinv
+@inline each(A::Array{T,3}) where T = eachslice(A; dims=2)
 @inline *(A::AbstractArray{T,3}, B::AbstractMatrix{T}) where T = reshape(reshape(A, size(A,1) * size(A,2), size(A,3)) * B, size(A,1), size(A,2), size(B,2))
 @inline *(A::AbstractArray{T,3}, B::AbstractVector{T}) where T = reshape(reshape(A, size(A,1) * size(A,2), size(A,3)) * B, size(A,1), size(A,2))
 @inline *(A::AbstractVecOrMat, B::AbstractArray) = reshape(A * reshape(B, size(B,1), size(B,2) * size(B,3)), size(A,1), size(B,2), size(B,3))
+@inline *(A::AbstractArray{T,3}, B::AbstractArray{T,3}) where T = cat(reshape.(each(A) .* each(A), size(A,1), 1, size(A,3))...; dims=2)
 @inline adjoint(A::AbstractArray{T,3} where T) = permutedims(A,(3,2,1))
 @inline hcat(A::Array{T,3}, B::Array{T,3}) where T = cat(A,B; dims=3)::Array{T,3}
 @inline vcat(A::Array{T,3}, B::Array{T,3}) where T = cat(A,B; dims=1)::Array{T,3}
+
+# operators for vectors of matrices, which work better than 3-arrays for jackknife
+@inline (-)(A::Matrix{T}, B::Array{T,3}) where T = [A] .- each(B)  # would be better to overload .-, but more complicated
+@inline hcat(A::Vector{Matrix{T}}, B::Vector{Matrix{T}}) where T = hcat.(A,B)  # interpret [A B] entrywise
+@inline vcat(A::Vector{Matrix{T}}, B::Vector{Matrix{T}}) where T = vcat.(A,B)  # interpret [A B] entrywise
+@inline *(A::Vector{Matrix{T}}, B::Vector{Matrix{T}}) where T = A .* B
+@inline *(A::Vector{Matrix{T}}, B::Union{VecOrMat{T},Adjoint{T, Matrix{T}}}) where T = [a * B for a ∈ A]
+@inline *(A::Union{VecOrMat{T},Adjoint{T, Matrix{T}}}, B::Vector{Matrix{T}}) where T = [A * b for b ∈ B]
+@inline tranpose(A::Vector{Matrix{T}}) where T = transpose.(A)  # transpose entrywise
+@inline inv(A::Vector{Matrix{T}}) where T = inv.(A)
+@inline pinv(A::Vector{Matrix{T}}) where T = pinv.(A)
 
 # 5-argument version of mul!() for 3-arrays but forces α=1, β=0
 # import LinearAlgebra.mul!

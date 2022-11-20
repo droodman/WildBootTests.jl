@@ -142,9 +142,11 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
     end
 
 		o.purerobust = o.robust && !o.scorebs && iszero(o.subcluster) && o.N✻==o.Nobs  # do we ever error-cluster *and* bootstrap-cluster by individual?
-		o.granular   = o.WREnonARubin ? 2*o.Nobs*o.B*(2*o.N✻+1) < o.N✻*(o.N✻*o.Nobs+o.N⋂*o.B*(o.N✻+1)) :
-											o.robust && !o.scorebs && (o.purerobust || (o.N⋂+o.N✻)*o.kZ*o.B + (o.N⋂-o.N✻)*o.B + o.kZ*o.B < o.N⋂*o.kZ^2 + o.Nobs*o.kZ + o.N⋂ * o.N✻ * o.kZ + o.N⋂ * o.N✻)
-o.jk && (o.granular = false)
+		o.granular   = !o.jk && (o.WREnonARubin ? 2*o.Nobs*o.B*(2*o.N✻+1) < o.N✻*(o.N✻*o.Nobs+o.N⋂*o.B*(o.N✻+1)) :
+		                                          o.robust && !o.scorebs && (o.purerobust || (o.N⋂+o.N✻)*o.kZ*o.B + (o.N⋂-o.N✻)*o.B + o.kZ*o.B < o.N⋂*o.kZ^2 + o.Nobs*o.kZ + o.N⋂ * o.N✻ * o.kZ + o.N⋂ * o.N✻))
+		o.jk && !o.WREnonARubin && 
+			(o.granularjk = o.kZ^3 + o.N✻ * (o.Nobs/o.N✻*o.kZ^2 + (o.Nobs/o.N✻)^2*o.kZ + (o.Nobs/o.N✻)^2 + (o.Nobs/o.N✻)^3) < o.N✻ * (o.kZ^2*o.Nobs/o.N✻ + o.kZ^3 + 2*o.kZ*(o.kZ + o.Nobs/o.N✻)))
+											
 		if o.robust && !o.purerobust
 			(o.subcluster>0 || o.granular) && !o.WREnonARubin && 
 				(o.info⋂_✻⋂ = panelsetup(o.ID✻⋂, o.subcluster+1:o.NClustVar))  # info for error clusters wrt data collapsed to intersections of all bootstrapping && error clusters; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusterings
@@ -223,8 +225,14 @@ o.jk && (o.granular = false)
 			InitVarsIV!(o.Repl, o)
 			EstimateIV!(o.Repl, o, o.r₁)
 
-			o.DGP = StrEstimator{T}(true, T(o.kX₂ ≠ o.kY₂), zero(T), one(T))
-			setR!(o.DGP, o, o.null ? [o.R₁ ; o.R] : o.R₁, zeros(T,0,o.kZ))  # DGP constraints: model constraints + null if imposed
+			o.DGP = StrEstimator{T}(true, T(o.kX₂ ≠ o.kY₂ + o.null), zero(T), one(T))
+
+			if o.null
+				setR!(o.DGP, o, [o.R₁ ; o.R], zeros(T,0,o.kZ))  #  DGP constraints: model constraints + imposed null
+			else
+				setR!(o.DGP, o,  o.R₁ , o.R)  # when null not imposed, keep it in the attack surface, though not used there, so Zperp is same in DGP and Repl
+			end
+
 			InitVarsIV!(o.DGP, o)
 			if !o.null  # if not imposing null, then DGP constraints, κ, Hessian, etc. do not vary with r and can be set now
 				EstimateIV!(o.DGP, o, o.r₁)

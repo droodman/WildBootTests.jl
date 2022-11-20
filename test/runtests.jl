@@ -8,7 +8,7 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   f = @formula(hasinsurance ~ 1 + selfemployed + post + post_self)
   f = apply_schema(f, schema(f, df, Dict(:hasinsurance => ContinuousTerm)))
   resp, predexog = modelcols(f, df)
-  
+
   println(log, "\nregress hasinsurance selfemployed post post_self, cluster(year)")
   println(log, "\nboottest post_self=.04, weight(webb)")
   test = wildboottest([0 0 0 1], [.04]; resp, predexog, clustid=Int32.(df.year), auxwttype=:webb, rng=StableRNG(1231))

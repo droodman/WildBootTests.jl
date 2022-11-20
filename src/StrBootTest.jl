@@ -13,19 +13,21 @@ struct StrFE{T<:Real}
 end
 
 mutable struct StrEstimator{T<:AbstractFloat}
-  isDGP::Bool; liml::Bool; fuller::T; κ::T
+  const isDGP::Bool; const liml::Bool; const fuller::T; κ::T
   R₁perp::Matrix{T}; Rpar::Matrix{T}
 
   kZ::Int64
-  y₁::Vector{T}; ü₁::Vector{Vector{T}}; u⃛₁::Vector{Vector{T}}; β̈::Matrix{T}; γ̈::Vector{T}; β̈₀::Matrix{T}; invXXXy₁par::Vector{T}
+  y₁::Vector{T}; ü₁::Vector{Vector{T}}; u⃛₁::Vector{Vector{T}}; β̈::Vector{T}; γ̈::Vector{T}; β̈₀::Vector{T}; invXXXy₁par::Vector{T}
   Yendog::Matrix{Bool}
   invZperpZperp::Symmetric{T,Matrix{T}}; invZperpZperpZperpX::Matrix{T}; XZ::Matrix{T}; YPXY::Symmetric{T,Matrix{T}}; R₁invR₁R₁::Matrix{T}
 	restricted::Bool; RperpX::Matrix{T}; RperpXperp::Matrix{T}; RRpar::Matrix{T}; RparX::Matrix{T}; RparY::Matrix{T}; RR₁invR₁R₁::Matrix{T}
-	∂β̈∂r::Array{T,3}; YY::Symmetric{T,Matrix{T}}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Vector{Matrix{T}}; Rt₁::Vector{T}
+	∂β̈∂r::Matrix{T}; YY::Symmetric{T,Matrix{T}}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Vector{Matrix{T}}; Rt₁::Vector{T}
 	invXX::Symmetric{T,Matrix{T}}; Y₂::Matrix{T}; X₂::Matrix{T}; invH::Symmetric{T,Matrix{T}}
 	y₁par::Vector{T}; Xy₁par::Vector{T}
 	A::Symmetric{T,Matrix{T}}; Z::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
 	WXAR::Matrix{T}; CT_XAR::Vector{Matrix{T}}
+
+	S✻XX::Array{T,3}; XinvHjk::Vector{Matrix{T}}; invMjk::Vector{Matrix{T}}; invMjkv::Vector{T}; XXt1jk::Matrix{T}; t₁::Vector{T}
 
   # IV/GMM only
   ZZ::Symmetric{T,Matrix{T}}; XY₂::Matrix{T}; XX::Symmetric{T,Matrix{T}}; H_2SLS::Symmetric{T,Matrix{T}}; V::Matrix{T}; ZY₂::Matrix{T}; ZR₁ZR₁::Symmetric{T,Matrix{T}}; X₂ZR₁::Matrix{T}; ZR₁Y₂::Matrix{T}; X₁ZR₁::Matrix{T}
@@ -49,20 +51,20 @@ end
 mutable struct StrBootTest{T<:AbstractFloat}
   R::Matrix{T}; r::Vector{T}; R₁::Matrix{T}; r₁::Vector{T}
   y₁::Vector{T}; X₁::Matrix{T}; Y₂::Matrix{T}; X₂::Matrix{T}
-  wt::Vector{T}; fweights::Bool
-  liml::Bool; fuller::T; κ::T; arubin::Bool
-  B::Int64; auxtwtype::Symbol; rng::AbstractRNG; maxmatsize::Float16
-  ptype::Symbol; null::Bool; bootstrapt::Bool
-	ID::Matrix{Int64}; NBootClustVar::Int8; NErrClustVar::Int8; issorted::Bool; small::Bool; clusteradj::Bool; clustermin::Bool
+  wt::Vector{T}; const fweights::Bool
+  liml::Bool; const fuller::T; κ::T; const arubin::Bool
+  B::Int64; const auxtwtype::Symbol; const rng::AbstractRNG; maxmatsize::Float16
+  const ptype::Symbol; const null::Bool; const bootstrapt::Bool
+	ID::Matrix{Int64}; const NBootClustVar::Int8; const NErrClustVar::Int8; const issorted::Bool; const small::Bool; const clusteradj::Bool; const clustermin::Bool
   FEID::Vector{Int64}; FEdfadj::Int64
-  level::T; rtol::T
-  madjtype::Symbol; NH₀::Int16
-  ml::Bool; β̈::Vector{T}; A::Symmetric{T,Matrix{T}}; sc::Matrix{T}
-  willplot::Bool; gridmin::Vector{T}; gridmax::Vector{T}; gridpoints::Vector{Float32}
+  const level::T; const rtol::T
+  const madjtype::Symbol; const NH₀::Int16
+  const ml::Bool; β̈::Vector{T}; A::Symmetric{T,Matrix{T}}; sc::Matrix{T}
+  const willplot::Bool; gridmin::Vector{T}; gridmax::Vector{T}; gridpoints::Vector{Float32}
 
-  q::Int16; twotailed::Bool; jk::Bool; scorebs::Bool; robust::Bool
+  const q::Int16; const twotailed::Bool; const jk::Bool; scorebs::Bool; const robust::Bool
 
-  WRE::Bool; initialized::Bool; NFE::Int64; FEboot::Bool; granular::Bool; NErrClustCombs::Int16; subcluster::Int8; BFeas::Int64; interpolating::Bool
+  WRE::Bool; initialized::Bool; NFE::Int64; FEboot::Bool; granular::Bool; granularjk::Bool; NErrClustCombs::Int16; subcluster::Int8; BFeas::Int64; interpolating::Bool
   v_sd::T
   confpeak::Vector{T}
   ID✻::Vector{Int64}; ID✻_✻⋂::Vector{Int64}
@@ -70,8 +72,8 @@ mutable struct StrBootTest{T<:AbstractFloat}
   ci::Matrix{T}
   peak::NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
 
-	Nobs::Int64; NClustVar::Int8; kX₁::Int64; kX₂::Int64; kY₂::Int64; WREnonARubin::Bool; boottest!::Function
-	coldotplus!::Function; colquadformminus!::Function; matmulplus!::Function; panelsum!::Function
+	const Nobs::Int64; const NClustVar::Int8; const kX₁::Int64; const kX₂::Int64; const kY₂::Int64; const WREnonARubin::Bool; const boottest!::Function
+	const coldotplus!::Function; const colquadformminus!::Function; const rowquadformplus!::Function; const matmulplus!::Function; const panelsum!::Function
 
   sqrt::Bool; _Nobs::T; kZ::Int64; sumwt::T; haswt::Bool; sqrtwt::Vector{T}; multiplier::T; smallsample::T
 		dof::Int64; dof_r::T; p::T; BootClust::Int8
@@ -118,23 +120,32 @@ mutable struct StrBootTest{T<:AbstractFloat}
 			scorebs = scorebs || iszero(B) || ml
 			WREnonARubin = !(iszero(kX₂) || scorebs) && !arubin
 
-			new(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, liml || !iszero(fuller), 
-					fuller, κ, arubin, B, auxtwtype, rng, maxmatsize, ptype, null, bootstrapt, ID, NBootClustVar, NErrClustVar, issorted, small, clusteradj, clustermin, 
-					FEID, FEdfadj, level, rtol, madjtype, NH₀, ml, 
-					β̈, A, sc, willplot, gridmin, gridmax, gridpoints,
-				nrows(R), ptype == :symmetric || ptype == :equaltail, jk, scorebs, robust || NErrClustVar>0,
-				false, false, NFE, false, false, 0, 0, 0, false,
-				one(T),
-				[zero(T)],
-				Vector{Int64}(undef,0), Vector{Int64}(undef,0),
-				Vector{T}(undef,0), Vector{T}(undef,0), Matrix{T}(undef,0,0),
-				Matrix{T}(undef,0,0),
-				(X = Vector{T}(undef,0), p = T(NaN)),
-				nrows(X₁), ncols(ID), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!, 
-				coldotplus_nonturbo!, 
-				colquadformminus_nonturbo!, 
-				matmulplus_nonturbo!, 
-				panelsum_nonturbo!)
+			new(R, r, R₁, r₁, 
+			    y₁, X₁, Y₂, X₂, 
+					wt, fweights, 
+					liml || !iszero(fuller), fuller, κ, arubin, 
+					B, auxtwtype, rng, maxmatsize, 
+					ptype, null, bootstrapt, 
+					ID, NBootClustVar, NErrClustVar, issorted, small, clusteradj, clustermin, 
+					FEID, FEdfadj,
+					level, rtol,
+					madjtype, NH₀,
+					ml, β̈, A, sc,
+					willplot, gridmin, gridmax, gridpoints,
+					nrows(R), ptype == :symmetric || ptype == :equaltail, jk, scorebs, robust || NErrClustVar>0,
+					false, false, NFE, false, false, false, 0, 0, 0, false,
+					one(T),
+					[zero(T)],
+					Vector{Int64}(undef,0), Vector{Int64}(undef,0),
+					Vector{T}(undef,0), Vector{T}(undef,0), Matrix{T}(undef,0,0),
+					Matrix{T}(undef,0,0),
+					(X = Vector{T}(undef,0), p = T(NaN)),
+					nrows(X₁), ncols(ID), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!, 
+					coldotplus_nonturbo!, 
+					colquadformminus_nonturbo!,
+					rowquadformplus_nonturbo!,
+					matmulplus_nonturbo!, 
+					panelsum_nonturbo!)
 		end
 end
 
