@@ -7,10 +7,8 @@ voters.dta
 test/profiling.jl
 src/WRE2.jl
 docs/build/
-src/precompiler.jl
 compilation tests.jl
 Stata examples.do
 
-src/investigate turbo.jl
 src/debug.jl
 test/debug.jl
