@@ -5,6 +5,9 @@ WildBootTests.jl performs wild bootstrap-based hypothesis tests at extreme speed
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://droodman.github.io/WildBootTests.jl/dev)
 
 ## Examples
+
+In all cases, to install, start Julia and type `using Pkg; Pkg.add("WildBootTests")`.
+
 ### From Julia
 
 ```
