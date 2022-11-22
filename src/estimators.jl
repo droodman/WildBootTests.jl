@@ -9,7 +9,7 @@ end
 # R₁ is constraints. R is attack surface for null; only needed when using FWL for WRE
 # for DGP regression, R₁ is maintained constraints + null if imposed while R should have 0 nrows
 # for replication regressions R₁ is maintained constraints, R is null
-function setR!(o::StrEstimator{T}, parent::StrBootTest{T}, R₁::AbstractMatrix{T}, R::Union{UniformScaling{Bool},AbstractMatrix{T}}=Matrix{T}(undef,0,0)) where {T,E}
+function setR!(o::StrEstimator{T}, parent::StrBootTest{T}, R₁::AbstractMatrix{T}, R::Union{UniformScaling{Bool},AbstractMatrix{T}}=Matrix{T}(undef,0,0)) where T
   o.restricted = nrows(R₁) > 0
 	if o.restricted > 0
 		singular, invR₁R₁ = invsymsingcheck(R₁ * R₁')
@@ -67,7 +67,7 @@ function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstrac
 
 	if parent.jk
 		if parent.purerobust
-			o.invMjkv = rowquadform(parent.X₁, o.invH)
+			o.invMjkv = rowquadform(parent, o.invH, parent.X₁)
 			o.invMjkv .= 1 ./ (1 .- o.invMjkv)  # standard hc3 multipliers
 		elseif parent.granularjk
 			o.invMjk = Vector{Matrix{T}}(undef, parent.N✻)
@@ -101,11 +101,11 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	X₁Y₂ = parent.X₁'parent.Y₂
 	X₂Y₂ = parent.X₂'parent.Y₂
 
-	if parent.granular
+	if !parent.jk || !(parent.granularjk || parent.purerobust)
 		X₂X₁ = parent.X₂'parent.X₁
 		X₁X₁ = parent.X₁'parent.X₁
 		X₂X₂ = parent.X₂'parent.X₂
-		if parent.jk  # potentially very costly!
+		if !(parent.granularjk || parent.purerobust)
 			S✻X₁X₁ = panelcross(parent.X₁, parent.X₁, parent.info✻)
 			S✻X₂X₁ = panelcross(parent.X₂, parent.X₁, parent.info✻)
 			S✻X₂X₂ = panelcross(parent.X₂, parent.X₂, parent.info✻)
@@ -126,10 +126,29 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	o.∂β̈∂r = R₁AR₁ * [X₁Y₂ ; X₂Y₂]
 
 	if parent.jk
-		o.S✻XX = [[S✻X₁X₁ S✻X₂X₁'] ; [S✻X₂X₁ S✻X₂X₂]]
-		_H = [X₁X₁ X₂X₁' ; X₂X₁ X₂X₂] - o.S✻XX   # through overloading of -, actually a broadcasted operator
-		_invH = iszero(nrows(o.R₁perp)) ? inv.(_H) : o.R₁perp * inv.(o.R₁perp'_H*o.R₁perp) * o.R₁perp'
-		o.XinvHjk = [[view(parent.X₁, parent.info✻[g],:) view(parent.X₂, parent.info✻[g],:)] * _invH[g] for g ∈ 1:parent.N✻]
+		if parent.purerobust
+			o.invMjkv =     rowquadform(parent, parent.X₁, (@view o.invH[1:parent.kX₁,     1:parent.kX₁    ]), parent.X₁) +
+			            2 * rowquadform(parent, parent.X₁, (@view o.invH[1:parent.kX₁,     parent.kX₁+1:end]), parent.X₂) +
+									    rowquadform(parent, parent.X₂, (@view o.invH[parent.kX₁+1:end, parent.kX₁+1:end]), parent.X₂)
+			o.invMjkv .= 1 ./ (1 .- o.invMjkv)  # standard hc3 multipliers
+		elseif parent.granularjk
+			o.invMjk = Vector{Matrix{T}}(undef, parent.N✻)
+			for g ∈ 1:parent.N✻
+				S = parent.info✻[g] 
+				v₁ = view(parent.X₁, S, :); v₂ = view(parent.X₂, S, :)
+				o.invMjk[g] = - v₁ * (@view R₁AR₁[1:parent.kX₁    , 1:parent.kX₁    ]) * v₁' -
+												v₁ * (@view R₁AR₁[1:parent.kX₁    , parent.kX₁+1:end]) * v₂' -
+												v₂ * (@view R₁AR₁[parent.kX₁+1:end, 1:parent.kX₁    ]) * v₁' -
+												v₂ * (@view R₁AR₁[parent.kX₁+1:end, parent.kX₁+1:end]) * v₂'
+				o.invMjk[g][1:length(S)+1:length(S)^2] .+= one(T)  # add I
+				o.invMjk[g] .= invsym(o.invMjk[g])
+			end
+		else
+			!isdefined(o, :S✻XX) && (o.S✻XX = [[S✻X₁X₁ S✻X₂X₁'] ; [S✻X₂X₁ S✻X₂X₂]])
+			_H = [H] .- each(o.S✻XX)  # through overloading of -, actually a broadcasted operator
+			_invH = iszero(nrows(o.R₁perp)) ? inv.(_H) : o.R₁perp * inv.(o.R₁perp' * _H * o.R₁perp) * o.R₁perp'
+			o.XinvHjk = [(S = parent.info✻[g]; X₁₂B(parent, view(parent.X₁, S,:), view(parent.X₂, S,:), _invH[g])) for g ∈ 1:parent.N✻]
+		end
 	end
 
   o.AR = o.A * parent.R'

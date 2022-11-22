@@ -1,4 +1,4 @@
-using SnoopPrecompile
+using SnoopPrecompile, StableRNGs
 @precompile_setup begin
   for T in (Float32, Float64)
     predexog = rand(T, 1000, 4)
@@ -12,7 +12,7 @@ using SnoopPrecompile
     @precompile_all_calls begin
       test = wildboottest(T, [0 0 0 1], [.04]; resp, predexog, clustid=idcoarse)
       test = wildboottest(T, [0 0 0 1], [.04]; resp, predexog, clustid=idgranular)
-      test = wildboottest(T, [0 0 0 1], [.04]; resp, predexog, rng=StableRNG(), small=false)
+      test = wildboottest(T, [0 0 0 1], [.04]; resp, predexog, rng=StableRNG(1), small=false)
       test = wildboottest(T, [0 0 0 1], [.04]; R1=[0 0 1 0], r1=[.2], resp, predexog, clustid=idcoarse)
       test = wildboottest(T, [0 0 0 1], [.04]; resp, predexog, feid)
       test = wildboottest(T, [0 0 0 0 1], [.04]; resp, predexog, predendog, inst, clustid=idcoarse)

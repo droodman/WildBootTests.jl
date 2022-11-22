@@ -123,7 +123,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 										 o.NClustVar>0 ?
 								      	@panelsum(o, uXAR, o.info✻) :
 									      uXAR                    :
-									   sum(uXAR,dims=1)'  :
+									   sum(uXAR'; dims=2)  :
 								  o.DGP.A * panelsum2(o, o.X₁, o.X₂, o.DGP.ü₁[1+_jk], o.info✻)'  # same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined; X₂ empty except in Anderson-Rubin
 
 		if o.robust && o.bootstrapt && o.granular < o.NErrClustCombs
