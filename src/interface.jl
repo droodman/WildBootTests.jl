@@ -242,6 +242,7 @@ function _wildboottest(T::DataType,
 	@assert fuller==0 || (ncols(predendog)>0 && ncols(inst)>0) "For Fuller liml, non-empty predendog and inst arguments are needed"
 	@assert iszero(ncols(predendog)) || ncols(inst)>0 "predendog provided without inst"
 	@assert !arubin || ncols(predendog)>0 "Anderson-Rubin test requested but predendog not provided"
+	@assert !(jk && !arubin && ncols(predendog)>0) "Jackknife not (yet) available for IV estimation, unless running Anderson-Rubin test"
 
 	if getplot || getci
 		@assert iszero(length(gridmin   )) || length(gridmin   )==nrows(R) "Length of gridmin doesn't match number of hypotheses being jointly tested"
