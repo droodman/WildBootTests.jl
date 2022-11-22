@@ -14,15 +14,14 @@ In all cases, to install, start Julia and type `using Pkg; Pkg.add("WildBootTest
 using WildBootTests, CSV, DataFrames, StatsModels, Plots
 d = download("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv");
 df = CSV.read(d, DataFrame);
-f = @formula(y ~ 1 + x);                             # state OLS model
-f = apply_schema(f, schema(f, df));                  # link model to data
-resp, predexog = modelcols(f, df);                   # extract response & (exogenous) predictor variables
-clustid = df.firm;                                   # extract clustering variable
-R = [0 1]; r = [1];                                  # put null in Rβ = r form, where β is parameter vector
+f = @formula(y ~ 1 + x);                            # state OLS model
+f = apply_schema(f, schema(f, df));                 # link model to data
+resp, predexog = modelcols(f, df);                  # extract response & (exogenous) predictor variables
+clustid = df.firm;                                  # extract clustering variable
+R = [0 1]; r = [1];                                 # put null in Rβ = r form, where β is parameter vector
 
-test = wildboottest(R, r; resp, predexog, clustid);  # run test
-test                                                 # display results summary
-plot(plotpoints(test)...)                            # plot confidence curve
+test = wildboottest(R, r; resp, predexog, clustid)  # run test & display results
+plot(plotpoints(test)...)                           # plot confidence curve
 ```
 
 ### From R via fwildclusterboot
