@@ -63,6 +63,26 @@ function coldotplus_nonturbo!(dest::AbstractMatrix, A::AbstractMatrix, B::Abstra
 	end
 	nothing
 end
+# colsum(A .* v .* B); dest should be a one-row matrix
+function coldotplus_nonturbo!(dest::AbstractMatrix, A::AbstractMatrix, v::AbstractVector, B::AbstractMatrix)
+	@inbounds Threads.@threads for i ∈ eachindex(axes(A,2),axes(B,2))
+		@inbounds for j ∈ eachindex(axes(A,1),axes(B,1))
+			dest[i] += A[j,i] * v[j] * B[j,i]
+		end
+	end
+	nothing
+end
+coldotplus!(o::StrBootTest, dest::AbstractMatrix, A::AbstractMatrix, v::AbstractVector, B::AbstractMatrix) = o.coldotplus!(dest,A,v,B)
+
+function coldotminus_nonturbo!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)
+	@inbounds Threads.@threads for i ∈ eachindex(axes(A,2),axes(B,2))
+		@inbounds for j ∈ eachindex(axes(A,1),axes(B,1))
+			dest[i] -= A[j,i] * B[j,i]
+		end
+	end
+	nothing
+end
+coldotminus!(o::StrBootTest, dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix) = o.coldotminus!(dest,A,B)
 
 # Add Q-norms of rows of A to dest; despite "!", puts result in return value too
 function rowquadformplus_nonturbo!(dest::AbstractVector{T}, A::AbstractMatrix, Q::AbstractMatrix, B::AbstractMatrix) where T

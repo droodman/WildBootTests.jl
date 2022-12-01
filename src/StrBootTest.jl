@@ -73,7 +73,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   peak::NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
 
 	const Nobs::Int64; const NClustVar::Int8; const kX₁::Int64; const kX₂::Int64; const kY₂::Int64; const WREnonARubin::Bool; const boottest!::Function
-	const coldotplus!::Function; const colquadformminus!::Function; const rowquadformplus!::Function; const matmulplus!::Function; const panelsum!::Function
+	const coldotplus!::Function; coldotminus!::Function; const colquadformminus!::Function; const rowquadformplus!::Function; const matmulplus!::Function; const panelsum!::Function
 
   sqrt::Bool; _Nobs::T; kZ::Int64; sumwt::T; haswt::Bool; sqrtwt::Vector{T}; multiplier::T; smallsample::T
 		dof::Int64; dof_r::T; p::T; BootClust::Int8
@@ -93,7 +93,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; S✻XU::Vector{Matrix{T}}; invXXS✻XU::Vector{Matrix{T}}; invZperpZperpS✻ZperpU::Vector{Matrix{T}}; S✻YU::Matrix{Vector{T}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻ZperpU::Vector{Matrix{T}}; CT✻FEU::Vector{Matrix{T}}
   ∂denom∂r::Array{Matrix{T},3}; ∂Jcd∂r::Array{Matrix{T},3}; ∂²denom∂r²::Array{Matrix{T},4}
 	FEs::Vector{StrFE{T}}
-  T1L::Vector{Matrix{T}}; T1R::Vector{Matrix{T}}; T2::Matrix{T}; J⋂s::Vector{Array{T,3}}; Q::Array{T,3}; β̈v::Vector{Matrix{T}}
+  T1L::Vector{Matrix{T}}; T1R::Vector{Matrix{T}}; J⋂s::Vector{Array{T,3}}; Q::Array{T,3}; β̈v::Vector{Matrix{T}}
 	crosstab⋂✻ind::Vector{Int64}; crosstab✻ind::Vector{Int64}
   seed::UInt64
 
@@ -142,6 +142,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 					(X = Vector{T}(undef,0), p = T(NaN)),
 					nrows(X₁), ncols(ID), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!, 
 					coldotplus_nonturbo!, 
+					coldotminus_nonturbo!, 
 					colquadformminus_nonturbo!,
 					rowquadformplus_nonturbo!,
 					matmulplus_nonturbo!, 

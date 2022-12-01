@@ -225,7 +225,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			InitVarsIV!(o.Repl, o)
 			EstimateIV!(o.Repl, o, o.r₁)
 
-			o.DGP = StrEstimator{T}(true, T(o.kX₂ ≠ o.kY₂ + o.null), zero(T), one(T))
+			o.DGP = StrEstimator{T}(true, true, zero(T), one(T))
 
 			if o.null
 				setR!(o.DGP, o, [o.R₁ ; o.R], zeros(T,0,o.kZ))  #  DGP constraints: model constraints + imposed null

@@ -133,13 +133,14 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 			o.invMjkv .= 1 ./ (1 .- o.invMjkv)  # standard hc3 multipliers
 		elseif parent.granularjk
 			o.invMjk = Vector{Matrix{T}}(undef, parent.N✻)
+			negR₁AR₁ = -R₁AR₁
 			for g ∈ 1:parent.N✻
 				S = parent.info✻[g] 
 				v₁ = view(parent.X₁, S, :); v₂ = view(parent.X₂, S, :)
-				o.invMjk[g] = - v₁ * (@view R₁AR₁[1:parent.kX₁    , 1:parent.kX₁    ]) * v₁' -
-												v₁ * (@view R₁AR₁[1:parent.kX₁    , parent.kX₁+1:end]) * v₂' -
-												v₂ * (@view R₁AR₁[parent.kX₁+1:end, 1:parent.kX₁    ]) * v₁' -
-												v₂ * (@view R₁AR₁[parent.kX₁+1:end, parent.kX₁+1:end]) * v₂'
+				o.invMjk[g] = v₁ * (@view negR₁AR₁[1:parent.kX₁    , 1:parent.kX₁    ]) * v₁' +
+											v₁ * (@view negR₁AR₁[1:parent.kX₁    , parent.kX₁+1:end]) * v₂' +
+											v₂ * (@view negR₁AR₁[parent.kX₁+1:end, 1:parent.kX₁    ]) * v₁' +
+											v₂ * (@view negR₁AR₁[parent.kX₁+1:end, parent.kX₁+1:end]) * v₂'
 				o.invMjk[g][1:length(S)+1:length(S)^2] .+= one(T)  # add I
 				o.invMjk[g] .= invsym(o.invMjk[g])
 			end
@@ -393,6 +394,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	  o.Zy₁par     = o.Zy₁
 	  o.y₁pary₁par = o.y₁y₁
 	  o.Xy₁par     = [o.X₁y₁ ; o.X₂y₁]
+		o.t₁Y = zeros(T, parent.kY₂)
 
 		# if parent.jk
 		# 	_Y₂y₁par    = _Y₂y₁
@@ -474,13 +476,15 @@ end
 
 function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, #=_jk::Bool,=# r₁::AbstractVector) where T
   if o.restricted
+	  o.t₁Y = o.R₁invR₁R₁Y * r₁
+
     o.y₁pary₁par = o.y₁y₁ - (o.twoZR₁y₁'r₁)[1] + r₁'o.ZR₁ZR₁ * r₁
 	  o.Y₂y₁par = o.Y₂y₁  - o.ZR₁Y₂'r₁
 	  o.X₂y₁par = o.X₂y₁ - o.X₂ZR₁ * r₁
 	  o.X₁y₁par = o.X₁y₁ - o.X₁ZR₁ * r₁
 	  o.Zy₁par  = o.Zy₁ -  o.ZR₁Z'r₁
 	  o.Xy₁par  = [o.X₁y₁par ; o.X₂y₁par]
-	  (parent.scorebs || parent.robust && parent.bootstrapt && parent.granular) && 
+	  (parent.scorebs || parent.robust && parent.bootstrapt && parent.granular && o.isDGP) && 
 			(o.y₁par .= o.y₁ .- o.ZR₁ * r₁)
 
 		# if parent.jk
@@ -522,11 +526,9 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, #=_jk::Bool,=# 
 
 	  o.β̈ = o.invH * (isone(o.κ) ? o.ZXinvXXXy₁par : o.κ * (o.ZXinvXXXy₁par - o.Zy₁par) + o.Zy₁par)
 		# parent.jk && (o.β̈jk = o.invHjk * map((a,b,c) -> isone(a) ? b : a * (b - c) + c, o.κjk, o.ZXinvXXXy₁parjk, o.Zy₁parjk))
-
-	  o.t₁Y = o.R₁invR₁R₁Y * r₁
-  elseif parent.WREnonARubin  # if not score bootstrap of IV/GMM
-	  o.Rt₁ = o.RR₁invR₁R₁ * r₁
-  end
+  elseif parent.WREnonARubin  # if not score bootstrap of IV/GMM...
+		o.Rt₁ = o.RR₁invR₁R₁ * r₁
+	end
 	nothing
 end
 
@@ -574,7 +576,7 @@ function MakeResidualsIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	  Xu = o.Xy₁par - o.XZ * o.β̈  # after DGP regression, compute Y₂ residuals by regressing Y₂ on X while controlling for y₁ residuals, done through FWL
 	  negXuinvuu = Xu / -uu
 	  o.Π̂ = invsym(o.XX + negXuinvuu * Xu') * (negXuinvuu * (o.Y₂y₁par - o.ZY₂'o.β̈)' + o.XY₂)
-		o.γ̈ = o.RparY * view(o.β̈ ,:,1) + o.t₁Y
+		o.γ̈ = o.RparY * view(o.β̈ ,:,1) + o.t₁Y - parent.Repl.t₁Y
 	  if parent.robust && parent.bootstrapt && parent.granular
 			o.Ü₂[1] .= o.Y₂ .- X₁₂B(parent, o.X₁, o.X₂, o.Π̂)
 			o.u⃛₁[1] .= o.y₁par .- o.Z * view(o.β̈ ,:,1) .+ o.Ü₂[1] * o.γ̈

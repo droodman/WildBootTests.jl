@@ -229,7 +229,7 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 						o.u✻ = o.DGP.ü₁[1+_jk] .* view(o.v, o.ID✻, :)
 						partialFE!(o, o.u✻)
 						@inbounds for d ∈ 1:o.dof
-							o.Jcd[1,d] = @panelsum(o, o.u✻, view(o.M.WXAR,:,d), o.info⋂)                                - panelsum2(o, o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂) * o.β̈dev
+							o.Jcd[1,d] = @panelsum(o, o.u✻, view(o.M.WXAR,:,d), o.info⋂)                                            - panelsum2(o, o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂) * o.β̈dev
 						end
 					else
 						_v = view(o.v,o.ID✻_✻⋂,:)

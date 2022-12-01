@@ -26,7 +26,6 @@ function InitWRE!(o::StrBootTest{T}) where T
 	o.T1L = isone(o.Nw) ? [Matrix{T}(undef, o.Repl.kX, ncols(o.v))] :
 												[Matrix{T}(undef, o.Repl.kX, length(o.WeightGrp[1])), Matrix{T}(undef, o.Repl.kX, length(o.WeightGrp[end]))]
 	o.T1R = deepcopy(o.T1L)
-	o.T2 = Matrix{T}(undef, o.N✻, o.N✻)
 	o.robust && o.bootstrapt && iszero(o.granular) &&
 		(o.negS✻UMZperpX = [Array{T,3}(undef, o.Repl.kX, o.N⋂, o.N✻) for _ in 0:o.Repl.kZ])
 
@@ -300,13 +299,13 @@ function PrepWRE!(o::StrBootTest{T}) where T
 					(o.S✻UU[1,i+1] .+= dropdims(-2 * r₁S✻DGPZR₁y₁ + r₁' * (o.S✻DGPZR₁DGPZR₁ * r₁) + 2 * r₁' * (o.S✻DGPZR₁DGPZ * _β̈ + (o.S✻DGPZR₁X * o.DGP.Π̂ - o.S✻DGPZR₁Y₂) * o.DGP.γ̈); dims=1))  # XXX dropdims vs view...
 			else
 				o.S✻UU[1,i+1] .= view(o.Repl.RparY' * (S✻UUterm + S✻Y₂Ü₂γ̈ - Π̂S✻XÜ₂γ̈), i,:)
-
-				if o.DGP.restricted
-					o.S✻UU[1,i+1] .-= view(r₁' * (o.S✻DGPZR₁Y₂ - o.S✻DGPZR₁X * o.DGP.Π̂) * o.Repl.RparY, 1,:,i)
-				end
+				o.DGP.restricted &&
+					(o.S✻UU[1,i+1] .-= view(r₁' * (o.S✻DGPZR₁Y₂ - o.S✻DGPZR₁X * o.DGP.Π̂) * o.Repl.RparY, 1,:,i))
+				o.S✻UU[i+1,1] = o.S✻UU[1,i+1]
 			end
 			for j ∈ 1:i
 				o.S✻UU[j+1,i+1] .= view(S✻Ü₂parÜ₂par, j,:,i)
+				j<i && (o.S✻UU[i+1,j+1] = o.S✻UU[j+1,i+1])
 			end
 		end
 
@@ -324,6 +323,13 @@ function PrepWRE!(o::StrBootTest{T}) where T
 				(o.S✻UMZperp[i+1] .-= view(o.invFEwt .* o.CT✻FEU[i+1], o._FEID, :))  # CT_(*,FE) (U ̈_(parj) ) (S_FE S_FE^' )^(-1) S_FE
 		end
   end
+
+	if o.liml || !isone(o.κ) || !o.robust  # form S✻YU + S✻YU' since that's the only way it's used
+		@inbounds for i ∈ 0:o.Repl.kZ, j ∈ 0:i
+			o.S✻YU[i+1,j+1] .= o.S✻YU[i+1,j+1] .+ o.S✻YU[j+1,i+1]
+			o.S✻YU[j+1,i+1]  = o.S✻YU[i+1,j+1]
+		end
+	end
 
 	if o.robust && o.bootstrapt && iszero(o.granular)
 		@inbounds for j ∈ 0:o.Repl.kZ
@@ -406,14 +412,19 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, i::Integer, j
 		end
 		if !isone(κ)
 			if o.Repl.Yendog[i+1]
-				o.T2 .= o.invZperpZperpS✻ZperpU[i+1]'o.S✻ZperpU[j+1]  # quadratic term
-				o.T2[diagind(o.T2)] .-= i ≤ j ? o.S✻UU[i+1, j+1] : o.S✻UU[j+1, i+1]  # minus diagonal crosstab
-				o.NFE>0 &&
-					(o.T2 .+= o.CT✻FEU[i+1]' * (o.invFEwt .* o.CT✻FEU[j+1]))
 				if iszero(κ)
-					dest .= o.Repl.YY[i+1,j+1] .+ colquadformminus!(o, (                            o.S✻YU[i+1,j+1] .+ o.S✻YU[j+1,i+1])'o.v, o.T2, o.v)
+					dest .= o.Repl.YY[i+1,j+1] .+ o.S✻YU[i+1,j+1]'o.v
+					coldotminus!(o, dest, o.invZperpZperpS✻ZperpU[i+1] * o.v, o.S✻ZperpU[j+1] * o.v)
+					coldotplus!(o, dest, o.v, o.S✻UU[i+1, j+1], o.v)
+					o.NFE>0 &&
+						coldotminus!(o, dest, o.CT✻FEU[i+1] * o.v, (o.invFEwt .* o.CT✻FEU[j+1]) * o.v)
 				else
-					dest .= κ .* dest .+ (1 - κ)     .* colquadformminus!(o, (o.Repl.YY[i+1,j+1] .+ o.S✻YU[i+1,j+1] .+ o.S✻YU[j+1,i+1])'o.v, o.T2, o.v)
+						_dest = o.Repl.YY[i+1,j+1] .+ o.S✻YU[j+1,i+1]'o.v
+						coldotminus!(o, _dest, o.invZperpZperpS✻ZperpU[i+1] * o.v, o.S✻ZperpU[j+1] * o.v)
+						coldotplus!(o, _dest, o.v, o.S✻UU[i+1, j+1], o.v)
+						o.NFE>0 &&
+							coldotminus!(o, _dest, o.CT✻FEU[i+1] * o.v, (o.invFEwt .* o.CT✻FEU[j+1]) * o.v)
+						dest .= κ .* dest .+ (1 - κ) .* _dest
 				end
 			elseif iszero(κ)
 				dest .= o.Repl.YY[i+1,j+1]
