@@ -357,20 +357,20 @@ end
 function HessianFixedkappa(o::StrBootTest{T}, is::Vector{S} where S<:Integer, j::Integer, κ::Number, w::Integer) where T
   dest = Matrix{T}(undef, length(is), ncols(o.v))
   @inbounds for i ∈ eachindex(is, axes(dest,1))
-		_HessianFixedkappa!(o, view(dest,i:i,:), is[i], j, κ, w)
+		_HessianFixedkappa!(o, dest, i, is[i], j, κ, w)
   end
   dest
 end
 
-function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, i::Integer, j::Integer, κ::Number, w::Integer)
+function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, row::Integer, i::Integer, j::Integer, κ::Number, w::Integer)
   if !(o.Repl.Yendog[i+1] || o.Repl.Yendog[j+1])  # if both vars exog, result = order-0 term only, same for all draws
 		!iszero(κ) && 
-			(dest .= dot(view(o.Repl.XZ,:,i), view(o.Repl.invXXXZ,:,j)))
+			(dest[row,:] .= dot(view(o.Repl.XZ,:,i), view(o.Repl.invXXXZ,:,j)))
 		if !isone(κ)
 			if iszero(κ)
-				fill!(dest, o.Repl.YY[i+1,j+1])
+				dest[row,:] .= o.Repl.YY[i+1,j+1]
 			else
-				dest .= κ .* dest .+ (1 - κ) .* o.Repl.YY[i+1,j+1]
+				dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* o.Repl.YY[i+1,j+1]
 			end
 		end
 	else
@@ -391,9 +391,9 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, i::Integer, j
 					else
 						T1R .+= view(o.Repl.invXXXZ,:,j)
 					end
-					coldot!(o, dest, T1L, T1R)
+					coldot!(o, dest, row, T1L, T1R)
 				else
-					dest .= view(o.Repl.invXXXZ,:,j)'T1L  # coldot!(o, dest, T1L, view(o.Repl.invXXXZ,:,j))
+					dest[row,:] .= T1L'view(o.Repl.invXXXZ,:,j)  # coldot!(o, dest, row, T1L, view(o.Repl.invXXXZ,:,j))
 				end
 			else
 				if o.Repl.Yendog[j+1]
@@ -404,32 +404,32 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, i::Integer, j
 					else
 						T1R .+= view(o.Repl.invXXXZ,:,j)
 					end
-					dest .= view(o.Repl.XZ,:,i)'T1R
+					dest[row,:] .= T1R'view(o.Repl.XZ,:,i)
 				else
-					dest .= dot(view(o.Repl.XZ,:,i), view(o.Repl.invXXXZ,:,j))
+					dest[row,:] .= dot(view(o.Repl.invXXXZ,:,j), view(o.Repl.XZ,:,i))
 				end
 			end
 		end
 		if !isone(κ)
 			if o.Repl.Yendog[i+1]
 				if iszero(κ)
-					dest .= o.Repl.YY[i+1,j+1] .+ o.S✻YU[i+1,j+1]'o.v
-					coldotminus!(o, dest, o.invZperpZperpS✻ZperpU[i+1] * o.v, o.S✻ZperpU[j+1] * o.v)
-					coldotplus!(o, dest, o.v, o.S✻UU[i+1, j+1], o.v)
+					dest[row,:] .= o.Repl.YY[i+1,j+1] .+ o.v'o.S✻YU[i+1,j+1]
+					coldotminus!(o, dest, row, o.invZperpZperpS✻ZperpU[i+1] * o.v, o.S✻ZperpU[j+1] * o.v)  # when is this term 0??
+					coldotplus!(o, dest, row, o.v, o.S✻UU[i+1, j+1], o.v)
 					o.NFE>0 &&
-						coldotminus!(o, dest, o.CT✻FEU[i+1] * o.v, (o.invFEwt .* o.CT✻FEU[j+1]) * o.v)
+						coldotminus!(o, dest, row, o.CT✻FEU[i+1] * o.v, (o.invFEwt .* o.CT✻FEU[j+1]) * o.v)
 				else
 						_dest = o.Repl.YY[i+1,j+1] .+ o.S✻YU[j+1,i+1]'o.v
-						coldotminus!(o, _dest, o.invZperpZperpS✻ZperpU[i+1] * o.v, o.S✻ZperpU[j+1] * o.v)
-						coldotplus!(o, _dest, o.v, o.S✻UU[i+1, j+1], o.v)
+						coldotminus!(o, _dest, 1, o.invZperpZperpS✻ZperpU[i+1] * o.v, o.S✻ZperpU[j+1] * o.v)
+						coldotplus!(o, _dest, 1, o.v, o.S✻UU[i+1, j+1], o.v)
 						o.NFE>0 &&
 							coldotminus!(o, _dest, o.CT✻FEU[i+1] * o.v, (o.invFEwt .* o.CT✻FEU[j+1]) * o.v)
-						dest .= κ .* dest .+ (1 - κ) .* _dest
+						dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* _dest
 				end
 			elseif iszero(κ)
-				dest .= o.Repl.YY[i+1,j+1]
+				dest[row,:] .= o.Repl.YY[i+1,j+1]
 			else
-				dest .= κ .* dest .+ (1 - κ) .* o.Repl.YY[i+1,j+1]
+				dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* o.Repl.YY[i+1,j+1]
 			end
 		end
   end

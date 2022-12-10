@@ -10,13 +10,15 @@ using SnoopPrecompile, StableRNGs
     feid = mod.(collect(0:999), 100)
     
     @precompile_all_calls begin
-      test = wildboottest(T, [0 0 0 1], [.04]; resp, predexog, clustid=idcoarse)
-      test = wildboottest(T, [0 0 0 1], [.04]; resp, predexog, clustid=idgranular)
-      test = wildboottest(T, [0 0 0 1], [.04]; resp, predexog, rng=StableRNG(1), small=false)
-      test = wildboottest(T, [0 0 0 1], [.04]; R1=[0 0 1 0], r1=[.2], resp, predexog, clustid=idcoarse)
-      test = wildboottest(T, [0 0 0 1], [.04]; resp, predexog, feid)
-      test = wildboottest(T, [0 0 0 0 1], [.04]; resp, predexog, predendog, inst, clustid=idcoarse)
-      test = wildboottest(T, [0 0 0 1 0], [.04]; resp, predexog, predendog, inst, clustid=idgranular, liml=true)
+      wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, clustid=idcoarse)
+      wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, clustid=idgranular)
+      wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, rng=StableRNG(1), small=false)
+      wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, clustid=idcoarse, R1=T[0 0 1 0], r1=T[.2])
+      wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, feid)
+      wildboottest(T, T[0 0 0 0 1], T[.04]; resp, predexog, predendog, inst, clustid=idcoarse)
+      wildboottest(T, T[0 0 0 0 1], T[.04]; resp, predexog, predendog, inst, clustid=idcoarse, arubin=true)
+      wildboottest(T, T[0 0 0 1 0], T[.04]; resp, predexog, predendog, inst, clustid=idgranular, liml=true)
+      nothing
     end
   end
 end

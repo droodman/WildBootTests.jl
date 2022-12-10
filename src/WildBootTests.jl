@@ -1,7 +1,7 @@
 module WildBootTests
 export BootTestResult, wildboottest, teststat, stattype, p, padj, reps, repsfeas, nbootclust, dof, dof_r, plotpoints, peak, ci, dist, statnumer, statvar, auxweights
 
-using LinearAlgebra, Random, Distributions, SortingAlgorithms, Printf
+using LinearAlgebra, Random, Distributions, SortingAlgorithms, Printf, LoopVectorization
 
 include("StrBootTest.jl")
 include("utilities.jl")
@@ -90,7 +90,7 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T)
 	if o.sqrt
 		o.dist .= o.numer ./ sqrtNaN.(o.statDenom)
 	else
-		negcolquadform!(o, o.dist, -invsym(o.statDenom), o.numer)  # to reduce latency by minimizing #=@tturbo=# instances, work with negative of colquadform in order to fuse code with colquadformminus!
+		negcolquadform!(o, o.dist, -invsym(o.statDenom), o.numer)  # to reduce latency by minimizing @tturbo instances, work with negative of colquadform in order to fuse code with colquadformminus!
 	end
 	nothing
 end

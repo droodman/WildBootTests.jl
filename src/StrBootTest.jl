@@ -19,19 +19,19 @@ mutable struct StrEstimator{T<:AbstractFloat}
   kZ::Int64
   y₁::Vector{T}; ü₁::Vector{Vector{T}}; u⃛₁::Vector{Vector{T}}; β̈::Vector{T}; γ̈::Vector{T}; β̈₀::Vector{T}; invXXXy₁par::Vector{T}
   Yendog::Matrix{Bool}
-  invZperpZperp::Symmetric{T,Matrix{T}}; invZperpZperpZperpX::Matrix{T}; XZ::Matrix{T}; YPXY::Symmetric{T,Matrix{T}}; R₁invR₁R₁::Matrix{T}
+  invZperpZperp::#=Symmetric{T,=#Matrix{T}#=}=#; invZperpZperpZperpX::Matrix{T}; XZ::Matrix{T}; YPXY::#=Symmetric{T,=#Matrix{T}#=}=#; R₁invR₁R₁::Matrix{T}
 	restricted::Bool; RperpX::Matrix{T}; RperpXperp::Matrix{T}; RRpar::Matrix{T}; RparX::Matrix{T}; RparY::Matrix{T}; RR₁invR₁R₁::Matrix{T}
-	∂β̈∂r::Matrix{T}; YY::Symmetric{T,Matrix{T}}; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Vector{Matrix{T}}; Rt₁::Vector{T}
-	invXX::Symmetric{T,Matrix{T}}; Y₂::Matrix{T}; X₂::Matrix{T}; invH::Symmetric{T,Matrix{T}}
+	∂β̈∂r::Matrix{T}; YY::#=Symmetric{T,=#Matrix{T}#=}=#; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; invXXXZ::Matrix{T}; Ü₂::Vector{Matrix{T}}; Rt₁::Vector{T}
+	invXX::#=Symmetric{T,=#Matrix{T}#=}=#; Y₂::Matrix{T}; X₂::Matrix{T}; invH::#=Symmetric{T,=#Matrix{T}#=}=#
 	y₁par::Vector{T}; Xy₁par::Vector{T}
-	A::Symmetric{T,Matrix{T}}; Z::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
+	A::#=Symmetric{T,=#Matrix{T}#=}=#; Z::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
 	WXAR::Matrix{T}; CT_XAR::Vector{Matrix{T}}
 
 	S✻XX::Array{T,3}; XinvHjk::Vector{Matrix{T}}; invMjk::Vector{Matrix{T}}; invMjkv::Vector{T}; XXt1jk::Matrix{T}; t₁::Vector{T}
 
   # IV/GMM only
-  ZZ::Symmetric{T,Matrix{T}}; XY₂::Matrix{T}; XX::Symmetric{T,Matrix{T}}; H_2SLS::Symmetric{T,Matrix{T}}; V::Matrix{T}; ZY₂::Matrix{T}; ZR₁ZR₁::Symmetric{T,Matrix{T}}; X₂ZR₁::Matrix{T}; ZR₁Y₂::Matrix{T}; X₁ZR₁::Matrix{T}
-  ZR₁Z::Matrix{T}; X₂y₁::Vector{T}; X₁y₁::Vector{T}; Zy₁::Vector{T}; ZXinvXXXZ::Matrix{T}; H_2SLSmZZ::Symmetric{T,Matrix{T}}
+  ZZ::#=Symmetric{T,=#Matrix{T}#=}=#; XY₂::Matrix{T}; XX::#=Symmetric{T,=#Matrix{T}#=}=#; H_2SLS::#=Symmetric{T,=#Matrix{T}#=}=#; V::Matrix{T}; ZY₂::Matrix{T}; ZR₁ZR₁::#=Symmetric{T,=#Matrix{T}#=}=#; X₂ZR₁::Matrix{T}; ZR₁Y₂::Matrix{T}; X₁ZR₁::Matrix{T}
+  ZR₁Z::Matrix{T}; X₂y₁::Vector{T}; X₁y₁::Vector{T}; Zy₁::Vector{T}; ZXinvXXXZ::Matrix{T}; H_2SLSmZZ::#=Symmetric{T,=#Matrix{T}#=}=#
   ZXinvXXXy₁par::Vector{T}; t₁Y::Vector{T}
   Y₂y₁::Vector{T}; twoZR₁y₁::Vector{T}; y₁y₁::T; y₁pary₁par::T; Y₂Y₂::Matrix{T}
   X₂y₁par::Vector{T}; X₁y₁par::Vector{T}; Zy₁par::Vector{T}; Y₂y₁par::Vector{T}
@@ -59,8 +59,10 @@ mutable struct StrBootTest{T<:AbstractFloat}
   FEID::Vector{Int64}; FEdfadj::Int64
   const level::T; const rtol::T
   const madjtype::Symbol; const NH₀::Int16
-  const ml::Bool; β̈::Vector{T}; A::Symmetric{T,Matrix{T}}; sc::Matrix{T}
+  const ml::Bool; β̈::Vector{T}; A::#=Symmetric{T,=#Matrix{T}#=}=#; sc::Matrix{T}
   const willplot::Bool; gridmin::Vector{T}; gridmax::Vector{T}; gridpoints::Vector{Float32}
+
+	# const turbo::Bool
 
   const q::Int16; const twotailed::Bool; const jk::Bool; scorebs::Bool; const robust::Bool
 
@@ -141,12 +143,12 @@ mutable struct StrBootTest{T<:AbstractFloat}
 					Matrix{T}(undef,0,0),
 					(X = Vector{T}(undef,0), p = T(NaN)),
 					nrows(X₁), ncols(ID), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!, 
-					coldotplus_nonturbo!, 
-					coldotminus_nonturbo!, 
-					colquadformminus_nonturbo!,
-					rowquadformplus_nonturbo!,
-					matmulplus_nonturbo!, 
-					panelsum_nonturbo!)
+					#=turbo ?=# coldotplus_turbo!       #=: coldotplus_nonturbo!=#, 
+					#=turbo ?=# coldotminus_turbo!      #=: coldotminus_nonturbo!=#, 
+					#=turbo ?=# colquadformminus_turbo! #=: colquadformminus_nonturbo!=#, 
+					#=turbo ?=# rowquadformplus_turbo!  #=: rowquadformplus_nonturbo!=#, 
+					#=turbo ?=# matmulplus_turbo!       #=: matmulplus_nonturbo!=#, 
+					#=turbo ?=# panelsum_turbo!         #=: panelsum_nonturbo!=#)
 		end
 end
 

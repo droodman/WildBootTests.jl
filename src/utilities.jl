@@ -7,23 +7,23 @@
 # iszero(info) && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)
 invsym(X) =
 	try
-		Symmetric(pinv(Symmetric(X)))
+		#=Symmetric=#(pinv(Symmetric(X)))
 	catch _
-		Symmetric(fill(eltype(X)(NaN), size(X)))
+		#=Symmetric=#(fill(eltype(X)(NaN), size(X)))
 	end
 invsym(X::Symmetric) =
 	try
-		Symmetric(pinv(X))
+		#=Symmetric=#(pinv(X))
 	catch _
-		Symmetric(fill(eltype(X)(NaN), size(X)))
+		#=Symmetric=#(fill(eltype(X)(NaN), size(X)))
 	end
 
 function invsymsingcheck(X)  # inverse of symmetric matrix, checking for singularity
-	iszero(nrows(X)) && (return (false, Symmetric(X)))
+	iszero(nrows(X)) && (return (false, #=Symmetric=#(X)))
 	X, ipiv, info = LinearAlgebra.LAPACK.sytrf!('U', Matrix(X))
 	singular = info>0
 	!singular && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)
-	singular, Symmetric(X)
+	singular, #=Symmetric=#(X)
 end
 
 @inline colsum(X::AbstractArray) = iszero(length(X)) ? similar(X, 1, size(X)[2:end]...) : sum(X, dims=1)
@@ -41,73 +41,98 @@ function X₁₂B(o::StrBootTest, X₁::AbstractArray, X₂::AbstractArray, B::A
 	dest
 end
 
-function coldot!(o::StrBootTest, dest::AbstractMatrix{T}, A::AbstractMatrix{T}, B::AbstractMatrix{T}) where T  # colsum(A .* B)
-  fill!(dest, zero(T))
-	o.coldotplus!(dest, A, B)
+function coldot!(o::StrBootTest, dest::AbstractMatrix{T}, row::Integer, A::AbstractMatrix{T}, B::AbstractMatrix{T}) where T  # colsum(A .* B)
+  dest[row,:] .= zero(T)
+	o.coldotplus!(dest, row, A, B)
 	nothing
 end
 function coldot(o::StrBootTest, A::AbstractMatrix{T}, B::AbstractMatrix{T}) where T
   dest = Matrix{T}(undef, 1, size(A,2))
-  coldot!(o, dest, A, B)
+  coldot!(o, dest, 1, A, B)
   dest
 end
 coldot(o::StrBootTest, A::AbstractMatrix) = coldot(o, A, A)
 coldot(o::StrBootTest, A::AbstractVector, B::AbstractVector) = [dot(A,B)]
 
 # colsum(A .* B); dest should be a one-row matrix
-function coldotplus_nonturbo!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)
-	@inbounds Threads.@threads for i ∈ eachindex(axes(A,2),axes(B,2))
-		@inbounds for j ∈ eachindex(axes(A,1),axes(B,1))
-			dest[i] += A[j,i] * B[j,i]
-		end
-	end
+# function coldotplus_nonturbo!(dest::AbstractMatrix, row::Integer, A::AbstractMatrix, B::AbstractMatrix)
+# 	@inbounds Threads.@threads for i ∈ eachindex(axes(A,2),axes(B,2))
+# 		@inbounds for j ∈ eachindex(axes(A,1),axes(B,1))
+# 			dest[row,i] += A[j,i] * B[j,i]
+# 		end
+# 	end
+# 	nothing
+# end
+# # colsum(A .* v .* B); dest should be a one-row matrix
+# function coldotplus_nonturbo!(dest::AbstractMatrix, row::Integer, A::AbstractMatrix, v::AbstractVector, B::AbstractMatrix)
+# 	@inbounds Threads.@threads for i ∈ eachindex(axes(A,2),axes(B,2))
+# 		@inbounds for j ∈ eachindex(axes(A,1),axes(B,1))
+# 			dest[row,i] += A[j,i] * v[j] * B[j,i]
+# 		end
+# 	end
+# 	nothing
+# end
+function coldotplus_turbo!(dest::AbstractMatrix, row::Integer, A::AbstractMatrix, B::AbstractMatrix)
+  @tturbo for i ∈ eachindex(axes(A,2),axes(B,2)), j ∈ eachindex(axes(A,1),axes(B,1))
+	  dest[row,i] += A[j,i] * B[j,i]
+  end
 	nothing
 end
-# colsum(A .* v .* B); dest should be a one-row matrix
-function coldotplus_nonturbo!(dest::AbstractMatrix, A::AbstractMatrix, v::AbstractVector, B::AbstractMatrix)
-	@inbounds Threads.@threads for i ∈ eachindex(axes(A,2),axes(B,2))
-		@inbounds for j ∈ eachindex(axes(A,1),axes(B,1))
-			dest[i] += A[j,i] * v[j] * B[j,i]
-		end
-	end
+function coldotplus_turbo!(dest::AbstractMatrix, row::Integer, A::AbstractMatrix, v::AbstractVector, B::AbstractMatrix)
+  @tturbo for i ∈ eachindex(axes(A,2),axes(B,2)), j ∈ eachindex(axes(A,1),axes(B,1))
+	  dest[row,i] += A[j,i] * v[j] * B[j,i]
+  end
 	nothing
 end
-coldotplus!(o::StrBootTest, dest::AbstractMatrix, A::AbstractMatrix, v::AbstractVector, B::AbstractMatrix) = o.coldotplus!(dest,A,v,B)
+coldotplus!(o::StrBootTest, dest::AbstractMatrix, row::Integer, A::AbstractMatrix, v::AbstractVector, B::AbstractMatrix) = o.coldotplus!(dest,row,A,v,B)
 
-function coldotminus_nonturbo!(dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix)
-	@inbounds Threads.@threads for i ∈ eachindex(axes(A,2),axes(B,2))
-		@inbounds for j ∈ eachindex(axes(A,1),axes(B,1))
-			dest[i] -= A[j,i] * B[j,i]
-		end
-	end
+# function coldotminus_nonturbo!(dest::AbstractMatrix, row::Integer, A::AbstractMatrix, B::AbstractMatrix)
+# 	@inbounds Threads.@threads for i ∈ eachindex(axes(A,2),axes(B,2))
+# 		@inbounds for j ∈ eachindex(axes(A,1),axes(B,1))
+# 			dest[row,i] -= A[j,i] * B[j,i]
+# 		end
+# 	end
+# 	nothing
+# end
+function coldotminus_turbo!(dest::AbstractVecOrMat, row::Integer, A::AbstractMatrix, B::AbstractMatrix)
+  @turbo for i ∈ eachindex(axes(A,2),axes(B,2)), j ∈ eachindex(axes(A,1),axes(B,1))
+	  dest[row,i] -= A[j,i] * B[j,i]
+  end
 	nothing
 end
-coldotminus!(o::StrBootTest, dest::AbstractMatrix, A::AbstractMatrix, B::AbstractMatrix) = o.coldotminus!(dest,A,B)
+coldotminus!(o::StrBootTest, dest::AbstractMatrix, row::Integer, A::AbstractMatrix, B::AbstractMatrix) = o.coldotminus!(dest,row,A,B)
 
 # Add Q-norms of rows of A to dest; despite "!", puts result in return value too
-function rowquadformplus_nonturbo!(dest::AbstractVector{T}, A::AbstractMatrix, Q::AbstractMatrix, B::AbstractMatrix) where T
-  nt = Threads.nthreads()
-  cs = [round(Int, size(A,1)/nt*i) for i ∈ 0:nt]
-  if A===B 
-		@inbounds Threads.@threads for t ∈ 1:nt
-			tmp = Vector{T}(undef, size(Q,1))  # thread-safe scratchpad to minimize allocations
-			@inbounds for i ∈ cs[t]+1:cs[t+1]
-				v = view(A,i,:)
-				mul!(tmp, Q, v)
-				dest[i] += v'tmp
-			end
-		end
-	else
-		@inbounds Threads.@threads for t ∈ 1:nt
-			tmp = Vector{T}(undef, size(Q,1))
-			@inbounds for i ∈ cs[t]+1:cs[t+1]
-				mul!(tmp, Q, view(B,i,:))
-				dest[row,i] -= view(A,i,:)'tmp
-			end
-		end
-	end
-	dest
+# function rowquadformplus_nonturbo!(dest::AbstractVector{T}, A::AbstractMatrix, Q::AbstractMatrix, B::AbstractMatrix) where T
+#   nt = Threads.nthreads()
+#   cs = [round(Int, size(A,1)/nt*i) for i ∈ 0:nt]
+#   if A===B 
+# 		@inbounds Threads.@threads for t ∈ 1:nt
+# 			tmp = Vector{T}(undef, size(Q,1))  # thread-safe scratchpad to minimize allocations
+# 			@inbounds for i ∈ cs[t]+1:cs[t+1]
+# 				v = view(A,i,:)
+# 				mul!(tmp, Q, v)
+# 				dest[i] += v'tmp
+# 			end
+# 		end
+# 	else
+# 		@inbounds Threads.@threads for t ∈ 1:nt
+# 			tmp = Vector{T}(undef, size(Q,1))
+# 			@inbounds for i ∈ cs[t]+1:cs[t+1]
+# 				mul!(tmp, Q, view(B,i,:))
+# 				dest[row,i] -= view(A,i,:)'tmp
+# 			end
+# 		end
+# 	end
+# 	dest
+# end
+function rowquadformplus_turbo!(dest::AbstractVector, A::AbstractMatrix, Q::AbstractMatrix, B::AbstractMatrix)
+  @tturbo for i ∈ axes(A,1), j ∈ axes(A,2), k ∈ axes(A,2)
+    dest[i] += A[i,j] * Q[k,j] * B[i,k]
+  end
+  dest
 end
+
 function rowquadform(o::StrBootTest, A::AbstractMatrix{T}, Q::AbstractMatrix{T}, B::AbstractMatrix{T}) where T
 	dest = Vector{T}(undef, size(A,1))
 	o.rowquadformplus!(dest, A, Q, B)
@@ -116,28 +141,34 @@ end
 rowquadform(o::StrBootTest, Q::AbstractMatrix, A::AbstractMatrix) = rowquadform(o,A,Q,A)
 
 # From given row of given matrix, substract inner products of corresponding cols of A & B with quadratic form Q; despite "!", puts result in return value too
-function colquadformminus_nonturbo!(dest::AbstractMatrix{T}, row::Integer, A::AbstractMatrix, Q::AbstractMatrix, B::AbstractMatrix) where T
-  nt = Threads.nthreads()
-  cs = [round(Int, size(A,2)/nt*i) for i ∈ 0:nt]
-  if A===B 
-		@inbounds Threads.@threads for t ∈ 1:nt
-			tmp = Vector{T}(undef, size(Q,1))  # thread-safe scratchpad to minimize allocations
-			@inbounds for i ∈ cs[t]+1:cs[t+1]
-				v = view(A,:,i)
-				mul!(tmp, Q, v)
-				dest[row,i] -= v'tmp
-			end
-		end
-	else
-		@inbounds Threads.@threads for t ∈ 1:nt
-			tmp = Vector{T}(undef, size(Q,1))
-			@inbounds for i ∈ cs[t]+1:cs[t+1]
-				mul!(tmp, Q, view(B,:,i))
-				dest[row,i] -= view(A,:,i)'tmp
-			end
-		end
-	end
-	dest
+# function colquadformminus_nonturbo!(dest::AbstractMatrix{T}, row::Integer, A::AbstractMatrix, Q::AbstractMatrix, B::AbstractMatrix) where T
+#   nt = Threads.nthreads()
+#   cs = [round(Int, size(A,2)/nt*i) for i ∈ 0:nt]
+#   if A===B 
+# 		@inbounds Threads.@threads for t ∈ 1:nt
+# 			tmp = Vector{T}(undef, size(Q,1))  # thread-safe scratchpad to minimize allocations
+# 			@inbounds for i ∈ cs[t]+1:cs[t+1]
+# 				v = view(A,:,i)
+# 				mul!(tmp, Q, v)
+# 				dest[row,i] -= v'tmp
+# 			end
+# 		end
+# 	else
+# 		@inbounds Threads.@threads for t ∈ 1:nt
+# 			tmp = Vector{T}(undef, size(Q,1))
+# 			@inbounds for i ∈ cs[t]+1:cs[t+1]
+# 				mul!(tmp, Q, view(B,:,i))
+# 				dest[row,i] -= view(A,:,i)'tmp
+# 			end
+# 		end
+# 	end
+# 	dest
+# end
+function colquadformminus_turbo!(dest::AbstractMatrix, row::Integer, A::AbstractMatrix, Q::AbstractMatrix, B::AbstractMatrix)
+  @tturbo for i ∈ axes(A,2), j ∈ axes(A,1), k ∈ axes(A,1)
+    dest[row,i] -= A[j,i] * Q[k,j] * B[k,i]
+  end
+  dest
 end
 colquadformminus!(o::StrBootTest, dest::AbstractMatrix, Q::AbstractMatrix, A::AbstractMatrix) = o.colquadformminus!(dest,1,A,Q,A)
 # compute negative of the norm of each col of A using quadratic form Q; dest should be a one-row matrix
@@ -146,8 +177,20 @@ function negcolquadform!(o::StrBootTest, dest::AbstractMatrix{T}, Q::AbstractMat
 	o.colquadformminus!(dest,1,A,Q,A)
 	nothing
 end
-function matmulplus_nonturbo!(A::VecOrMat{T}, B::AbstractMatrix{T}, C::VecOrMat{T}) where T  # add B*C to A in place
-	BLAS.gemm!('N','N',one(T),B,C,one(T),A)
+# function matmulplus_nonturbo!(A::VecOrMat{T}, B::AbstractMatrix{T}, C::VecOrMat{T}) where T  # add B*C to A in place
+# 	BLAS.gemm!('N','N',one(T),B,C,one(T),A)
+# 	nothing
+# end
+function matmulplus_turbo!(A::Matrix, B::AbstractMatrix, C::Matrix)  # add B*C to A in place
+	@tturbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
+		A[i,k] += B[i,j] * C[j,k]
+	end
+	nothing
+end
+function matmulplus_turbo!(A::Vector, B::AbstractMatrix, C::Vector)  # add B*C to A in place
+	@tturbo for j ∈ eachindex(axes(B,2),C), i ∈ eachindex(axes(A,1),axes(B,1))
+		A[i] += B[i,j] * C[j]
+	end
 	nothing
 end
 
@@ -202,67 +245,138 @@ count_binary(N::Integer, lo::Number, hi::Number) = N≤1 ? [lo  hi] :
 																			            tmp                     tmp     ])
 
 
-function panelsum_nonturbo!(dest::AbstractVecOrMat, X::AbstractVecOrMat, info::AbstractVector{UnitRange{T}} where T<:Integer)
+# function panelsum_nonturbo!(dest::AbstractVecOrMat, X::AbstractVecOrMat, info::AbstractVector{UnitRange{T}} where T<:Integer)
+# 	iszero(length(X)) && return
+# 	J = CartesianIndices(axes(X)[2:end])
+# 	eachindexJ = eachindex(J)
+# 	@inbounds Threads.@threads for g in eachindex(info)
+# 		f, l = first(info[g]), last(info[g])
+# 		fl = f+1:l
+# 		@inbounds if f<l
+# 			for j ∈ eachindexJ
+# 				Jj = J[j]
+# 				tmp = X[f,Jj]
+# 				for i ∈ fl
+# 					tmp += X[i,Jj]
+# 				end
+# 				dest[g,Jj] = tmp
+# 			end
+# 		else
+# 			for j ∈ eachindexJ
+# 				dest[g,J[j]] = X[f,J[j]]
+# 			end
+# 		end
+# 	end
+# end
+# # single-weighted panelsum!() along first axis of a VecOrMat
+# function panelsum_nonturbo!(dest::AbstractArray, X::AbstractArray, wt::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer)
+#   iszero(length(X)) && return
+#   if iszero(length(info)) || nrows(info)==nrows(X)
+#     dest .= X .* wt
+#     return
+#   end
+#   J = CartesianIndices(axes(X)[2:end])
+#   eachindexJ = eachindex(J)
+#   @inbounds Threads.@threads for g in eachindex(info)
+#     f, l = first(info[g]), last(info[g])
+#     fl = f+1:l
+# 		_wt = wt[f]
+#     @inbounds if f<l
+#       for j ∈ eachindexJ
+#         Jj = J[j]
+#         tmp = X[f,Jj] * _wt
+#         for i ∈ fl
+#           tmp += X[i,Jj] * wt[i]
+#         end
+#         dest[g,Jj] = tmp
+#       end
+#     else
+#       for j ∈ eachindexJ
+#         dest[g,J[j]] = X[f,J[j]] * _wt
+#       end
+#     end
+#   end
+# end
+# function panelsum_nonturbo!(dest::AbstractArray, X::AbstractArray{T,3} where T, info::Vector{UnitRange{S}} where S<:Integer)
+#   iszero(length(X)) && return
+#   @inbounds Threads.@threads for g in eachindex(info)
+#     f, l = first(info[g]), last(info[g])
+#     fl = f+1:l
+#     @inbounds if f<l
+#       for i ∈ axes(X,1), k ∈ axes(X,3)
+#         tmp = X[i,f,k]
+#         for j ∈ fl
+#           tmp += X[i,j,k]
+#         end
+#         dest[i,g,k] = tmp
+#       end
+#     else
+#       for i ∈ axes(X,1), k ∈ axes(X,3)
+#         dest[i,g,k] = X[i,f,k]
+#       end
+#     end
+#   end
+# end
+function panelsum_turbo!(dest::AbstractVecOrMat, X::AbstractVecOrMat, info::AbstractVector{UnitRange{T}} where T<:Integer)
 	iszero(length(X)) && return
 	J = CartesianIndices(axes(X)[2:end])
 	eachindexJ = eachindex(J)
-	@inbounds Threads.@threads for g in eachindex(info)
+	@inbounds for g in eachindex(info)
 		f, l = first(info[g]), last(info[g])
 		fl = f+1:l
-		@inbounds if f<l
+		if f<l
 			for j ∈ eachindexJ
 				Jj = J[j]
 				tmp = X[f,Jj]
-				for i ∈ fl
+				@tturbo for i ∈ fl
 					tmp += X[i,Jj]
 				end
 				dest[g,Jj] = tmp
 			end
 		else
-			for j ∈ eachindexJ
+			@simd for j ∈ eachindexJ
 				dest[g,J[j]] = X[f,J[j]]
 			end
 		end
 	end
 end
-# single-weighted panelsum!() along first axis of a VecOrMat
-function panelsum_nonturbo!(dest::AbstractArray, X::AbstractArray, wt::AbstractVector, info::Vector{UnitRange{T}} where T<:Integer)
-  iszero(length(X)) && return
-  if iszero(length(info)) || nrows(info)==nrows(X)
-    dest .= X .* wt
-    return
-  end
-  J = CartesianIndices(axes(X)[2:end])
-  eachindexJ = eachindex(J)
-  @inbounds Threads.@threads for g in eachindex(info)
-    f, l = first(info[g]), last(info[g])
+function panelsum_turbo!(dest::AbstractVecOrMat{T}, X::AbstractVecOrMat{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	iszero(length(X)) && return
+	if iszero(length(info)) || nrows(info)==nrows(X)
+		dest .= X .* wt
+		return
+	end
+	J = CartesianIndices(axes(X)[2:end])
+	eachindexJ = eachindex(J)
+	@inbounds for g in eachindex(info)
+		f, l = first(info[g]), last(info[g])
     fl = f+1:l
 		_wt = wt[f]
-    @inbounds if f<l
-      for j ∈ eachindexJ
-        Jj = J[j]
-        tmp = X[f,Jj] * _wt
-        for i ∈ fl
-          tmp += X[i,Jj] * wt[i]
-        end
-        dest[g,Jj] = tmp
-      end
-    else
-      for j ∈ eachindexJ
-        dest[g,J[j]] = X[f,J[j]] * _wt
-      end
-    end
-  end
+		if f<l
+			for j ∈ eachindexJ
+				Jj = J[j]
+				tmp = X[f,Jj] * _wt
+				@tturbo for i ∈ fl
+					tmp += X[i,Jj] * wt[i]
+				end
+				dest[g,Jj] = tmp
+			end
+		else
+			for j ∈ eachindexJ
+				dest[g,J[j]] = X[f,J[j]] * _wt
+			end
+		end
+	end
 end
-function panelsum_nonturbo!(dest::AbstractArray, X::AbstractArray{T,3} where T, info::Vector{UnitRange{S}} where S<:Integer)
+function panelsum_turbo!(dest::AbstractArray, X::AbstractArray{T,3} where T, info::Vector{UnitRange{S}} where S<:Integer)
   iszero(length(X)) && return
-  @inbounds Threads.@threads for g in eachindex(info)
+  @inbounds for g in eachindex(info)
     f, l = first(info[g]), last(info[g])
     fl = f+1:l
-    @inbounds if f<l
+    if f<l
       for i ∈ axes(X,1), k ∈ axes(X,3)
         tmp = X[i,f,k]
-        for j ∈ fl
+        @tturbo for j ∈ fl
           tmp += X[i,j,k]
         end
         dest[i,g,k] = tmp
@@ -274,6 +388,7 @@ function panelsum_nonturbo!(dest::AbstractArray, X::AbstractArray{T,3} where T, 
     end
   end
 end
+
 # groupwise inner product of two two data matrices
 # 1st dimension of result corresponds to columns of X, second to rows of info, third to columns of Y
 function panelcross!(dest::AbstractArray{T,3}, X::AbstractMatrix{T}, Y::AbstractMatrix{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
