@@ -685,7 +685,14 @@ import Base.*, Base.adjoint, Base.hcat, Base.vcat, Base.-, Base.inv, LinearAlgeb
 @inline vcat(A::Array{T,3}, B::Array{T,3}) where T = cat(A,B; dims=1)::Array{T,3}
 
 # operators for vectors of matrices, which work better than 3-arrays for jackknife
-@inline (-)(A::Matrix{T}, B::Array{T,3}) where T = [A] .- each(B)::Array{T,3}  # would be better to overload .-, but more complicated
+function (-)(A::Matrix{T}, B::Array{T,3})::Vector{Matrix{T}} where T  # would be better to overload .-, but more complicated
+	dest = [similar(A) for _ ∈ axes(B,2)]
+	@inbounds Threads.@threads for i ∈ axes(B,2)
+		dest[i] .= A .- @view B[:,i,:]
+	end
+	dest
+end
+
 @inline hcat(A::Vector{Matrix{T}}, B::Vector{Matrix{T}}) where T = hcat.(A,B)  # interpret [A B] entrywise
 @inline vcat(A::Vector{Matrix{T}}, B::Vector{Matrix{T}}) where T = vcat.(A,B)  # interpret [A B] entrywise
 @inline *(A::Vector{Matrix{T}}, B::Vector{Matrix{T}}) where T = A .* B
