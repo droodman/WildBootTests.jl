@@ -95,7 +95,7 @@ coldotplus!(o::StrBootTest, dest::AbstractMatrix, row::Integer, A::AbstractMatri
 # 	nothing
 # end
 function coldotminus_turbo!(dest::AbstractVecOrMat, row::Integer, A::AbstractMatrix, B::AbstractMatrix)
-  @turbo for i ∈ eachindex(axes(A,2),axes(B,2)), j ∈ eachindex(axes(A,1),axes(B,1))
+  @tturbo for i ∈ eachindex(axes(A,2),axes(B,2)), j ∈ eachindex(axes(A,1),axes(B,1))
 	  dest[row,i] -= A[j,i] * B[j,i]
   end
 	nothing

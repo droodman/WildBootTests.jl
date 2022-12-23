@@ -38,7 +38,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 			o.YY✻_b   = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
 			o.YPXY✻_b = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
 		end
-		o.NFE>0 && (o.bootstrapt || !isone(o.κ) || o.liml) && (o.CT✻FEU = Vector{Matrix{T}}(undef, o.Repl.kZ+1))
+		o.NFE>0 && !o.FEboot && (o.bootstrapt || !isone(o.κ) || o.liml) && (o.CT✻FEU = Vector{Matrix{T}}(undef, o.Repl.kZ+1))
 	end
 	o.S✻⋂XY₂      = o.Repl.S✻⋂XY₂     - o.Repl.S✻⋂XZperp     * o.Repl.invZperpZperpZperpY₂  - o.Repl.invZperpZperpZperpX' * (o.Repl.S✻⋂ZperpY₂  - o.Repl.S✻⋂ZperpZperp * o.Repl.invZperpZperpZperpY₂ )
 	o.S✻⋂XX       = o.Repl.S✻⋂XX      - o.Repl.S✻⋂XZperp     * o.Repl.invZperpZperpZperpX   - o.Repl.invZperpZperpZperpX' * (o.Repl.S✻⋂XZperp'  - o.Repl.S✻⋂ZperpZperp * o.Repl.invZperpZperpZperpX  )
@@ -75,7 +75,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 		o.S✻ZperpDGPZR₁ = @panelsum(o, o.DGP.S✻⋂ZperpZR₁ , o.info✻_✻⋂) - S✻ZperpZperp * o.DGP.invZperpZperpZperpZR₁
 	end
 
-	if o.NFE>0 && (o.liml || !isone(o.κ) || o.bootstrapt)
+	if o.NFE>0 && !o.FEboot && (o.liml || !isone(o.κ) || o.bootstrapt)
 		  CT✻⋂FEX  = [crosstabFE(o, o.Repl.X₁, o.info✻⋂) crosstabFE(o, o.Repl.X₂, o.info✻⋂)]
 		o.CT✻FEX   = @panelsum(o, CT✻⋂FEX, o.info✻_✻⋂)
 		o.CT✻FEY₂  = crosstabFE(o, o.DGP.Y₂, o.info✻)
@@ -115,7 +115,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 			o.S⋂XZperpinvZperpZperp = S⋂ZperpX' * o.Repl.invZperpZperp
 
 			o.Q    = Array{T,3}(undef, o.N✻, o.N⋂, o.N✻)
-			o.NFE>0 && (o.CT⋂FEX = o.invFEwt .* @panelsum(o, CT✻⋂FEX, o.info⋂_✻⋂))
+			o.NFE>0 && !o.FEboot && (o.CT⋂FEX = o.invFEwt .* @panelsum(o, CT✻⋂FEX, o.info⋂_✻⋂))
 
 			o.β̈v = isone(o.Nw) ? [Matrix{T}(undef, o.N✻, ncols(o.v))] :
 			                     [Matrix{T}(undef, o.N✻, length(o.WeightGrp[1])), Matrix{T}(undef, o.N✻, length(o.WeightGrp[end]))]
@@ -224,7 +224,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 		end
 	end
 
-	if (o.liml || o.bootstrapt || !isone(o.κ)) && o.NFE>0
+	if (o.liml || o.bootstrapt || !isone(o.κ)) && o.NFE>0 && !o.FEboot
 		CT✻FEU = o.CT✻FEY₂ - o.CT✻FEX * o.DGP.Π̂
 		CT✻FEURparY = CT✻FEU * o.Repl.RparY
 	end
@@ -256,7 +256,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 				o.invZperpZperpS✻ZperpU[i+1] .= view(o.invZperpZperpS✻ZperpU₂RparY,:,:,i)
 			end
 	
-			if o.NFE>0
+			if o.NFE>0 && !o.FEboot
 				if iszero(i)
 					o.CT✻FEU[1] = o.CT✻FEy₁ - o.CT✻FEZ * _β̈ + CT✻FEU * o.DGP.γ̈
 					o.DGP.restricted &&
@@ -319,7 +319,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 				o.S✻UMZperp[i+1][o.crosstab✻ind] .-= view(Ü₂par,:,i)
 			end
 
-			o.NFE>0 &&
+			o.NFE>0 && !o.FEboot &&
 				(o.S✻UMZperp[i+1] .-= view(o.invFEwt .* o.CT✻FEU[i+1], o._FEID, :))  # CT_(*,FE) (U ̈_(parj) ) (S_FE S_FE^' )^(-1) S_FE
 		end
   end
@@ -342,7 +342,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 				else
 					o.negS✻UMZperpX[j+1][o.crosstab⋂✻ind] .-= vec(view(o.S✻⋂XU₂RparY,:,:,j))
 				end
-				o.NFE>0 &&
+				o.NFE>0 && !o.FEboot &&
 					(o.negS✻UMZperpX[j+1] .+= o.CT⋂FEX'o.CT✻FEU[j+1])  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
 			end
 		end
@@ -416,13 +416,13 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, row::Integer,
 					dest[row,:] .= o.Repl.YY[i+1,j+1] .+ o.v'o.S✻YU[i+1,j+1]
 					coldotminus!(o, dest, row, o.invZperpZperpS✻ZperpU[i+1] * o.v, o.S✻ZperpU[j+1] * o.v)  # when is this term 0??
 					coldotplus!(o, dest, row, o.v, o.S✻UU[i+1, j+1], o.v)
-					o.NFE>0 &&
+					o.NFE>0 && !o.FEboot &&
 						coldotminus!(o, dest, row, o.CT✻FEU[i+1] * o.v, (o.invFEwt .* o.CT✻FEU[j+1]) * o.v)
 				else
 						_dest = o.Repl.YY[i+1,j+1] .+ o.S✻YU[j+1,i+1]'o.v
 						coldotminus!(o, _dest, 1, o.invZperpZperpS✻ZperpU[i+1] * o.v, o.S✻ZperpU[j+1] * o.v)
 						coldotplus!(o, _dest, 1, o.v, o.S✻UU[i+1, j+1], o.v)
-						o.NFE>0 &&
+						o.NFE>0 && !o.FEboot &&
 							coldotminus!(o, _dest, o.CT✻FEU[i+1] * o.v, (o.invFEwt .* o.CT✻FEU[j+1]) * o.v)
 						dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* _dest
 				end
