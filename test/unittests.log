@@ -61,7 +61,7 @@ p       = 0.7332
 
 boottest (post_self=.05) (post=-.02) (selfemployed=-.15), reps(9999) weight(webb)
 F(3, 7) = 0.8534
-p       = 0.7361
+p       = 0.7272
 
 
 regress hasinsurance selfemployed post post_self
@@ -241,7 +241,7 @@ p  = 0.0080
 boottest tenure, nograph bootcluster(collgrad) cluster(collgrad industry) weight(webb) reps(9999)
 z  = 3.9420
 p  = 0.2088
-CI = [-Inf -1.674e9; -1.526e9 -1.286e9; -1.032e9 -8.896e8; -7.829e8 1.103e9; 1.157e9 Inf]
+CI = [-Inf Inf]
 
 
 areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)

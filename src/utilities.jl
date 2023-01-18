@@ -404,9 +404,11 @@ function panelcross!(dest::AbstractArray{T,3}, X::AbstractMatrix{T}, Y::Abstract
       dest[:,g,:] = v'v
     end
   else
-    @inbounds Threads.@threads for g in eachindex(info)
-      infog = info[g]
-      dest[:,g,:] = view(X,infog,:)'view(Y,infog,:)
+    fill!(dest, zero(T))
+  	@inbounds for (g, infog) ∈ enumerate(info)
+      @tturbo for j ∈ eachindex(axes(X,2)), k ∈ eachindex(axes(Y,2)), i ∈ infog
+        dest[j,g,k] += X[i,j] * Y[i,k]
+      end
     end
   end
 end
@@ -415,18 +417,19 @@ function panelcross!(dest::AbstractMatrix{T}, X::AbstractVecOrMat{T}, Y::Abstrac
 	if iszero(length(info)) || nrows(info)==nrows(X)
 		dest .= X' .* Y'
 		return
+	elseif X===Y
+		@inbounds Threads.@threads for g in eachindex(info)
+			v = view(X,info[g])
+			dest[1,g] = dot(v,v)
+		end
+	else
+		fill!(dest, zero(T))
+		@inbounds for (g, infog) ∈ enumerate(info)
+			@tturbo for j ∈ eachindex(axes(X,2)), i ∈ infog
+				dest[j,g] += X[i,j] * Y[i]
+			end
+		end
 	end
-	if X===Y
-    @inbounds Threads.@threads for g in eachindex(info)
-      v = view(X,info[g])
-      dest[1,g] = dot(v,v)
-    end
-  else
-    @inbounds Threads.@threads for g in eachindex(info)
-      infog = info[g]
-			dest[:,g] .= view(X,infog,:)'view(Y,infog)
-    end
-  end
 end
 
 function panelsum(o::StrBootTest, X::AbstractVector{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
