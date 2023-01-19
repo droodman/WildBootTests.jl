@@ -210,9 +210,6 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.ZZ  =  Symmetric(o.Z'o.Z)
 		o.XZ   = [o.X₁'o.Z ; o.X₂'o.Z]
 	
-		o.V = o.invXX * o.XZ
-		o.H_2SLS = o.XZ'o.V  # Hessian
-	
 		if o.restricted
 			o.X₂ZR₁    = o.X₂'o.ZR₁
 			o.X₁ZR₁    = o.X₁'o.ZR₁
@@ -230,17 +227,6 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		end
 
 		o.y₁par = copy(o.y₁)
-
-		if o.isDGP
-			if o.liml
-				o.H_2SLSmZZ = o.H_2SLS - o.ZZ
-			else
-				MakeH!(o, parent, !isempty(Rperp)) # DGP is liml except possibly when getting confidence peak for A-R plot; but liml=0 when exactly id'd, for then κ=1 always and Hessian doesn't depend on r₁ and can be computed now
-			end
-		else
-			o.kZ = ncols(o.Rpar)
-			o.Yendog = [true colsum(o.RparY .!= zero(T)).!=0]
-		end
 
 	else  # coarse
 
@@ -428,7 +414,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 
 		# if parent.jk
 		# 	_invXXXZ = _invXX * _XZ
-		# 	_ZXinvXXXZ = _XZ'_invXXXZ  # symmetric but converting to Symmetric() hampers type inference in the one place it's used
+		# 	_V = _XZ'_invXXXZ  # symmetric but converting to Symmetric() hampers type inference in the one place it's used
 		# end
 
 	  if o.restricted
@@ -488,30 +474,26 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 
 		parent.scorebs && (o.y₁par = copy(o.y₁))
 
-		o.isDGP && (parent.WREnonARubin && (o.ZY₂ = sumpanelcross(o.S✻ZparY₂)))
+		o.isDGP && parent.WREnonARubin && 
+			(o.ZY₂ = sumpanelcross(o.S✻ZparY₂) - ZperpZpar'o.invZperpZperpZperpY₂)
 		
 		o.Z .-= o.Zperp * o.invZperpZperpZperpZpar
 
-# move this stuff below if and de-dup
-		o.V =  o.invXX * o.XZ  # in 2SLS case, estimator is (V' XZ)^-1 * (V'Xy₁). Also used in k-class and liml robust VCV by Stata convention
-		# parent.jk && (_V =  _invXX * _XZ)
-		o.H_2SLS = o.XZ'o.V  # Hessian
+	end
 
-		if o.isDGP
-			o.liml && (o.H_2SLSmZZ = o.H_2SLS - o.ZZ)
-	
-			# if parent.jk
-			# 	parent.WREnonARubin && (_ZY₂ = o.ZY₂ - o.S✻ZparY₂ - _ZperpZpar'_invZperpZperpZperpY₂)
-			# 	_H_2SLS = _V'_XZ
-			# 	(o.liml || !isone(o.κ)) && (_H_2SLSmZZ = _H_2SLS - _ZZ)
-			# end
-		
-			parent.WREnonARubin && (o.ZY₂ -= ZperpZpar'o.invZperpZperpZperpY₂)
-			!o.liml && MakeH!(o, parent, !isempty(Rperp)) # DGP is liml except possibly when getting confidence peak for A-R plot; but liml=0 when exactly id'd, for then κ=1 always and Hessian doesn't depend on r₁ and can be computed now
+	o.V =  o.invXX * o.XZ  # in 2SLS case, estimator is (V' XZ)^-1 * (V'Xy₁). Also used in k-class and liml robust VCV by Stata convention
+	# parent.jk && (_V =  _invXX * _XZ)
+	o.H_2SLS = o.XZ'o.V  # Hessian
+
+	if o.isDGP
+		if o.liml
+			o.H_2SLSmZZ = o.H_2SLS - o.ZZ
 		else
-			o.kZ = ncols(o.Rpar)
-			o.Yendog = [true colsum(o.RparY .!= zero(T)).!=0]  # columns of Y = [y₁par Zpar] that are endogenous (normally all)
+			MakeH!(o, parent, !isempty(Rperp)) # DGP is liml except possibly when getting confidence peak for A-R plot; but liml=0 when exactly id'd, for then κ=1 always and Hessian doesn't depend on r₁ and can be computed now
 		end
+	else
+		o.kZ = ncols(o.Rpar)
+		o.Yendog = [true colsum(o.RparY .!= zero(T)).!=0]
 	end
 
 	!o.restricted && (o.t₁Y = zeros(T, parent.kY₂))
@@ -592,7 +574,7 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, #=_jk::Bool,=# 
 	# 	_invXXXy₁par = _invXX * _Xy₁par
 	# 	_ZXinvXXXy₁par = _XZ'_invXXXy₁par
 	# 	_YY   = [[_y₁pary₁par         ] _Zy₁par'        ; _Zy₁par                _ZZ]
-	# 	_YPXY = [[_invXXXy₁par'_Xy₁par] _ZXinvXXXy₁par' ; _ZXinvXXXy₁par  _ZXinvXXXZ]
+	# 	_YPXY = [[_invXXXy₁par'_Xy₁par] _ZXinvXXXy₁par' ; _ZXinvXXXy₁par  _V]
 	# end
 
   if o.isDGP
