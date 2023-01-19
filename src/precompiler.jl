@@ -1,6 +1,6 @@
 using SnoopPrecompile, StableRNGs
 @precompile_setup begin
-  rng = StableRNG(2093487)
+  rng = StableRNG(2093488)
   for T in (Float32, Float64)
     predexog = rand(rng, T, 1000, 4)
     resp = rand(rng, T, 1000)
