@@ -144,6 +144,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.purerobust = o.robust && !o.scorebs && iszero(o.subcluster) && o.N✻==o.Nobs  # do we ever error-cluster *and* bootstrap-cluster by individual?
 		o.granular   = !o.jk && (o.WREnonARubin ? 2*o.Nobs*o.B*(2*o.N✻+1) < o.N✻*(o.N✻*o.Nobs+o.N⋂*o.B*(o.N✻+1)) :
 		                                          o.robust && !o.scorebs && (o.purerobust || (o.N⋂+o.N✻)*o.kZ*o.B + (o.N⋂-o.N✻)*o.B + o.kZ*o.B < o.N⋂*o.kZ^2 + o.Nobs*o.kZ + o.N⋂ * o.N✻ * o.kZ + o.N⋂ * o.N✻))
+
 		o.jk && !o.WREnonARubin && 
 			(o.granularjk = o.kZ^3 + o.N✻ * (o.Nobs/o.N✻*o.kZ^2 + (o.Nobs/o.N✻)^2*o.kZ + (o.Nobs/o.N✻)^2 + (o.Nobs/o.N✻)^3) < o.N✻ * (o.kZ^2*o.Nobs/o.N✻ + o.kZ^3 + 2*o.kZ*(o.kZ + o.Nobs/o.N✻)))
 											
@@ -237,6 +238,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			if !o.null  # if not imposing null, then DGP constraints, κ, Hessian, etc. do not vary with r and can be set now
 				EstimateIV!(o.DGP, o, o.r₁)
 				MakeResidualsIV!(o.DGP, o)
+				o.granular && (o.Ü₂par = view(o.DGP.Ü₂[1] * o.Repl.RparY,:,:))
 			end
 
 			InitWRE!(o)
