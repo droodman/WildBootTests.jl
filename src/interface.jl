@@ -14,6 +14,7 @@ struct BootTestResult{T}
   b::Vector{T}
   V::Matrix{T}
   auxweights::Union{Nothing,Matrix{T}}
+	granular::Bool
   # M::StrBootTest
 end
 
@@ -153,7 +154,7 @@ function __wildboottest(
 	                  M.p, padj, M.B, M.BFeas, M.N✻, M.dof, M.dof_r, plot, peak, ci,
 	                  getdist(M, diststat),
 	                  getb(M), getV(M),
-	                  getauxweights && reps>0 ? getv(M) : nothing #=, M=#)
+	                  getauxweights && reps>0 ? getv(M) : nothing #=, M=#, M.granular)
 end
 
 vecconvert(T::DataType, X) = Vector(isa(X, AbstractArray) ? vec(    eltype(X)==T ? X : T.(X)) : X)

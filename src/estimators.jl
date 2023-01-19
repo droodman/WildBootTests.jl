@@ -169,7 +169,6 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			o.y₁ = parent.Repl.y₁
 			o.Y₂ = parent.Repl.Y₂
 			o.XX = parent.Repl.XX
-			o.kX = parent.Repl.kX
 			o.invXX = parent.Repl.invXX
 			o.XY₂ = parent.Repl.XY₂
 			o.Y₂y₁ = parent.Repl.Y₂y₁
@@ -205,10 +204,10 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.Z   .-= o.Zperp * (o.invZperpZperp * (o.Zperp'o.Z))  # partialling out
 		o.ZR₁ .-= o.Zperp * (o.invZperpZperp * (o.Zperp'o.ZR₁))
 	
-		o.Zy₁  = o.Z'o.y₁
+		o.Zy₁ = o.Z'o.y₁
 		o.ZY₂ =  o.Z'o.Y₂
 		o.ZZ  =  Symmetric(o.Z'o.Z)
-		o.XZ   = [o.X₁'o.Z ; o.X₂'o.Z]
+		o.XZ  = [o.X₁'o.Z ; o.X₂'o.Z]
 	
 		if o.restricted
 			o.X₂ZR₁    = o.X₂'o.ZR₁
@@ -239,7 +238,6 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			isdefined(parent.Repl, :y₁) && (o.y₁ = parent.Repl.y₁)
 			o.invZperpZperp = parent.Repl.invZperpZperp
 			o.XX = parent.Repl.XX
-			o.kX = parent.Repl.kX
 			o.invXX = parent.Repl.invXX
 			o.XY₂ = parent.Repl.XY₂
 			o.Y₂Y₂ = parent.Repl.Y₂Y₂

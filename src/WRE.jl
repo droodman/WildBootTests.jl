@@ -22,8 +22,8 @@ function InitWRE!(o::StrBootTest{T}) where T
 	end
 
 	o.S✻UU                  = [Vector{T}(undef, o.N✻) for _ ∈ 0:o.Repl.kZ, _ ∈ 0:o.Repl.kZ]
-	o.S✻XU                  = [Matrix{T}(undef, o.DGP.kX, o.N✻) for _ ∈ 0:o.Repl.kZ]
-	o.invXXS✻XU             = [Matrix{T}(undef, o.DGP.kX, o.N✻) for _ ∈ 0:o.Repl.kZ]
+	o.S✻XU                  = [Matrix{T}(undef, o.Repl.kX, o.N✻) for _ ∈ 0:o.Repl.kZ]
+	o.invXXS✻XU             = [Matrix{T}(undef, o.Repl.kX, o.N✻) for _ ∈ 0:o.Repl.kZ]
 	o.S✻ZperpU              = [Matrix{T}(undef, o.Repl.kZperp, o.N✻) for _ ∈ 0:o.Repl.kZ]
 	o.invZperpZperpS✻ZperpU = [Matrix{T}(undef, o.Repl.kZperp, o.N✻) for _ ∈ 0:o.Repl.kZ]
 	o.S✻YU                  = [Vector{T}(undef, o.N✻) for _ ∈ 0:o.Repl.kZ, _ ∈ 0:o.Repl.kZ]
