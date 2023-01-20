@@ -19,7 +19,6 @@ using SnoopPrecompile, StableRNGs
       wildboottest(T, T[0 0 0 0 1], T[.04]; resp, predexog, predendog, inst, rng, clustid=idcoarse)
       wildboottest(T, T[0 0 0 0 1], T[.04]; resp, predexog, predendog, inst, rng, clustid=idcoarse, arubin=true)
       wildboottest(T, T[0 0 0 1 0], T[.04]; resp, predexog, predendog, inst, rng, clustid=idgranular, liml=true)
-      nothing
     end
   end
 end

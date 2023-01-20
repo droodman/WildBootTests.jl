@@ -652,7 +652,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 					o.YY✻_b[1:i+1,i+1]   = YY✻[i+1][:,b]  # fill uppper triangles, which is all that invsym() looks at
 					o.YPXY✻_b[1:i+1,i+1] = YPXY✻[i+1][:,b]
 				end
-				o.κ = 1/(1 - real(eigvals(invsym(o.YY✻_b) * Symmetric(o.YPXY✻_b))[1]))
+				o.κ = 1/(1 - real(eigvalsNaN(invsym(o.YY✻_b) * Symmetric(o.YPXY✻_b))[1]))
 				!iszero(o.fuller) && (o.κ -= o.fuller / (o._Nobs - o.kX))
 				β̈s[:,b] = (A[b] = invsym(o.κ*o.YPXY✻_b[2:end,2:end] + (1-o.κ)*o.YY✻_b[2:end,2:end])) * (o.κ*o.YPXY✻_b[1,2:end] + (1-o.κ)*o.YY✻_b[1,2:end])
 			end

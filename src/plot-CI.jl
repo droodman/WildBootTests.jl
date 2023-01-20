@@ -41,7 +41,7 @@ function plot!(o::StrBootTest{T}) where T
 
 	iszero(nrows(o.gridmin   )) && (o.gridmin    = fill(T(NaN), o.q))
 	iszero(nrows(o.gridmax   )) && (o.gridmax    = fill(T(NaN), o.q))
-	iszero(nrows(o.gridpoints)) && (o.gridpoints = fill(Float32(NaN), o.q))
+	iszero(nrows(o.gridpoints)) && (o.gridpoints = fill(T(NaN), o.q))
 
 	o.gridpoints[isnan.(o.gridpoints) .| isinf.(o.gridpoints)] .= 25
 
@@ -49,9 +49,9 @@ function plot!(o::StrBootTest{T}) where T
 
 	Phi = quantile(Normal{T}(zero(T),one(T)), α/2)
   if o.arubin
-		p = o.dist[1] * o.multiplier
-		p = ccdf(Chisq{T}(T(o.dof)), o.sqrt ? p^2 : p)
-		halfwidth = abs.(o.confpeak) * quantile(Normal{T}(zero(T),one(T)), p/2) / Phi
+		# p = o.dist[1] * o.multiplier
+		# p = ccdf(Chisq{T}(T(o.dof)), o.sqrt ? p^2 : p)
+		halfwidth = abs.(o.confpeak * sqrt((o.dist[1] * o.multiplier) / o.dof) / Phi)  # abs.(o.confpeak) * quantile(Normal{T}(zero(T),one(T)), p/2) / Phi
   else
 		halfwidth = T(-1.5) * Phi .* sqrtNaN.(diag(getV(o)))
 		any(isnan.(halfwidth)) && return

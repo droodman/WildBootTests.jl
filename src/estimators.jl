@@ -577,12 +577,12 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, #=_jk::Bool,=# 
 
   if o.isDGP
 	  if o.liml
-	    o.κ = 1/(1 - real(eigvals(invsym(o.YY) * o.YPXY)[1]))  # like Fast & Wild (81), but more stable, at least in Mata
+	    o.κ = 1/(1 - real(eigvalsNaN(invsym(o.YY) * o.YPXY)[1]))  # like Fast & Wild (81), but more stable, at least in Mata
 	    !iszero(o.fuller) && (o.κ -= o.fuller / (parent._Nobs - parent.kX))
 
 			# if parent.jk
 			# 	for g ∈ 1:parent.N✻
-			# 		_κ[g] = 1/(1 - real(eigvals(invsym(_YY) * _YPXY)[1]))
+			# 		_κ[g] = 1/(1 - real(eigvalsNaN(invsym(_YY) * _YPXY)[1]))
 			# 	end
 			# 	!iszero(o.fuller) && (_κ .-= o.fuller ./ (o._Nobsjk .- parent.kX))
 			# end

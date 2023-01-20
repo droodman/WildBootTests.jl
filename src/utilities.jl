@@ -18,6 +18,13 @@ invsym(X::Symmetric) =
 		#=Symmetric=#(fill(eltype(X)(NaN), size(X)))
 	end
 
+eigvalsNaN(X) =
+	try
+		eigvalsNaN(X)
+	catch _
+		fill(eltype(X)(NaN), size(X))
+	end
+
 function invsymsingcheck(X)  # inverse of symmetric matrix, checking for singularity
 	iszero(nrows(X)) && (return (false, #=Symmetric=#(X)))
 	X, ipiv, info = LinearAlgebra.LAPACK.sytrf!('U', Matrix(X))
@@ -25,6 +32,7 @@ function invsymsingcheck(X)  # inverse of symmetric matrix, checking for singula
 	!singular && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)
 	singular, #=Symmetric=#(X)
 end
+
 
 @inline colsum(X::AbstractArray) = iszero(length(X)) ? similar(X, 1, size(X)[2:end]...) : sum(X, dims=1)
 @inline colsum(X::AbstractArray{Bool}) = iszero(length(X)) ? Array{Int}(undef, 1, size(X)[2:end]...) : sum(X, dims=1)  # type-stable
