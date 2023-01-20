@@ -20,7 +20,7 @@ invsym(X::Symmetric) =
 
 eigvalsNaN(X) =
 	try
-		eigvalsNaN(X)
+		eigvals(X)
 	catch _
 		fill(eltype(X)(NaN), size(X))
 	end
