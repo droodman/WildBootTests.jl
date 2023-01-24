@@ -13,3 +13,8 @@ Stata examples.do
 src/debug.jl
 test/debug.jl
 .vscode/settings.json
+src/estimators.jl.11688.mem
+src/init.jl.11688.mem
+src/plot-CI.jl.11688.mem
+src/StrBootTest.jl.11688.mem
+*.mem

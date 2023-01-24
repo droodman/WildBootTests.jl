@@ -178,7 +178,7 @@ function colquadformminus_turbo!(dest::AbstractMatrix, row::Integer, A::Abstract
   end
   dest
 end
-colquadformminus!(o::StrBootTest, dest::AbstractMatrix, Q::AbstractMatrix, A::AbstractMatrix) = o.colquadformminus!(dest,1,A,Q,A)
+
 # compute negative of the norm of each col of A using quadratic form Q; dest should be a one-row matrix
 function negcolquadform!(o::StrBootTest, dest::AbstractMatrix{T}, Q::AbstractMatrix{T}, A::AbstractMatrix{T}) where T
   fill!(dest, zero(T))
@@ -549,12 +549,12 @@ function partialFE!(o::StrBootTest, In::AbstractArray)
 		if o.haswt
 			Threads.@threads for f ∈ o.FEs
 				tmp = @view In[f.is,:]
-				tmp .-= f.sqrtwt * (f.wt'tmp)
+				tmp .-= f.sqrtwt .* (f.wt'tmp)
 			end
 		else
 			Threads.@threads for f ∈ o.FEs
 				tmp = @view In[f.is,:]
-				tmp .-= f.wt[1] * sum(tmp; dims=1)
+				tmp .-= f.wt[1] .* sum(tmp; dims=1)
 			end
 		end
   end
@@ -564,14 +564,14 @@ function partialFE(o::StrBootTest, In::AbstractArray)
   Out = similar(In)
   if length(In)>0
 		if o.haswt
-			for f ∈ o.FEs
+			Threads.@threads for f ∈ o.FEs
 				tmp = @view In[f.is,:]
-				Out[f.is,:] .= tmp .- f.sqrtwt *  (f.wt'tmp)
+				Out[f.is,:] .= tmp .- f.sqrtwt .* (f.wt'tmp)
 			end
 		else
-			for f ∈ o.FEs
+			Threads.@threads for f ∈ o.FEs
 				tmp = @view In[f.is,:]
-				Out[f.is,:] .= tmp .- f.wt[1] * sum(tmp; dims=1)
+				Out[f.is,:] .= tmp .- f.wt[1] .* sum(tmp; dims=1)
 			end
 		end
   end

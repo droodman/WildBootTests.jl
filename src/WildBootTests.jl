@@ -98,3 +98,17 @@ end
 # include("precompiler.jl")
 
 end
+
+using StatFiles, StatsModels, DataFrames, DataFramesMeta, CategoricalArrays, Random, CSV
+data = DataFrame(CSV.File(raw"c:\users\drood\downloads\datasmall.csv"))
+Random.seed!(123371)
+f = @formula(ln_OperatingrevenueTurnover ~ Size + Leverage + ln_GDPpercapitaUSD + year)
+f = apply_schema(f, schema(f, data, Dict(:year => CategoricalTerm)))
+resp, predexog = modelcols(f, data)
+ivf = @formula(ln_Z_E_A1 ~ Z_E_Base)
+ivf = apply_schema(ivf, schema(ivf, data))
+predendog, inst = modelcols(ivf, data)
+R = [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1]
+r = [0]
+test = WildBootTests.wildboottest(R, r; resp, predexog, predendog, inst, feid=data.id, clustid=Matrix(data[:,[:country, :ISIC_code_id]]) )
+

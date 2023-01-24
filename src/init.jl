@@ -281,7 +281,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   o.sqrt = isone(o.dof)  # work with t/z stats instead of F/chi2?
 
   if o.small
-		_dof = o._Nobs - o.kZ + (o.ml ? 0 : nrows(o.R₁)) - o.FEdfadj
+		_dof = max(0, o._Nobs - o.kZ + (o.ml ? 0 : nrows(o.R₁)) - o.FEdfadj)
 		o.dof_r = o.NClustVar>0 ? minN - one(T) : _dof  # floating-point dof_r allows for fractional fweights, FWIW...
 		o.smallsample = _dof / (o._Nobs - o.robust)
 	else
@@ -318,7 +318,7 @@ function InitFEs(o::StrBootTest{T}) where T
 	if isdefined(o, :FEID) && length(o.FEID)>0
 		p = _sortperm(o.FEID)
 		sortID = o.FEID[p]
-		i_FE = 1; o.FEboot = o.B>0 && !o.WREnonARubin && o.NClustVar>0; j = o.Nobs; o._FEID = ones(Int64, o.Nobs)
+		i_FE = 1; o.FEboot = o.B>0 && o.NClustVar>0; j = o.Nobs; o._FEID = ones(Int64, o.Nobs)
 		o.invFEwt = zeros(T, o.NFE>0 ? o.NFE : o.Nobs)
 		o.FEs = Vector{StrFE{T}}(undef, o.NFE>0 ? o.NFE : o.Nobs)
 		_sqrtwt = T[]
