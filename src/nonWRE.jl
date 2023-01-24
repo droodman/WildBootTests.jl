@@ -107,7 +107,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 			EstimateOLS!(o.DGP, o.jk, o.null ? [o.r₁ ; thisr] : o.r₁)
 			MakeResidualsOLS!(o.DGP, o)
 		elseif o.null  # in score bootstrap for IV/GMM, if imposing null, then DGP constraints, κ, Hessian, etc. do vary with r and must be set now
-			EstimateIV!(o.DGP, o, [o.r₁ ; thisr])
+			EstimateIV!(o.DGP, o, o.jk, [o.r₁ ; thisr])
 			InitTestDenoms!(o.DGP, o)
 			MakeResidualsIV!(o.DGP, o)
 		end

@@ -12,3 +12,4 @@ Stata examples.do
 
 src/debug.jl
 test/debug.jl
+.vscode/settings.json

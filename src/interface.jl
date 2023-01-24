@@ -14,7 +14,6 @@ struct BootTestResult{T}
   b::Vector{T}
   V::Matrix{T}
   auxweights::Union{Nothing,Matrix{T}}
-	granular::Bool
   # M::StrBootTest
 end
 
@@ -154,7 +153,7 @@ function __wildboottest(
 	                  M.p, padj, M.B, M.BFeas, M.N✻, M.dof, M.dof_r, plot, peak, ci,
 	                  getdist(M, diststat),
 	                  getb(M), getV(M),
-	                  getauxweights && reps>0 ? getv(M) : nothing #=, M=#, M.granular)
+	                  getauxweights && reps>0 ? getv(M) : nothing #=, M=#)
 end
 
 vecconvert(T::DataType, X) = Vector(isa(X, AbstractArray) ? vec(    eltype(X)==T ? X : T.(X)) : X)
@@ -243,8 +242,7 @@ function _wildboottest(T::DataType,
 	@assert fuller==0 || (ncols(predendog)>0 && ncols(inst)>0) "For Fuller liml, non-empty predendog and inst arguments are needed"
 	@assert iszero(ncols(predendog)) || ncols(inst)>0 "predendog provided without inst"
 	@assert !arubin || ncols(predendog)>0 "Anderson-Rubin test requested but predendog not provided"
-	@assert !(jk && !arubin && ncols(predendog)>0) "Jackknife not (yet) available for IV estimation, unless running Anderson-Rubin test"
-
+	
 	if getplot || getci
 		@assert iszero(length(gridmin   )) || length(gridmin   )==nrows(R) "Length of gridmin doesn't match number of hypotheses being jointly tested"
 		@assert iszero(length(gridmax   )) || length(gridmax   )==nrows(R) "Length of gridmax doesn't match number of hypotheses being jointly tested"

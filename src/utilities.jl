@@ -399,7 +399,7 @@ end
 
 # groupwise inner product of two two data matrices
 # 1st dimension of result corresponds to columns of X, second to rows of info, third to columns of Y
-function panelcross!(dest::AbstractArray{T,3}, X::AbstractMatrix{T}, Y::AbstractMatrix{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+function panelcross!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
 	iszero(length(X)) && return
 	if iszero(nrows(info)) || nrows(info)==nrows(X)
 		@inbounds for i ∈ axes(Y,2)
@@ -420,25 +420,6 @@ function panelcross!(dest::AbstractArray{T,3}, X::AbstractMatrix{T}, Y::Abstract
     end
   end
 end
-function panelcross!(dest::AbstractMatrix{T}, X::AbstractVecOrMat{T}, Y::AbstractVector{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
-	iszero(length(X)) && return
-	if iszero(length(info)) || nrows(info)==nrows(X)
-		dest .= X' .* Y'
-		return
-	elseif X===Y
-		@inbounds Threads.@threads for g in eachindex(info)
-			v = view(X,info[g])
-			dest[1,g] = dot(v,v)
-		end
-	else
-		fill!(dest, zero(T))
-		@inbounds for (g, infog) ∈ enumerate(info)
-			@tturbo for j ∈ eachindex(axes(X,2)), i ∈ infog
-				dest[j,g] += X[i,j] * Y[i]
-			end
-		end
-	end
-end
 
 function panelsum(o::StrBootTest, X::AbstractVector{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	dest = Vector{T}(undef, iszero(length(info)) ? nrows(X) : length(info))
@@ -450,13 +431,8 @@ function panelsum(o::StrBootTest, X::AbstractMatrix{T}, wt::AbstractVector{T}, i
 	o.panelsum!(dest, X, wt, info)
 	dest
 end
-function panelcross(X::AbstractVecOrMat{T}, Y::AbstractMatrix{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+function panelcross(X::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	dest = Array{T,3}(undef, size(X,2), iszero(length(info)) ? nrows(X) : length(info), size(Y,2))
-	panelcross!(dest, X, Y, info)
-	dest
-end
-function panelcross(X::AbstractVecOrMat{T}, Y::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
-	dest = Matrix{T}(undef, size(X,2), iszero(length(info)) ? nrows(X) : length(info))
 	panelcross!(dest, X, Y, info)
 	dest
 end
@@ -489,44 +465,48 @@ macro panelsum(o, X, wt, info)
 	:( panelsum($(esc(o)), $(esc(X)), $(esc(wt)), $(esc(info))) )
 end
 
-@inline sumpanelcross(X::Array{T} where T) = dropdims(sum(X, dims=2), dims=2)
+@inline sumpanelcross(X::Array{T} where T) = dropdims(sum(X, dims=2); dims=2)
 
 # cross-tab sum of a column vector w.r.t. given panel info and fixed-effect var
 # one row per FE, one col per other grouping
-function crosstabFE(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitRange{Int64}}) where T
-  dest = zeros(T, o.NFE, nrows(info))
+# handling multiple columns in v
+# dimensions: (FEs,entries of info, cols of v)
+# this facilitates reshape() to 2-D array in which results for each col of v are stacked vertically
+function crosstabFE(o::StrBootTest{T}, v::AbstractVecOrMat{T}, info::Vector{UnitRange{Int64}}) where T
+  dest = zeros(T, o.NFE, nrows(info), ncols(v))
 	if o.haswt
 		vw = v .* o.sqrtwt
 		if nrows(info)>0
 			@inbounds Threads.@threads for i ∈ axes(info,1)
-				FEIDi = @view o._FEID[info[i]]
-				vi    = @view      vw[info[i]]
-				@inbounds for j in eachindex(vi, FEIDi)
-					dest[FEIDi[j],i] += vi[j]
+				FEIDi = view(o._FEID, info[i])
+				vi    = @view      vw[info[i],:]
+				@inbounds for j ∈ axes(FEIDi,1)
+					dest[FEIDi[j],i,:] += @view vi[j,:]
 				end
 			end
 		else  # "robust" case, no clustering
-			@inbounds Threads.@threads for i in eachindex(v,o._FEID)
-				dest[o._FEID[i],i] = vw[i]
+			@inbounds Threads.@threads for i ∈ axes(o._FEID,1)
+				dest[o._FEID[i],i,:] .= @view vw[i,:]
 			end
 		end
 	else
 		if nrows(info)>0
 			@inbounds Threads.@threads for i ∈ axes(info,1)
-				FEIDi = @view o._FEID[info[i]]
-				vi    = @view       v[info[i]]
-				@inbounds for j in eachindex(vi, FEIDi)
-					dest[FEIDi[j],i] += vi[j]
+				FEIDi = view(o._FEID, info[i])
+				vi    = @view       v[info[i],:]
+				@inbounds for j ∈ axes(FEIDi,1)
+					dest[FEIDi[j],i,:] += @view vi[j,:]
 				end
 			end
 		else  # "robust" case, no clustering
-			@inbounds Threads.@threads for i in eachindex(v,o._FEID)
-				dest[o._FEID[i],i] = v[i]
+			@inbounds Threads.@threads for i ∈ axes(o._FEID,1)
+				dest[o._FEID[i],i,:] .= @view v[i,:]
 			end
 		end
 	end		
   dest
 end
+
 # same, transposed
 function crosstabFEt(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitRange{Int64}}) where T
   dest = zeros(T, nrows(info), o.NFE)
@@ -560,43 +540,6 @@ function crosstabFEt(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitR
 			end
 		end
 	end	
-  dest
-end
-# crossab handling multiple columns in v
-# dimensions: (FEs,entries of info, cols of v)
-# this facilitates reshape() to 2-D array in which results for each col of v are stacked vertically
-function crosstabFE(o::StrBootTest{T}, v::AbstractMatrix{T}, info::Vector{UnitRange{Int64}}) where T
-  dest = zeros(T, o.NFE, nrows(info), ncols(v))
-	if o.haswt
-		vw = v .* o.sqrtwt
-		if nrows(info)>0
-			@inbounds Threads.@threads for i ∈ axes(info,1)
-				FEIDi = view(o._FEID, info[i])
-				vi    = @view      vw[info[i],:]
-				@inbounds for j ∈ axes(FEIDi,1)
-					dest[FEIDi[j],i,:] += @view vi[j,:]
-				end
-			end
-		else  # "robust" case, no clustering
-			@inbounds Threads.@threads for i ∈ axes(o._FEID,1)
-				dest[o._FEID[i],i,:] .= @view vw[i,:]
-			end
-		end
-	else
-		if nrows(info)>0
-			@inbounds Threads.@threads for i ∈ axes(info,1)
-				FEIDi = view(o._FEID, info[i])
-				vi    = @view       v[info[i],:]
-				@inbounds for j ∈ axes(FEIDi,1)
-					dest[FEIDi[j],i,:] += @view vi[j,:]
-				end
-			end
-		else  # "robust" case, no clustering
-			@inbounds Threads.@threads for i ∈ axes(o._FEID,1)
-				dest[o._FEID[i],i,:] .= @view v[i,:]
-			end
-		end
-	end		
   dest
 end
 
@@ -687,23 +630,68 @@ size(X::FakeArray) = X.size
 # use 3-arrays to hold single-indexed sets of matrices. Index in _middle_ dimension.
 import Base.*, Base.adjoint, Base.hcat, Base.vcat, Base.-, Base.inv, LinearAlgebra.pinv
 @inline each(A::Array{T,3}) where T = [view(A,:,i,:) for i ∈ 1:size(A,2)]  #	eachslice(A; dims=2) more elegant but type-unstable
-@inline *(A::AbstractArray{T,3}, B::AbstractMatrix{T}) where T = reshape(reshape(A, size(A,1) * size(A,2), size(A,3)) * B, size(A,1), size(A,2), size(B,2))
-@inline *(A::AbstractArray{T,3}, B::AbstractVector{T}) where T = reshape(reshape(A, size(A,1) * size(A,2), size(A,3)) * B, size(A,1), size(A,2))
+@inline *(A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T = reshape(reshape(A, size(A,1) * size(A,2), size(A,3)) * B, size(A,1), size(A,2), size(B,2)) :: Array{T,3}
 @inline *(A::AbstractVecOrMat, B::AbstractArray) = reshape(A * reshape(B, size(B,1), size(B,2) * size(B,3)), size(A,1), size(B,2), size(B,3))
-@inline *(A::AbstractArray{T,3}, B::AbstractArray{T,3}) where T = cat(reshape.(each(A) .* each(A), size(A,1), 1, size(A,3))...; dims=2)
 @inline adjoint(A::AbstractArray{T,3} where T) = permutedims(A,(3,2,1))
 @inline hcat(A::Array{T,3}, B::Array{T,3}) where T = cat(A,B; dims=3)::Array{T,3}
 @inline vcat(A::Array{T,3}, B::Array{T,3}) where T = cat(A,B; dims=1)::Array{T,3}
 
-# operators for vectors of matrices, which work better than 3-arrays for jackknife
-function (-)(A::Matrix{T}, B::Array{T,3})::Vector{Matrix{T}} where T  # would be better to overload .-, but more complicated
-	dest = [similar(A) for _ ∈ axes(B,2)]
-	@inbounds Threads.@threads for i ∈ axes(B,2)
-		dest[i] .= A .- @view B[:,i,:]
+function *(A::Array{T,3}, B::Array{T,3}) where T
+	dest = zeros(T, size(A,1), size(A,2), size(B,3))
+	@tturbo for i ∈ eachindex(axes(B,3)), j ∈ eachindex(axes(A,1)), g ∈ eachindex(axes(A,2)), k ∈ eachindex(axes(A,3))
+		dest[j,g,i] += A[j,g,k] * B[k,g,i]
 	end
 	dest
 end
 
+# in-place inverse of a set of symmetric matrices
+function invsym!(A::Array{T,3}) where T
+	@inbounds for g ∈ eachindex(axes(A,2))
+		A[:,g,:] = invsym(@view A[:,g,:])
+	end
+	nothing
+end
+function invsym(A::Array{T,3}) where T
+	dest = similar(A)
+	@inbounds for g ∈ eachindex(axes(A,2))
+		dest[:,g,:] = invsym(@view A[:,g,:])
+	end
+	dest
+end
+
+@inline (-)(A::AbstractMatrix{T}, B::Array{T,3}) where T = reshape(A, (size(A,1),1,size(A,2))) .- B # would be better to overload .-, but more complicated
+
+# delete-g inner products of two vector/matrices; returns full inner product too 
+function crossjk(A::VecOrMat{T}, B::AbstractMatrix{T}, info::Vector{UnitRange{Int64}}) where T
+	t = panelcross(A,B,info)
+	sumt = sumpanelcross(t)
+	if length(t)>0
+		@tturbo for i ∈ eachindex(axes(B,2)), g ∈ eachindex(axes(info)), j ∈ eachindex(axes(A,2))
+			t[j,g,i] = sumt[j,i] - t[j,g,i]
+		end
+	end
+	(sumt, t)
+end
+function crossjk(A::VecOrMat{T}, B::Vector{T}, info::Vector{UnitRange{Int64}}) where T
+	(sumt, t) = crossjk(A, view(B,:,:), info)
+	(vec(sumt), t)
+end
+
+# helper for partialling Z from A, jackknifed. A and Z are data matrices/vectors. ZZZA is a 3-array (or 2-array if A is a vector)
+# Returns {A_g - Z_g * ZZZA_g} stacked
+function partialjk(A::VecOrMat{T}, Z::Matrix{T}, ZZZA::Array{T}, info::Vector{UnitRange{Int64}}) where T
+	dest = similar(A)
+	if length(A)>0
+		for (g,G) ∈ enumerate(info)
+	    @tturbo for i ∈ eachindex(axes(ZZZA,3)), j ∈ G, k ∈ eachindex(axes(Z,2))
+			  dest[j,i] = A[j,i] - Z[j,k] * ZZZA[k,g,i]
+	    end
+		end
+	end
+  dest
+end
+
+# XXX needed?
 @inline hcat(A::Vector{Matrix{T}}, B::Vector{Matrix{T}}) where T = hcat.(A,B)  # interpret [A B] entrywise
 @inline vcat(A::Vector{Matrix{T}}, B::Vector{Matrix{T}}) where T = vcat.(A,B)  # interpret [A B] entrywise
 @inline *(A::Vector{Matrix{T}}, B::Vector{Matrix{T}}) where T = A .* B
