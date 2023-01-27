@@ -132,7 +132,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	    end
 
 	    (o.scorebs || !o.WREnonARubin) &&
-		  	(o.ClustShare = o.haswt ? @panelsum(o, o.wt, o.info⋂)/o.sumwt : T.(length.(o.info⋂)./o.Nobs)) # share of observations by group
+		  	(o.ClustShare = o.haswt ? @panelsum(o.wt, o.info⋂)/o.sumwt : T.(length.(o.info⋂)./o.Nobs)) # share of observations by group
 
     else  # if no clustering, cast "robust" as clustering by observation
       o.clust = [StrClust{T}(o.Nobs, o.small ? o._Nobs / (o._Nobs - one(T)) : one(T), true, Vector{Int64}(undef,0), Vector{UnitRange{Int64}}(undef,0))]
@@ -144,12 +144,12 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.purerobust = o.robust && !o.scorebs && iszero(o.subcluster) && o.N✻==o.Nobs  # do we ever error-cluster *and* bootstrap-cluster by individual?
 		o.granular   = o.WREnonARubin ? o.jk || 2*o.Nobs*o.B*(2*o.N✻+1) < o.N✻*(o.N✻*o.Nobs+o.N⋂*o.B*(o.N✻+1)) :
 		               !o.jk && o.robust && !o.scorebs && (o.purerobust || (o.N⋂+o.N✻)*o.kZ*o.B + (o.N⋂-o.N✻)*o.B + o.kZ*o.B < o.N⋂*o.kZ^2 + o.Nobs*o.kZ + o.N⋂ * o.N✻ * o.kZ + o.N⋂ * o.N✻)
-
+# o.granular = true
 		o.jk && !o.WREnonARubin && 
 			(o.granularjk = o.kZ^3 + o.N✻ * (o.Nobs/o.N✻*o.kZ^2 + (o.Nobs/o.N✻)^2*o.kZ + (o.Nobs/o.N✻)^2 + (o.Nobs/o.N✻)^3) < o.N✻ * (o.kZ^2*o.Nobs/o.N✻ + o.kZ^3 + 2*o.kZ*(o.kZ + o.Nobs/o.N✻)))
 
-		if o.robust && !o.purerobust
-			(o.subcluster>0 || o.granular) && !o.WREnonARubin && 
+		if o.robust
+			(o.subcluster>0 || o.granular || o.purerobust) && !o.WREnonARubin && 
 				(o.info⋂_✻⋂ = panelsetup(o.ID✻⋂, o.subcluster+1:o.NClustVar))  # info for error clusters wrt data collapsed to intersections of all bootstrapping && error clusters; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusterings
 			((o.scorebs && o.B>0) || (o.WREnonARubin && !o.granular && o.bootstrapt)) &&
 				(o.JN⋂N✻ = zeros(T, o.N⋂, o.N✻))
@@ -163,9 +163,11 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	end
 
 	InitFEs(o)
-	if o.B>0 && o.robust && o.granular && !o.purerobust && o.bootstrapt && !o.WREnonARubin
-		if o.NFE>0 && !o.FEboot
-			_, o.ID✻    = panelsetupID(o.ID  , 1:o.NBootClustVar)
+	if o.B>0 && o.robust && o.granular && o.bootstrapt && !o.WREnonARubin
+		if o.purerobust
+			o.ID✻ = Vector{Int64}[]  # panelsum treats 0 length same as max length
+		elseif o.NFE>0 && !o.FEboot
+			_, o.ID✻     = panelsetupID(o.ID   , 1:o.NBootClustVar)
 		else
 			_, o.ID✻_✻⋂ = panelsetupID(o.ID✻⋂, 1:o.NBootClustVar)
 		end

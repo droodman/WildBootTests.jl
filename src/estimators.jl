@@ -67,7 +67,7 @@ function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstrac
 
 	if parent.jk
 		if parent.purerobust
-			o.invMjkv = rowquadform(parent, o.invH, parent.X₁)
+			o.invMjkv = rowquadform(o.invH, parent.X₁)
 			o.invMjkv .= 1 ./ (1 .- o.invMjkv)  # standard hc3 multipliers
 		elseif parent.granularjk
 			o.invMjk = Vector{Matrix{T}}(undef, parent.N✻)
@@ -127,9 +127,9 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 
 	if parent.jk
 		if parent.purerobust
-			o.invMjkv =     rowquadform(parent, parent.X₁, (@view o.invH[1:parent.kX₁,     1:parent.kX₁    ]), parent.X₁) +
-			            2 * rowquadform(parent, parent.X₁, (@view o.invH[1:parent.kX₁,     parent.kX₁+1:end]), parent.X₂) +
-									    rowquadform(parent, parent.X₂, (@view o.invH[parent.kX₁+1:end, parent.kX₁+1:end]), parent.X₂)
+			o.invMjkv =     rowquadform(parent.X₁, (@view o.invH[1:parent.kX₁,     1:parent.kX₁    ]), parent.X₁) +
+			            2 * rowquadform(parent.X₁, (@view o.invH[1:parent.kX₁,     parent.kX₁+1:end]), parent.X₂) +
+									    rowquadform(parent.X₂, (@view o.invH[parent.kX₁+1:end, parent.kX₁+1:end]), parent.X₂)
 			o.invMjkv .= 1 ./ (1 .- o.invMjkv)  # standard hc3 multipliers
 		elseif parent.granularjk
 			o.invMjk = Vector{Matrix{T}}(undef, parent.N✻)
@@ -148,12 +148,12 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 			!isdefined(o, :S✻XX) && (o.S✻XX = [[S✻X₁X₁ S✻X₂X₁'] ; [S✻X₂X₁ S✻X₂X₂]])
 			_H = reshape(H, (parent.kX, 1, parent.kX)) .- o.S✻XX
 			_invH = iszero(nrows(o.R₁perp)) ? invsym(_H) : o.R₁perp * invsym(o.R₁perp' * _H * o.R₁perp) * o.R₁perp'
-			o.XinvHjk = [(S = parent.info✻[g]; X₁₂B(parent, view(parent.X₁, S,:), view(parent.X₂, S,:), view(_invH,:,g,:))) for g ∈ 1:parent.N✻]
+			o.XinvHjk = [(S = parent.info✻[g]; X₁₂B(view(parent.X₁, S,:), view(parent.X₂, S,:), view(_invH,:,g,:))) for g ∈ 1:parent.N✻]
 		end
 	end
 
   o.AR = o.A * parent.R'
-  (parent.scorebs || parent.robust) && (o.XAR = X₁₂B(parent, parent.X₁, parent.X₂, o.AR))
+  (parent.scorebs || parent.robust) && (o.XAR = X₁₂B(parent.X₁, parent.X₂, o.AR))
 	nothing
 end
 
@@ -174,8 +174,8 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			o.kX = ncols(o.X₁) + parent.kX₂
 		end
 	
-		o.Z   = X₁₂B(parent, parent.X₁, parent.Y₂, o.Rpar     )  # Z∥
-		o.ZR₁ = X₁₂B(parent, parent.X₁, parent.Y₂, o.R₁invR₁R₁)
+		o.Z   = X₁₂B(parent.X₁, parent.Y₂, o.Rpar     )  # Z∥
+		o.ZR₁ = X₁₂B(parent.X₁, parent.Y₂, o.R₁invR₁R₁)
 		ZperpZ   = o.Zperp'o.Z
 		ZperpZR₁ = o.Zperp'o.ZR₁
 
@@ -257,7 +257,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			end
 
 			!iszero(o.fuller) &&
-				(o.Nobsⱼₖ = parent._Nobs .- (parent.fweights ? @panelsum(o, parent.wt, parent.info✻) : length.(parent.info✻)))
+				(o.Nobsⱼₖ = parent._Nobs .- (parent.fweights ? @panelsum(parent.wt, parent.info✻) : length.(parent.info✻)))
 		else
 			ZperpX₁    = o.Zperp'o.X₁
 			ZperpX₂    = o.Zperp'parent.X₂
@@ -429,7 +429,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			o.y₁y₁ -= Zperpy₁'o.invZperpZperpZperpy₁
 		end
 
-	  o.Z = X₁₂B(parent, parent.X₁, parent.Y₂, o.Rpar)  # Z∥
+	  o.Z = X₁₂B(parent.X₁, parent.Y₂, o.Rpar)  # Z∥
 
 		X₁par = parent.X₁ * o.RparX  # XXX expressible as a linear combination of Xpar₁??
 		S✻⋂X₁Zpar = panelcross(o.Xpar₁  , X₁par, parent.info✻⋂) + o.S✻⋂X₁Y₂ * o.RparY
@@ -455,7 +455,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.Zy₁ -= ZperpX₁par'o.invZperpZperpZperpy₁
 
 	  if o.restricted
-			_ZR₁ = X₁₂B(parent, parent.X₁, parent.Y₂, o.R₁invR₁R₁)
+			_ZR₁ = X₁₂B(parent.X₁, parent.Y₂, o.R₁invR₁R₁)
 			S✻⋂X₁ZR₁ = panelcross(o.Xpar₁, _ZR₁, parent.info✻⋂)
 			S✻⋂X₂ZR₁ = panelcross(parent.X₂, _ZR₁, parent.info✻⋂)
 			o.S✻⋂XZR₁ = [S✻⋂X₁ZR₁ ; S✻⋂X₂ZR₁]
@@ -552,7 +552,7 @@ function MakeH!(o::StrEstimator{T}, parent::StrBootTest{T}, makeXAR::Bool=false)
   if makeXAR  # for replication regression in score bootstrap of IV/GMM
 	  o.A = ncols(o.Rperp)>0 ? #=Symmetric=#(o.Rperp * invsym(o.Rperp'H*o.Rperp) * o.Rperp') : o.invH
 	  o.AR = o.A * (o.Rpar'parent.R')
-	  o.XAR = X₁₂B(parent, o.X₁, o.X₂, o.V * o.AR)
+	  o.XAR = X₁₂B(o.X₁, o.X₂, o.V * o.AR)
   end
 	nothing
 end
@@ -622,7 +622,7 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁
 end
 
 function MakeResidualsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
-	o.ü₁[1] .= o.y₁par .- X₁₂B(parent, parent.X₁, parent.X₂, view(o.β̈ , :,1))   # ordinary non-jk residuals
+	o.ü₁[1] .= o.y₁par .- X₁₂B(parent.X₁, parent.X₂, view(o.β̈ , :,1))   # ordinary non-jk residuals
 
 	if parent.jk
 		m = parent.small ? sqrt((parent.N✻ - 1) / T(parent.N✻)) : one(T)
@@ -630,14 +630,14 @@ function MakeResidualsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 			if iszero(nrows(o.R₁perp))
 				o.ü₁[2] .= m .* o.invMjkv .* o.ü₁[1]
 			else
-				Xt₁	= X₁₂B(parent, parent.X₁, parent.X₂, o.t₁)
+				Xt₁	= X₁₂B(parent.X₁, parent.X₂, o.t₁)
 				o.ü₁[2] .= m .* (o.invMjkv .* (o.ü₁[1] .+ Xt₁) .- Xt₁)
 			end
 		elseif parent.granularjk
 	    for g ∈ 1:parent.N✻
 				S = parent.info✻[g]
 				if nrows(o.R₁perp)>0
-					Xt₁	= X₁₂B(parent, view(parent.X₁,S,:), view(parent.X₂,S,:), o.t₁)
+					Xt₁	= X₁₂B(view(parent.X₁,S,:), view(parent.X₂,S,:), o.t₁)
 					o.ü₁[2][S] .= m .* (o.invMjk[g] * (view(o.ü₁[1], S) + Xt₁) .- Xt₁)
 				else
 					o.ü₁[2][S] .= m .*  o.invMjk[g] *  view(o.ü₁[1], S)
@@ -667,7 +667,7 @@ function MakeResidualsIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	  o.Π̂ = invsym(o.XX + negXuinvuu * Xu') * (negXuinvuu * (o.Y₂y₁par - o.ZY₂'o.β̈)' + o.XY₂)
 		o.γ̈ = o.RparY * view(o.β̈ ,:,1) + o.t₁Y - parent.Repl.t₁Y
 	  if parent.granular
-			o.Ü₂[1] .= o.Y₂ .- X₁₂B(parent, o.X₁, o.X₂, o.Π̂ )
+			o.Ü₂[1] .= o.Y₂ .- X₁₂B(o.X₁, o.X₂, o.Π̂ )
 			o.u⃛₁[1] .= o.y₁par .- o.Z * view(o.β̈ ,:,1) .+ o.Ü₂[1] * o.γ̈
 		end
   end

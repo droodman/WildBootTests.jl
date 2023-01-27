@@ -315,7 +315,6 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   test = wildboottest([1 zeros(1,size(predexog,2)-1)], [0]; resp, predexog, clustid=Matrix(df[:, [:pixcode, :ccode]]), nbootclustvar=2, nerrclustvar=2, feid=df.ccode, reps=9999, rng=StableRNG(1231))
   println(log, test)
   
-  
   println(log, "\ninfile coll merit male black asian year state chst using regm.raw, clear")
   println(log, "qui regress coll merit male black asian i.year i.state if !inlist(state,34,57,59,61,64,71,72,85,88), cluster(state)	")
   println(log, "generate individual = _n  // unique ID for each observation")

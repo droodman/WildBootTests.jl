@@ -48,7 +48,7 @@ regress hasinsurance selfemployed post post_self, robust
 boottest post_self=.04, weight(webb)
 t(12) = 1.5097
 p     = 0.1552
-CI    = [0.03328 0.0797]
+CI    = [0.03502 0.07951]
 
 
 regress hasinsurance selfemployed post post_self, cluster(year)
@@ -61,7 +61,7 @@ p       = 0.7332
 
 boottest (post_self=.05) (post=-.02) (selfemployed=-.15), reps(9999) weight(webb)
 F(3, 7) = 0.8534
-p       = 0.7364
+p       = 0.7355
 
 
 regress hasinsurance selfemployed post post_self
@@ -255,14 +255,14 @@ areg wage ttl_exp collgrad tenure if occupation<., robust absorb(industry)
 boottest tenure
 t(1833) = 1.6602
 p       = 0.1001
-CI      = [-0.005277 0.07369]
+CI      = [-0.005319 0.07348]
 
 
 areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., robust absorb(industry)
 boottest tenure
 t(1833) = 1.6265
 p       = 0.1091
-CI      = [-0.007348 0.07589]
+CI      = [-0.007315 0.07565]
 
 
 ivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours], liml cluster(industry) absorb(industry)
@@ -289,17 +289,17 @@ p        = 0.2222
 
 boottest occupation
 t(11) = 1.1091
-p     = 0.2152
-CI    = [-0.5631 Inf]
+p     = 0.2132
+CI    = [-0.8646 -0.8125; -0.5709 Inf]
 
 boottest tenure | _b[collgrad] = 0
 t(11) = -2.0551
 p     = 0.1101
-CI    = [-0.1932 0.06341; 0.6221 Inf]
+CI    = [-0.1932 0.06365; 0.6222 Inf]
 
 t(11) = -2.0551
 p     = 0.1101
-CI    = [-0.1932 0.06341; 0.6221 Inf]
+CI    = [-0.1932 0.06365; 0.6222 Inf]
 
 
 areg n w k, absorb(ind)
@@ -307,7 +307,7 @@ areg n w k, absorb(ind)
 boottest k, cluster(id year)
 t(8) = 28.5012
 p    = 0.0000
-CI   = [0.8452 0.8838]
+CI   = [0.783 0.9413]
 
 
 areg n w k [aw=ys], absorb(ind)
@@ -315,7 +315,7 @@ areg n w k [aw=ys], absorb(ind)
 boottest k, cluster(id year)
 t(8) = 28.4248
 p    = 0.0000
-CI   = [0.8447 0.8837]
+CI   = [0.7823 0.9405]
 
 
 global pix lnkm pixpetro pixdia pixwaterd pixcapdist pixmal pixsead pixsuit pixelev pixbdist

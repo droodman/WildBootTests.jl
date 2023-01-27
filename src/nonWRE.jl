@@ -29,13 +29,13 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 
 					o.∂numer∂r[h₁] = (o.numer .- o.numer₀) ./ o.poles[h₁]
 					o.interpolate_u && (o.∂u∂r[h₁] = (o.u✻ .- o.u✻₀) ./ o.poles[h₁])
-					if o.robust && !o.purerobust  # dof > 1 for an arubin test with >1 instruments.
+					if o.robust  # dof > 1 for an arubin test with >1 instruments.
 						for d₁ ∈ 1:o.dof
 							for c ∈ 1:o.NErrClustCombs
 								o.∂Jcd∂r[h₁,c,d₁] = (o.Jcd[c,d₁] .- o.Jcd₀[c,d₁]) ./ o.poles[h₁]
 								for d₂ ∈ 1:d₁
-									tmp = coldot(o, o.Jcd₀[c,d₁], o.∂Jcd∂r[h₁,c,d₂])
-									d₁ ≠ d₂ && (o.coldotplus!(tmp, 1, o.Jcd₀[c,d₂], o.∂Jcd∂r[h₁,c,d₁]))  # for diagonal items, faster to just double after the c loop
+									tmp = coldot(o.Jcd₀[c,d₁], o.∂Jcd∂r[h₁,c,d₂])
+									d₁ ≠ d₂ && (coldotplus!(tmp, 1, o.Jcd₀[c,d₂], o.∂Jcd∂r[h₁,c,d₁]))  # for diagonal items, faster to just double after the c loop
 									@clustAccum!(o.∂denom∂r[h₁,d₁,d₂], c, tmp)
 								end
 							end
@@ -44,11 +44,11 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 					end
 				end
 			end
-			if o.robust && !o.purerobust  # quadratic interaction terms
+			if o.robust  # quadratic interaction terms
 				@inbounds for h₁ ∈ 1:o.q, h₂ ∈ 1:h₁
 					if newPole[h₁] || newPole[h₂]
 						for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁, c ∈ 1:o.NErrClustCombs
-							@clustAccum!(o.∂²denom∂r²[h₁,h₂,d₁,d₂], c, coldot(o, o.∂Jcd∂r[h₁,c,d₁], o.∂Jcd∂r[h₂,c,d₂]))
+							@clustAccum!(o.∂²denom∂r²[h₁,h₂,d₁,d₂], c, coldot(o.∂Jcd∂r[h₁,c,d₁], o.∂Jcd∂r[h₂,c,d₂]))
 						end
 					end
 				end
@@ -73,7 +73,7 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 			end
 		end
 
-		if o.robust && !o.purerobust  # even if an anchor was just moved, and linear components just computed from scratch, do the quadratic interpolation now, from the updated linear factors
+		if o.robust  # even if an anchor was just moved, and linear components just computed from scratch, do the quadratic interpolation now, from the updated linear factors
 			if isone(o.q)
 				@inbounds for d₁ ∈ 1:o.dof, d₂ ∈ 1:d₁
 					o.denom[d₁,d₂] .= o.denom₀[d₁,d₂] .+ o.∂denom∂r[1,d₁,d₂] .* Δ .+ o.∂²denom∂r²[1,1,d₁,d₂] .* Δ.^2
@@ -121,18 +121,18 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 		o.SuwtXA = o.scorebs ?
 									o.B>0 ?
 										 o.NClustVar>0 ?
-								      	@panelsum(o, uXAR, o.info✻) :
+								      	@panelsum(uXAR, o.info✻) :
 									      uXAR                    :
 									   sum(uXAR'; dims=2)  :
-								  o.DGP.A * panelsum2(o, o.X₁, o.X₂, o.DGP.ü₁[1+_jk], o.info✻)'  # same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined; X₂ empty except in Anderson-Rubin
+								  o.DGP.A * panelsum2(o.X₁, o.X₂, o.DGP.ü₁[1+_jk], o.info✻)'  # same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined; X₂ empty except in Anderson-Rubin
 
 		if o.robust && o.bootstrapt && o.granular < o.NErrClustCombs
-			u✻XAR = @panelsum(o, uXAR, o.info✻⋂)  # collapse data to all-boot && error-cluster-var intersections. If no collapsing needed, panelsum() will still fold in any weights
+			u✻XAR = @panelsum(uXAR, o.info✻⋂)  # collapse data to all-boot && error-cluster-var intersections. If no collapsing needed, panelsum() will still fold in any weights
 			if o.B>0
 				if o.scorebs
 					K = [zeros(T, o.N⋂, o.N✻) for _ in 1:o.dof]::Vector{Matrix{T}}  # inefficient, but not optimizing for the score bootstrap
 				else
-					K = [panelsum2(o, o.X₁, o.X₂, view(o.DGP.XAR,:,d), o.info⋂) * o.SuwtXA for d ∈ 1:o.dof]::Vector{Matrix{T}}
+					K = [panelsum2(o.X₁, o.X₂, view(o.DGP.XAR,:,d), o.info⋂) * o.SuwtXA for d ∈ 1:o.dof]::Vector{Matrix{T}}
 				end
 
 				if o.NFE>0 && !o.FEboot
@@ -150,7 +150,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 					for d ∈ 1:o.dof
 						nrows(o.clust[c].order)>0 &&
 							(K[d] = K[d][o.clust[c].order,:])
-						o.Kcd[c,d] = @panelsum(o, K[d], o.clust[c].info)
+						o.Kcd[c,d] = @panelsum(K[d], o.clust[c].info)
 					end
 				end
 			else  # B = 0. In this case, only 1st term of (64) is non-zero after multiplying by v* (= all 1's), and it is then a one-way sum by c
@@ -159,7 +159,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 				@inbounds for c ∈ 1:o.NErrClustCombs
 					nrows(o.clust[c].order)>0 &&
 						(u✻XAR = u✻XAR[o.clust[c].order,:])
-					tmp = @panelsum(o, u✻XAR, o.clust[c].info)
+					tmp = @panelsum(u✻XAR, o.clust[c].info)
 					for d ∈ 1:o.dof
 						o.Kcd[c,d] = reshape(view(tmp,:,d),:,1)
 					end
@@ -220,21 +220,21 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 			end
 		else
 			if o.granular || o.purerobust  # optimized treatment when bootstrapping by many/small groups
-				if o.purerobust
+				if o.purerobust && !o.interpolable
 					o.u✻ = o.DGP.ü₁[1+_jk] .* o.v
 					o.NFE>0 && partialFE!(o, o.u✻)
 					o.u✻ .-= o.X₁ * (@view o.β̈dev[1:o.kX₁,:]) .+ o.X₂ * (@view o.β̈dev[o.kX₁+1:end,:])
 				else  # clusters small but not all singletons
 					if o.NFE>0 && !o.FEboot
-						o.u✻ = o.DGP.ü₁[1+_jk] .* view(o.v, o.ID✻, :)
+						o.u✻ = o.DGP.ü₁[1+_jk] .* (o.purerobust ? view(o.v, :, :) : view(o.v, o.ID✻, :))
 						partialFE!(o, o.u✻)
 						@inbounds for d ∈ 1:o.dof
-							o.Jcd[1,d] = @panelsum(o, o.u✻, view(o.M.WXAR,:,d), o.info⋂)                                            - panelsum2(o, o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂) * o.β̈dev
+							o.Jcd[1,d] = panelsum(o.u✻, view(o.M.WXAR,:,d), o.info⋂)                                         - panelsum2(o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂) * o.β̈dev
 						end
 					else
-						_v = view(o.v,o.ID✻_✻⋂,:)
+						_v = o.purerobust ? view(o.v,:,:) : view(o.v,o.ID✻_✻⋂,:)
 						@inbounds for d ∈ 1:o.dof
-							o.Jcd[1,d] = panelsum(o, panelsum(o, o.DGP.ü₁[1+_jk], view(o.M.WXAR,:,d), o.info✻⋂) .* _v, o.info⋂_✻⋂) - panelsum2(o, o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂) * o.β̈dev
+							o.Jcd[1,d] = @panelsum(panelsum(o.DGP.ü₁[1+_jk], view(o.M.WXAR,:,d), o.info✻⋂) .* _v, o.info⋂_✻⋂) - panelsum2(o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂) * o.β̈dev
 						end
 					end
 				end
@@ -266,12 +266,12 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 
 	if o.robust
     if !o.interpolating  # these quadratic computations needed to *prepare* for interpolation but are superseded by interpolation once it is going
-    	o.purerobust && (u✻2 = o.u✻ .^ 2)
+    	o.purerobust && !o.interpolable && (u✻2 = o.u✻ .^ 2)
     	@inbounds for i ∈ 1:o.dof, j ∈ 1:i
-    		o.purerobust &&
+    		o.purerobust && !o.interpolable &&
   	   		(o.denom[i,j] = (view(o.M.WXAR,:,i) .* view(o.M.WXAR,:,j))'u✻2 * (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier))
-				for c ∈ o.purerobust+1:o.NErrClustCombs
-					@clustAccum!(o.denom[i,j], c, j==i ? coldot(o, o.Jcd[c,i]) : coldot(o, o.Jcd[c,i],o.Jcd[c,j]))
+				for c ∈ (o.purerobust && !o.interpolable)+1:o.NErrClustCombs
+					@clustAccum!(o.denom[i,j], c, j==i ? coldot(o.Jcd[c,i]) : coldot(o.Jcd[c,i],o.Jcd[c,j]))
 				end
   		end
    	end
@@ -294,7 +294,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 		AR = o.ml ? o.AR : o.M.AR
 		if isone(o.dof)  # optimize for one null constraint
 			o.denom[1,1] = o.R * AR
-			!o.ml && (o.denom[1,1] = o.denom[1,1] .* coldot(o,o.u✻))
+			!o.ml && (o.denom[1,1] = o.denom[1,1] .* coldot(o.u✻))
 
 			@storeWtGrpResults!(o.dist, o.numerw ./ sqrtNaN.(o.denom[1,1]))
 			isone(w) && (o.statDenom = o.denom[1,1])  # original-sample denominator

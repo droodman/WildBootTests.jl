@@ -66,8 +66,6 @@ mutable struct StrBootTest{T<:AbstractFloat}
   const ml::Bool; β̈::Vector{T}; A::#=Symmetric{T,=#Matrix{T}#=}=#; sc::Matrix{T}
   const willplot::Bool; gridmin::Vector{T}; gridmax::Vector{T}; gridpoints::Vector{Float32}
 
-	# const turbo::Bool
-
   const q::Int16; const twotailed::Bool; const jk::Bool; scorebs::Bool; const robust::Bool
 
   WRE::Bool; initialized::Bool; NFE::Int64; FEboot::Bool; granular::Bool; granularjk::Bool; NErrClustCombs::Int16; subcluster::Int8; BFeas::Int64; interpolating::Bool
@@ -79,7 +77,6 @@ mutable struct StrBootTest{T<:AbstractFloat}
   peak::NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
 
 	const Nobs::Int64; const NClustVar::Int8; const kX₁::Int64; const kX₂::Int64; const kY₂::Int64; const WREnonARubin::Bool; const boottest!::Function
-	const coldotplus!::Function; coldotminus!::Function; const colquadformminus!::Function; const rowquadformplus!::Function; const matmulplus!::Function; const panelsum!::Function
 
   sqrt::Bool; _Nobs::T; kZ::Int64; sumwt::T; haswt::Bool; sqrtwt::Vector{T}; multiplier::T; smallsample::T
 		dof::Int64; dof_r::T; p::T; BootClust::Int8
@@ -96,7 +93,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	DGP::StrEstimator{T}; Repl::StrEstimator{T}; M::StrEstimator{T}
 	clust::Vector{StrClust{T}}
 	denom::Matrix{Matrix{T}}; Kcd::Matrix{Matrix{T}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; S✻UU::Matrix{Vector{T}}; CTUX::Matrix{Matrix{T}}
-	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; S✻XU::Vector{Matrix{T}}; invXXS✻XU::Vector{Matrix{T}}; invZperpZperpS✻ZperpU::Vector{Matrix{T}}; S✻YU::Matrix{Vector{T}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻ZperpU::Vector{Matrix{T}}; CT✻FEU::Vector{Matrix{T}}; invFEwtCT✻FEU::Vector{Matrix{T}}
+	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; S✻Xu₁::Array{T,3}; S✻XU₂par::Array{T,3}; invXXS✻Xu₁::Array{T,3}; invXXS✻XU₂par::Array{T,3}; invZperpZperpS✻ZperpU₂par::Array{T,3}; invZperpZperpS✻Zperpu₁::Array{T,3}; S✻YU::Matrix{Vector{T}}; S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻Zperpu₁::Array{T,3}; S✻ZperpU₂par::Array{T,3}; CT✻FEu₁::Array{T,3}; CT✻FEU₂par::Array{T,3}; invFEwtCT✻FEu₁::Array{T,3}; invFEwtCT✻FEU₂par::Array{T,3}
   ∂denom∂r::Array{Matrix{T},3}; ∂Jcd∂r::Array{Matrix{T},3}; ∂²denom∂r²::Array{Matrix{T},4}
 	FEs::Vector{StrFE{T}}
   T1L::Vector{Matrix{T}}; T1R::Vector{Matrix{T}}; J⋂s::Vector{Array{T,3}}; Q::Array{T,3}; β̈v::Vector{Matrix{T}}
@@ -115,7 +112,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	S✻Y₂Y₂::Array{T,3}; S✻ZparY₂Z_DGPZ::Array{T,3}; S✻DGPZY₂::Array{T,3}; S✻DGPZR₁Y₂::Array{T,3}; S✻DGPZDGPZ::Array{T,3};  S✻DGPZR₁DGPZR₁::Array{T,3}; S✻DGPZR₁DGPZ::Array{T,3}; S✻DGPZR₁X::Array{T,3}
 	XinvXX::Matrix{T}; PXZ::Matrix{T}; FillingT₀::Matrix{Matrix{T}}
 	S⋂ReplZX::Array{T,3}; S⋂Xy₁::Array{T,3}
-	S✻⋂XU₂::Array{T,3}; S✻⋂XU₂RparY::Array{T,3}; S✻XU₂::Array{T,3}; S✻XU₂RparY::Array{T,3}; S✻ZperpU₂::Array{T,3}; S✻ZperpU₂RparY::Array{T,3}; invZperpZperpS✻ZperpU₂::Array{T,3}; invZperpZperpS✻ZperpU₂RparY::Array{T,3}; invXXS✻XU₂::Array{T,3}; invXXS✻XU₂RparY::Array{T,3}
+	S✻⋂XU₂::Array{T,3}; S✻⋂XU₂par::Array{T,3}; S✻XU₂::Array{T,3}; S✻ZperpU₂::Array{T,3}; invZperpZperpS✻ZperpU₂::Array{T,3}; invXXS✻XU₂::Array{T,3}
 
 	Ü₂par::Matrix{T}
 
@@ -148,13 +145,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 					Vector{T}(undef,0), Vector{T}(undef,0), Matrix{T}(undef,0,0),
 					Matrix{T}(undef,0,0),
 					(X = Vector{T}(undef,0), p = T(NaN)),
-					nrows(X₁), ncols(ID), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!, 
-					#=turbo ?=# coldotplus_turbo!       #=: coldotplus_nonturbo!=#, 
-					#=turbo ?=# coldotminus_turbo!      #=: coldotminus_nonturbo!=#, 
-					#=turbo ?=# colquadformminus_turbo! #=: colquadformminus_nonturbo!=#, 
-					#=turbo ?=# rowquadformplus_turbo!  #=: rowquadformplus_nonturbo!=#, 
-					#=turbo ?=# matmulplus_turbo!       #=: matmulplus_nonturbo!=#, 
-					#=turbo ?=# panelsum_turbo!         #=: panelsum_nonturbo!=#)
+					nrows(X₁), ncols(ID), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!)
 		end
 end
 
