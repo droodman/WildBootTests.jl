@@ -314,6 +314,9 @@ end
 macro panelsum(X, info)
 	:(local _X = $(esc(X)); iszero(length($(esc(info)))) || length($(esc(info)))==size(_X,ndims(_X)==3 ? 2 : 1) ? _X : panelsum(_X, $(esc(info)) ) )
 end
+macro panelsum!(dest, X, info)
+	:(local _X = $(esc(X)); iszero(length($(esc(info)))) || length($(esc(info)))==size(_X,ndims(_X)==3 ? 2 : 1) ? $(esc(dest)) .= _X : panelsum!($(esc(dest)), _X, $(esc(info)) ) )
+end
 
 @inline sumpanelcross(X::Array{T} where T) = dropdims(sum(X, dims=2); dims=2)
 
@@ -322,14 +325,14 @@ end
 # handling multiple columns in v
 # dimensions: (FEs,entries of info, cols of v)
 # this facilitates reshape() to 2-D array in which results for each col of v are stacked vertically
-function crosstabFE(o::StrBootTest{T}, v::AbstractVecOrMat{T}, info::Vector{UnitRange{Int64}}) where T
-  dest = zeros(T, o.NFE, nrows(info), ncols(v))
-	if o.haswt
+function crosstabFE!(o::StrBootTest{T}, dest::Array{T,3}, v::AbstractVecOrMat{T}, info::Vector{UnitRange{Int64}}) where T
+  if o.haswt
 		vw = v .* o.sqrtwt
 		if nrows(info)>0
+			fill!(dest, zero(T))
 			@inbounds Threads.@threads for i ∈ axes(info,1)
 				FEIDi = view(o._FEID, info[i])
-				vi    = @view      vw[info[i],:]
+				vi = @view vw[info[i],:]
 				@inbounds for j ∈ axes(FEIDi,1)
 					dest[FEIDi[j],i,:] += @view vi[j,:]
 				end
@@ -341,9 +344,10 @@ function crosstabFE(o::StrBootTest{T}, v::AbstractVecOrMat{T}, info::Vector{Unit
 		end
 	else
 		if nrows(info)>0
+			fill!(dest, zero(T))
 			@inbounds Threads.@threads for i ∈ axes(info,1)
 				FEIDi = view(o._FEID, info[i])
-				vi    = @view       v[info[i],:]
+				vi = @view v[info[i],:]
 				@inbounds for j ∈ axes(FEIDi,1)
 					dest[FEIDi[j],i,:] += @view vi[j,:]
 				end
@@ -354,7 +358,12 @@ function crosstabFE(o::StrBootTest{T}, v::AbstractVecOrMat{T}, info::Vector{Unit
 			end
 		end
 	end		
-  dest
+  nothing
+end
+function crosstabFE(o::StrBootTest{T}, v::AbstractVecOrMat{T}, info::Vector{UnitRange{Int64}}) where T
+  dest = Array{T,3}(undef, o.NFE, nrows(info), ncols(v))
+	crosstabFE!(o, dest, v, info)
+	dest
 end
 
 # same, transposed
