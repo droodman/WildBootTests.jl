@@ -61,7 +61,7 @@ p       = 0.7332
 
 boottest (post_self=.05) (post=-.02) (selfemployed=-.15), reps(9999) weight(webb)
 F(3, 7) = 0.8534
-p       = 0.7349
+p       = 0.7363
 
 
 regress hasinsurance selfemployed post post_self
@@ -225,14 +225,14 @@ ivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)
 boottest tenure
 z  = 7.5847
 p  = 0.0030
-CI = [0.3292 0.8081]
+CI = [0.3354 0.8055]
 
 
 ivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)
 boottest tenure, nograph weight(webb) reps(9999)
 z  = 4.0267
 p  = 0.0250
-CI = [-0.894 -0.3861; 0.3094 1.253]
+CI = [-0.8937 -0.3868; 0.3094 1.253]
 
 boottest tenure, noci bootcluster(individual) weight(webb)
 z  = 4.0267
@@ -268,7 +268,7 @@ CI      = [-0.007315 0.07565]
 ivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours], liml cluster(industry) absorb(industry)
 boottest tenure
 t(11) = 0.8177
-p     = 0.3954
+p     = 0.3964
 CI    = [-0.02642 0.06477]
 
 boottest occupation
@@ -289,17 +289,17 @@ p        = 0.2222
 
 boottest occupation
 t(11) = 1.1091
-p     = 0.2152
+p     = 0.2162
 CI    = [-0.5631 Inf]
 
 boottest tenure | _b[collgrad] = 0
 t(11) = -2.0551
 p     = 0.1101
-CI    = [-0.1932 0.06341; 0.6221 Inf]
+CI    = [-0.1931 0.06372; 0.613 Inf]
 
 t(11) = -2.0551
 p     = 0.1101
-CI    = [-0.1932 0.06341; 0.6221 Inf]
+CI    = [-0.1931 0.06372; 0.613 Inf]
 
 
 areg n w k, absorb(ind)
