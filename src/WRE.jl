@@ -621,7 +621,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			o.β̈s[_w] .= (o.κs[_w] .* (o.YPXY₁₂[_w] .- o.YY₁₂[_w]) .+ o.YY₁₂[_w]) ./ _As
 		else
 			HessianFixedkappa!(o, _As, [1], 1, o.κ, _w)
-			HessianFixedkappa!(o, o.β̈s[_w], [1], 0, o.κ, _w) ./ vec(o.As[_w])
+			HessianFixedkappa!(o, o.β̈s[_w], [1], 0, o.κ, _w); o.β̈s[_w] ./= _As
 		end
 
 		if o.null
