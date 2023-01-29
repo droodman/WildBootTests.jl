@@ -61,7 +61,7 @@ p       = 0.7332
 
 boottest (post_self=.05) (post=-.02) (selfemployed=-.15), reps(9999) weight(webb)
 F(3, 7) = 0.8534
-p       = 0.7363
+p       = 0.7525
 
 
 regress hasinsurance selfemployed post post_self
@@ -112,43 +112,43 @@ CI      = [-0.02845 0.06412]
 
 ivregress liml wage ttl_exp collgrad (tenure = union), cluster(industry)
 boottest tenure, ptype(equaltail) reps(9999)
-z  = 2.6040
-p  = 0.0444
-CI = [0.1188 2.21]
+z  = 2.2155
+p  = 0.1147
+CI = [-Inf -319600.0; 575.8 Inf]
 
 boottest tenure, nonull reps(9999) matsize(.1)
-z  = 2.6040
-p  = 0.0000
-CI = [0.2193 1.253]
+z  = 2.2155
+p  = 0.0742
+CI = [-7.539 877.9]
 
 boottest tenure, ptype(upper) svmat(t) reps(9999)
-z  = 2.6040
-p  = 0.0222
-CI = [0.2769 Inf]
+z  = 2.2155
+p  = 0.0574
+CI = [-Inf 236.3; 945.6 Inf]
 
 boottest tenure, ptype(lower) svmat(numer) reps(9999)
-z  = 2.6040
-p  = 0.9775
-CI = [-Inf 1.793]
+z  = 2.2155
+p  = 0.9424
+CI = [-Inf Inf]
 
 
 ivregress liml wage ttl_exp collgrad (tenure = union), cluster(industry)
 boottest tenure, ptype(equaltail) reps(9999)
-z  = 2.6040
-p  = 0.0444
-CI = [0.1188 2.21]
+z  = 2.2155
+p  = 0.1147
+CI = [-Inf -319600.0; 575.8 Inf]
 
 
 ivregress liml wage ttl_exp collgrad (tenure = union) if industry<., robust
 boottest tenure, ptype(equaltail) reps(99) noci
-z  = 3.5823
-p  = 0.0000
+z  = 5.1448
+p  = 0.5455
 
 
 ivregress 2sls wage ttl_exp collgrad (tenure = union) if industry<., robust
 boottest tenure, ptype(equaltail) reps(99) noci
-z  = 3.5823
-p  = 0.0000
+z  = 5.1448
+p  = 0.5455
 
 boottest collgrad tenure, ptype(equaltail) reps(99) noci
 χ²(2) = 139.0793
@@ -157,8 +157,8 @@ p     = 0.0000
 
 ivregress 2sls wage ttl_exp collgrad (tenure = union) if industry<.
 boottest tenure, ptype(equaltail) reps(99) noci
-z  = 160.7675
-p  = 0.0000
+z  = 229.2049
+p  = 0.5455
 
 boottest tenure collgrad, ptype(equaltail) reps(99) noci
 χ²(2) = 311987.2757
@@ -168,25 +168,25 @@ p     = 0.0000
 ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
 
 boottest tenure, ptype(equaltail) weight(webb) stat(c) gridmin(-5) gridmax(5) gridpoints(100)
-z  = 1.7165
-p  = 0.0921
-CI = [-Inf Inf]
+z  = 1.9372
+p  = 0.0440
+CI = [0.03346 4.091]
 
 
 boottest tenure, ptype(equaltail) weight(webb) stat(c) gridmin(-5) gridmax(5) gridpoints(100) matsize(.01)
-z  = 1.5907
-p  = 0.1441
-CI = [-Inf Inf]
+z  = 1.8616
+p  = 0.0601
+CI = [-0.07459 220.1]
 
 
 ivregress 2sls wage ttl_exp collgrad (tenure = union) if industry<., robust
 
 boottest tenure, ptype(equaltail) matsize(0.005) noci weight(webb)
-z  = 3.5823
-p  = 0.0000
+z  = 5.1448
+p  = 0.4344
 
-z  = 3.5883
-p  = 0.0000
+z  = 5.0856
+p  = 0.4024
 
 
 ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
@@ -236,7 +236,7 @@ CI = [-0.8937 -0.3868; 0.3094 1.253]
 
 boottest tenure, noci bootcluster(individual) weight(webb)
 z  = 4.0267
-p  = 0.0080
+p  = 0.0000
 
 boottest tenure, nograph bootcluster(collgrad) cluster(collgrad industry) weight(webb) reps(9999)
 z  = 3.9420

@@ -254,7 +254,7 @@ function panelcross!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, Y::Abstra
 		end
 		return
 	elseif X===Y
-    @inbounds Threads.@threads for g in eachindex(info)
+    @inbounds #=Threads.@threads=# for g in eachindex(info)
       v = view(X,info[g],:)
       dest[:,g,:] = v'v
     end
@@ -330,7 +330,7 @@ function crosstabFE!(o::StrBootTest{T}, dest::Array{T,3}, v::AbstractVecOrMat{T}
 		vw = v .* o.sqrtwt
 		if nrows(info)>0
 			fill!(dest, zero(T))
-			@inbounds Threads.@threads for i ∈ axes(info,1)
+			@inbounds #=Threads.@threads=# for i ∈ axes(info,1)
 				FEIDi = view(o._FEID, info[i])
 				vi = @view vw[info[i],:]
 				@inbounds for j ∈ axes(FEIDi,1)
@@ -338,14 +338,14 @@ function crosstabFE!(o::StrBootTest{T}, dest::Array{T,3}, v::AbstractVecOrMat{T}
 				end
 			end
 		else  # "robust" case, no clustering
-			@inbounds Threads.@threads for i ∈ axes(o._FEID,1)
+			@inbounds #=Threads.@threads=# for i ∈ axes(o._FEID,1)
 				dest[o._FEID[i],i,:] .= @view vw[i,:]
 			end
 		end
 	else
 		if nrows(info)>0
 			fill!(dest, zero(T))
-			@inbounds Threads.@threads for i ∈ axes(info,1)
+			@inbounds #=Threads.@threads=# for i ∈ axes(info,1)
 				FEIDi = view(o._FEID, info[i])
 				vi = @view v[info[i],:]
 				@inbounds for j ∈ axes(FEIDi,1)
@@ -353,7 +353,7 @@ function crosstabFE!(o::StrBootTest{T}, dest::Array{T,3}, v::AbstractVecOrMat{T}
 				end
 			end
 		else  # "robust" case, no clustering
-			@inbounds Threads.@threads for i ∈ axes(o._FEID,1)
+			@inbounds #=Threads.@threads=# for i ∈ axes(o._FEID,1)
 				dest[o._FEID[i],i,:] .= @view v[i,:]
 			end
 		end
@@ -372,7 +372,7 @@ function crosstabFEt(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitR
 	if o.haswt
 		vw = v .* o.sqrtwt
 		if nrows(info)>0
-			@inbounds Threads.@threads for i ∈ axes(info,1)
+			@inbounds #=Threads.@threads=# for i ∈ axes(info,1)
 				FEIDi = @view o._FEID[info[i]]
 				vi    = @view      vw[info[i]]
 				@inbounds for j ∈ eachindex(vi, FEIDi)
@@ -380,13 +380,13 @@ function crosstabFEt(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitR
 				end
 			end
 		else  # "robust" case, no clustering
-			@inbounds Threads.@threads for i ∈ eachindex(v,o._FEID)
+			@inbounds #=Threads.@threads=# for i ∈ eachindex(v,o._FEID)
 				dest[i,o._FEID[i]] = vw[i]
 			end
 		end
 	else
 		if nrows(info)>0
-			@inbounds Threads.@threads for i ∈ axes(info,1)
+			@inbounds #=Threads.@threads=# for i ∈ axes(info,1)
 				FEIDi = @view o._FEID[info[i]]
 				vi    = @view       v[info[i]]
 				@inbounds for j ∈ eachindex(vi, FEIDi)
@@ -394,7 +394,7 @@ function crosstabFEt(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitR
 				end
 			end
 		else  # "robust" case, no clustering
-			@inbounds Threads.@threads for i ∈ eachindex(v,o._FEID)
+			@inbounds #=Threads.@threads=# for i ∈ eachindex(v,o._FEID)
 				dest[i,o._FEID[i]] = v[i]
 			end
 		end
@@ -406,12 +406,12 @@ end
 function partialFE!(o::StrBootTest, In::AbstractArray)
   if length(In)>0
 		if o.haswt
-			Threads.@threads for f ∈ o.FEs
+			#=Threads.@threads=# for f ∈ o.FEs
 				tmp = @view In[f.is,:]
 				tmp .-= f.sqrtwt .* (f.wt'tmp)
 			end
 		else
-			Threads.@threads for f ∈ o.FEs
+			#=Threads.@threads=# for f ∈ o.FEs
 				tmp = @view In[f.is,:]
 				tmp .-= f.wt[1] .* sum(tmp; dims=1)
 			end
@@ -423,12 +423,12 @@ function partialFE(o::StrBootTest, In::AbstractArray)
   Out = similar(In)
   if length(In)>0
 		if o.haswt
-			Threads.@threads for f ∈ o.FEs
+			#=Threads.@threads=# for f ∈ o.FEs
 				tmp = @view In[f.is,:]
 				Out[f.is,:] .= tmp .- f.sqrtwt .* (f.wt'tmp)
 			end
 		else
-			Threads.@threads for f ∈ o.FEs
+			#=Threads.@threads=# for f ∈ o.FEs
 				tmp = @view In[f.is,:]
 				Out[f.is,:] .= tmp .- f.wt[1] .* sum(tmp; dims=1)
 			end
@@ -481,25 +481,46 @@ macro clustAccum!(X, c, Y)  # efficiently add a cluster combination-specific ter
   end
 end
 
-import Base.size
+import Base.*, Base.adjoint, Base.hcat, Base.vcat, Base.-, Base.inv, Base.size, LinearAlgebra.pinv
+
 struct FakeArray{N} <: AbstractArray{Bool,N} size::Tuple{Vararg{Int64,N}} end # AbstractArray with almost no storage, just for LinearIndices() conversion         
 FakeArray(size...) = FakeArray{length(size)}(size)
 size(X::FakeArray) = X.size
 
+# replace LinearAlgebra multiplication with @tturbo-based matrix multiplication
+# accepts views as destination
+# no error checking
+function tmul!(dest::AbstractVecOrMat{T}, A::AbstractVecOrMat{T}, B::AbstractVecOrMat{T}) where T
+	fill!(dest, zero(T))
+	@tturbo for j ∈ axes(B,2), i ∈ axes(A,1), k ∈ axes(A,2)
+		dest[i,j] += A[i,k] * B[k,j]
+	end
+end
+function t✻(A::AbstractVecOrMat{T}, B::AbstractVector{T}) where T
+	dest = Vector{T}(undef, size(A,1))
+	tmul!(dest, A, B)
+	dest
+end
+function t✻(A::AbstractVecOrMat{T}, B::AbstractMatrix{T}) where T
+	dest = Matrix{T}(undef, size(A,1), size(B,2))
+	tmul!(dest, A, B)
+	dest
+end
+
+
 # use 3-arrays to hold single-indexed sets of matrices. Index in _middle_ dimension.
-import LinearAlgebra.mul!
-function mul!(dest::Array{T,3}, A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T
+function tmul!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T
 	_dest = reshape(dest, size(dest,1) * size(dest,2), size(dest,3))
-	mul!(_dest, reshape(A, size(A,1) * size(A,2), size(A,3)), B)
+	tmul!(_dest, reshape(A, size(A,1) * size(A,2), size(A,3)), B)
 	nothing
 end
-function mul!(dest::Array{T,3}, A::AbstractVecOrMat{T}, B::AbstractArray{T,3}) where T
+function tmul!(dest::AbstractArray{T,3}, A::AbstractVecOrMat{T}, B::AbstractArray{T,3}) where T
 	_dest = reshape(dest, size(dest,1), size(dest,2) * size(dest,3))
-	mul!(_dest, A, reshape(B, size(B,1), size(B,2) * size(B,3)))
+	tmul!(_dest, A, reshape(B, size(B,1), size(B,2) * size(B,3)))
 	nothing
 end
 
-import Base.*, Base.adjoint, Base.hcat, Base.vcat, Base.-, Base.inv, LinearAlgebra.pinv
+
 @inline each(A::Array{T,3}) where T = [view(A,:,i,:) for i ∈ 1:size(A,2)]  #	eachslice(A; dims=2) more elegant but type-unstable
 @inline *(A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T = reshape(reshape(A, size(A,1) * size(A,2), size(A,3)) * B, size(A,1), size(A,2), size(B,2)) #:: Array{T,3}
 @inline *(A::AbstractVecOrMat{T}, B::AbstractArray{T,3}) where T = reshape(A * reshape(B, size(B,1), size(B,2) * size(B,3)), size(A,1), size(B,2), size(B,3)) #:: Array{T,3}
@@ -562,7 +583,7 @@ function partialjk(A::VecOrMat{T}, Z::Matrix{T}, ZZZA::Array{T}, info::Vector{Un
   dest
 end
 
-# XXX needed?
+# XXX which needed?
 @inline hcat(A::Vector{Matrix{T}}, B::Vector{Matrix{T}}) where T = hcat.(A,B)  # interpret [A B] entrywise
 @inline vcat(A::Vector{Matrix{T}}, B::Vector{Matrix{T}}) where T = vcat.(A,B)  # interpret [A B] entrywise
 @inline *(A::Vector{Matrix{T}}, B::Vector{Matrix{T}}) where T = A .* B

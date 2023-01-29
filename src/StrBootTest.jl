@@ -88,7 +88,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 		
 	distCDR::Matrix{T}; plotX::Vector{Vector{T}}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
   numersum::Vector{T}; u✻₀::Matrix{T}; invFEwt::Vector{T}
-	β̈s::Matrix{T}; As::Matrix{T}
+	β̈s::Vector{Matrix{T}}; As::Vector{Array{T,3}}
 	info✻⋂::Vector{UnitRange{Int64}}; info⋂::Vector{UnitRange{Int64}}; ID✻⋂::Matrix{T}
 	DGP::StrEstimator{T}; Repl::StrEstimator{T}; M::StrEstimator{T}
 	clust::Vector{StrClust{T}}
@@ -98,7 +98,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; S✻Xu₁::Array{T,3}; S✻XU₂par::Array{T,3}; S✻XU::Vector{S1} where S1<:SubArray{T}; invXXS✻Xu₁::Array{T,3}; invXXS✻XU₂par::Array{T,3}; invXXS✻XU::Vector{S2} where S2<:SubArray{T}; 
 	invZperpZperpS✻ZperpU₂par::Array{T,3}; invZperpZperpS✻Zperpu₁::Array{T,3}; invZperpZperpS✻ZperpU::Vector{S4} where S4<:SubArray{T}; 
 	S✻YU::Matrix{S8} where S8<:SubArray; S✻y₁paru₁::Array{T,3}; S✻Zu₁::Array{T,3}; S✻y₁parU₂par::Array{T,3}; S✻ZU₂par::Array{T,3}; S✻YUfold::Array{T,3}
-	S✻UMZperp::Vector{Matrix{T}}; S✻UPX::Vector{Matrix{T}}; S✻Zperpu₁::Array{T,3}; S✻ZperpU₂par::Array{T,3}; S✻ZperpU::Vector{S3} where S3<:SubArray{T};
+	S✻UMZperp::Array{T,3}; S✻UPX::Array{T,3}; S✻Zperpu₁::Array{T,3}; S✻ZperpU₂par::Array{T,3}; S✻ZperpU::Vector{S3} where S3<:SubArray{T};
 	CT✻FEu₁::Array{T,3}; CT✻FEU₂par::Array{T,3}; CT✻FEU::Vector{S5} where S5<:SubArray; invFEwtCT✻FEu₁::Array{T,3}; invFEwtCT✻FEU₂par::Array{T,3}; invFEwtCT✻FEU::Vector{S6} where S6<:SubArray
   ∂denom∂r::Array{Matrix{T},3}; ∂Jcd∂r::Array{Matrix{T},3}; ∂²denom∂r²::Array{Matrix{T},4}
 	FEs::Vector{StrFE{T}}
@@ -119,6 +119,10 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	XinvXX::Matrix{T}; PXZ::Matrix{T}; FillingT₀::Matrix{Matrix{T}}
 	S⋂ReplZX::Array{T,3}; S⋂Xy₁::Array{T,3}
 	S✻⋂XU₂::Array{T,3}; S✻⋂XU₂par::Array{T,3}; S✻XU₂::Array{T,3}; S✻ZperpU₂::Array{T,3}; invZperpZperpS✻ZperpU₂::Array{T,3}; invXXS✻XU₂::Array{T,3}
+
+	YY₁₁::Vector{Matrix{T}}; YY₁₂::Vector{Matrix{T}}; YY₂₂::Vector{Matrix{T}}; YPXY₁₁::Vector{Matrix{T}}; YPXY₁₂::Vector{Matrix{T}}; YPXY₂₂::Vector{Matrix{T}}
+	YY₁₂YPXY₁₂::Vector{Matrix{T}}; x₁₁::Vector{Matrix{T}}; x₁₂::Vector{Matrix{T}}; x₂₁::Vector{Matrix{T}}; x₂₂::Vector{Matrix{T}}; κs::Vector{Matrix{T}}; numerWRE::Vector{Matrix{T}}
+	δnumer::Vector{Matrix{T}}; δdenom::Vector{Vector{Matrix{T}}}; YY✻::Vector{Vector{Matrix{T}}}; YPXY✻::Vector{Vector{Matrix{T}}}
 
 	Ü₂par::Matrix{T}
 
