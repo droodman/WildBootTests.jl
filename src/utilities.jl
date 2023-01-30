@@ -103,6 +103,14 @@ function colquadformminus!(dest::AbstractMatrix, row::Integer, A::AbstractMatrix
   dest
 end
 
+# subtract each A[i]'Q[:,g,:]*B[i] from dest[g,i]
+function colquadformminus3!(dest::AbstractMatrix{T}, A::AbstractMatrix{T}, Q::AbstractArray{T,3}, B::AbstractMatrix{T}) where T
+  @tturbo for g ∈ axes(dest,1), i ∈ axes(A,2), j ∈ axes(A,1), k ∈ axes(A,1)
+    dest[g,i] -= A[j,i] * Q[k,g,j] * B[k,i]
+  end
+  dest
+end
+
 # compute negative of the norm of each col of A using quadratic form Q; dest should be a one-row matrix
 function negcolquadform!(dest::AbstractMatrix{T}, Q::AbstractMatrix{T}, A::AbstractMatrix{T}) where T
   fill!(dest, zero(T))
@@ -129,15 +137,27 @@ function t✻(A::AbstractVecOrMat{T}, B::AbstractMatrix{T}) where T
 	tmul!(dest, A, B)
 	dest
 end
-function tmulplus!(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix)  # add B*C to A in place
+function tmulplus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # add B*C to A in place
 	@tturbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
 		A[i,k] += B[i,j] * C[j,k]
 	end
 	nothing
 end
-function tmulplus!(A::AbstractVector, B::AbstractMatrix, C::AbstractVector)  # add B*C to A in place
+function tmulplus!(A::AbstractVector{T}, B::AbstractMatrix{T}, C::AbstractVector{T}) where T  # add B*C to A in place
 	@tturbo for j ∈ eachindex(axes(B,2),C), i ∈ eachindex(axes(A,1),axes(B,1))
 		A[i] += B[i,j] * C[j]
+	end
+	nothing
+end
+function tmulminus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # add B*C to A in place
+	@tturbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
+		A[i,k] -= B[i,j] * C[j,k]
+	end
+	nothing
+end
+function tmulminus!(A::AbstractVector{T}, B::AbstractMatrix{T}, C::AbstractVector{T}) where T  # add B*C to A in place
+	@tturbo for j ∈ eachindex(axes(B,2),C), i ∈ eachindex(axes(A,1),axes(B,1))
+		A[i] -= B[i,j] * C[j]
 	end
 	nothing
 end
@@ -598,15 +618,48 @@ size(X::FakeArray) = X.size
 
 # use 3-arrays to hold single-indexed sets of matrices. Index in _middle_ dimension.
 function tmul!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T
-	_dest = reshape(dest, size(dest,1) * size(dest,2), size(dest,3))
-	tmul!(_dest, reshape(A, size(A,1) * size(A,2), size(A,3)), B)
+	if length(A)>0 && length(B)>0
+		_dest = reshape(dest, size(dest,1) * size(dest,2), size(dest,3))
+		tmul!(_dest, reshape(A, size(A,1) * size(A,2), size(A,3)), B)
+	end
 	nothing
 end
 function tmul!(dest::AbstractArray{T,3}, A::AbstractVecOrMat{T}, B::AbstractArray{T,3}) where T
-	_dest = reshape(dest, size(dest,1), size(dest,2) * size(dest,3))
-	tmul!(_dest, A, reshape(B, size(B,1), size(B,2) * size(B,3)))
+	if length(A)>0 && length(B)>0
+		_dest = reshape(dest, size(dest,1), size(dest,2) * size(dest,3))
+		tmul!(_dest, A, reshape(B, size(B,1), size(B,2) * size(B,3)))
+	end
 	nothing
 end
+function tmulplus!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T
+	if length(A)>0 && length(B)>0
+		_dest = reshape(dest, size(dest,1) * size(dest,2), size(dest,3))
+		tmulplus!(_dest, reshape(A, size(A,1) * size(A,2), size(A,3)), reshape(B, size(B,1), size(B,2)))
+	end
+	nothing
+end
+function tmulplus!(dest::AbstractArray{T,3}, A::AbstractVecOrMat{T}, B::AbstractArray{T,3}) where T
+	if length(A)>0 && length(B)>0
+		_dest = reshape(dest, size(dest,1), size(dest,2) * size(dest,3))
+		tmulplus!(_dest, A, reshape(B, size(B,1), size(B,2) * size(B,3)))
+	end
+	nothing
+end
+function tmulminus!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T
+	if length(A)>0 && length(B)>0
+		_dest = reshape(dest, size(dest,1) * size(dest,2), size(dest,3))
+		tmulminus!(_dest, reshape(A, size(A,1) * size(A,2), size(A,3)), reshape(B, size(B,1), size(B,2)))
+	end
+	nothing
+end
+function tmulminus!(dest::AbstractArray{T,3}, A::AbstractVecOrMat{T}, B::AbstractArray{T,3}) where T
+	if length(A)>0 && length(B)>0
+		_dest = reshape(dest, size(dest,1), size(dest,2) * size(dest,3))
+		tmulminus!(_dest, A, reshape(B, size(B,1), size(B,2) * size(B,3)))
+	end
+	nothing
+end
+
 
 
 @inline each(A::Array{T,3}) where T = [view(A,:,i,:) for i ∈ 1:size(A,2)]  #	eachslice(A; dims=2) more elegant but type-unstable

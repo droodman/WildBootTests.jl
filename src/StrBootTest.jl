@@ -52,6 +52,10 @@ mutable struct StrEstimator{T<:AbstractFloat}
   StrEstimator{T}(isDGP, liml, fuller, κ) where T<:AbstractFloat = new(isDGP, liml, fuller, κ, Matrix{T}(undef,0,0))
 end
 
+MatSubArray{T,N} = Matrix{S} where S<:SubArray{T,N}
+VecSubArray{T,N} = Vector{S} where S<:SubArray{T,N}
+VecVecSubArray{T,N} = Vector{Vector{S}} where S<:SubArray{T,N}
+
 mutable struct StrBootTest{T<:AbstractFloat}
   R::Matrix{T}; r::Vector{T}; R₁::Matrix{T}; r₁::Vector{T}
   y₁::Vector{T}; X₁::Matrix{T}; Y₂::Matrix{T}; X₂::Matrix{T}
@@ -78,7 +82,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 
 	const Nobs::Int64; const NClustVar::Int8; const kX₁::Int64; const kX₂::Int64; const kY₂::Int64; const WREnonARubin::Bool; const boottest!::Function
 
-  sqrt::Bool; _Nobs::T; kZ::Int64; sumwt::T; haswt::Bool; sqrtwt::Vector{T}; multiplier::T; smallsample::T
+  sqrt::Bool; _Nobs::T; kZ::Int64; sumwt::T; haswt::Bool; sqrtwt::Vector{T}; multiplier::T; smallsample::T; B1::Int64; B2::Int64
 		dof::Int64; dof_r::T; p::T; BootClust::Int8
 		purerobust::Bool; N✻::Int64; N⋂::Int64; N✻⋂::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX::Int64
   _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; u✻::Matrix{T}
@@ -93,16 +97,16 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	DGP::StrEstimator{T}; Repl::StrEstimator{T}; M::StrEstimator{T}
 	clust::Vector{StrClust{T}}
 	denom::Matrix{Matrix{T}}; Kcd::Matrix{Matrix{T}}; Jcd::Matrix{Matrix{T}}; denom₀::Matrix{Matrix{T}}; Jcd₀::Matrix{Matrix{T}}; 
-	S✻UU::Matrix{S7} where S7<:SubArray; S✻u₁u₁::Array{T,3}; S✻U₂paru₁::Array{T,3}; S✻U₂parU₂par::Array{T,3}
+	S✻UU::MatSubArray{T,1}; S✻u₁u₁::Array{T,3}; S✻U₂paru₁::Array{T,3}; S✻U₂parU₂par::Array{T,3}
 	CTUX::Matrix{Matrix{T}}
-	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; S✻Xu₁::Array{T,3}; S✻XU₂par::Array{T,3}; S✻XU::Vector{S1} where S1<:SubArray{T}; invXXS✻Xu₁::Array{T,3}; invXXS✻XU₂par::Array{T,3}; invXXS✻XU::Vector{S2} where S2<:SubArray{T}; 
-	invZperpZperpS✻ZperpU₂par::Array{T,3}; invZperpZperpS✻Zperpu₁::Array{T,3}; invZperpZperpS✻ZperpU::Vector{S4} where S4<:SubArray{T}; 
-	S✻YU::Matrix{S8} where S8<:SubArray; S✻y₁paru₁::Array{T,3}; S✻Zu₁::Array{T,3}; S✻y₁parU₂par::Array{T,3}; S✻ZU₂par::Array{T,3}; S✻YUfold::Array{T,3}
-	S✻UMZperp::Array{T,3}; S✻UPX::Array{T,3}; S✻Zperpu₁::Array{T,3}; S✻ZperpU₂par::Array{T,3}; S✻ZperpU::Vector{S3} where S3<:SubArray{T};
-	CT✻FEu₁::Array{T,3}; CT✻FEU₂par::Array{T,3}; CT✻FEU::Vector{S5} where S5<:SubArray; invFEwtCT✻FEu₁::Array{T,3}; invFEwtCT✻FEU₂par::Array{T,3}; invFEwtCT✻FEU::Vector{S6} where S6<:SubArray
+	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; S✻Xu₁::Array{T,3}; S✻XU₂par::Array{T,3}; S✻XU::VecSubArray{T,2}; invXXS✻Xu₁::Array{T,3}; invXXS✻XU₂par::Array{T,3}; invXXS✻XU::VecSubArray{T,2}; 
+	invZperpZperpS✻ZperpU₂par::Array{T,3}; invZperpZperpS✻Zperpu₁::Array{T,3}; invZperpZperpS✻ZperpU::VecSubArray{T,2}; 
+	S✻YU::MatSubArray{T,1}; S✻y₁paru₁::Array{T,3}; S✻Zu₁::Array{T,3}; S✻y₁parU₂par::Array{T,3}; S✻ZU₂par::Array{T,3}; S✻YUfold::Array{T,3}
+	S✻UMZperp::Array{T,3}; S✻UPX::Array{T,3}; S✻Zperpu₁::Array{T,3}; S✻ZperpU₂par::Array{T,3}; S✻ZperpU::VecSubArray{T,2};
+	CT✻FEu₁::Array{T,3}; CT✻FEU₂par::Array{T,3}; CT✻FEU::VecSubArray{T,2}; invFEwtCT✻FEu₁::Array{T,3}; invFEwtCT✻FEU₂par::Array{T,3}; invFEwtCT✻FEU::VecSubArray{T,2}
   ∂denom∂r::Array{Matrix{T},3}; ∂Jcd∂r::Array{Matrix{T},3}; ∂²denom∂r²::Array{Matrix{T},4}
 	FEs::Vector{StrFE{T}}
-  T1L::Vector{Matrix{T}}; T1R::Vector{Matrix{T}}; J⋂s::Vector{Array{T,3}}; Q::Array{T,3}; β̈v::Vector{Matrix{T}}
+  T1L::VecSubArray{T,2}; T1R::VecSubArray{T,2}; J⋂s::Vector{Array{T,3}}; Q::Array{T,3}; β̈v::Vector{Matrix{T}}
 	crosstab⋂✻ind::Vector{Int64}; crosstab✻ind::Vector{Int64}
   seed::UInt64
 
@@ -120,10 +124,10 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	S⋂ReplZX::Array{T,3}; S⋂Xy₁::Array{T,3}
 	S✻⋂XU₂::Array{T,3}; S✻⋂XU₂par::Array{T,3}; S✻XU₂::Array{T,3}; S✻ZperpU₂::Array{T,3}; invZperpZperpS✻ZperpU₂::Array{T,3}; invXXS✻XU₂::Array{T,3}
 
-	YY₁₁::Vector{Matrix{T}}; YY₁₂::Vector{Matrix{T}}; YY₂₂::Vector{Matrix{T}}; YPXY₁₁::Vector{Matrix{T}}; YPXY₁₂::Vector{Matrix{T}}; YPXY₂₂::Vector{Matrix{T}}
-	YY₁₂YPXY₁₂::Vector{Matrix{T}}; x₁₁::Vector{Matrix{T}}; x₁₂::Vector{Matrix{T}}; x₂₁::Vector{Matrix{T}}; x₂₂::Vector{Matrix{T}}; κs::Vector{Matrix{T}}; numerWRE::Vector{Matrix{T}}
-	δnumer::Vector{Matrix{T}}; δdenom::Vector{Vector{Matrix{T}}}; YY✻::Vector{Vector{Matrix{T}}}; YPXY✻::Vector{Vector{Matrix{T}}}
-	invZperpZperpS✻ZperpUv::Vector{Matrix{T}}; S✻ZperpUv::Vector{Matrix{T}}; CT✻FEUv::Vector{Matrix{T}}; invFEwtCT✻FEUv::Vector{Matrix{T}}; PXY✻::Vector{Matrix{T}}; S✻UMZperpv::Vector{Matrix{T}}
+	YY₁₁::VecSubArray{T,2}; YY₁₂::VecSubArray{T,2}; YY₂₂::VecSubArray{T,2}; YPXY₁₁::VecSubArray{T,2}; YPXY₁₂::VecSubArray{T,2}; YPXY₂₂::VecSubArray{T,2}
+	YY₁₂YPXY₁₂::VecSubArray{T,2}; x₁₁::VecSubArray{T,2}; x₁₂::VecSubArray{T,2}; x₂₁::VecSubArray{T,2}; x₂₂::VecSubArray{T,2}; κs::VecSubArray{T,2}; numerWRE::VecSubArray{T,2}
+	δnumer::VecSubArray{T,2}; δdenom::VecVecSubArray{T,2}; YY✻::VecVecSubArray{T,2}; YPXY✻::VecVecSubArray{T,2}
+	invZperpZperpS✻ZperpUv::VecSubArray{T,2}; S✻ZperpUv::VecSubArray{T,2}; CT✻FEUv::VecSubArray{T,2}; invFEwtCT✻FEUv::VecSubArray{T,2}; PXY✻::VecSubArray{T,2}; S✻UMZperpv::VecSubArray{T,2}
 
 	Ü₂par::Matrix{T}
 

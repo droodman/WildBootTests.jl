@@ -182,12 +182,14 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		MakeWildWeights!(o, o.B, first=true)  # make all wild weights, once
 		o.enumerate && (o.B = ncols(o.v) - 1)  # replications reduced to 2^G
 		o.WeightGrp = [1:ncols(o.v)]
+		o.B1 = o.B2 = o.B + 1
 	else
     o.seed = rand(o.rng, UInt64)
-		_B = ceil(Int64, (o.B+1) / o.Nw)
-		o.Nw = ceil(Int64, (o.B+1) / _B)
-		o.WeightGrp = [(i-1)*_B+1:i*_B for i ∈ 1:o.Nw]
+		o.B1 = ceil(Int64, (o.B+1) / o.Nw)
+		o.Nw = ceil(Int64, (o.B+1) / o.B1)
+		o.WeightGrp = [(i-1)*o.B1+1:i*o.B1 for i ∈ 1:o.Nw]
 		o.WeightGrp[end] = first(o.WeightGrp[end]):o.B+1
+		o.B2 = length(o.WeightGrp[end])
 	end
 
 	if o.ml

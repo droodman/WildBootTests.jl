@@ -19,3 +19,5 @@ src/plot-CI.jl.11688.mem
 src/StrBootTest.jl.11688.mem
 *.mem
 alloc-profile.pb.gz
+*.gz
+alloc-profile.pb.gz
