@@ -40,12 +40,12 @@ end
 
 function X₁₂B(X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractMatrix)
 	dest = X₁ * view(B,1:size(X₁,2),:)
-	length(dest)>0 && length(X₂)>0 && matmulplus!(dest, X₂, B[size(X₁,2)+1:end,:])
+	length(dest)>0 && length(X₂)>0 && tmulplus!(dest, X₂, B[size(X₁,2)+1:end,:])
 	dest
 end
 function X₁₂B(X₁::AbstractArray, X₂::AbstractArray, B::AbstractVector)
 	dest = X₁ * view(B,1:size(X₁,2))
-	length(dest)>0 && length(X₂)>0 && matmulplus!(dest, X₂, B[size(X₁,2)+1:end])
+	length(dest)>0 && length(X₂)>0 && tmulplus!(dest, X₂, B[size(X₁,2)+1:end])
 	dest
 end
 
@@ -110,18 +110,38 @@ function negcolquadform!(dest::AbstractMatrix{T}, Q::AbstractMatrix{T}, A::Abstr
 	nothing
 end
 
-function matmulplus!(A::Matrix, B::AbstractMatrix, C::Matrix)  # add B*C to A in place
+# @tturbo-based matrix multiplication
+# accepts views as destination
+# no error checking
+function tmul!(dest::AbstractVecOrMat{T}, A::AbstractVecOrMat{T}, B::AbstractVecOrMat{T}) where T
+	fill!(dest, zero(T))
+	@tturbo for j ∈ axes(B,2), i ∈ axes(A,1), k ∈ axes(A,2)
+		dest[i,j] += A[i,k] * B[k,j]
+	end
+end
+function t✻(A::AbstractVecOrMat{T}, B::AbstractVector{T}) where T
+	dest = Vector{T}(undef, size(A,1))
+	tmul!(dest, A, B)
+	dest
+end
+function t✻(A::AbstractVecOrMat{T}, B::AbstractMatrix{T}) where T
+	dest = Matrix{T}(undef, size(A,1), size(B,2))
+	tmul!(dest, A, B)
+	dest
+end
+function tmulplus!(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix)  # add B*C to A in place
 	@tturbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
 		A[i,k] += B[i,j] * C[j,k]
 	end
 	nothing
 end
-function matmulplus!(A::Vector, B::AbstractMatrix, C::Vector)  # add B*C to A in place
+function tmulplus!(A::AbstractVector, B::AbstractMatrix, C::AbstractVector)  # add B*C to A in place
 	@tturbo for j ∈ eachindex(axes(B,2),C), i ∈ eachindex(axes(A,1),axes(B,1))
 		A[i] += B[i,j] * C[j]
 	end
 	nothing
 end
+
 
 # like Mata panelsetup() but can group on multiple columns, like sort(). But doesn't take minobs, maxobs arguments.
 function panelsetup(X::AbstractArray{S} where S, colinds::AbstractVector{T} where T<:Integer)
@@ -223,6 +243,35 @@ function panelsum!(dest::AbstractVecOrMat{T}, X::AbstractVecOrMat{T}, wt::Abstra
 		end
 	end
 end
+# like above but subtract from destination
+function panelsumminus!(dest::AbstractVecOrMat{T}, X::AbstractVecOrMat{T}, wt::AbstractVector{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	iszero(length(X)) && return
+	if iszero(length(info)) || nrows(info)==nrows(X)
+		dest .-= X .* wt
+		return
+	end
+	J = CartesianIndices(axes(X)[2:end])
+	eachindexJ = eachindex(J)
+	@inbounds for g in eachindex(info)
+		f, l = first(info[g]), last(info[g])
+    fl = f+1:l
+		_wt = wt[f]
+		if f<l
+			for j ∈ eachindexJ
+				Jj = J[j]
+				tmp = X[f,Jj] * _wt
+				@tturbo for i ∈ fl
+					tmp += X[i,Jj] * wt[i]
+				end
+				dest[g,Jj] -= tmp
+			end
+		else
+			for j ∈ eachindexJ
+				dest[g,J[j]] -= X[f,J[j]] * _wt
+			end
+		end
+	end
+end
 function panelsum!(dest::AbstractArray, X::AbstractArray{T,3} where T, info::Vector{UnitRange{S}} where S<:Integer)
   iszero(length(X)) && return
   @inbounds for g in eachindex(info)
@@ -254,7 +303,7 @@ function panelcross!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, Y::Abstra
 		end
 		return
 	elseif X===Y
-    @inbounds #=Threads.@threads=# for g in eachindex(info)
+    @inbounds Threads.@threads for g in eachindex(info)
       v = view(X,info[g],:)
       dest[:,g,:] = v'v
     end
@@ -320,6 +369,66 @@ end
 
 @inline sumpanelcross(X::Array{T} where T) = dropdims(sum(X, dims=2); dims=2)
 
+# given two similar matrices, compute their column- and panel-wise dot products
+function panelcoldot!(dest::AbstractMatrix{T}, X::AbstractMatrix{T}, Y::AbstractMatrix{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	iszero(length(X)) && return
+	if length(info)==nrows(X)
+		dest .= X .* Y
+		return
+	end
+
+	J = CartesianIndices(axes(X)[2:end])
+	eachindexJ = eachindex(J)
+	@inbounds for g in eachindex(info)
+		f, l = first(info[g]), last(info[g])
+		fl = f+1:l
+		if f<l
+			for j ∈ eachindexJ
+				Jj = J[j]
+				tmp = X[f,Jj] * Y[f,Jj]
+				@tturbo for i ∈ fl
+					tmp += X[i,Jj] * Y[i,Jj]
+				end
+				dest[g,Jj] = tmp
+			end
+		else
+			@simd for j ∈ eachindexJ
+				dest[g,J[j]] = X[f,J[j]] * Y[f,J[j]]
+			end
+		end
+	end
+end
+# like panelcoldot! but subtract from instead of overwriting destination
+function panelcoldotminus!(dest::AbstractMatrix{T}, X::AbstractMatrix{T}, Y::AbstractMatrix{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
+	iszero(length(X)) && return
+	if length(info)==nrows(X)
+		dest .-= X .* Y
+		return
+	end
+
+	J = CartesianIndices(axes(X)[2:end])
+	eachindexJ = eachindex(J)
+	@inbounds for g in eachindex(info)
+		f, l = first(info[g]), last(info[g])
+		fl = f+1:l
+		if f<l
+			for j ∈ eachindexJ
+				Jj = J[j]
+				tmp = X[f,Jj] * Y[f,Jj]
+				@tturbo for i ∈ fl
+					tmp += X[i,Jj] * Y[i,Jj]
+				end
+				dest[g,Jj] -= tmp
+			end
+		else
+			@simd for j ∈ eachindexJ
+				dest[g,J[j]] -= X[f,J[j]] * Y[f,J[j]]
+			end
+		end
+	end
+end
+
+
 # cross-tab sum of a column vector w.r.t. given panel info and fixed-effect var
 # one row per FE, one col per other grouping
 # handling multiple columns in v
@@ -330,7 +439,7 @@ function crosstabFE!(o::StrBootTest{T}, dest::Array{T,3}, v::AbstractVecOrMat{T}
 		vw = v .* o.sqrtwt
 		if nrows(info)>0
 			fill!(dest, zero(T))
-			@inbounds #=Threads.@threads=# for i ∈ axes(info,1)
+			@inbounds Threads.@threads for i ∈ axes(info,1)
 				FEIDi = view(o._FEID, info[i])
 				vi = @view vw[info[i],:]
 				@inbounds for j ∈ axes(FEIDi,1)
@@ -338,14 +447,14 @@ function crosstabFE!(o::StrBootTest{T}, dest::Array{T,3}, v::AbstractVecOrMat{T}
 				end
 			end
 		else  # "robust" case, no clustering
-			@inbounds #=Threads.@threads=# for i ∈ axes(o._FEID,1)
+			@inbounds Threads.@threads for i ∈ axes(o._FEID,1)
 				dest[o._FEID[i],i,:] .= @view vw[i,:]
 			end
 		end
 	else
 		if nrows(info)>0
 			fill!(dest, zero(T))
-			@inbounds #=Threads.@threads=# for i ∈ axes(info,1)
+			@inbounds Threads.@threads for i ∈ axes(info,1)
 				FEIDi = view(o._FEID, info[i])
 				vi = @view v[info[i],:]
 				@inbounds for j ∈ axes(FEIDi,1)
@@ -353,7 +462,7 @@ function crosstabFE!(o::StrBootTest{T}, dest::Array{T,3}, v::AbstractVecOrMat{T}
 				end
 			end
 		else  # "robust" case, no clustering
-			@inbounds #=Threads.@threads=# for i ∈ axes(o._FEID,1)
+			@inbounds Threads.@threads for i ∈ axes(o._FEID,1)
 				dest[o._FEID[i],i,:] .= @view v[i,:]
 			end
 		end
@@ -372,7 +481,7 @@ function crosstabFEt(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitR
 	if o.haswt
 		vw = v .* o.sqrtwt
 		if nrows(info)>0
-			@inbounds #=Threads.@threads=# for i ∈ axes(info,1)
+			@inbounds Threads.@threads for i ∈ axes(info,1)
 				FEIDi = @view o._FEID[info[i]]
 				vi    = @view      vw[info[i]]
 				@inbounds for j ∈ eachindex(vi, FEIDi)
@@ -380,13 +489,13 @@ function crosstabFEt(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitR
 				end
 			end
 		else  # "robust" case, no clustering
-			@inbounds #=Threads.@threads=# for i ∈ eachindex(v,o._FEID)
+			@inbounds Threads.@threads for i ∈ eachindex(v,o._FEID)
 				dest[i,o._FEID[i]] = vw[i]
 			end
 		end
 	else
 		if nrows(info)>0
-			@inbounds #=Threads.@threads=# for i ∈ axes(info,1)
+			@inbounds Threads.@threads for i ∈ axes(info,1)
 				FEIDi = @view o._FEID[info[i]]
 				vi    = @view       v[info[i]]
 				@inbounds for j ∈ eachindex(vi, FEIDi)
@@ -394,7 +503,7 @@ function crosstabFEt(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitR
 				end
 			end
 		else  # "robust" case, no clustering
-			@inbounds #=Threads.@threads=# for i ∈ eachindex(v,o._FEID)
+			@inbounds Threads.@threads for i ∈ eachindex(v,o._FEID)
 				dest[i,o._FEID[i]] = v[i]
 			end
 		end
@@ -406,12 +515,12 @@ end
 function partialFE!(o::StrBootTest, In::AbstractArray)
   if length(In)>0
 		if o.haswt
-			#=Threads.@threads=# for f ∈ o.FEs
+			Threads.@threads for f ∈ o.FEs
 				tmp = @view In[f.is,:]
 				tmp .-= f.sqrtwt .* (f.wt'tmp)
 			end
 		else
-			#=Threads.@threads=# for f ∈ o.FEs
+			Threads.@threads for f ∈ o.FEs
 				tmp = @view In[f.is,:]
 				tmp .-= f.wt[1] .* sum(tmp; dims=1)
 			end
@@ -420,17 +529,17 @@ function partialFE!(o::StrBootTest, In::AbstractArray)
 	nothing
 end
 function partialFE(o::StrBootTest, In::AbstractArray)
-  Out = similar(In)
+  Out = copy(In)
   if length(In)>0
 		if o.haswt
-			#=Threads.@threads=# for f ∈ o.FEs
-				tmp = @view In[f.is,:]
-				Out[f.is,:] .= tmp .- f.sqrtwt .* (f.wt'tmp)
+			Threads.@threads for f ∈ o.FEs
+				tmp = @view Out[f.is,:]
+				tmp .-= f.sqrtwt .* (f.wt'tmp)
 			end
 		else
-			#=Threads.@threads=# for f ∈ o.FEs
-				tmp = @view In[f.is,:]
-				Out[f.is,:] .= tmp .- f.wt[1] .* sum(tmp; dims=1)
+			Threads.@threads for f ∈ o.FEs
+				tmp = @view Out[f.is,:]
+				tmp .-= f.wt[1] .* sum(tmp; dims=1)
 			end
 		end
   end
@@ -486,27 +595,6 @@ import Base.*, Base.adjoint, Base.hcat, Base.vcat, Base.-, Base.inv, Base.size, 
 struct FakeArray{N} <: AbstractArray{Bool,N} size::Tuple{Vararg{Int64,N}} end # AbstractArray with almost no storage, just for LinearIndices() conversion         
 FakeArray(size...) = FakeArray{length(size)}(size)
 size(X::FakeArray) = X.size
-
-# replace LinearAlgebra multiplication with @tturbo-based matrix multiplication
-# accepts views as destination
-# no error checking
-function tmul!(dest::AbstractVecOrMat{T}, A::AbstractVecOrMat{T}, B::AbstractVecOrMat{T}) where T
-	fill!(dest, zero(T))
-	@tturbo for j ∈ axes(B,2), i ∈ axes(A,1), k ∈ axes(A,2)
-		dest[i,j] += A[i,k] * B[k,j]
-	end
-end
-function t✻(A::AbstractVecOrMat{T}, B::AbstractVector{T}) where T
-	dest = Vector{T}(undef, size(A,1))
-	tmul!(dest, A, B)
-	dest
-end
-function t✻(A::AbstractVecOrMat{T}, B::AbstractMatrix{T}) where T
-	dest = Matrix{T}(undef, size(A,1), size(B,2))
-	tmul!(dest, A, B)
-	dest
-end
-
 
 # use 3-arrays to hold single-indexed sets of matrices. Index in _middle_ dimension.
 function tmul!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T

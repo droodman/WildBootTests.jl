@@ -145,7 +145,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.granular   = o.WREnonARubin ? o.jk || 2*o.Nobs*o.B*(2*o.N✻+1) < o.N✻*(o.N✻*o.Nobs+o.N⋂*o.B*(o.N✻+1)) :
 		               !o.jk && o.robust && !o.scorebs && (o.purerobust || (o.N⋂+o.N✻)*o.kZ*o.B + (o.N⋂-o.N✻)*o.B + o.kZ*o.B < o.N⋂*o.kZ^2 + o.Nobs*o.kZ + o.N⋂ * o.N✻ * o.kZ + o.N⋂ * o.N✻)
 # o.granular = true
-# println("granular ", o.granular)
+
 		o.jk && !o.WREnonARubin && 
 			(o.granularjk = o.kZ^3 + o.N✻ * (o.Nobs/o.N✻*o.kZ^2 + (o.Nobs/o.N✻)^2*o.kZ + (o.Nobs/o.N✻)^2 + (o.Nobs/o.N✻)^3) < o.N✻ * (o.kZ^2*o.Nobs/o.N✻ + o.kZ^3 + 2*o.kZ*(o.kZ + o.Nobs/o.N✻)))
 

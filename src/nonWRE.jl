@@ -248,7 +248,7 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 end
 
 function MakeNonWRELoop1!(o::StrBootTest, tmp::Matrix, w::Integer)
-	@inbounds #=Threads.@threads=# for k ∈ 1:ncols(o.v)
+	@inbounds Threads.@threads for k ∈ 1:ncols(o.v)
 		@inbounds for i ∈ 1:o.dof
 			for j ∈ 1:i
 				tmp[j,i] = o.denom[i,j][k]  # fill upper triangle, which is all invsym() looks at

@@ -123,6 +123,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	YY₁₁::Vector{Matrix{T}}; YY₁₂::Vector{Matrix{T}}; YY₂₂::Vector{Matrix{T}}; YPXY₁₁::Vector{Matrix{T}}; YPXY₁₂::Vector{Matrix{T}}; YPXY₂₂::Vector{Matrix{T}}
 	YY₁₂YPXY₁₂::Vector{Matrix{T}}; x₁₁::Vector{Matrix{T}}; x₁₂::Vector{Matrix{T}}; x₂₁::Vector{Matrix{T}}; x₂₂::Vector{Matrix{T}}; κs::Vector{Matrix{T}}; numerWRE::Vector{Matrix{T}}
 	δnumer::Vector{Matrix{T}}; δdenom::Vector{Vector{Matrix{T}}}; YY✻::Vector{Vector{Matrix{T}}}; YPXY✻::Vector{Vector{Matrix{T}}}
+	invZperpZperpS✻ZperpUv::Vector{Matrix{T}}; S✻ZperpUv::Vector{Matrix{T}}; CT✻FEUv::Vector{Matrix{T}}; invFEwtCT✻FEUv::Vector{Matrix{T}}; PXY✻::Vector{Matrix{T}}; S✻UMZperpv::Vector{Matrix{T}}
 
 	Ü₂par::Matrix{T}
 
