@@ -40,12 +40,12 @@ end
 
 function X₁₂B(X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractMatrix)
 	dest = X₁ * view(B,1:size(X₁,2),:)
-	length(dest)>0 && length(X₂)>0 && tmulplus!(dest, X₂, B[size(X₁,2)+1:end,:])
+	length(dest)>0 && length(X₂)>0 && t✻plus!(dest, X₂, B[size(X₁,2)+1:end,:])
 	dest
 end
 function X₁₂B(X₁::AbstractArray, X₂::AbstractArray, B::AbstractVector)
 	dest = X₁ * view(B,1:size(X₁,2))
-	length(dest)>0 && length(X₂)>0 && tmulplus!(dest, X₂, B[size(X₁,2)+1:end])
+	length(dest)>0 && length(X₂)>0 && t✻plus!(dest, X₂, B[size(X₁,2)+1:end])
 	dest
 end
 
@@ -105,7 +105,7 @@ end
 
 # subtract each A[i]'Q[:,g,:]*B[i] from dest[g,i]
 function colquadformminus3!(dest::AbstractMatrix{T}, A::AbstractMatrix{T}, Q::AbstractArray{T,3}, B::AbstractMatrix{T}) where T
-  @tturbo for g ∈ axes(dest,1), i ∈ axes(A,2), j ∈ axes(A,1), k ∈ axes(A,1)
+  @tturbo for i ∈ eachindex(axes(A,2), axes(B,2), axes(dest,2)), j ∈ eachindex(axes(A,1), axes(Q,3)), k ∈ eachindex(axes(B,1), axes(Q,1)), g ∈ eachindex(axes(dest,1), axes(Q,2))
     dest[g,i] -= A[j,i] * Q[k,g,j] * B[k,i]
   end
   dest
@@ -121,43 +121,54 @@ end
 # @tturbo-based matrix multiplication
 # accepts views as destination
 # no error checking
-function tmul!(dest::AbstractVecOrMat{T}, A::AbstractVecOrMat{T}, B::AbstractVecOrMat{T}) where T
-	fill!(dest, zero(T))
-	@tturbo for j ∈ axes(B,2), i ∈ axes(A,1), k ∈ axes(A,2)
-		dest[i,j] += A[i,k] * B[k,j]
+function t✻!(A::AbstractVecOrMat{T}, B::AbstractVecOrMat{T}, C::AbstractVecOrMat{T}) where T
+	fill!(A, zero(T))
+	if length(B)>0 && length(C)>0
+		@tturbo for j ∈ axes(C,2), i ∈ axes(B,1), k ∈ eachindex(axes(B,2), axes(C,1))
+			A[i,j] += B[i,k] * C[k,j]
+		end
 	end
+	nothing
 end
 function t✻(A::AbstractVecOrMat{T}, B::AbstractVector{T}) where T
 	dest = Vector{T}(undef, size(A,1))
-	tmul!(dest, A, B)
+	t✻!(dest, A, B)
 	dest
 end
 function t✻(A::AbstractVecOrMat{T}, B::AbstractMatrix{T}) where T
 	dest = Matrix{T}(undef, size(A,1), size(B,2))
-	tmul!(dest, A, B)
+	t✻!(dest, A, B)
 	dest
 end
-function tmulplus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # add B*C to A in place
-	@tturbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
-		A[i,k] += B[i,j] * C[j,k]
+function t✻plus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # add B*C to A in place
+	if length(B)>0 && length(C)>0
+		@tturbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
+			A[i,k] += B[i,j] * C[j,k]
+		end
 	end
 	nothing
 end
-function tmulplus!(A::AbstractVector{T}, B::AbstractMatrix{T}, C::AbstractVector{T}) where T  # add B*C to A in place
-	@tturbo for j ∈ eachindex(axes(B,2),C), i ∈ eachindex(axes(A,1),axes(B,1))
-		A[i] += B[i,j] * C[j]
+function t✻plus!(A::AbstractVector{T}, B::AbstractMatrix{T}, C::AbstractVector{T}) where T  # add B*C to A in place
+	if length(B)>0 && length(C)>0
+		@tturbo for j ∈ eachindex(axes(B,2),C), i ∈ eachindex(axes(A,1),axes(B,1))
+			A[i] += B[i,j] * C[j]
+		end
 	end
 	nothing
 end
-function tmulminus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # add B*C to A in place
-	@tturbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
-		A[i,k] -= B[i,j] * C[j,k]
+function t✻minus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # add B*C to A in place
+	if length(B)>0 && length(C)>0
+		@tturbo for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2)), j ∈ eachindex(axes(B,2),axes(C,1))
+			A[i,k] -= B[i,j] * C[j,k]
+		end
 	end
 	nothing
 end
-function tmulminus!(A::AbstractVector{T}, B::AbstractMatrix{T}, C::AbstractVector{T}) where T  # add B*C to A in place
-	@tturbo for j ∈ eachindex(axes(B,2),C), i ∈ eachindex(axes(A,1),axes(B,1))
-		A[i] -= B[i,j] * C[j]
+function t✻minus!(A::AbstractVector{T}, B::AbstractMatrix{T}, C::AbstractVector{T}) where T  # add B*C to A in place
+	if length(B)>0 && length(C)>0
+			@tturbo for j ∈ eachindex(axes(B,2),C), i ∈ eachindex(axes(A,1),axes(B,1))
+			A[i] -= B[i,j] * C[j]
+		end
 	end
 	nothing
 end
@@ -592,9 +603,9 @@ macro clustAccum!(X, c, Y)  # efficiently add a cluster combination-specific ter
 		local _Y = $(esc(Y))
 	  if isone($(esc(c)))
 	    if isone($(esc(:o)).clust[1].multiplier)
-	  	  $(esc(X)) = $(esc(:o)).clust[1].even ? _Y : -_Y
+	  	  $(esc(X)) .= $(esc(:o)).clust[1].even ? _Y : -_Y
 	    else
-	  	  $(esc(X)) = _Y * ($(esc(:o)).clust[1].even ? $(esc(:o)).clust[1].multiplier : -$(esc(:o)).clust[1].multiplier)
+	  	  $(esc(X)) .= _Y * ($(esc(:o)).clust[1].even ? $(esc(:o)).clust[1].multiplier : -$(esc(:o)).clust[1].multiplier)
 	    end
 	  elseif $(esc(:o)).clust[$(esc(c))].even
 	    if isone($(esc(:o)).clust[$(esc(c))].multiplier)
@@ -617,45 +628,45 @@ FakeArray(size...) = FakeArray{length(size)}(size)
 size(X::FakeArray) = X.size
 
 # use 3-arrays to hold single-indexed sets of matrices. Index in _middle_ dimension.
-function tmul!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T
+function t✻!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T
 	if length(A)>0 && length(B)>0
 		_dest = reshape(dest, size(dest,1) * size(dest,2), size(dest,3))
-		tmul!(_dest, reshape(A, size(A,1) * size(A,2), size(A,3)), B)
+		t✻!(_dest, reshape(A, size(A,1) * size(A,2), size(A,3)), reshape(B, size(B,1), size(B,2)))
 	end
 	nothing
 end
-function tmul!(dest::AbstractArray{T,3}, A::AbstractVecOrMat{T}, B::AbstractArray{T,3}) where T
+function t✻!(dest::AbstractArray{T,3}, A::AbstractVecOrMat{T}, B::AbstractArray{T,3}) where T
 	if length(A)>0 && length(B)>0
 		_dest = reshape(dest, size(dest,1), size(dest,2) * size(dest,3))
-		tmul!(_dest, A, reshape(B, size(B,1), size(B,2) * size(B,3)))
+		t✻!(_dest, A, reshape(B, size(B,1), size(B,2) * size(B,3)))
 	end
 	nothing
 end
-function tmulplus!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T
+function t✻plus!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T
 	if length(A)>0 && length(B)>0
 		_dest = reshape(dest, size(dest,1) * size(dest,2), size(dest,3))
-		tmulplus!(_dest, reshape(A, size(A,1) * size(A,2), size(A,3)), reshape(B, size(B,1), size(B,2)))
+		t✻plus!(_dest, reshape(A, size(A,1) * size(A,2), size(A,3)), reshape(B, size(B,1), size(B,2)))
 	end
 	nothing
 end
-function tmulplus!(dest::AbstractArray{T,3}, A::AbstractVecOrMat{T}, B::AbstractArray{T,3}) where T
+function t✻plus!(dest::AbstractArray{T,3}, A::AbstractVecOrMat{T}, B::AbstractArray{T,3}) where T
 	if length(A)>0 && length(B)>0
 		_dest = reshape(dest, size(dest,1), size(dest,2) * size(dest,3))
-		tmulplus!(_dest, A, reshape(B, size(B,1), size(B,2) * size(B,3)))
+		t✻plus!(_dest, A, reshape(B, size(B,1), size(B,2) * size(B,3)))
 	end
 	nothing
 end
-function tmulminus!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T
+function t✻minus!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T
 	if length(A)>0 && length(B)>0
 		_dest = reshape(dest, size(dest,1) * size(dest,2), size(dest,3))
-		tmulminus!(_dest, reshape(A, size(A,1) * size(A,2), size(A,3)), reshape(B, size(B,1), size(B,2)))
+		t✻minus!(_dest, reshape(A, size(A,1) * size(A,2), size(A,3)), reshape(B, size(B,1), size(B,2)))
 	end
 	nothing
 end
-function tmulminus!(dest::AbstractArray{T,3}, A::AbstractVecOrMat{T}, B::AbstractArray{T,3}) where T
+function t✻minus!(dest::AbstractArray{T,3}, A::AbstractVecOrMat{T}, B::AbstractArray{T,3}) where T
 	if length(A)>0 && length(B)>0
 		_dest = reshape(dest, size(dest,1), size(dest,2) * size(dest,3))
-		tmulminus!(_dest, A, reshape(B, size(B,1), size(B,2) * size(B,3)))
+		t✻minus!(_dest, A, reshape(B, size(B,1), size(B,2) * size(B,3)))
 	end
 	nothing
 end

@@ -32,7 +32,7 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 					if o.robust  # dof > 1 for an arubin test with >1 instruments.
 						for d₁ ∈ 1:o.dof
 							for c ∈ 1:o.NErrClustCombs
-								o.∂Jcd∂r[h₁,c,d₁] = (o.Jcd[c,d₁] .- o.Jcd₀[c,d₁]) ./ o.poles[h₁]
+								o.∂Jcd∂r[h₁,c,d₁] .= (o.Jcd[c,d₁] .- o.Jcd₀[c,d₁]) ./ o.poles[h₁]
 								for d₂ ∈ 1:d₁
 									tmp = coldot(o.Jcd₀[c,d₁], o.∂Jcd∂r[h₁,c,d₂])
 									d₁ ≠ d₂ && (coldotplus!(tmp, 1, o.Jcd₀[c,d₂], o.∂Jcd∂r[h₁,c,d₁]))  # for diagonal items, faster to just double after the c loop
@@ -248,14 +248,14 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 end
 
 function MakeNonWRELoop1!(o::StrBootTest, tmp::Matrix, w::Integer)
-	@inbounds Threads.@threads for k ∈ 1:ncols(o.v)
+	@inbounds Threads.@threads for k ∈ 1:o.ncolsv
 		@inbounds for i ∈ 1:o.dof
 			for j ∈ 1:i
 				tmp[j,i] = o.denom[i,j][k]  # fill upper triangle, which is all invsym() looks at
 			end
 		end
-		numer_k = view(o.numerw,:,k)
-		o.dist[k+first(o.WeightGrp[w])-1] = numer_k'invsym(tmp)*numer_k  # in degenerate cases, cross() would turn cross(.,.) into 0
+		numerₖ = view(o.numerw,:,k)
+		o.dist[k+first(o.WeightGrp[w])-1] = numerₖ'invsym(tmp)*numerₖ  # in degenerate cases, cross() would turn cross(.,.) into 0
 	end
 	nothing
 end
@@ -269,7 +269,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
     	o.purerobust && !o.interpolable && (u✻2 = o.u✻ .^ 2)
     	@inbounds for i ∈ 1:o.dof, j ∈ 1:i
     		o.purerobust && !o.interpolable &&
-  	   		(o.denom[i,j] = (view(o.M.WXAR,:,i) .* view(o.M.WXAR,:,j))'u✻2 * (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier))
+  	   		(o.denom[i,j] .= (view(o.M.WXAR,:,i) .* view(o.M.WXAR,:,j))'u✻2 .* (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier))
 				for c ∈ (o.purerobust && !o.interpolable)+1:o.NErrClustCombs
 					@clustAccum!(o.denom[i,j], c, j==i ? coldot(o.Jcd[c,i]) : coldot(o.Jcd[c,i],o.Jcd[c,j]))
 				end
@@ -292,32 +292,31 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 		end
 	else  # non-robust
 		AR = o.ml ? o.AR : o.M.AR
+		denom = o.R * AR
 		if isone(o.dof)  # optimize for one null constraint
-			o.denom[1,1] = o.R * AR
-			!o.ml && (o.denom[1,1] = o.denom[1,1] .* coldot(o.u✻))
+			!o.ml && (denom = denom .* coldot(o.u✻))
 
-			@storeWtGrpResults!(o.dist, o.numerw ./ sqrtNaN.(o.denom[1,1]))
-			isone(w) && (o.statDenom = o.denom[1,1])  # original-sample denominator
+			@storeWtGrpResults!(o.dist, o.numerw ./ sqrtNaN.(denom))
+			isone(w) && (o.statDenom = denom)  # original-sample denominator
 		else
-			o.denom[1,1] = o.R * AR
 			if o.ml
-				for k ∈ 1:ncols(o.v)
-					numer_k = view(o.numerw,:,k)
-					o.dist[k+first(o.WeightGrp[w])-1] = numer_k'invsym(o.denom[1,1])*numer_k
+				for k ∈ 1:o.ncolsv
+					numerₖ = view(o.numerw,:,k)
+					o.dist[k+first(o.WeightGrp[w])-1] = numerₖ'invsym(denom)*numerₖ
 				end
-				isone(w) && (o.statDenom = o.denom[1,1])  # original-sample denominator
+				isone(w) && (o.statDenom = denom)  # original-sample denominator
 			else
-				invdenom = invsym(o.denom[1,1])
+				invdenom = invsym(denom)
 				if o.B>0
-					for k ∈ 1:ncols(o.v)
-						numer_k = view(o.numerw,:,k)
-						u✻_k   = view(o.u✻,:,k)
-						o.dist[k+first(o.WeightGrp[w])-1] = numer_k'invdenom*numer_k / (tmp = u✻_k'u✻_k)
+					for k ∈ 1:o.ncolsv
+						numerₖ = view(o.numerw,:,k)
+						u✻ₖ   = view(o.u✻,:,k)
+						o.dist[k+first(o.WeightGrp[w])-1] = numerₖ'invdenom*numerₖ / (tmp = u✻ₖ'u✻ₖ)
 					end
 				else
 					o.dist[1] = (o.numerw'invdenom*o.numerw)[1] / (tmp = dot(o.u✻,o.u✻))
 				end
-				isone(w) && (o.statDenom = o.denom[1,1] * tmp)  # original-sample denominator
+				isone(w) && (o.statDenom = denom * tmp)  # original-sample denominator
 			end
 		end
 	end

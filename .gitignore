@@ -21,3 +21,4 @@ src/StrBootTest.jl.11688.mem
 alloc-profile.pb.gz
 *.gz
 alloc-profile.pb.gz
+alloc-profile.pb.gz

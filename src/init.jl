@@ -144,7 +144,6 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.purerobust = o.robust && !o.scorebs && iszero(o.subcluster) && o.N✻==o.Nobs  # do we ever error-cluster *and* bootstrap-cluster by individual?
 		o.granular   = o.WREnonARubin ? o.jk || 2*o.Nobs*o.B*(2*o.N✻+1) < o.N✻*(o.N✻*o.Nobs+o.N⋂*o.B*(o.N✻+1)) :
 		               !o.jk && o.robust && !o.scorebs && (o.purerobust || (o.N⋂+o.N✻)*o.kZ*o.B + (o.N⋂-o.N✻)*o.B + o.kZ*o.B < o.N⋂*o.kZ^2 + o.Nobs*o.kZ + o.N⋂ * o.N✻ * o.kZ + o.N⋂ * o.N✻)
-# o.granular = true
 
 		o.jk && !o.WREnonARubin && 
 			(o.granularjk = o.kZ^3 + o.N✻ * (o.Nobs/o.N✻*o.kZ^2 + (o.Nobs/o.N✻)^2*o.kZ + (o.Nobs/o.N✻)^2 + (o.Nobs/o.N✻)^3) < o.N✻ * (o.kZ^2*o.Nobs/o.N✻ + o.kZ^3 + 2*o.kZ*(o.kZ + o.Nobs/o.N✻)))
@@ -180,16 +179,15 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	o.Nw = iszero(o.maxmatsize) ? one(Int64) : ceil(Int64, (o.B+1) * Float64(max(nrows(o.ID✻), length(o.ID✻_✻⋂), o.N✻) * sizeof(T)) / o.maxmatsize / 1073741824) # 1073741824 = giga(byte)
 	if isone(o.Nw)
 		MakeWildWeights!(o, o.B, first=true)  # make all wild weights, once
-		o.enumerate && (o.B = ncols(o.v) - 1)  # replications reduced to 2^G
-		o.WeightGrp = [1:ncols(o.v)]
-		o.B1 = o.B2 = o.B + 1
+		o.ncolsv = ncols(o.v)
+		o.enumerate && (o.B = o.ncolsv - 1)  # replications reduced to 2^G
+		o.WeightGrp = [1:o.ncolsv]
 	else
     o.seed = rand(o.rng, UInt64)
-		o.B1 = ceil(Int64, (o.B+1) / o.Nw)
-		o.Nw = ceil(Int64, (o.B+1) / o.B1)
-		o.WeightGrp = [(i-1)*o.B1+1:i*o.B1 for i ∈ 1:o.Nw]
-		o.WeightGrp[end] = first(o.WeightGrp[end]):o.B+1
-		o.B2 = length(o.WeightGrp[end])
+		o.ncolsv = ceil(Int64, (o.B+1) / o.Nw)
+		o.Nw = ceil(Int64, (o.B+1) / o.ncolsv)
+		o.WeightGrp = [(i-1)*o.ncolsv+1:i*o.ncolsv for i ∈ 1:o.Nw]
+		o.B = o.Nw * o.ncolsv - 1  # replicaions may be slightly increased so each block of v same size
 	end
 
 	if o.ml
@@ -266,8 +264,10 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		end
   end
 
+	o.bootstrapt &&
+		(o.denom = [Matrix{T}(undef,1,o.ncolsv) for _ in 1:o.dof, _ in 1:o.dof])
+
   if !o.WREnonARubin && o.bootstrapt
-		o.denom = [Matrix{T}(undef,0,0) for _ in 1:o.dof, _ in 1:o.dof]
 		if o.robust
 			o.Kcd =                       Matrix{Matrix{T}}(undef, o.NErrClustCombs, o.dof)
 			o.Jcd = iszero(o.B) ? o.Kcd : Matrix{Matrix{T}}(undef, o.NErrClustCombs, o.dof)  # if B = 0, Kcd will be multiplied by v, which is all 1's, and will constitute Jcd
@@ -309,9 +309,9 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			o.∂numer∂r = Vector{Matrix{T}}(undef, o.q)
 			o.interpolate_u && (o.∂u∂r = Vector{Matrix{T}}(undef, o.q))
 			if o.robust
-				o.∂denom∂r   = fill(Matrix{T}(undef,0,0), o.q, o.dof, o.dof)
-				o.∂²denom∂r² = fill(Matrix{T}(undef,0,0), o.q, o.q, o.dof, o.dof)
-				o.∂Jcd∂r     = fill(Matrix{T}(undef,0,0), o.q, o.NErrClustCombs, o.dof)
+				o.∂denom∂r   = [Matrix{T}(undef,            1, o.ncolsv) for _ ∈ 1:o.q, _ ∈ 1:o.dof, _ ∈ 1:o.dof]
+				o.∂²denom∂r² = [Matrix{T}(undef,            1, o.ncolsv) for _ ∈ 1:o.q, _ ∈ 1:o.q, _ ∈ 1:o.dof, _ ∈ 1:o.dof]
+				o.∂Jcd∂r     = [Matrix{T}(undef, o.clust[c].N, o.ncolsv) for _ ∈ 1:o.q, c ∈ 1:o.NErrClustCombs, _ ∈ 1:o.dof]
 			end
 		end
   end
