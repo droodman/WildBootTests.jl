@@ -628,6 +628,37 @@ FakeArray(size...) = FakeArray{length(size)}(size)
 size(X::FakeArray) = X.size
 
 # use 3-arrays to hold single-indexed sets of matrices. Index in _middle_ dimension.
+@inline each(A::Array{T,3}) where T = [view(A,:,i,:) for i ∈ 1:size(A,2)]  #	eachslice(A; dims=2) more elegant but type-unstable
+@inline *(A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T = reshape(reshape(A, size(A,1) * size(A,2), size(A,3)) * B, size(A,1), size(A,2), size(B,2)) #:: Array{T,3}
+@inline *(A::AbstractVecOrMat{T}, B::AbstractArray{T,3}) where T = reshape(A * reshape(B, size(B,1), size(B,2) * size(B,3)), size(A,1), size(B,2), size(B,3)) #:: Array{T,3}
+@inline adjoint(A::AbstractArray{T,3} where T) = permutedims(A,(3,2,1))
+@inline hcat(A::Array{T,3}, B::Array{T,3}) where T = cat(A,B; dims=3)::Array{T,3}
+@inline vcat(A::Array{T,3}, B::Array{T,3}) where T = cat(A,B; dims=1)::Array{T,3}
+
+# copy all the upper triangles to lower
+function symmetrize!(A::AbstractArray{T,3}) where T
+	d = size(A,1)
+	@inbounds for i ∈ 1:d-1, k ∈ axes(A,2), j ∈ i+1:d
+		A[j,k,i] = A[i,k,j]
+	end
+	nothing
+end
+
+function *(A::AbstractArray{T,3}, B::AbstractArray{T,3}) where T
+	dest = zeros(T, size(A,1), size(A,2), size(B,3))
+	t✻!(dest, A, B)
+	dest
+end
+
+function t✻!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractArray{T,3}) where T
+	fill!(dest, zero(T))
+	if length(A)>0 && length(B)>0
+		@tturbo for i ∈ eachindex(axes(B,3),axes(dest,3)), j ∈ eachindex(axes(A,1), axes(dest,1)), g ∈ eachindex(axes(A,2),axes(dest,2)), k ∈ eachindex(axes(A,3),axes(B,1))
+			dest[j,g,i] += A[j,g,k] * B[k,g,i]
+		end
+	end
+	nothing
+end
 function t✻!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T
 	if length(A)>0 && length(B)>0
 		_dest = reshape(dest, size(dest,1) * size(dest,2), size(dest,3))
@@ -669,23 +700,6 @@ function t✻minus!(dest::AbstractArray{T,3}, A::AbstractVecOrMat{T}, B::Abstrac
 		t✻minus!(_dest, A, reshape(B, size(B,1), size(B,2) * size(B,3)))
 	end
 	nothing
-end
-
-
-
-@inline each(A::Array{T,3}) where T = [view(A,:,i,:) for i ∈ 1:size(A,2)]  #	eachslice(A; dims=2) more elegant but type-unstable
-@inline *(A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T = reshape(reshape(A, size(A,1) * size(A,2), size(A,3)) * B, size(A,1), size(A,2), size(B,2)) #:: Array{T,3}
-@inline *(A::AbstractVecOrMat{T}, B::AbstractArray{T,3}) where T = reshape(A * reshape(B, size(B,1), size(B,2) * size(B,3)), size(A,1), size(B,2), size(B,3)) #:: Array{T,3}
-@inline adjoint(A::AbstractArray{T,3} where T) = permutedims(A,(3,2,1))
-@inline hcat(A::Array{T,3}, B::Array{T,3}) where T = cat(A,B; dims=3)::Array{T,3}
-@inline vcat(A::Array{T,3}, B::Array{T,3}) where T = cat(A,B; dims=1)::Array{T,3}
-
-function *(A::Array{T,3}, B::Array{T,3}) where T
-	dest = zeros(T, size(A,1), size(A,2), size(B,3))
-	@tturbo for i ∈ eachindex(axes(B,3)), j ∈ eachindex(axes(A,1)), g ∈ eachindex(axes(A,2)), k ∈ eachindex(axes(A,3))
-		dest[j,g,i] += A[j,g,k] * B[k,g,i]
-	end
-	dest
 end
 
 # in-place inverse of a set of symmetric matrices

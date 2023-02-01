@@ -27,7 +27,7 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 					thisr = copy(o.anchor); thisr[h₁] = o.r[h₁]  # if q>1 this creates anchor points that are not graphed, an inefficiency. But simpler to make the deviations from 1st point orthogonal
 					_MakeInterpolables!(o, thisr)  # calculate linear stuff at new anchor
 
-					o.∂numer∂r[h₁] = (o.numer .- o.numer₀) ./ o.poles[h₁]
+					o.∂numer∂r[h₁] .= (o.numer .- o.numer₀) ./ o.poles[h₁]
 					o.interpolate_u && (o.∂u∂r[h₁] = (o.u✻ .- o.u✻₀) ./ o.poles[h₁])
 					if o.robust  # dof > 1 for an arubin test with >1 instruments.
 						for d₁ ∈ 1:o.dof

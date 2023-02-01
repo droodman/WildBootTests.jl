@@ -298,15 +298,15 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   !(o.robust || o.ml) && (o.multiplier *= o._Nobs)  # will turn sum of squared errors in denom of t/z into mean
   o.sqrt && (o.multiplier = √o.multiplier)
 
-	o.dist = fill(T(NaN), 1, o.B+1)
-  (o.Nw>1 || o.WREnonARubin || (!o.null && o.dof≤2)) && (o.numer = fill(T(NaN), o.dof, o.B+1))
+	o.dist = Matrix{T}(undef, 1, o.B+1)
+  (o.Nw>1 || o.WREnonARubin || (!o.null && o.dof≤2)) && (o.numer = Matrix{T}(undef, o.q, o.B+1))
 
   if !o.WREnonARubin
 		o.poles = o.anchor = zeros(T,0)
 		o.interpolable = o.bootstrapt && o.null && o.Nw==1 && (iszero(o.κ) || o.arubin)
 		o.interpolate_u = !(o.robust || o.ml)
 		if o.interpolable
-			o.∂numer∂r = Vector{Matrix{T}}(undef, o.q)
+			o.∂numer∂r = [Matrix{T}(undef, o.q, o.ncolsv) for _ ∈ 1:o.q]
 			o.interpolate_u && (o.∂u∂r = Vector{Matrix{T}}(undef, o.q))
 			if o.robust
 				o.∂denom∂r   = [Matrix{T}(undef,            1, o.ncolsv) for _ ∈ 1:o.q, _ ∈ 1:o.dof, _ ∈ 1:o.dof]

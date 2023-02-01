@@ -9,7 +9,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 	o.T1L = Matrix{T}(undef, o.DGP.kX, o.ncolsv)
 	o.T1R = deepcopy(o.T1L)
 	o.β̈s = Matrix{T}(undef, o.Repl.kZ, o.ncolsv)
-	o.As = Array{T,3}(undef, o.Repl.kZ, o.Repl.kZ, o.ncolsv)
+	o.As = Array{T,3}(undef, o.Repl.kZ, o.ncolsv, o.Repl.kZ)
 	o.numerWRE = Matrix{T}(undef, o.dof, o.ncolsv)
 
 	if isone(o.Repl.kZ)
@@ -28,14 +28,14 @@ function InitWRE!(o::StrBootTest{T}) where T
 			o.κs = deepcopy(o.β̈s)
 		end
 	else
-		if o.liml || o.bootstrapt && !o.robust
-			o.YY✻   = [Matrix{T}(undef, i+1, o.ncolsv) for i ∈ 0:o.Repl.kZ]
-		end
 		if o.liml
+			o.YY✻   = [Matrix{T}(undef, i+1, o.ncolsv) for i ∈ 0:o.Repl.kZ]
 			o.YPXY✻ = deepcopy(o.YY✻)
 		else
 			o.δnumer = deepcopy(o.β̈s)
-			o.δdenom = [Matrix{T}(undef, i, o.ncolsv) for i ∈ 1:o.Repl.kZ]
+		end
+		if o.bootstrapt && !o.robust
+			o.YY✻   = [Matrix{T}(undef, length(i:o.Repl.kZ), o.ncolsv) for i ∈ 0:o.Repl.kZ]
 		end
 	end
 
@@ -683,10 +683,8 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 end
 
 function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
-	_w = isone(o.Nw) || w<o.Nw ? 1 : 2
-
   if isone(o.Repl.kZ)  # optimized code for 1 retained coefficient in bootstrap regression
-		_As = view(o.As,1,:,:)
+		_As = view(o.As,:,:,1)
 		if o.liml
 			HessianFixedkappa!(o, o.YY₁₁  , [0], 0, zero(T))  # κ=0 => Y*MZperp*Y
 			HessianFixedkappa!(o, o.YY₁₂  , [0], 1, zero(T))
@@ -721,7 +719,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 		if o.bootstrapt
 			if o.robust
 				J⋂s1 = dropdims(o.J⋂s; dims=3)
-				Filling!(o, J⋂s1, 1, o.β̈s); 
+				Filling!(o, J⋂s1, 1, o.β̈s)
 				J⋂s1 ./= _As
 				@inbounds for c ∈ 1:o.NErrClustCombs  # sum sandwich over error clusterings
 					nrows(o.clust[c].order)>0 && 
@@ -740,38 +738,33 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 
   else  # WRE bootstrap for more than 1 retained coefficient in bootstrap regression
 
+YY✻ = Array{T,3}(undef, o.Repl.kZ+1, o.ncolsv, o.Repl.kZ+1)
 		if o.liml
-			for i ∈ 0:o.Repl.kZ
-				HessianFixedkappa!(o, o.YY✻[i+1]  , collect(0:i), i, zero(T))  # κ=0 => Y*MZperp*Y
-				HessianFixedkappa!(o, o.YPXY✻[i+1], collect(0:i), i,  one(T))  # κ=1 => Y*PXpar*Y
+			YPXY✻ = deepcopy(YY✻)
+			κWRE = Array{T,3}(undef,1,o.ncolsv,1)
+			@inbounds for i ∈ 0:o.Repl.kZ
+				HessianFixedkappa!(o, view(YY✻  , 1:i+1, :, i+1), collect(0:i), i, zero(T))  # κ=0 => Y*MZperp*Y
+				HessianFixedkappa!(o, view(YPXY✻, 1:i+1, :, i+1), collect(0:i), i,  one(T))  # κ=1 => Y*PXpar*Y
 			end
+			symmetrize!(YY✻)
+			symmetrize!(YPXY✻)
 
-			@inbounds for b ∈ axes(o.v,2)
-				for i ∈ 0:o.Repl.kZ
-					o.YY✻_b[1:i+1,i+1]   = o.YY✻[i+1][:,b]  # fill uppper triangles, which is all that invsym() looks at
-					o.YPXY✻_b[1:i+1,i+1] = o.YPXY✻[i+1][:,b]
-				end
-				o.κ = 1/(1 - real(eigvalsNaN(invsym(o.YY✻_b) * Symmetric(o.YPXY✻_b))[1]))
-				!iszero(o.fuller) && (o.κ -= o.fuller / (o._Nobs - o.kX))
-				o.β̈s[:,b] = (o.As[:,:,b] = invsym(o.κ*o.YPXY✻_b[2:end,2:end] + (1-o.κ)*o.YY✻_b[2:end,2:end])) * (o.κ*o.YPXY✻_b[1,2:end] + (1-o.κ)*o.YY✻_b[1,2:end])
+			@inbounds for b ∈ axes(κWRE,2)
+				κWRE[b] = 1/(1 - real(eigvalsNaN(invsym(view(YY✻,:,b,:)') * Symmetric(view(YPXY✻,:,b,:)))[1]))
 			end
+			!iszero(o.fuller) && (κWRE .-= o.fuller / (o._Nobs - o.kX))
+
+			o.As .= κWRE .* view(YPXY✻, 2:o.Repl.kZ+1, :, 2:o.Repl.kZ+1) .+ (1 .- κWRE) .* view(YY✻, 2:o.Repl.kZ+1, :, 2:o.Repl.kZ+1)
+			invsym!(o.As)
+			t✻!(view(o.β̈s,:,:,1:1), o.As, κWRE .* view(YPXY✻, 2:o.Repl.kZ+1, :, 1) .+ (1 .- κWRE) .* view(YY✻, 2:o.Repl.kZ+1, :,  1))
 		else
 			HessianFixedkappa!(o, o.δnumer, collect(1:o.Repl.kZ), 0, o.κ)
-			for i ∈ 1:o.Repl.kZ
-				HessianFixedkappa!(o, o.δdenom[i], collect(1:i), i, o.κ)
+			@inbounds for i ∈ 1:o.Repl.kZ
+				HessianFixedkappa!(o, view(o.As, 1:i, :, i), collect(1:i), i, o.κ)
 			end
-
-			nt = Threads.nthreads()
-  		cs = [round(Int, size(o.v,2)/nt*i) for i ∈ 0:nt]
-			@inbounds Threads.@threads for t ∈ 1:nt
-				δdenom_b = zeros(T, o.Repl.kZ, o.Repl.kZ)  # thread-safe scratch pad
-				@inbounds for b ∈ cs[t]+1:cs[t+1]
-					for i ∈ 1:o.Repl.kZ
-						δdenom_b[1:i,i] = view(o.δdenom[i],:,b)  # fill uppper triangle
-					end
-					o.β̈s[:,b] = (o.As[:,:,b] = invsym(δdenom_b)) * view(o.δnumer,:,b)  # XXX move b to middle index and use 3-array operators?
-				end
-			end
+			symmetrize!(o.As)
+			invsym!(o.As)
+			t✻!(view(o.β̈s,:,:,1:1), o.As, view(o.δnumer,:,:,1:1))
 		end
 
 		if o.bootstrapt
@@ -780,38 +773,47 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 					Filling!(o, view(o.J⋂s,:,:,i), i, o.β̈s)
 				end
 			else
-o.YY✻   = [Matrix{T}(undef, length(i:o.Repl.kZ), o.ncolsv) for i ∈ 0:o.Repl.kZ]
 				@inbounds for i ∈ 0:o.Repl.kZ
-					HessianFixedkappa!(o, o.YY✻[i+1], collect(i:o.Repl.kZ), i, zero(T))  # κ=0 => Y*MZperp*Y
+					HessianFixedkappa!(o, view(YY✻, 1:i+1, :, i+1), collect(0:i), i, zero(T))
 				end
+				symmetrize!(YY✻)
 			end
 		end
 
-		let denom_b
-denom_b = Matrix{T}(undef, o.q, o.q)
-			@inbounds for b ∈ reverse(axes(o.v,2))
-				o.numer_b .= o.null || w==1 && b==1 ? o.Repl.RRpar * view(o.β̈s,:,b) + o.Repl.Rt₁ - o.r : o.Repl.RRpar * (view(o.β̈s,:,b) - view(o.DGP.β̈ ,:,1))
-				if o.bootstrapt
-					if o.robust  # Compute denominator for this WRE test stat
-						J⋂ = view(o.J⋂s,:,b,:) * (view(o.As,:,:,b) * o.Repl.RRpar')
-						for c ∈ 1:o.NErrClustCombs
-							(!isone(o.NClustVar) && nrows(o.clust[c].order)>0) &&
-								(J⋂ = J⋂[o.clust[c].order,:])
-							J_b = @panelsum(J⋂, o.clust[c].info)
-							@clustAccum!(denom_b, c, J_b'J_b)
-						end
-					else  # non-robust
-						for i ∈ 0:o.Repl.kZ
-							o.YY✻_b[i+1,i+1:o.Repl.kZ+1] = view(o.YY✻[i+1],:,b)  # fill upper triangle
-						end
-						tmp = [-one(T) ; o.β̈s[:,b]]
-						denom_b = (o.Repl.RRpar * view(o.As,:,:,b) * o.Repl.RRpar') * tmp'Symmetric(o.YY✻_b) * tmp / o._Nobs  # 2nd half is sig2 of errors
-					end
-					o.dist[b+first(o.WeightGrp[w])-1] = o.sqrt ? o.numer_b[1] / sqrtNaN(denom_b[1]) : o.numer_b'invsym(denom_b)*o.numer_b  # hand-code for 2-dimensional?
+		if o.null
+			o.numerWRE .= o.Repl.RRpar * o.β̈s .+ (o.Repl.Rt₁ - o.r)
+		else
+			o.numerWRE .= o.Repl.RRpar * (o.β̈s .- o.DGP.β̈[:,1:1])
+			w==1 && b==1 && (o.numerWRE[:,1:1] .= o.Repl.RRpar * o.β̈s[:,1:1] + o.Repl.Rt₁ - o.r)
+		end
+
+		if o.bootstrapt
+denom = Array{T,3}(undef, o.q, o.ncolsv, o.q)
+			if o.robust  # Compute denominator for this WRE test stat
+				J⋂ = o.J⋂s * o.As * o.Repl.RRpar'  # XXX use t✻!
+				for c ∈ 1:o.NErrClustCombs
+					(!isone(o.NClustVar) && nrows(o.clust[c].order)>0) &&
+						(J⋂ = J⋂[o.clust[c].order,:,:])
+					J = @panelsum(J⋂, o.clust[c].info)
+					@clustAccum!(denom, c, J'J)
 				end
-				o.numer[:,b+first(o.WeightGrp[w])-1] = o.numer_b  # slight inefficiency: in usual bootstrap-t case, only need to save numerators in numer if getdist("numer") is coming because of svmat(numer)
+			else  # non-robust
+				tmp = view([fill(T(-1), 1, o.ncolsv) ; o.β̈s], :, :, 1:1)
+				denom .= (o.Repl.RRpar * o.As * o.Repl.RRpar') .* (tmp'YY✻ * tmp ./ o._Nobs)  # 2nd half is sig2 of errors
 			end
-			w==1 && o.bootstrapt && (o.statDenom = denom_b)  # original-sample denominator
+			if w==1
+				o.statDenom = denom[:,1,:]
+				o.numer[:,1] = o.numerWRE[:,1]
+			end
+			if o.sqrt
+				@storeWtGrpResults!(o.dist, o.numerWRE ./ sqrtNaN.(dropdims(denom; dims=3)))
+			else
+				invsym!(denom)
+				_numer = view(o.numerWRE,:,:,1:1)
+				@storeWtGrpResults!(o.dist, dropdims(_numer'denom*_numer; dims=3))  # hand-code for 2-dimensional?  XXX allocations
+			end
+		else
+			@storeWtGrpResults!(o.numer, o.numerWRE)
 		end
 	end
 	nothing
