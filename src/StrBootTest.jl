@@ -85,7 +85,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; u✻::Matrix{T}
   info✻::Vector{UnitRange{Int64}}; info✻_✻⋂::Vector{UnitRange{Int64}}; infoBootAll::Vector{UnitRange{Int64}}; info⋂_✻⋂::Vector{UnitRange{Int64}}
   JN⋂N✻::Matrix{T}; statDenom::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; β̈dev::Matrix{T}
-	YY✻_b::Matrix{T}; YPXY✻_b::Matrix{T}; numerw::Matrix{T}; numer_b::Vector{T}; dist::Matrix{T}
+	numerw::Matrix{T}; numer_b::Vector{T}; dist::Matrix{T}
 
 	distCDR::Matrix{T}; plotX::Vector{Vector{T}}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
   numersum::Vector{T}; u✻₀::Matrix{T}; invFEwt::Vector{T}
@@ -123,7 +123,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 
 	YY₁₁::Matrix{T}; YY₁₂::Matrix{T}; YY₂₂::Matrix{T}; YPXY₁₁::Matrix{T}; YPXY₁₂::Matrix{T}; YPXY₂₂::Matrix{T}
 	YY₁₂YPXY₁₂::Matrix{T}; x₁₁::Matrix{T}; x₁₂::Matrix{T}; x₂₁::Matrix{T}; x₂₂::Matrix{T}; κs::Matrix{T}; numerWRE::Matrix{T}
-	δnumer::Matrix{T}; δdenom::Vector{Matrix{T}}; YY✻::Vector{Matrix{T}}; YPXY✻::Vector{Matrix{T}}
+	δnumer::Matrix{T}; YY✻::Array{T,3}; YPXY✻::Array{T,3}; κWRE::Array{T,3}; denomWRE::Array{T,3}; ARpars::Array{T,3}; J⋂ARpars::Array{T,3}; Jc::Vector{Array{T,3}}
 	invZperpZperpS✻ZperpUv::Matrix{T}; S✻ZperpUv::Matrix{T}; CT✻FEUv::Matrix{T}; invFEwtCT✻FEUv::Matrix{T}; PXY✻::Matrix{T}; S✻UMZperpv::Matrix{T}
 	#=T₀::Vector{T};=# T₁::Matrix{T}; Qv::Matrix{T}; willfill::Bool; S✻diagUX::Array{T,3}
 

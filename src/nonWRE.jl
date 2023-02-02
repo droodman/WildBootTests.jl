@@ -4,9 +4,9 @@
 function MakeInterpolables!(o::StrBootTest{T}) where T
 	if o.interpolable
 		if iszero(nrows(o.anchor))  # first call? save current r as anchor for interpolation
-			o.anchor = o.r
+			o.anchor = copy(o.r)
 			_MakeInterpolables!(o, o.anchor)
-			o.numer₀ = o.numer
+			o.numer₀ = copy(o.numer)
 			o.interpolate_u && (o.u✻₀ = copy(o.u✻))
 			o.robust && (o.Jcd₀ = deepcopy(o.Jcd))
 			return

@@ -4,7 +4,12 @@ function InitWRE!(o::StrBootTest{T}) where T
 
 	o.Repl.kZ>1 && (o.numer_b = Vector{T}(undef,nrows(o.Repl.RRpar)))
 
-	o.J⋂s = Array{T,3}(undef, o.N⋂, o.ncolsv, o.Repl.kZ)
+	if o.willfill
+		o.J⋂s = Array{T,3}(undef, o.N⋂, o.ncolsv, o.Repl.kZ)
+		o.ARpars = Array{T,3}(undef, o.Repl.kZ, o.ncolsv, o.q)
+		o.J⋂ARpars = Array{T,3}(undef, o.N⋂, o.ncolsv, o.q)
+		o.Jc = [c==1 ?  Array{T,3}(undef,0,0,0) : Array{T,3}(undef, o.clust[c].N, o.ncolsv, o.q) for c ∈ 1:o.NErrClustCombs]
+	end
 
 	o.T1L = Matrix{T}(undef, o.DGP.kX, o.ncolsv)
 	o.T1R = deepcopy(o.T1L)
@@ -28,22 +33,20 @@ function InitWRE!(o::StrBootTest{T}) where T
 			o.κs = deepcopy(o.β̈s)
 		end
 	else
+		o.denomWRE = Array{T,3}(undef, o.q, o.ncolsv, o.q)
 		if o.liml
-			o.YY✻   = [Matrix{T}(undef, i+1, o.ncolsv) for i ∈ 0:o.Repl.kZ]
+			o.YY✻ = Array{T,3}(undef, o.Repl.kZ+1, o.ncolsv, o.Repl.kZ+1)
 			o.YPXY✻ = deepcopy(o.YY✻)
+			o.κWRE = Array{T,3}(undef,1,o.ncolsv,1)
 		else
 			o.δnumer = deepcopy(o.β̈s)
 		end
 		if o.bootstrapt && !o.robust
-			o.YY✻   = [Matrix{T}(undef, length(i:o.Repl.kZ), o.ncolsv) for i ∈ 0:o.Repl.kZ]
+			o.YY✻ = Array{T,3}(undef, o.Repl.kZ+1, o.ncolsv, o.Repl.kZ+1)
 		end
 	end
 
 	if o.bootstrapt
-		if o.liml || !o.robust
-			o.YY✻_b   = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
-			o.YPXY✻_b = zeros(o.Repl.kZ+1, o.Repl.kZ+1)
-		end
 		if o.NFE>0 && !o.FEboot && (o.bootstrapt || !isone(o.κ) || o.liml)
 			o.CT✻FEu₁           = Array{T,3}(undef, o.NFE, o.N✻, 1)
 			o.CT✻FEU₂par        = Array{T,3}(undef, o.NFE, o.N✻, o.Repl.kZ)
@@ -53,7 +56,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 			o.invFEwtCT✻FEU = [i>0 ? view(o.invFEwtCT✻FEU₂par,:,:,i) : view(o.invFEwtCT✻FEu₁,:,:,1) for i ∈ 0:o.Repl.kZ]
 		end
 
-		o.robust &&
+		o.willfill &&
 			(o.β̈v = Matrix{T}(undef, o.N✻, o.ncolsv))
 	end
 
@@ -693,13 +696,13 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			HessianFixedkappa!(o, o.YPXY₁₂, [0], 1, one(T) )
 			HessianFixedkappa!(o, o.YPXY₂₂, [1], 1, one(T) )
 			o.YY₁₂YPXY₁₂ .= o.YY₁₂ .* o.YPXY₁₂
-			o.x₁₁ .= o.YY₂₂ .* o.YPXY₁₁ .- o.YY₁₂YPXY₁₂      # elements of YY✻^-1 * YPXY✻ up to factor of det(YY✻)
+			o.x₁₁ .= o.YY₂₂ .* o.YPXY₁₁ .- o.YY₁₂YPXY₁₂      # elements of o.YY✻^-1 * o.YPXY✻ up to factor of det(o.YY✻)
 			o.x₁₂ .= o.YY₂₂ .* o.YPXY₁₂ .- o.YY₁₂ .* o.YPXY₂₂
 			o.x₂₁ .= o.YY₁₁ .* o.YPXY₁₂ .- o.YY₁₂ .* o.YPXY₁₁
 			o.x₂₂ .= o.YY₁₁ .* o.YPXY₂₂ .- o.YY₁₂YPXY₁₂
 			o.κs .= (o.x₁₁ .+ o.x₂₂)./2
 			o.κs .= 1 ./ (1 .- (o.κs .- sqrtNaN.(o.κs.^2 .- o.x₁₁ .* o.x₂₂ .+ o.x₁₂ .* o.x₂₁)) ./ 
-			                   (o.YY₁₁ .* o.YY₂₂ .- o.YY₁₂ .* o.YY₁₂))  # solve quadratic equation for smaller eignenvalue; last term is det(YY✻)
+			                   (o.YY₁₁ .* o.YY₂₂ .- o.YY₁₂ .* o.YY₁₂))  # solve quadratic equation for smaller eignenvalue; last term is det(o.YY✻)
 			!iszero(o.fuller) && (o.κs .-= o.fuller / (o._Nobs - o.kX))
 			_As .= o.κs .* (o.YPXY₂₂ .- o.YY₂₂) .+ o.YY₂₂
 			o.β̈s .= (o.κs .* (o.YPXY₁₂ .- o.YY₁₂) .+ o.YY₁₂) ./ _As
@@ -738,25 +741,22 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 
   else  # WRE bootstrap for more than 1 retained coefficient in bootstrap regression
 
-YY✻ = Array{T,3}(undef, o.Repl.kZ+1, o.ncolsv, o.Repl.kZ+1)
 		if o.liml
-			YPXY✻ = deepcopy(YY✻)
-			κWRE = Array{T,3}(undef,1,o.ncolsv,1)
 			@inbounds for i ∈ 0:o.Repl.kZ
-				HessianFixedkappa!(o, view(YY✻  , 1:i+1, :, i+1), collect(0:i), i, zero(T))  # κ=0 => Y*MZperp*Y
-				HessianFixedkappa!(o, view(YPXY✻, 1:i+1, :, i+1), collect(0:i), i,  one(T))  # κ=1 => Y*PXpar*Y
+				HessianFixedkappa!(o, view(o.YY✻  , 1:i+1, :, i+1), collect(0:i), i, zero(T))  # κ=0 => Y*MZperp*Y
+				HessianFixedkappa!(o, view(o.YPXY✻, 1:i+1, :, i+1), collect(0:i), i,  one(T))  # κ=1 => Y*PXpar*Y
 			end
-			symmetrize!(YY✻)
-			symmetrize!(YPXY✻)
+			symmetrize!(o.YY✻)
+			symmetrize!(o.YPXY✻)
 
-			@inbounds for b ∈ axes(κWRE,2)
-				κWRE[b] = 1/(1 - real(eigvalsNaN(invsym(view(YY✻,:,b,:)') * Symmetric(view(YPXY✻,:,b,:)))[1]))
+			@inbounds for b ∈ axes(o.κWRE,2)
+				o.κWRE[b] = 1/(1 - real(eigvalsNaN(invsym(view(o.YY✻,:,b,:)') * Symmetric(view(o.YPXY✻,:,b,:)))[1]))
 			end
-			!iszero(o.fuller) && (κWRE .-= o.fuller / (o._Nobs - o.kX))
+			!iszero(o.fuller) && (o.κWRE .-= o.fuller / (o._Nobs - o.kX))
 
-			o.As .= κWRE .* view(YPXY✻, 2:o.Repl.kZ+1, :, 2:o.Repl.kZ+1) .+ (1 .- κWRE) .* view(YY✻, 2:o.Repl.kZ+1, :, 2:o.Repl.kZ+1)
+			o.As .= o.κWRE .* view(o.YPXY✻, 2:o.Repl.kZ+1, :, 2:o.Repl.kZ+1) .+ (1 .- o.κWRE) .* view(o.YY✻, 2:o.Repl.kZ+1, :, 2:o.Repl.kZ+1)
 			invsym!(o.As)
-			t✻!(view(o.β̈s,:,:,1:1), o.As, κWRE .* view(YPXY✻, 2:o.Repl.kZ+1, :, 1) .+ (1 .- κWRE) .* view(YY✻, 2:o.Repl.kZ+1, :,  1))
+			t✻!(view(o.β̈s,:,:,1:1), o.As, o.κWRE .* view(o.YPXY✻, 2:o.Repl.kZ+1, :, 1) .+ (1 .- o.κWRE) .* view(o.YY✻, 2:o.Repl.kZ+1, :,  1))
 		else
 			HessianFixedkappa!(o, o.δnumer, collect(1:o.Repl.kZ), 0, o.κ)
 			@inbounds for i ∈ 1:o.Repl.kZ
@@ -774,43 +774,44 @@ YY✻ = Array{T,3}(undef, o.Repl.kZ+1, o.ncolsv, o.Repl.kZ+1)
 				end
 			else
 				@inbounds for i ∈ 0:o.Repl.kZ
-					HessianFixedkappa!(o, view(YY✻, 1:i+1, :, i+1), collect(0:i), i, zero(T))
+					HessianFixedkappa!(o, view(o.YY✻, 1:i+1, :, i+1), collect(0:i), i, zero(T))
 				end
-				symmetrize!(YY✻)
+				symmetrize!(o.YY✻)
 			end
 		end
 
 		if o.null
-			o.numerWRE .= o.Repl.RRpar * o.β̈s .+ (o.Repl.Rt₁ - o.r)
+			o.numerWRE .= o.Repl.Rt₁ - o.r                ; t✻plus!(o.numerWRE, o.Repl.RRpar, o.β̈s)
 		else
-			o.numerWRE .= o.Repl.RRpar * (o.β̈s .- o.DGP.β̈[:,1:1])
-			w==1 && b==1 && (o.numerWRE[:,1:1] .= o.Repl.RRpar * o.β̈s[:,1:1] + o.Repl.Rt₁ - o.r)
+			o.numerWRE .= o.Repl.RRpar * (-o.DGP.β̈[:,1:1]); t✻plus!(o.numerWRE, o.Repl.RRpar, o.β̈s); 
+			w==1 && b==1 && (o.numerWRE[:,1:1] .= o.Repl.RRpar * o.β̈s[:,1:1] .+ o.Repl.Rt₁ .- o.r)
 		end
 
 		if o.bootstrapt
-denom = Array{T,3}(undef, o.q, o.ncolsv, o.q)
 			if o.robust  # Compute denominator for this WRE test stat
-				J⋂ = o.J⋂s * o.As * o.Repl.RRpar'  # XXX use t✻!
-				for c ∈ 1:o.NErrClustCombs
+				t✻!(o.ARpars, o.As, o.Repl.RRpar')
+				t✻!(o.J⋂ARpars, o.J⋂s, o.ARpars)
+				t✻!(o.denomWRE, (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier), o.J⋂ARpars', o.J⋂ARpars)
+				for c ∈ 2:o.NErrClustCombs
 					(!isone(o.NClustVar) && nrows(o.clust[c].order)>0) &&
-						(J⋂ = J⋂[o.clust[c].order,:,:])
-					J = @panelsum(J⋂, o.clust[c].info)
-					@clustAccum!(denom, c, J'J)
+						(o.J⋂ARpars = o.J⋂ARpars[o.clust[c].order,:,:])
+					panelsum!(o.Jc[c], o.J⋂ARpars, o.clust[c].info)
+					t✻plus!(o.denomWRE, (o.clust[1c].even ? o.clust[c].multiplier : -o.clust[c].multiplier), o.Jc[c]', o.Jc[c])
 				end
 			else  # non-robust
 				tmp = view([fill(T(-1), 1, o.ncolsv) ; o.β̈s], :, :, 1:1)
-				denom .= (o.Repl.RRpar * o.As * o.Repl.RRpar') .* (tmp'YY✻ * tmp ./ o._Nobs)  # 2nd half is sig2 of errors
+				o.denomWRE .= (o.Repl.RRpar * o.As * o.Repl.RRpar') .* (tmp'o.YY✻ * tmp ./ o._Nobs)  # 2nd half is sig2 of errors
 			end
 			if w==1
-				o.statDenom = denom[:,1,:]
+				o.statDenom = o.denomWRE[:,1,:]
 				o.numer[:,1] = o.numerWRE[:,1]
 			end
 			if o.sqrt
-				@storeWtGrpResults!(o.dist, o.numerWRE ./ sqrtNaN.(dropdims(denom; dims=3)))
+				@storeWtGrpResults!(o.dist, o.numerWRE ./ sqrtNaN.(dropdims(o.denomWRE; dims=3)))
 			else
-				invsym!(denom)
+				invsym!(o.denomWRE)
 				_numer = view(o.numerWRE,:,:,1:1)
-				@storeWtGrpResults!(o.dist, dropdims(_numer'denom*_numer; dims=3))  # hand-code for 2-dimensional?  XXX allocations
+				@storeWtGrpResults!(o.dist, dropdims(_numer'o.denomWRE*_numer; dims=3))  # hand-code for 2-dimensional?  XXX allocations
 			end
 		else
 			@storeWtGrpResults!(o.numer, o.numerWRE)

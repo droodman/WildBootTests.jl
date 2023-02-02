@@ -299,7 +299,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   o.sqrt && (o.multiplier = √o.multiplier)
 
 	o.dist = Matrix{T}(undef, 1, o.B+1)
-  (o.Nw>1 || o.WREnonARubin || (!o.null && o.dof≤2)) && (o.numer = Matrix{T}(undef, o.q, o.B+1))
+  o.numer = Matrix{T}(undef, o.q, o.B+1)
 
   if !o.WREnonARubin
 		o.poles = o.anchor = zeros(T,0)
