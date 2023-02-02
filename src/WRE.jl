@@ -724,10 +724,12 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 				J⋂s1 = dropdims(o.J⋂s; dims=3)
 				Filling!(o, J⋂s1, 1, o.β̈s)
 				J⋂s1 ./= _As
-				@inbounds for c ∈ 1:o.NErrClustCombs  # sum sandwich over error clusterings
+				t✻!(reshape(o.denom[1,1],1,:,1), (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier), o.J⋂s', o.J⋂s)
+				@inbounds for c ∈ 2:o.NErrClustCombs  # sum sandwich over error clusteringssrc/WRE.jl
 					nrows(o.clust[c].order)>0 && 
 						(J⋂s1 .= J⋂s1[o.clust[c].order,:])
-					@clustAccum!(o.denom[1,1], c, coldot(@panelsum(J⋂s1, o.clust[c].info)))
+					panelsum!(dropdims(o.Jc[c]; dims=3), J⋂s1, o.clust[c].info)
+		    	coldotplus!(o.denom[1,1], (o.clust[c].even ? o.clust[c].multiplier : -o.clust[c].multiplier), dropdims(o.Jc[c]; dims=3))
 				end
 			else
 				o.denom[1,1] .= (HessianFixedkappa(o, [0], 0, zero(T)) .-   # XXX rewrite to avoid allocations
@@ -737,7 +739,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			@storeWtGrpResults!(o.dist, o.sqrt ? o.numerWRE ./ sqrtNaN.(o.denom[1,1]) : o.numerWRE .^ 2 ./ o.denom[1,1])
 			o.denom[1,1] .*= o.Repl.RRpar[1]^2
 		end
-		w==1 && o.bootstrapt && (o.statDenom = fill(o.denom[1,1][1],1,1))  # original-sample denominator
+		w==1 && o.bootstrapt && (o.statDenom = [o.denom[1,1][1];;])  # original-sample denominator
 
   else  # WRE bootstrap for more than 1 retained coefficient in bootstrap regression
 
@@ -796,7 +798,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 					(!isone(o.NClustVar) && nrows(o.clust[c].order)>0) &&
 						(o.J⋂ARpars = o.J⋂ARpars[o.clust[c].order,:,:])
 					panelsum!(o.Jc[c], o.J⋂ARpars, o.clust[c].info)
-					t✻plus!(o.denomWRE, (o.clust[1c].even ? o.clust[c].multiplier : -o.clust[c].multiplier), o.Jc[c]', o.Jc[c])
+					t✻plus!(o.denomWRE, (o.clust[c].even ? o.clust[c].multiplier : -o.clust[c].multiplier), o.Jc[c]', o.Jc[c])
 				end
 			else  # non-robust
 				tmp = view([fill(T(-1), 1, o.ncolsv) ; o.β̈s], :, :, 1:1)

@@ -68,6 +68,12 @@ function coldotplus!(dest::AbstractMatrix, row::Integer, A::AbstractMatrix, B::A
   end
 	nothing
 end
+function coldotplus!(dest::AbstractMatrix{T}, c::T, A::AbstractMatrix{T}) where T
+  @tturbo for i ∈ eachindex(axes(A,2)), j ∈ eachindex(axes(A,1))
+	  dest[1,i] += c * A[j,i]^2
+  end
+	nothing
+end
 function coldotplus!(dest::AbstractMatrix, row::Integer, A::AbstractMatrix, v::AbstractVector, B::AbstractMatrix)
   @tturbo for i ∈ eachindex(axes(A,2),axes(B,2)), j ∈ eachindex(axes(A,1),axes(B,1))
 	  dest[row,i] += A[j,i] * v[j] * B[j,i]
@@ -693,7 +699,7 @@ function t✻plus!(dest::AbstractArray{T,3}, A::AbstractVecOrMat{T}, B::Abstract
 end
 function t✻plus!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractArray{T,3}) where T
 	if length(A)>0 && length(B)>0
-		@tturbo for i ∈ eachindex(axes(B,3),axes(dest,3)), j ∈ eachindex(axes(A,1),axes(dest,1)), g ∈ eachindex(axes(A,2),axes(A,2),axes(dest,2)), k ∈ eachindex(axes(A,3),axes(B,1))
+		@tturbo for i ∈ eachindex(axes(B,3),axes(dest,3)), j ∈ eachindex(axes(A,1),axes(dest,1)), g ∈ eachindex(axes(A,2),axes(B,2),axes(dest,2)), k ∈ eachindex(axes(A,3),axes(B,1))
 			dest[j,g,i] += A[j,g,k] * B[k,g,i]
 		end
 	end
@@ -701,7 +707,7 @@ function t✻plus!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractA
 end
 function t✻plus!(dest::AbstractArray{T,3}, c::T, A::AbstractArray{T,3}, B::AbstractArray{T,3}) where T
 	if length(A)>0 && length(B)>0
-		@tturbo for i ∈ eachindex(axes(B,3),axes(dest,3)), j ∈ eachindex(axes(A,1),axes(dest,1)), g ∈ eachindex(axes(A,2),axes(A,2),axes(dest,2)), k ∈ eachindex(axes(A,3),axes(B,1))
+		@tturbo for i ∈ eachindex(axes(B,3),axes(dest,3)), j ∈ eachindex(axes(A,1),axes(dest,1)), g ∈ eachindex(axes(A,2),axes(B,2),axes(dest,2)), k ∈ eachindex(axes(A,3),axes(B,1))
 			dest[j,g,i] += c * A[j,g,k] * B[k,g,i]
 		end
 	end
