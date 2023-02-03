@@ -114,8 +114,8 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	S✻ZperpY₂::Array{T,3}; S✻ZperpX::Array{T,3}; S✻ZperpDGPZ::Array{T,3}; S✻Zperpy₁::Array{T,3}; S✻ZperpDGPZR₁::Array{T,3}
 	invZperpZperpS✻ZperpY₂::Array{T,3}; invZperpZperpS✻ZperpX::Array{T,3}; invZperpZperpS✻ZperpDGPZ::Array{T,3}; invZperpZperpS✻Zperpy₁::Array{T,3}; invZperpZperpS✻ZperpDGPZR₁::Array{T,3}
 	_ID✻⋂::Vector{Int}
-	S✻Y₂y₁::Array{T,3}; S✻DGPZy₁::Array{T,3}; S✻y₁y₁::Array{T,3}; S✻DGPZR₁y₁::Array{T,3}; r₁S✻ReplZR₁Y₂::Array{T,3}; r₁S✻ReplZR₁X::Array{T,3}; r₁S✻ReplZR₁DGPZ::Array{T,3}; r₁S✻ReplZR₁y₁::Array{T,3}; r₁S✻ReplZR₁DGPZR₁::Array{T,3}; S✻ReplZY₂::Array{T,3}; S✻ReplZX::Array{T,3}; S✻ReplZDGPZ::Array{T,3}; S✻ReplZy₁::Array{T,3}; S✻ReplZDGPZR₁::Array{T,3}
-	negS✻UMZperpX::Vector{Array{T,3}}; S⋂XZperpinvZperpZperp::Array{T,3}; CT✻FEX::Array{T,3}; CT⋂FEX::Array{T,3}; CT✻FEY₂::Array{T,3}; CT✻FEZ::Array{T,3}; CT✻FEy₁::Array{T,3}; CT✻FEZR₁::Array{T,3}
+	S✻Y₂y₁::Array{T,3}; S✻DGPZy₁::Array{T,3}; S✻y₁y₁::Array{T,3}; S✻DGPZR₁y₁::Array{T,3}; r₁S✻ReplZR₁Y₂::Array{T,3}; r₁S✻ReplZR₁U₂::Array{T,3}; r₁S✻ReplZR₁X::Array{T,3}; r₁S✻ReplZR₁DGPZ::Array{T,3}; r₁S✻ReplZR₁y₁::Array{T,3}; r₁S✻ReplZR₁DGPZR₁::Array{T,3}; S✻ReplZY₂::Array{T,3}; S✻ReplZX::Array{T,3}; S✻ReplZDGPZ::Array{T,3}; S✻ReplZy₁::Array{T,3}; S✻ReplZDGPZR₁::Array{T,3}
+	negS✻UMZperpX::Vector{Array{T,3}}; S⋂XZperpinvZperpZperp::Array{T,3}; CT✻FEX::Array{T,3}; CT⋂FEX::Array{T,3}; CT✻FEY₂::Array{T,3}; CT✻FEU₂::Array{T,3}; CT✻FEZ::Array{T,3}; CT✻FEy₁::Array{T,3}; CT✻FEZR₁::Array{T,3}
 	S✻Y₂Y₂::Array{T,3}; S✻ZparY₂Z_DGPZ::Array{T,3}; S✻DGPZY₂::Array{T,3}; S✻DGPZR₁Y₂::Array{T,3}; S✻DGPZDGPZ::Array{T,3};  S✻DGPZR₁DGPZR₁::Array{T,3}; S✻DGPZR₁DGPZ::Array{T,3}; S✻DGPZR₁X::Array{T,3}
 	XinvXX::Matrix{T}; PXZ::Matrix{T}; FillingT₀::Matrix{Matrix{T}}
 	S⋂ReplZX::Array{T,3}; S⋂Xy₁::Array{T,3}

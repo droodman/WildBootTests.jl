@@ -360,8 +360,8 @@ function InitFEs(o::StrBootTest{T}) where T
 			wt = T[1/sumFEwt]
 		end
 		o.FEs[i_FE] = StrFE{T}(is, wt, _sqrtwt)
-		o.robust && ((o.B>0 && o.granular < o.NErrClustVar) || (o.WREnonARubin && o.granular && o.bootstrapt)) &&
-			(o.invFEwt[i_FE] = 1 / sumFEwt)
+		((o.B>0 && o.robust && o.granular < o.NErrClustVar) || (o.WREnonARubin && o.robust && o.granular && o.bootstrapt)) &&
+			(o.invFEwt[i_FE] = one(T) / sumFEwt)
 
 		if iszero(o.NFE)
 			o.NFE = i_FE
@@ -372,7 +372,7 @@ function InitFEs(o::StrBootTest{T}) where T
 
 		if o.FEboot  # are all of this FE's obs in same bootstrapping cluster?
 			tmp = o.ID[is, 1:o.NBootClustVar]
-			o.FEboot = all(tmp .== @view tmp[1,:])
+			o.FEboot = all(tmp .== view(tmp,1,:)')
 		end
 
 		if o.robust && o.B>0 && o.bootstrapt && !o.FEboot && o.granular < o.NErrClustVar

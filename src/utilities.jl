@@ -82,7 +82,7 @@ function coldotplus!(dest::AbstractMatrix, row::Integer, A::AbstractMatrix, v::A
 end
 
 function coldotminus!(dest::AbstractVecOrMat, row::Integer, A::AbstractMatrix, B::AbstractMatrix)
-  @tturbo for i ∈ eachindex(axes(A,2),axes(B,2)), j ∈ eachindex(axes(A,1),axes(B,1))
+  @tturbo for i ∈ eachindex(axes(A,2),axes(B,2),axes(dest,2)), j ∈ eachindex(axes(A,1),axes(B,1))
 	  dest[row,i] -= A[j,i] * B[j,i]
   end
 	nothing
@@ -178,10 +178,18 @@ function t✻minus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMat
 	end
 	nothing
 end
-function t✻minus!(A::AbstractVector{T}, B::AbstractMatrix{T}, C::AbstractVector{T}) where T  # add B*C to A in place
+function t✻minus!(A::AbstractVector{T}, B::AbstractVecOrMat{T}, C::AbstractVector{T}) where T  # add B*C to A in place
 	if length(B)>0 && length(C)>0
-			@tturbo for j ∈ eachindex(axes(B,2),C), i ∈ eachindex(axes(A,1),axes(B,1))
+			#=@tturbo=# for j ∈ eachindex(axes(B,2),axes(C,1)), i ∈ eachindex(axes(A,1),axes(B,1))
 			A[i] -= B[i,j] * C[j]
+		end
+	end
+	nothing
+end
+function t✻minus!(A::AbstractVector{T}, B::T, C::AbstractVector{T}) where T  # add B*C to A in place
+	if length(B)>0 && length(C)>0
+			@tturbo for i ∈ eachindex(axes(A,1),axes(C,1))
+			A[i] -= B * C[i]
 		end
 	end
 	nothing

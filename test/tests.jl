@@ -3,7 +3,7 @@ using WildBootTests
 using StableRNGs, StatFiles, DataFrames, CategoricalArrays, StatsModels
 try cd("test") catch end
 
-open("unittests.log", "w") do log  # use Github Desktop to detect changes in output
+# open("unittests.log", "w") do log  # use Github Desktop to detect changes in output
   df = DataFrame(load("collapsed.dta"))
   dropmissing!(df)
   f = @formula(hasinsurance ~ 1 + selfemployed + post + post_self)
@@ -348,4 +348,4 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   println(log, test)
   test = wildboottest([0 1 zeros(1,size(predexog,2)-2)], [0]; resp, predexog, clustid= [collect(1:nrow(df)) levelcode.(df.state)], nbootclustvar=1, nerrclustvar=1, reps=9999, imposenull=false, maxmatsize=.1, rng=StableRNG(1231))
   println(log, test)
-end
+# end

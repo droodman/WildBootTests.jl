@@ -12,34 +12,34 @@ function InitWRE!(o::StrBootTest{T}) where T
 	end
 
 	o.T1L = Matrix{T}(undef, o.DGP.kX, o.ncolsv)
-	o.T1R = deepcopy(o.T1L)
+	o.T1R = similar(o.T1L)
 	o.β̈s = Matrix{T}(undef, o.Repl.kZ, o.ncolsv)
 	o.As = Array{T,3}(undef, o.Repl.kZ, o.ncolsv, o.Repl.kZ)
 	o.numerWRE = Matrix{T}(undef, o.dof, o.ncolsv)
 
 	if isone(o.Repl.kZ)
 		if o.liml
-			o.YY₁₁ = deepcopy(o.β̈s)
-			o.YY₁₂ = deepcopy(o.β̈s)
-			o.YY₂₂   = deepcopy(o.β̈s)
-			o.YPXY₁₁ = deepcopy(o.β̈s)
-			o.YPXY₁₂ = deepcopy(o.β̈s)
-			o.YPXY₂₂ = deepcopy(o.β̈s)
-			o.YY₁₂YPXY₁₂ = deepcopy(o.β̈s)
-			o.x₁₁ = deepcopy(o.β̈s)
-			o.x₁₂ = deepcopy(o.β̈s)
-			o.x₂₁ = deepcopy(o.β̈s)
-			o.x₂₂ = deepcopy(o.β̈s)
-			o.κs = deepcopy(o.β̈s)
+			o.YY₁₁ = similar(o.β̈s)
+			o.YY₁₂ = similar(o.β̈s)
+			o.YY₂₂   = similar(o.β̈s)
+			o.YPXY₁₁ = similar(o.β̈s)
+			o.YPXY₁₂ = similar(o.β̈s)
+			o.YPXY₂₂ = similar(o.β̈s)
+			o.YY₁₂YPXY₁₂ = similar(o.β̈s)
+			o.x₁₁ = similar(o.β̈s)
+			o.x₁₂ = similar(o.β̈s)
+			o.x₂₁ = similar(o.β̈s)
+			o.x₂₂ = similar(o.β̈s)
+			o.κs = similar(o.β̈s)
 		end
 	else
 		o.denomWRE = Array{T,3}(undef, o.q, o.ncolsv, o.q)
 		if o.liml
 			o.YY✻ = Array{T,3}(undef, o.Repl.kZ+1, o.ncolsv, o.Repl.kZ+1)
-			o.YPXY✻ = deepcopy(o.YY✻)
+			o.YPXY✻ = similar(o.YY✻)
 			o.κWRE = Array{T,3}(undef,1,o.ncolsv,1)
 		else
-			o.δnumer = deepcopy(o.β̈s)
+			o.δnumer = similar(o.β̈s)
 		end
 		if o.bootstrapt && !o.robust
 			o.YY✻ = Array{T,3}(undef, o.Repl.kZ+1, o.ncolsv, o.Repl.kZ+1)
@@ -160,7 +160,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 		if o.NFE>0 && !o.FEboot && (o.liml || !isone(o.κ) || o.bootstrapt)
 			  CT✻⋂FEX  = [crosstabFE(o, o.DGP.X₁, o.info✻⋂) crosstabFE(o, o.DGP.X₂, o.info✻⋂)]
 			o.CT✻FEX   = @panelsum(CT✻⋂FEX, o.info✻_✻⋂)
-			o.CT✻FEY₂  = crosstabFE(o, o.DGP.Y₂, o.info✻)
+			o.CT✻FEY₂  = crosstabFE(o, o.DGP.Y₂, o.info✻); o.CT✻FEU₂ = similar(o.CT✻FEY₂)
 			o.CT✻FEZ   = crosstabFE(o, o.DGP.Z, o.info✻)
 			o.CT✻FEy₁  = crosstabFE(o, o.DGP.y₁, o.info✻)
 			o.DGP.restricted &&
@@ -190,8 +190,8 @@ function InitWRE!(o::StrBootTest{T}) where T
 			o.negS✻UMZperpX = [Array{T,3}(undef, o.DGP.kX, o.N⋂, o.N✻) for _ in 0:o.Repl.kZ]
 			# o.T₀ = Vector{T}(undef, o.N⋂)
 			# o.T₁ = Matrix{T}(undef, o.N⋂, o.N✻)
-			o.T₁ = Matrix{T}(undef, 1, o.N✻)
 			# o.Q    = Array{T,3}(undef, o.N✻, o.N⋂, o.N✻)
+			o.T₁ = Matrix{T}(undef, 1, o.N✻)
 			o.Q    = Array{T,2}(undef, o.N✻, o.N✻)
 			o.Qv = Matrix{T}(undef, o.N✻, o.ncolsv)
 			o.NFE>0 && !o.FEboot && (o.CT⋂FEX = o.invFEwt .* @panelsum(CT✻⋂FEX, o.info⋂_✻⋂))
@@ -212,7 +212,8 @@ function InitWRE!(o::StrBootTest{T}) where T
 				_S✻ZperpReplZR₁ = @panelsum(o.Repl.S✻⋂ZperpZR₁, o.info✻_✻⋂)
 				_S✻⋂XReplZR₁    = @panelsum(o.Repl.S✻⋂XZR₁    , o.info✻_✻⋂)
 				
-				o.r₁S✻ReplZR₁Y₂     = o.r₁' * (o.Repl.S✻ZR₁Y₂ - _S✻ZperpReplZR₁' * o.DGP.invZperpZperpZperpY₂ - o.Repl.invZperpZperpZperpZR₁' * o.S✻ZperpY₂)  
+				o.r₁S✻ReplZR₁Y₂     = o.r₁' * (o.Repl.S✻ZR₁Y₂ - _S✻ZperpReplZR₁' * o.DGP.invZperpZperpZperpY₂ - o.Repl.invZperpZperpZperpZR₁' * o.S✻ZperpY₂)
+				o.r₁S✻ReplZR₁U₂ = similar(o.r₁S✻ReplZR₁Y₂)
 				o.r₁S✻ReplZR₁X      = o.r₁' * (_S✻⋂XReplZR₁'  - _S✻ZperpReplZR₁' * o.DGP.invZperpZperpZperpX  - o.Repl.invZperpZperpZperpZR₁' * o.S✻ZperpX )
 				o.r₁S✻ReplZR₁DGPZ   = o.r₁' * panelcross(o.Repl.ZR₁, o.DGP.Z, o.info✻)   
 				o.r₁S✻ReplZR₁y₁     = o.r₁' * (o.Repl.S✻ZR₁y₁ - _S✻ZperpReplZR₁' * o.DGP.invZperpZperpZperpy₁ - o.Repl.invZperpZperpZperpZR₁' * o.S✻Zperpy₁)
@@ -273,19 +274,19 @@ function PrepWRE!(o::StrBootTest{T}) where T
 	t✻!(o.invXXS✻XU₂par, o.invXXS✻XU₂, o.Repl.RparY)
 	if o.bootstrapt || o.liml || !isone(o.κ)
 		t✻!(o.S✻ZperpU₂, o.S✻ZperpX, o.DGP.Π̂ ); o.S✻ZperpU₂ .= o.S✻ZperpY₂ .- o.S✻ZperpU₂
-		o.invZperpZperpS✻ZperpU₂ .= o.invZperpZperpS✻ZperpY₂ - o.invZperpZperpS✻ZperpX * o.DGP.Π̂
+		o.invZperpZperpS✻ZperpU₂ .= o.invZperpZperpS✻ZperpY₂; t✻minus!(o.invZperpZperpS✻ZperpU₂, o.invZperpZperpS✻ZperpX, o.DGP.Π̂ )
 		t✻!(o.S✻ZperpU₂par, o.S✻ZperpU₂, o.Repl.RparY)
 		t✻!(o.invZperpZperpS✻ZperpU₂par, o.invZperpZperpS✻ZperpU₂, o.Repl.RparY)
 	end
 
-	o.S✻Xu₁ .= o.S✻Xy₁ .- o.S✻XDGPZ * o.DGP.β̈  .+ o.S✻XU₂ * o.DGP.γ̈ 
+	o.S✻Xu₁ .= o.S✻Xy₁;  t✻minus!(o.S✻Xu₁, o.S✻XDGPZ, o.DGP.β̈ );  t✻plus!(o.S✻Xu₁, o.S✻XU₂, o.DGP.γ̈ )
 	o.DGP.restricted &&
-		(o.S✻Xu₁ .-= o.S✻XZR₁ * r₁)
+		t✻minus!(o.S✻Xu₁, o.S✻XZR₁, r₁)
 	@panelsum!(o.S✻XU₂par, o.S✻⋂XU₂par, o.info✻_✻⋂)
 
-	o.invXXS✻Xu₁ .= o.invXXS✻Xy₁ .- o.invXXS✻XDGPZ * o.DGP.β̈  .+ o.invXXS✻XU₂ * o.DGP.γ̈ 
+	o.invXXS✻Xu₁ .= o.invXXS✻Xy₁;  t✻minus!(o.invXXS✻Xu₁, o.invXXS✻XDGPZ, o.DGP.β̈ );  t✻plus!(o.invXXS✻Xu₁, o.invXXS✻XU₂, o.DGP.γ̈ )
 	o.DGP.restricted &&
-		(o.invXXS✻Xu₁ .-= o.invXXS✻XDGPZR₁ * r₁)
+		t✻minus!(o.invXXS✻Xu₁, o.invXXS✻XDGPZR₁, r₁)
 
 	if o.liml || !isone(o.κ) || !o.robust
 		S✻U₂y₁ = o.S✻Y₂y₁ - o.DGP.Π̂' * o.S✻Xy₁
@@ -300,9 +301,9 @@ function PrepWRE!(o::StrBootTest{T}) where T
 		o.S✻U₂paru₁ .= o.Repl.RparY' * (S✻UUterm + S✻Y₂Ü₂γ̈ - Π̂S✻XÜ₂γ̈ )
 		o.S✻U₂parU₂par .= o.Repl.RparY' * (S✻Ü₂Y₂ - o.S✻XU₂' * o.DGP.Π̂) * o.Repl.RparY
 
-		o.S✻y₁paru₁ .= o.S✻y₁y₁ .- o.S✻DGPZy₁'o.DGP.β̈ ; t✻plus!(o.S✻y₁paru₁, S✻U₂y₁', o.DGP.γ̈ )
+		o.S✻y₁paru₁ .= o.S✻y₁y₁; t✻minus!(o.S✻y₁paru₁, o.S✻DGPZy₁', o.DGP.β̈ ); t✻plus!(o.S✻y₁paru₁, S✻U₂y₁', o.DGP.γ̈ )
 
-		o.S✻Zu₁ .= o.S✻ReplZy₁ - o.S✻ReplZDGPZ * o.DGP.β̈ + S✻ZU₂ * o.DGP.γ̈
+		o.S✻Zu₁ .= o.S✻ReplZy₁; t✻minus!(o.S✻Zu₁, o.S✻ReplZDGPZ, o.DGP.β̈ ); t✻plus!(o.S✻Zu₁, S✻ZU₂, o.DGP.γ̈ )
 
 		t✻!(o.S✻y₁parU₂par, S✻U₂y₁', o.Repl.RparY)
 
@@ -315,9 +316,9 @@ function PrepWRE!(o::StrBootTest{T}) where T
 		end
 
 		if o.Repl.restricted
-			S✻ReplZR₁r₁U₂ = o.r₁S✻ReplZR₁Y₂ - o.r₁S✻ReplZR₁X * o.DGP.Π̂
-			o.S✻y₁paru₁ .-= o.r₁S✻ReplZR₁y₁;  t✻minus!(o.S✻y₁paru₁, o.r₁S✻ReplZR₁DGPZ, o.DGP.β̈ ); t✻plus!(o.S✻y₁paru₁, S✻ReplZR₁r₁U₂, o.DGP.γ̈ )
-			t✻minus!(o.S✻y₁parU₂par,  S✻ReplZR₁r₁U₂, o.Repl.RparY)
+			o.r₁S✻ReplZR₁U₂ .= o.r₁S✻ReplZR₁Y₂; t✻minus!(o.r₁S✻ReplZR₁U₂, o.r₁S✻ReplZR₁X, o.DGP.Π̂ )
+			o.S✻y₁paru₁ .-= o.r₁S✻ReplZR₁y₁;  t✻minus!(o.S✻y₁paru₁, o.r₁S✻ReplZR₁DGPZ, o.DGP.β̈ ); t✻plus!(o.S✻y₁paru₁, o.r₁S✻ReplZR₁U₂, o.DGP.γ̈ )
+			t✻minus!(o.S✻y₁parU₂par,  o.r₁S✻ReplZR₁U₂, o.Repl.RparY)
 			o.DGP.restricted &&
 				t✻plus!(o.S✻y₁paru₁, o.r₁S✻ReplZR₁DGPZR₁, r₁)
 		end
@@ -337,9 +338,9 @@ function PrepWRE!(o::StrBootTest{T}) where T
 		end
 
 		if o.NFE>0 && !o.FEboot
-			CT✻FEU₂ = o.CT✻FEY₂ - o.CT✻FEX * o.DGP.Π̂
-			o.CT✻FEu₁ .= o.CT✻FEy₁; t✻minus!(o.CT✻FEu₁, o.CT✻FEZ, o.DGP.β̈ ); t✻plus!(o.CT✻FEu₁, CT✻FEU₂, o.DGP.γ̈ )
-			t✻!(o.CT✻FEU₂par, CT✻FEU₂, o.Repl.RparY)
+			o.CT✻FEU₂ .= o.CT✻FEY₂; t✻minus!(o.CT✻FEU₂, o.CT✻FEX, o.DGP.Π̂ )
+			o.CT✻FEu₁ .= o.CT✻FEy₁; t✻minus!(o.CT✻FEu₁, o.CT✻FEZ, o.DGP.β̈ ); t✻plus!(o.CT✻FEu₁, o.CT✻FEU₂, o.DGP.γ̈ )
+			t✻!(o.CT✻FEU₂par, o.CT✻FEU₂, o.Repl.RparY)
 			o.DGP.restricted &&
 				t✻minus!(o.CT✻FEu₁, o.CT✻FEZR₁, r₁)
 			o.invFEwtCT✻FEu₁    .= o.invFEwt .* o.CT✻FEu₁
@@ -360,7 +361,6 @@ function PrepWRE!(o::StrBootTest{T}) where T
 					o.S✻diagUX .= view(o.S✻⋂XU₂par,:,:,j)
 				end
 				o.negS✻UMZperpX[j+1][o.crosstab⋂✻ind] .-= vec(o.S✻diagUX)
-
 				o.NFE>0 && !o.FEboot &&
 					t✻plus!(o.negS✻UMZperpX[j+1],  o.CT⋂FEX', o.CT✻FEU[j+1])  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
 			end
@@ -622,9 +622,9 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 			for j ∈ 1:o.Repl.kZ
 				F2₀t = view(o.S⋂ReplZX,j,g,:)  # o.N⋂ x o.DGP.kX
 				T₀ = F2₀t'F1₀
-				o.β̈v .= o.v .* (_β̈ = view(β̈s,j:j,:))
+				o.β̈v .= o.v .* view(β̈s,j,:)'
 
-				dest[g,:] .-= T₀ .* (_β̈ )'
+				t✻minus!(view(dest,g,:), T₀, view(β̈s,j,:))
 				if o.Repl.Yendog[i+1] || o.Repl.Yendog[j+1]
 					t✻!(o.T₁, F2₀t', F1₁)
 					if o.Repl.Yendog[j+1]
@@ -797,7 +797,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 				for c ∈ 2:o.NErrClustCombs
 					(!isone(o.NClustVar) && nrows(o.clust[c].order)>0) &&
 						(o.J⋂ARpars = o.J⋂ARpars[o.clust[c].order,:,:])
-					panelsum!(o.Jc[c], o.J⋂ARpars, o.clust[c].info)
+					panelsum!(reshape(o.Jc[c], o.clust[c].N, :), reshape(o.J⋂ARpars, o.N⋂, :), o.clust[c].info)
 					t✻plus!(o.denomWRE, (o.clust[c].even ? o.clust[c].multiplier : -o.clust[c].multiplier), o.Jc[c]', o.Jc[c])
 				end
 			else  # non-robust
