@@ -388,9 +388,9 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			X₂X₂ = #=Symmetric=#(sumpanelcross(S✻⋂X₂X₂))
 			o.S✻⋂XX = [[S✻⋂X₁X₁ S✻⋂X₂X₁'] ; [S✻⋂X₂X₁ S✻⋂X₂X₂]]  # [a b; c d] syntax would call hvcat() to concatenate horizontally along dim 2 rather than 3
 
-			X₂X₁ -= ZperpX₂'o.invZperpZperp * ZperpX₁
-			X₁X₁ -= #=Symmetric=#(ZperpX₁'o.invZperpZperp * ZperpX₁)
-			X₂X₂ -= #=Symmetric=#(ZperpX₂'o.invZperpZperp * ZperpX₂)
+			X₂X₁ .-= ZperpX₂'o.invZperpZperp * ZperpX₁
+			X₁X₁ .-= #=Symmetric=#(ZperpX₁'o.invZperpZperp * ZperpX₁)
+			X₂X₂ .-= #=Symmetric=#(ZperpX₂'o.invZperpZperp * ZperpX₂)
 			o.XX = #=Symmetric=#([X₁X₁ X₂X₁' ; X₂X₁ X₂X₂])
 			o.kX = ncols(o.XX)
 			o.invXX = invsym(o.XX)
@@ -421,12 +421,12 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			o.X₁y₁ = vec(sumpanelcross(S✻⋂X₁y₁))
 			o.S✻y₁y₁ = panelcross(parent.y₁, parent.y₁, parent.info✻)
 			o.y₁y₁ = sum(o.S✻y₁y₁)
-			o.XY₂ -= o.invZperpZperpZperpX'ZperpY₂
-		  o.Y₂y₁ -= ZperpY₂'o.invZperpZperpZperpy₁
-			o.Y₂Y₂ -= #=Symmetric=#(ZperpY₂'o.invZperpZperpZperpY₂)
-			o.X₂y₁ -= ZperpX₂'o.invZperpZperpZperpy₁
-			o.X₁y₁ -= ZperpX₁'o.invZperpZperpZperpy₁
-			o.y₁y₁ -= Zperpy₁'o.invZperpZperpZperpy₁
+			o.XY₂  .-= o.invZperpZperpZperpX'ZperpY₂
+		  o.Y₂y₁ .-= ZperpY₂'o.invZperpZperpZperpy₁
+			o.Y₂Y₂ .-= #=Symmetric=#(ZperpY₂'o.invZperpZperpZperpY₂)
+			o.X₂y₁ .-= ZperpX₂'o.invZperpZperpZperpy₁
+			o.X₁y₁ .-= ZperpX₁'o.invZperpZperpZperpy₁
+			o.y₁y₁  -= Zperpy₁'o.invZperpZperpZperpy₁
 		end
 
 	  o.Z = X₁₂B(parent.X₁, parent.Y₂, o.Rpar)  # Z∥
@@ -452,7 +452,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	  o.S✻ZparY₂ = S✻X₁parY₂ + o.RparY' * o.S✻Y₂Y₂
 	  tmp = S✻X₁parY₂ * o.RparY; o.S✻ZparZpar = panelcross(X₁par, X₁par, parent.info✻) + tmp + tmp' + o.RparY' * o.S✻Y₂Y₂ * o.RparY
 	  o.ZZ = #=Symmetric=#(sumpanelcross(o.S✻ZparZpar)); o.ZZ -= #=Symmetric=#(ZperpZpar'o.invZperpZperpZperpZpar)
-		o.Zy₁ -= ZperpX₁par'o.invZperpZperpZperpy₁
+		o.Zy₁ .-= ZperpX₁par'o.invZperpZperpZperpy₁
 
 	  if o.restricted
 			o.ZR₁ = X₁₂B(parent.X₁, parent.Y₂, o.R₁invR₁R₁)
@@ -472,13 +472,13 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		  o.twoZR₁y₁ = 2 * vec(sumpanelcross(o.S✻ZR₁y₁))
 			o.S✻ZR₁ZR₁ = panelcross(o.ZR₁, o.ZR₁, parent.info✻)
 		  o.ZR₁ZR₁   = #=Symmetric=#(sumpanelcross(o.S✻ZR₁ZR₁))
-			o.ZR₁ -= o.Zperp * o.invZperpZperpZperpZR₁
+			o.ZR₁ .-= o.Zperp * o.invZperpZperpZperpZR₁
 		  t✻minus!(o.X₁ZR₁, o.invZperpZperpZperpX₁', o.ZperpZR₁)
 		  t✻minus!(o.X₂ZR₁, o.invZperpZperpZperpX₂', o.ZperpZR₁)
 		  o.ZR₁Z    -= o.ZperpZR₁'o.invZperpZperp * ZperpZpar
 		  t✻minus!(o.ZR₁Y₂, o.ZperpZR₁', o.invZperpZperpZperpY₂)
-		  o.twoZR₁y₁-= 2 * o.ZperpZR₁'o.invZperpZperpZperpy₁
-		  o.ZR₁ZR₁  -= #=Symmetric=#(o.ZperpZR₁'o.invZperpZperp * o.ZperpZR₁)
+		  o.twoZR₁y₁ .-= 2 * o.ZperpZR₁'o.invZperpZperpZperpy₁
+		  o.ZR₁ZR₁   .-= #=Symmetric=#(o.ZperpZR₁'o.invZperpZperp * o.ZperpZR₁)
 		else
 		  o.Y₂y₁par    = o.Y₂y₁
 		  o.X₂y₁par    = o.X₂y₁

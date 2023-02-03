@@ -88,13 +88,13 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T)
 	o.numersum = rowsum(o.numer) - numer1
 	o.statDenom = (o.numer * o.numer' - numer1 * numer1' - o.numersum * o.numersum' / o.B) / o.B
 	if o.sqrt
-		o.dist .= o.numer ./ sqrtNaN.(o.statDenom)
+		o.dist = o.numer ./ sqrtNaN.(o.statDenom)
 	else
-		negcolquadform!(o.dist, -invsym(o.statDenom), o.numer)  # to reduce latency by minimizing @tturbo instances, work with negative of colquadform in order to fuse code with colquadformminus!
+		o.dist = colquadform(invsym(o.statDenom), o.numer)  # to reduce latency by minimizing @tturbo instances, work with negative of colquadform in order to fuse code with colquadformminus!
 	end
 	nothing
 end
  
-# include("precompiler.jl")
+include("precompiler.jl")
 
 end

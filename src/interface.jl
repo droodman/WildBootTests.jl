@@ -14,7 +14,7 @@ struct BootTestResult{T}
   b::Vector{T}
   V::Matrix{T}
   auxweights::Union{Nothing,Matrix{T}}
-  # M::StrBootTest
+  # o::StrBootTest
 end
 
 "Return test statistic"
@@ -28,6 +28,9 @@ statvar(o::BootTestResult) = o.V
 
 """Return type of test statistic: "t", "z", "F", or "χ²" """
 stattype(o::BootTestResult) = o.stattype
+
+"Return bootstrap distribution of statistic or statistic numerator in bootstrap test"
+dist(o::BootTestResult) = o.dist
 
 "Return p value"
 p(o::BootTestResult) = o.p
@@ -64,9 +67,6 @@ peak(o::BootTestResult) = o.peak
 
 "Return confidence interval matrix from test, one row per disjoint piece"
 ci(o::BootTestResult) = o.ci
-
-"Return bootstrap distribution of statistic or statistic numerator in bootstrap test"
-dist(o::BootTestResult) = o.dist
 
 "Return auxilliary weight matrix for wild bootstrap"
 auxweights(o::BootTestResult) = o.auxweights
@@ -132,28 +132,30 @@ function __wildboottest(
 	getplot::Bool,
 	getauxweights::Bool) where T
 
-	M = StrBootTest{T}(R, r, R1, r1, resp, predexog, predendog, inst, obswt, fweights, liml, fuller, kappa, arubin,
+	o = StrBootTest{T}(R, r, R1, r1, resp, predexog, predendog, inst, obswt, fweights, liml, fuller, kappa, arubin,
 	                   reps, auxwttype, rng, maxmatsize, ptype, imposenull, jk, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, issorted, hetrobust, small, clusteradj, clustermin,
 	                   nfe, feid, fedfadj, level, rtol, madjtype, nH0, ml, beta, A, scores, getplot,
 	                   gridmin, gridmax, gridpoints)
 
-	if getplot || (level<1 && getci)
-		plot!(M)
-		plot = getplot & isdefined(M, :plotX) ? (X=Tuple(M.plotX), p=M.plotY) : nothing
-		peak = M.peak
-		ci = level<1 & getci ? M.ci : nothing
+	o.getci = getplot || (level<1 && getci)
+	if o.getci
+		plot!(o)
+		plot = getplot & isdefined(o, :plotX) ? (X=Tuple(o.plotX), p=o.plotY) : nothing
+		peak = o.peak
+		ci = level<1 & getci ? o.ci : nothing
 	else
 		ci = plot = peak = nothing
+		o.boottest!(o)
 	end
 	
-	padj = getp(M)  # trigger main (re)computation
+	padj = getp(o)
 
-	BootTestResult{T}(getstat(M),
+	BootTestResult{T}(getstat(o),
 	                  isone(nrows(R)) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
-	                  M.p, padj, M.B, M.BFeas, M.N✻, M.dof, M.dof_r, plot, peak, ci,
-	                  getdist(M, diststat),
-	                  getb(M), getV(M),
-	                  getauxweights && reps>0 ? getv(M) : nothing #=, M=#)
+	                  o.p, padj, o.B, o.BFeas, o.N✻, o.dof, o.dof_r, plot, peak, ci,
+	                  getdist(o, diststat),
+	                  getb(o), getV(o),
+	                  getauxweights && reps>0 ? getv(o) : nothing #=, o=#)
 end
 
 vecconvert(T::DataType, X) = Vector(isa(X, AbstractArray) ? vec(    eltype(X)==T ? X : T.(X)) : X)

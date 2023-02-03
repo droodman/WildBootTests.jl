@@ -185,13 +185,13 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 												 		rowsum(o.R * o.SuwtXA))
 		end
 	else
-		o.numerw = o.scorebs ?
-								o.B>0 ?
-									o.SuwtXA'o.v :
-									o.SuwtXA * o.v_sd     :
-								!o.robust || o.granular || o.purerobust ?
-										o.R * (o.β̈dev = o.SuwtXA * o.v) :
-										(o.R * o.SuwtXA) * o.v
+		o.numerw .= o.scorebs ?
+									o.B>0 ?
+										o.SuwtXA'o.v :
+										o.SuwtXA * o.v_sd     :
+									!o.robust || o.granular || o.purerobust ?
+											o.R * (o.β̈dev = o.SuwtXA * o.v) :
+											(o.R * o.SuwtXA) * o.v
 
 		if isone(w)
 			if o.arubin
@@ -248,7 +248,7 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 end
 
 function MakeNonWRELoop1!(o::StrBootTest, tmp::Matrix, w::Integer)
-	@inbounds Threads.@threads for k ∈ 1:o.ncolsv
+	@inbounds #=Threads.@threads=# for k ∈ 1:o.ncolsv
 		@inbounds for i ∈ 1:o.dof
 			for j ∈ 1:i
 				tmp[j,i] = o.denom[i,j][k]  # fill upper triangle, which is all invsym() looks at
@@ -268,10 +268,13 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
     if !o.interpolating  # these quadratic computations needed to *prepare* for interpolation but are superseded by interpolation once it is going
     	o.purerobust && !o.interpolable && (u✻2 = o.u✻ .^ 2)
     	@inbounds for i ∈ 1:o.dof, j ∈ 1:i
-    		o.purerobust && !o.interpolable &&
-  	   		(o.denom[i,j] .= (view(o.M.WXAR,:,i) .* view(o.M.WXAR,:,j))'u✻2 .* (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier))
+    		if o.purerobust && !o.interpolable
+  	   		o.denom[i,j] .= (view(o.M.WXAR,:,i) .* view(o.M.WXAR,:,j))'u✻2 .* o.clust[1].multiplier
+				else
+					fill!(o.denom[i,j], zero(T))
+				end
 				for c ∈ (o.purerobust && !o.interpolable)+1:o.NErrClustCombs
-					@clustAccum!(o.denom[i,j], c, j==i ? coldot(o.Jcd[c,i]) : coldot(o.Jcd[c,i],o.Jcd[c,j]))
+					coldotplus!(o.denom[i,j], o.clust[c].multiplier, o.Jcd[c,i], o.Jcd[c,j])
 				end
   		end
    	end

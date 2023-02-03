@@ -68,6 +68,12 @@ function coldotplus!(dest::AbstractMatrix, row::Integer, A::AbstractMatrix, B::A
   end
 	nothing
 end
+function coldotplus!(dest::AbstractMatrix{T}, c::T, A::AbstractMatrix{T}, B::AbstractMatrix{T}) where T
+  @tturbo for i ∈ eachindex(axes(A,2),axes(B,2)), j ∈ eachindex(axes(A,1),axes(B,1))
+	  dest[1,i] += c * A[j,i] * B[j,i]
+  end
+	nothing
+end
 function coldotplus!(dest::AbstractMatrix{T}, c::T, A::AbstractMatrix{T}) where T
   @tturbo for i ∈ eachindex(axes(A,2)), j ∈ eachindex(axes(A,1))
 	  dest[1,i] += c * A[j,i]^2
@@ -102,26 +108,13 @@ function rowquadform(A::AbstractMatrix{T}, Q::AbstractMatrix{T}, B::AbstractMatr
 	dest
 end
 
-function colquadformminus!(dest::AbstractMatrix, row::Integer, A::AbstractMatrix, Q::AbstractMatrix, B::AbstractMatrix)
-  @tturbo for i ∈ axes(A,2), j ∈ axes(A,1), k ∈ axes(A,1)
-    dest[row,i] -= A[j,i] * Q[k,j] * B[k,i]
+# compute norm of each col of A using quadratic form Q; returns one-row matrix
+function colquadform(Q::AbstractMatrix{T}, A::AbstractMatrix{T}) where T
+  dest = zeros(T, 1, size(A,2))
+  @tturbo for i ∈ eachindex(axes(A,2),axes(dest,2)), j ∈ eachindex(axes(A,1),axes(Q,2)), k ∈ eachindex(axes(A,1),axes(Q,1))
+    dest[1,i] += A[j,i] * Q[k,j] * A[k,i]
   end
-  dest
-end
-
-# subtract each A[i]'Q[:,g,:]*B[i] from dest[g,i]
-function colquadformminus3!(dest::AbstractMatrix{T}, A::AbstractMatrix{T}, Q::AbstractArray{T,3}, B::AbstractMatrix{T}) where T
-  @tturbo for i ∈ eachindex(axes(A,2), axes(B,2), axes(dest,2)), j ∈ eachindex(axes(A,1), axes(Q,3)), k ∈ eachindex(axes(B,1), axes(Q,1)), g ∈ eachindex(axes(dest,1), axes(Q,2))
-    dest[g,i] -= A[j,i] * Q[k,g,j] * B[k,i]
-  end
-  dest
-end
-
-# compute negative of the norm of each col of A using quadratic form Q; dest should be a one-row matrix
-function negcolquadform!(dest::AbstractMatrix{T}, Q::AbstractMatrix{T}, A::AbstractMatrix{T}) where T
-  fill!(dest, zero(T))
-	colquadformminus!(dest,1,A,Q,A)
-	nothing
+	dest
 end
 
 # @tturbo-based matrix multiplication
@@ -603,7 +596,7 @@ macro storeWtGrpResults!(dest, content)  # poor hygiene in referencing caller's 
   if dest == :(o.dist)
 		return quote
 			if isone($(esc(:o)).Nw)
-				$(esc(dest)) .= $(esc(content))
+				$(esc(dest)) = $(esc(content))
 			else
 				$(esc(dest))[$(esc(:o)).WeightGrp[$(esc(:w))]] = reshape($(esc(content)),:)
 			end
@@ -612,7 +605,7 @@ macro storeWtGrpResults!(dest, content)  # poor hygiene in referencing caller's 
 	  return quote
 			local _content = $(esc(content))
 	    if isone($(esc(:o)).Nw)
-	  	  $(esc(dest)) .= _content
+	  	  $(esc(dest)) = _content
 	    else
 	  	  $(esc(dest))[:,$(esc(:o)).WeightGrp[$(esc(:w))]] = _content
 	    end
@@ -627,7 +620,7 @@ macro clustAccum!(X, c, Y)  # efficiently add a cluster combination-specific ter
 	    if isone($(esc(:o)).clust[1].multiplier)
 	  	  $(esc(X)) .= $(esc(:o)).clust[1].even ? _Y : -_Y
 	    else
-	  	  $(esc(X)) .= _Y * ($(esc(:o)).clust[1].even ? $(esc(:o)).clust[1].multiplier : -$(esc(:o)).clust[1].multiplier)
+	  	  $(esc(X)) .= _Y * $(esc(:o)).clust[1].multiplier
 	    end
 	  elseif $(esc(:o)).clust[$(esc(c))].even
 	    if isone($(esc(:o)).clust[$(esc(c))].multiplier)
@@ -638,7 +631,7 @@ macro clustAccum!(X, c, Y)  # efficiently add a cluster combination-specific ter
 	  elseif isone($(esc(:o)).clust[$(esc(c))].multiplier)
 	    $(esc(X)) .-= _Y
 	  else
-	    $(esc(X)) .-= _Y .* $(esc(:o)).clust[$(esc(c))].multiplier
+	    $(esc(X)) .+= _Y .* $(esc(:o)).clust[$(esc(c))].multiplier
 	  end
   end
 end

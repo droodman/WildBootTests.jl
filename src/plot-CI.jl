@@ -1,6 +1,7 @@
 # given a pre-configured boottest linear model with one-degree null imposed, compute boostrapped p value associated with r
 function r_to_p(o::StrBootTest{T}, r::AbstractVector{T}) where T
   o.r = r
+	o.boottest!(o)
   getp(o)
 end
 
@@ -36,7 +37,6 @@ end
 # derive wild bootstrap-based CI, for case of linear model with one-degree null imposed
 # and generate plot data
 function plot!(o::StrBootTest{T}) where T
-  _r = copy(o.r)
   α = one(T) - o.level
 
 	iszero(nrows(o.gridmin   )) && (o.gridmin    = fill(T(NaN), o.q))
@@ -46,6 +46,7 @@ function plot!(o::StrBootTest{T}) where T
 	o.gridpoints[isnan.(o.gridpoints) .| isinf.(o.gridpoints)] .= 25
 
   o.boottest!(o)
+  _r = copy(o.r); _numer = copy(o.numer); _statDenom = o.statDenom; _dist = copy(o.dist)
 
 	Phi = quantile(Normal{T}(zero(T),one(T)), α/2)
   if o.arubin
@@ -193,6 +194,6 @@ function plot!(o::StrBootTest{T}) where T
 		deleteat!(o.plotY   , c)
   end
 
-	o.r = _r  # restore backup
+	o.r = _r; o.numer = _numer; o.statDenom = _statDenom; o.dist = _dist  # restore backups
 	nothing
 end

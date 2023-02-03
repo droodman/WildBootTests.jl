@@ -34,7 +34,7 @@ p    = 0.1788
 boottest post_self=.04, weight(mammen) reps(9999) boottype(score)
 t(7) = 1.8479
 p    = 0.0903
-CI   = [-1.517 0.8576; 2.329 2.998; 4.069 4.738; 5.139 5.925]
+CI   = [0.0335 0.07626]
 
 
 boottest post_self=.04, reps(9999) jk
@@ -61,7 +61,7 @@ p       = 0.7332
 
 boottest (post_self=.05) (post=-.02) (selfemployed=-.15), reps(9999) weight(webb)
 F(3, 7) = 0.8534
-p       = 0.7420
+p       = 0.7525
 
 
 regress hasinsurance selfemployed post post_self
@@ -240,7 +240,7 @@ p  = 0.0000
 
 boottest tenure, nograph bootcluster(collgrad) cluster(collgrad industry) weight(webb) reps(9999)
 z  = 3.9420
-p  = 0.2088
+p  = 0.2153
 CI = [-Inf Inf]
 
 

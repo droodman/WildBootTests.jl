@@ -188,11 +188,11 @@ function InitWRE!(o::StrBootTest{T}) where T
 			o.S⋂XZperpinvZperpZperp = S⋂ZperpX' * o.DGP.invZperpZperp
 
 			o.negS✻UMZperpX = [Array{T,3}(undef, o.DGP.kX, o.N⋂, o.N✻) for _ in 0:o.Repl.kZ]
-			# o.T₀ = Vector{T}(undef, o.N⋂)
-			# o.T₁ = Matrix{T}(undef, o.N⋂, o.N✻)
-			# o.Q    = Array{T,3}(undef, o.N✻, o.N⋂, o.N✻)
-			o.T₁ = Matrix{T}(undef, 1, o.N✻)
-			o.Q    = Array{T,2}(undef, o.N✻, o.N✻)
+			o.T₀ = Vector{T}(undef, o.N⋂)
+			o.T₁ = Matrix{T}(undef, o.N⋂, o.N✻)
+			o.Q    = Array{T,3}(undef, o.N✻, o.N⋂, o.N✻)
+			# o.T₁ = Matrix{T}(undef, 1, o.N✻)
+			# o.Q    = Array{T,2}(undef, o.N✻, o.N✻)
 			o.Qv = Matrix{T}(undef, o.N✻, o.ncolsv)
 			o.NFE>0 && !o.FEboot && (o.CT⋂FEX = o.invFEwt .* @panelsum(CT✻⋂FEX, o.info⋂_✻⋂))
 			o.S✻diagUX = similar(o.S✻⋂Xy₁)
@@ -564,7 +564,7 @@ end
 # for all groups in the intersection of all error clusterings
 # return value has one row per ⋂ cluster, one col per bootstrap replication
 # that is, given i, β̈s = δ ̂_CRκ^(*), return, over all g, b (P_(X_∥ g) Z_(∥i)^(*b) )^' (M_(Z_⊥ ) y_(1∥)^(*b) )_g-(P_(X_∥ g) Z_(∥i)^(*b) )^' (M_(Z_⊥ ) Z_∥^(*b) )_g δ ̂_CRκ^(*b)
-function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::AbstractMatrix) where T
+function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64) where T
 	if o.granular
 		if o.Nw == 1  # create or avoid NxB matrix?
 			t✻!(o.S✻UMZperpv, view(o.S✻UMZperp,:,:,1), o.v); o.S✻UMZperpv .= o.DGP.y₁ .- o.S✻UMZperpv
@@ -572,7 +572,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 				o.PXY✻ .= view(o.PXZ,:,i); t✻plus!(o.PXY✻, view(o.S✻UPX,:,:,i), o.v)
 				panelcoldot!(dest, o.S✻UMZperpv, o.PXY✻, o.info⋂)
 				@inbounds for j ∈ 1:o.Repl.kZ
-					_β̈  = view(β̈s,j:j,:)
+					_β̈  = view(o.β̈s,j:j,:)
 					o.β̈v .= o.v .* _β̈ 
 					t✻!(o.S✻UMZperpv, view(o.Repl.Z,:,j), _β̈ )
 					o.Repl.Yendog[j+1] &&
@@ -583,7 +583,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 				PXY✻ = view(o.PXZ,:,i)
 				panelsum!(dest, o.S✻UMZperpv, PXY✻, o.info⋂)
 				@inbounds for j ∈ 1:o.Repl.kZ
-					_β̈  = view(β̈s,j:j,:)
+					_β̈  = view(o.β̈s,j:j,:)
 					o.β̈v .= o.v .* _β̈ 
 					t✻!(o.S✻UMZperpv, view(o.Repl.Z,:,j), _β̈ )
 					o.Repl.Yendog[j+1] &&
@@ -592,95 +592,92 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 				end
 			end
 		else  # create pieces of each N x B matrix one at a time
-			_β̈ = view(β̈s,1:1,:)  # hack to create for j=0
+			_β̈ = view(o.β̈s,1:1,:)  # hack to create for j=0
 			@inbounds for j ∈ 0:o.Repl.kZ
-				j>0 && (o.β̈v = o.v .* (_β̈ = view(β̈s,j:j,:)))
+				j>0 && (o.β̈v .= o.v .* (_β̈ = view(o.β̈s,j:j,:)))
 				(o.purerobust ? FillingLoop1! : FillingLoop2!)(o, dest, i, j, _β̈ )
 			end
 		end
 	else  # coarse error clustering
 		# (P_(X_∥ g) Z_∥^* )^' (M_(Z_⊥ ) y_(1∥)^* )_g
 		F1₀ = view(o.Repl.V,:,i)  # o.DGP.kX
-		F1₁ = view(o.invXXS✻XU₂par,:,:,i)  # o.DGP.kX x o.N✻  zero when FEboot??
+		F1₁ = view(o.invXXS✻XU₂par,:,:,i)  # o.DGP.kX x o.N✻
 		
-		@inbounds for g ∈ 1:o.N⋂
-			F2₀ = view(o.S⋂Xy₁,:,g,1) # o.DGP.kX x o.N⋂ x 1
-			F2₁ = view(o.negS✻UMZperpX[1],:,g,:) # o.DGP.kX x o.N⋂ x o.N✻
+		# @inbounds for g ∈ 1:o.N⋂
+		# 	F2₀ = view(o.S⋂Xy₁,:,g,1) # o.DGP.kX x o.N⋂ x 1
+		# 	F2₁ = view(o.negS✻UMZperpX[1],:,g,:) # o.DGP.kX x o.N⋂ x o.N✻
 
-			T₀ = F2₀'F1₀
-			t✻!(o.T₁, F1₀', F2₁)
+		# 	T₀ = F2₀'F1₀
+		# 	t✻!(o.T₁, F1₀', F2₁)
 
-			dest[g,:] .= T₀
-			if o.Repl.Yendog[i+1]  # add terms that are zero only if Zpar[i] is exogenous, i.e. if a null refers only to exogenous variables
-				t✻minus!(o.T₁, F2₀', F1₁)
-				t✻!(o.Q, F1₁', F2₁)
-				t✻!(o.Qv, o.Q, o.v)
-			end
-			t✻minus!(view(dest,g:g,:), o.T₁, o.v)  # 0th- & 1st-order terms
-
-			# -(P_(X_∥ g) Z_∥^* )^' (M_(Z_⊥ ) Z_∥^(*b) )_g δ ̂_CRκ^*
-			for j ∈ 1:o.Repl.kZ
-				F2₀t = view(o.S⋂ReplZX,j,g,:)  # o.N⋂ x o.DGP.kX
-				T₀ = F2₀t'F1₀
-				o.β̈v .= o.v .* view(β̈s,j,:)'
-
-				t✻minus!(view(dest,g,:), T₀, view(β̈s,j,:))
-				if o.Repl.Yendog[i+1] || o.Repl.Yendog[j+1]
-					t✻!(o.T₁, F2₀t', F1₁)
-					if o.Repl.Yendog[j+1]
-						F2₁ = view(o.negS✻UMZperpX[j+1],:,g,:)
-						t✻minus!(o.T₁, F1₀', F2₁)
-						t✻!(o.Q, F1₁', F2₁)
-						t✻minus!(o.Qv, o.Q, o.β̈v)
-					end
-					t✻minus!(view(dest,g:g,:), o.T₁, o.β̈v)
-				end
-			end
-			coldotminus!(dest, g, o.v, o.Qv)
-		end
-		# F1₀ = view(o.Repl.V,:,i)  # o.DGP.kX
-		# F1₁ = view(o.invXXS✻XU₂par,:,:,i)  # o.DGP.kX x o.N✻  zero when FEboot??
-		# F2₀ = o.S⋂Xy₁' # 1 x o.N⋂ x o.DGP.kX
-		# F2₁ = o.negS✻UMZperpX[1] # o.DGP.kX x o.N⋂ x o.N✻
-
-		# t✻!(reshape(o.T₀, 1, o.N⋂, 1    ), F2₀, F1₀)
-		# t✻!(reshape(o.T₁, 1, o.N⋂, o.N✻), F1₀', F2₁)
-
-		# dest .= o.T₀
-		# if o.Repl.Yendog[i+1]  # add terms that are zero only if Zpar[i] is exogenous, i.e. if a null refers only to exogenous variables
-		# 	t✻minus!(o.T₁, dropdims(F2₀; dims=1), F1₁)
-		# 	t✻minus!(dest, o.T₁, o.v)  # 0th- & 1st-order terms
-		# 	t✻!(o.Q, F1₁', F2₁)
-		# 	# colquadformminus3!(dest, o.v, o.Q, o.v)
-		# 	@inbounds for g ∈ 1:o.N⋂
-		# 		colquadformminus!(dest, g, o.v, view(o.Q,:,g,:), o.v)
-		# 	end
-		# else
-		# 	t✻minus!(dest, o.T₁, o.v)  # 0th- & 1st-order terms
-		# end
-
-		# # -(P_(X_∥ g) Z_∥^* )^' (M_(Z_⊥ ) Z_∥^(*b) )_g δ ̂_CRκ^*
-		# @inbounds for j ∈ 1:o.Repl.kZ
-		# 	F2₀ = view(o.S⋂ReplZX,j,:,:)  # o.N⋂ x o.DGP.kX
-		# 	t✻!(o.T₀, F2₀, F1₀)
-		# 	o.β̈v .= o.v .* (_β̈ = -view(β̈s,j:j,:))
-
-		# 	t✻plus!(dest, o.T₀, _β̈ )
-		# 	if o.Repl.Yendog[j+1]
-		# 		F2₁ = o.negS✻UMZperpX[j+1]
-		# 		t✻!(reshape(o.T₁, 1, o.N⋂, o.N✻), F1₀', F2₁)
-		# 		t✻minus!(o.T₁, F2₀, F1₁)
-		# 		t✻minus!(dest, o.T₁, o.β̈v)  # "minus" because S✻UMZperpX is stored negated as F2₁=negS✻UMZperpX[j+1]
+		# 	dest[g,:] .= T₀
+		# 	if o.Repl.Yendog[i+1]  # add terms that are zero only if Zpar[i] is exogenous, i.e. if a null refers only to exogenous variables
+		# 		t✻minus!(o.T₁, F2₀', F1₁)
 		# 		t✻!(o.Q, F1₁', F2₁)
-		# 		for g ∈ 1:o.N⋂
-		# 			colquadformminus!(dest, g, o.v, view(o.Q,:,g,:), o.β̈v)
-		# 		end
-		# 		# colquadformminus3!(dest, o.v, o.Q, o.β̈v)
-		# 	elseif o.Repl.Yendog[i+1]
-		# 		t✻!(o.T₁, F2₀, F1₁)
-		# 		t✻plus!(dest, o.T₁, o.β̈v)
+		# 		t✻!(o.Qv, o.Q, o.v)
 		# 	end
+		# 	t✻minus!(view(dest,g:g,:), o.T₁, o.v)  # 0th- & 1st-order terms
+
+		# 	# -(P_(X_∥ g) Z_∥^* )^' (M_(Z_⊥ ) Z_∥^(*b) )_g δ ̂_CRκ^*
+		# 	for j ∈ 1:o.Repl.kZ
+		# 		F2₀t = view(o.S⋂ReplZX,j,g,:)  # o.N⋂ x o.DGP.kX
+		# 		T₀ = F2₀t'F1₀
+		# 		o.β̈v .= o.v .* view(o.β̈s,j:j,:)  # why is this being materialized?
+
+		# 		t✻minus!(view(dest,g,:), T₀, view(o.β̈s,j,:))
+		# 		if o.Repl.Yendog[i+1] || o.Repl.Yendog[j+1]
+		# 			t✻!(o.T₁, F2₀t', F1₁)
+		# 			if o.Repl.Yendog[j+1]
+		# 				F2₁ = view(o.negS✻UMZperpX[j+1],:,g,:)
+		# 				t✻minus!(o.T₁, F1₀', F2₁)
+		# 				t✻!(o.Q, F1₁', F2₁)
+		# 				t✻minus!(o.Qv, o.Q, o.β̈v)  #   # o.N⋂ x o.Repl.kZ x o.N✻^2 x o.B
+		# 			end
+		# 			t✻minus!(view(dest,g:g,:), o.T₁, o.β̈v)
+		# 		end
+		# 	end
+		# 	coldotminus!(dest, g, o.v, o.Qv)
 		# end
+
+		F2₀ = o.S⋂Xy₁' # 1 x o.N⋂ x o.DGP.kX
+		F2₁ = o.negS✻UMZperpX[1] # o.DGP.kX x o.N⋂ x o.N✻
+
+		t✻!(reshape(o.T₀, 1, o.N⋂, 1    ), F2₀, F1₀)
+		t✻!(reshape(o.T₁, 1, o.N⋂, o.N✻), F1₀', F2₁)
+
+		dest .= o.T₀
+		if o.Repl.Yendog[i+1]  # add terms that are zero only if Zpar[i] is exogenous, i.e. if a null refers only to exogenous variables
+			t✻minus!(o.T₁, dropdims(F2₀; dims=1), F1₁)
+			t✻minus!(dest, o.T₁, o.v)  # 0th- & 1st-order terms
+			t✻!(o.Q, F1₁', F2₁)
+			@inbounds for g ∈ 1:o.N⋂
+				t✻!(o.Qv, view(o.Q,:,g,:), o.v); coldotminus!(dest, g, o.v, o.Qv)
+			end
+		else
+			t✻minus!(dest, o.T₁, o.v)  # 0th- & 1st-order terms
+		end
+
+		# -(P_(X_∥ g) Z_∥^* )^' (M_(Z_⊥ ) Z_∥^(*b) )_g δ ̂_CRκ^*
+		@inbounds for j ∈ 1:o.Repl.kZ
+			F2₀ = view(o.S⋂ReplZX,j,:,:)  # o.N⋂ x o.DGP.kX
+			t✻!(o.T₀, F2₀, F1₀)
+			o.β̈v .= o.v .* (_β̈ = -view(o.β̈s,j:j,:))
+
+			t✻plus!(dest, o.T₀, _β̈ )
+			if o.Repl.Yendog[j+1]
+				F2₁ = o.negS✻UMZperpX[j+1]
+				t✻!(reshape(o.T₁, 1, o.N⋂, o.N✻), F1₀', F2₁)
+				t✻minus!(o.T₁, F2₀, F1₁)
+				t✻minus!(dest, o.T₁, o.β̈v)  # "minus" because S✻UMZperpX is stored negated as F2₁=negS✻UMZperpX[j+1]
+				t✻!(o.Q, F1₁', F2₁)
+				for g ∈ 1:o.N⋂
+					t✻!(o.Qv, view(o.Q,:,g,:), o.β̈v); coldotminus!(dest, g, o.v, o.Qv)
+				end
+			elseif o.Repl.Yendog[i+1]
+				t✻!(o.T₁, F2₀, F1₁)
+				t✻plus!(dest, o.T₁, o.β̈v)
+			end
+		end
   end
   nothing
 end
@@ -722,14 +719,14 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 		if o.bootstrapt
 			if o.robust
 				J⋂s1 = dropdims(o.J⋂s; dims=3)
-				Filling!(o, J⋂s1, 1, o.β̈s)
+				Filling!(o, J⋂s1, 1)
 				J⋂s1 ./= _As
-				t✻!(reshape(o.denom[1,1],1,:,1), (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier), o.J⋂s', o.J⋂s)
+				t✻!(reshape(o.denom[1,1],1,:,1), o.clust[1].multiplier, o.J⋂s', o.J⋂s)
 				@inbounds for c ∈ 2:o.NErrClustCombs  # sum sandwich over error clusteringssrc/WRE.jl
 					nrows(o.clust[c].order)>0 && 
 						(J⋂s1 .= J⋂s1[o.clust[c].order,:])
 					panelsum!(dropdims(o.Jc[c]; dims=3), J⋂s1, o.clust[c].info)
-		    	coldotplus!(o.denom[1,1], (o.clust[c].even ? o.clust[c].multiplier : -o.clust[c].multiplier), dropdims(o.Jc[c]; dims=3))
+		    	coldotplus!(o.denom[1,1], o.clust[c].multiplier, dropdims(o.Jc[c]; dims=3))
 				end
 			else
 				o.denom[1,1] .= (HessianFixedkappa(o, [0], 0, zero(T)) .-   # XXX rewrite to avoid allocations
@@ -772,7 +769,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 		if o.bootstrapt
 			if o.robust
 				@inbounds for i ∈ 1:o.Repl.kZ  # avoid list comprehension construction for compiler-perceived type stability
-					Filling!(o, view(o.J⋂s,:,:,i), i, o.β̈s)
+					Filling!(o, view(o.J⋂s,:,:,i), i)
 				end
 			else
 				@inbounds for i ∈ 0:o.Repl.kZ
@@ -793,12 +790,12 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			if o.robust  # Compute denominator for this WRE test stat
 				t✻!(o.ARpars, o.As, o.Repl.RRpar')
 				t✻!(o.J⋂ARpars, o.J⋂s, o.ARpars)
-				t✻!(o.denomWRE, (o.clust[1].even ? o.clust[1].multiplier : -o.clust[1].multiplier), o.J⋂ARpars', o.J⋂ARpars)
+				t✻!(o.denomWRE, o.clust[1].multiplier, o.J⋂ARpars', o.J⋂ARpars)
 				for c ∈ 2:o.NErrClustCombs
 					(!isone(o.NClustVar) && nrows(o.clust[c].order)>0) &&
 						(o.J⋂ARpars = o.J⋂ARpars[o.clust[c].order,:,:])
 					panelsum!(reshape(o.Jc[c], o.clust[c].N, :), reshape(o.J⋂ARpars, o.N⋂, :), o.clust[c].info)
-					t✻plus!(o.denomWRE, (o.clust[c].even ? o.clust[c].multiplier : -o.clust[c].multiplier), o.Jc[c]', o.Jc[c])
+					t✻plus!(o.denomWRE, o.clust[c].multiplier, o.Jc[c]', o.Jc[c])
 				end
 			else  # non-robust
 				tmp = view([fill(T(-1), 1, o.ncolsv) ; o.β̈s], :, :, 1:1)
@@ -806,7 +803,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			end
 			if w==1
 				o.statDenom = o.denomWRE[:,1,:]
-				o.numer[:,1] = o.numerWRE[:,1]
+				o.numer = o.numerWRE[:,1,1:1]  # just save full-sample numerator
 			end
 			if o.sqrt
 				@storeWtGrpResults!(o.dist, o.numerWRE ./ sqrtNaN.(dropdims(o.denomWRE; dims=3)))

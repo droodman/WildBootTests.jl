@@ -6,8 +6,8 @@ using SnoopPrecompile, StableRNGs
     resp = rand(rng, T, 1000)
     predendog = rand(rng, T, 1000, 1)
     inst = rand(rng, T, 1000, 2)
-    idcoarse =  floor.(Int, collect(0:999)/T(100))
-    idgranular =  floor.(Int, collect(0:999)/T(2))
+    idcoarse =  floor.(Int, collect(0:999)/100)
+    idgranular =  floor.(Int, collect(0:999)/2)
     feid = mod.(collect(0:999), 100)
     
     @precompile_all_calls begin
