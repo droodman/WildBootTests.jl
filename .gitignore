@@ -24,3 +24,5 @@ alloc-profile.pb.gz
 alloc-profile.pb.gz
 test/tests.jl
 alloc-profile.pb.gz
+test/explore Rpar Rperp.jl
+test/RperpRpar.jl

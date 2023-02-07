@@ -175,29 +175,33 @@ end
 function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVector=Vector{T}(undef,0)) where T  # called to *prepare* interpolation, or when w>1, in which case there is no interpolation
 	if o.jk && !_jk
 		if !o.arubin && o.null
-			o.numer[:,1] = o.v_sd * (
-											o.scorebs ?
+			o.numer[:,1] = o.scorebs ?
 											   o.B>0 ?
 													 	colsum(o.SuwtXA)' :
 													 	o.SuwtXA          :
 											   !o.robust || o.granular || o.purerobust ?
-												  	o.R * (o.β̈dev = rowsum(o.SuwtXA)) :
-												 		rowsum(o.R * o.SuwtXA))
+												  	o.R * rowsum(o.SuwtXA) :
+												 		rowsum(o.R * o.SuwtXA)
 		end
 	else
-		o.numerw .= o.scorebs ?
-									o.B>0 ?
-										o.SuwtXA'o.v :
-										o.SuwtXA * o.v_sd     :
-									!o.robust || o.granular || o.purerobust ?
-											o.R * (o.β̈dev = o.SuwtXA * o.v) :
-											(o.R * o.SuwtXA) * o.v
+		if o.scorebs
+			if iszero(o.B)
+				o.numerw .= o.SuwtXA
+			else
+				t✻!(o.numerw, o.SuwtXA', o.v)
+			end
+		elseif !o.robust || o.granular || o.purerobust
+			t✻!(o.β̈dev, o.SuwtXA, o.v)
+			t✻!(o.numerw, o.R, o.β̈dev)
+		else
+			t✻!(o.numerw, o.R * o.SuwtXA, o.v)
+		end
 
 		if isone(w)
 			if o.arubin
-				o.numerw[:,1] = o.v_sd * o.DGP.β̈[o.kX₁+1:end,1]  # coefficients on excluded instruments in arubin OLS
+				o.numerw[:,1] = o.DGP.β̈[o.kX₁+1:end,1]  # coefficients on excluded instruments in arubin OLS
 			elseif !o.null  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this.
-				o.numerw[:,1] = o.v_sd * (o.R * (o.ml ? o.β̈ : iszero(o.κ) ? view(o.M.β̈  ,:,1) : o.M.Rpar * view(o.M.β̈  ,:,1)) - r)  # κ≂̸0  score bootstrap of IV ⇒ using FWL and must factor in R∥ 
+				o.numerw[:,1] = o.R * (o.ml ? o.β̈ : iszero(o.κ) ? view(o.M.β̈  ,:,1) : o.M.Rpar * view(o.M.β̈  ,:,1)) - r  # κ≂̸0  score bootstrap of IV ⇒ using FWL and must factor in R∥ 
 			end
 		end
 
@@ -216,7 +220,7 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 	if o.B>0 && o.robust && o.bootstrapt
 		if o.jk && !_jk
 			@inbounds	for c ∈ 1:o.NErrClustCombs, d ∈ eachindex(axes(o.Jcd, 2), axes(o.Kcd, 2))
-				o.Jcd[c,d][:,1] .= rowsum(o.Kcd[c,d]) .* o.v_sd
+				o.Jcd[c,d][:,1] .= rowsum(o.Kcd[c,d])
 			end
 		else
 			if o.granular || o.purerobust  # optimized treatment when bootstrapping by many/small groups
@@ -229,18 +233,20 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 						o.u✻ = o.DGP.ü₁[1+_jk] .* (o.purerobust ? view(o.v, :, :) : view(o.v, o.ID✻, :))
 						partialFE!(o, o.u✻)
 						@inbounds for d ∈ 1:o.dof
-							o.Jcd[1,d] = panelsum(o.u✻, view(o.M.WXAR,:,d), o.info⋂)                                         - panelsum2(o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂) * o.β̈dev
+							panelsum!(o.Jcd[1,d], o.u✻, view(o.M.WXAR,:,d), o.info⋂)
+							t✻minus!(o.Jcd[1,d], panelsum2(o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂), o.β̈dev)
 						end
 					else
 						_v = o.purerobust ? view(o.v,:,:) : view(o.v,o.ID✻_✻⋂,:)
 						@inbounds for d ∈ 1:o.dof
-							o.Jcd[1,d] = @panelsum(panelsum(o.DGP.ü₁[1+_jk], view(o.M.WXAR,:,d), o.info✻⋂) .* _v, o.info⋂_✻⋂) - panelsum2(o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂) * o.β̈dev
+							@panelsum!(o.Jcd[1,d], panelsum(o.DGP.ü₁[1+_jk], view(o.M.WXAR,:,d), o.info✻⋂) .* _v, o.info⋂_✻⋂)
+							t✻minus!(o.Jcd[1,d], panelsum2(o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂), o.β̈dev)
 						end
 					end
 				end
 			end
 			@inbounds	for c ∈ o.granular+1:o.NErrClustCombs, d ∈ eachindex(axes(o.Jcd, 2), axes(o.Kcd, 2))
-				o.Jcd[c,d] = o.Kcd[c,d] * o.v
+				t✻!(o.Jcd[c,d], o.Kcd[c,d], o.v)
 			end
 		end
 	end

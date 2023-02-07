@@ -3,37 +3,37 @@ using WildBootTests
 using StableRNGs, StatFiles, DataFrames, CategoricalArrays, StatsModels
 try cd("test") catch end
 
-# open("unittests.log", "w") do log  # use Github Desktop to detect changes in output
+open("unittests.log", "w") do log  # use Github Desktop to detect changes in output
   df = DataFrame(load("collapsed.dta"))
   dropmissing!(df)
   f = @formula(hasinsurance ~ 1 + selfemployed + post + post_self)
   f = apply_schema(f, schema(f, df, Dict(:hasinsurance => ContinuousTerm)))
   resp, predexog = modelcols(f, df)
-  
+
   println(log, "\nregress hasinsurance selfemployed post post_self, cluster(year)")
   println(log, "\nboottest post_self=.04, weight(webb)")
   test = wildboottest([0 0 0 1], [.04]; resp, predexog, clustid=Int32.(df.year), auxwttype=:webb, rng=StableRNG(1231))
   println(log, test)
-  
+
   test = wildboottest([0 0 0 1], [.04]; resp, predexog, clustid=Int32.(df.year), auxwttype=:webb, rng=StableRNG(1231), issorted=true)
   println(log, test)
-  
+
   println(log, "\nboottest post_self=.04, weight(webb) reps(9999999) noci")
   test = wildboottest([0 0 0 1], [.04]; resp, predexog, clustid=Int32.(df.year), reps=9999999, auxwttype=:webb, getci=false, rng=StableRNG(1231))
   println(log, test)
-  
+
   println(log, "\nboottest post_self=.04, weight(normal) reps(9999) noci")
   test = wildboottest([0 0 0 1], [.04]; resp, predexog, clustid=Int32.(df.year), reps=9999, auxwttype=:normal, getci=false, rng=StableRNG(1231))
   println(log, test)
-  
+
   println(log, "\nboottest post_self=.04, weight(gamma) reps(9999) noci svv")
   test = wildboottest([0 0 0 1], [.04]; resp, predexog, clustid=Int32.(df.year), reps=9999, auxwttype=:gamma, getci=false, rng=StableRNG(1231), getauxweights=true)
   println(log, test)
-  
+
   println(log, "\nboottest post_self=.04, weight(mammen) reps(9999) noci")
   test = wildboottest([0 0 0 1], [.04]; resp, predexog, clustid=Int32.(df.year), reps=9999, auxwttype=:mammen, getci=false, rng=StableRNG(1231))
   println(log, test)
-  
+
   println(log, "\nboottest post_self=.04, weight(mammen) reps(9999) boottype(score)")
   test = wildboottest([0 0 0 1], [.04]; resp, predexog, clustid=Int32.(df.year), reps=9999, auxwttype=:mammen, scorebs=true, rng=StableRNG(1231))
   println(log, test)
@@ -333,7 +333,7 @@ try cd("test") catch end
   f = @formula(coll ~ 1 + merit + male + black + asian + year + state)
   f = apply_schema(f, schema(f, df))
   resp, predexog = modelcols(f, df)
-  
+
   test = wildboottest([0 1 zeros(1,size(predexog,2)-2)], [0]; resp, predexog, clustid=levelcode.(df.state), gridpoints=[10], reps=9999, rng=StableRNG(1231))
   println(log, test)
   test = wildboottest([0 1 zeros(1,size(predexog,2)-2)], [0]; resp, predexog, clustid=levelcode.(df.state), reps=9999, imposenull=false, rng=StableRNG(1231))
@@ -348,4 +348,4 @@ try cd("test") catch end
   println(log, test)
   test = wildboottest([0 1 zeros(1,size(predexog,2)-2)], [0]; resp, predexog, clustid= [collect(1:nrow(df)) levelcode.(df.state)], nbootclustvar=1, nerrclustvar=1, reps=9999, imposenull=false, maxmatsize=.1, rng=StableRNG(1231))
   println(log, test)
-# end
+end

@@ -1,8 +1,22 @@
 # stuff done once per exucution--not depending on r
 function InitWRE!(o::StrBootTest{T}) where T
-	o.willfill = o.robust && o.bootstrapt
+	if o.null
+		if o.granular
+			o.Ü₂par = Matrix{T}(undef, o.Nobs, o.Repl.kZ)
+			o.Z̄ = similar(o.Ü₂par)
+		end
+	else  # if not imposing null, then DGP constraints, κ, Hessian, etc. do not vary with r and can be set now
+		EstimateIV!(o.DGP, o, o.jk, o.r₁)
+		MakeResidualsIV!(o.DGP, o)
+		if o.granular
+			o.Ü₂par = view(o.DGP.Ü₂[1] * o.Repl.RparY,:,:)
+			o.Z̄ = t✻(o.DGP.Ȳ₂, o.Repl.RparY); o.Z̄ .+= o.Repl.X₁par
+		end
+	end
 
 	o.Repl.kZ>1 && (o.numer_b = Vector{T}(undef,nrows(o.Repl.RRpar)))
+
+	o.willfill = o.robust && o.bootstrapt
 
 	if o.willfill
 		o.J⋂s = Array{T,3}(undef, o.N⋂, o.ncolsv, o.Repl.kZ)
@@ -95,6 +109,15 @@ function InitWRE!(o::StrBootTest{T}) where T
 		o.S✻ZU₂par      = Array{T,3}(undef, o.Repl.kZ, o.N✻, o.Repl.kZ)
 		o.S✻YU = [i>0 ? j>0 ? view(o.S✻ZU₂par,i,:,j) : view(o.S✻Zu₁,i,:,1) : j>0 ? view(o.S✻y₁parU₂par,1,:,j) : view(o.S✻y₁paru₁,1,:,1) for i ∈ 0:o.Repl.kZ, j ∈ 0:o.Repl.kZ]
 		o.S✻YUfold = Array{T,3}(undef, o.Repl.kZ+1, o.N✻, o.Repl.kZ+1)
+o.S✻ȲUfold = Array{T,3}(undef, o.Repl.kZ+1, o.N✻, o.Repl.kZ+1)
+	end
+
+	if o.liml || !o.robust || !isone(o.κ)
+		o.S✻ȳ₁u₁   = Array{T,3}(undef, 1, o.N✻, 1)
+		o.S✻Z̄u₁    = Array{T,3}(undef, o.Repl.kZ, o.N✻, 1)
+		o.S✻ȳ₁U₂par = Array{T,3}(undef, 1, o.N✻, o.Repl.kZ)
+		o.S✻Z̄U₂par = Array{T,3}(undef, o.Repl.kZ, o.N✻, o.Repl.kZ)
+		o.S✻ȲU     = [i>0 ? j>0 ? view(o.S✻Z̄U₂par,i,:,j) : view(o.S✻Z̄u₁,i,:,1) : j>0 ? view(o.S✻ȳ₁U₂par,1,:,j) : view(o.S✻ȳ₁u₁,1,:,1) for i ∈ 0:o.Repl.kZ, j ∈ 0:o.Repl.kZ]
 	end
 
 	if o.granular
@@ -266,80 +289,104 @@ function PrepWRE!(o::StrBootTest{T}) where T
 		r₁ = o.r₁
 	end
 
-	t✻!(o.S✻⋂XU₂, o.S✻⋂XX, o.DGP.Π̂ ) ; o.S✻⋂XU₂ .= o.S✻⋂XY₂ .- o.S✻⋂XU₂
+	o.invXXXZ̄ = o.Repl.XZ - o.DGP.XÜ₂ * o.Repl.RparY
+	o.XȲ = [o.DGP.Xȳ₁ o.invXXXZ̄]
+  o.invXXXZ̄ .= o.Repl.invXX * o.invXXXZ̄
+  o.ZÜ₂par = (o.Repl.ZY₂	 - o.Repl.XZ'o.DGP.Π̈ ) * o.Repl.RparY
+  o.ȲȲ = o.DGP.γ⃛'o.Repl.XZ - o.DGP.ȳ₁Ü₂ * o.Repl.RparY 
+  o.ȲȲ = [o.DGP.ȳ₁ȳ₁ o.ȲȲ
+          o.ȲȲ'       o.Repl.ZZ - o.ZÜ₂par' - o.ZÜ₂par + o.Repl.RparY'o.DGP.Ü₂Ü₂*o.Repl.RparY]
+
+	o.Π̈RparY = o.DGP.Π̈  * o.Repl.RparY
+	o.Π̈γY = o.DGP.Π̈ * o.DGP.γ̈Y
+
+	if o.willfill && o.NFE>0 && !o.FEboot
+		o.PXZ̄ = X₁₂B(o.Repl.X₁, o.Repl.X₂, o.invXXXZ̄)
+	end
+
+	t✻!(o.S✻⋂XU₂, o.S✻⋂XX, o.DGP.Π̈) ; o.S✻⋂XU₂ .= o.S✻⋂XY₂ .- o.S✻⋂XU₂
 	t✻!(o.S✻⋂XU₂par, o.S✻⋂XU₂, o.Repl.RparY)
-	t✻!(o.S✻XU₂, o.S✻XX, o.DGP.Π̂ ); o.S✻XU₂ .= o.S✻XY₂ .- o.S✻XU₂
+	t✻!(o.S✻XU₂, o.S✻XX, o.DGP.Π̈); o.S✻XU₂ .= o.S✻XY₂ .- o.S✻XU₂
 	t✻!(o.S✻XU₂par, o.S✻XU₂, o.Repl.RparY)
 	t✻!(o.invXXS✻XU₂, o.DGP.invXX, o.S✻XU₂)
 	t✻!(o.invXXS✻XU₂par, o.invXXS✻XU₂, o.Repl.RparY)
 	if o.bootstrapt || o.liml || !isone(o.κ)
-		t✻!(o.S✻ZperpU₂, o.S✻ZperpX, o.DGP.Π̂ ); o.S✻ZperpU₂ .= o.S✻ZperpY₂ .- o.S✻ZperpU₂
-		o.invZperpZperpS✻ZperpU₂ .= o.invZperpZperpS✻ZperpY₂; t✻minus!(o.invZperpZperpS✻ZperpU₂, o.invZperpZperpS✻ZperpX, o.DGP.Π̂ )
+		t✻!(o.S✻ZperpU₂, o.S✻ZperpX, o.DGP.Π̈); o.S✻ZperpU₂ .= o.S✻ZperpY₂ .- o.S✻ZperpU₂
+		o.invZperpZperpS✻ZperpU₂ .= o.invZperpZperpS✻ZperpY₂; t✻minus!(o.invZperpZperpS✻ZperpU₂, o.invZperpZperpS✻ZperpX, o.DGP.Π̈)
 		t✻!(o.S✻ZperpU₂par, o.S✻ZperpU₂, o.Repl.RparY)
 		t✻!(o.invZperpZperpS✻ZperpU₂par, o.invZperpZperpS✻ZperpU₂, o.Repl.RparY)
 	end
 
-	o.S✻Xu₁ .= o.S✻Xy₁;  t✻minus!(o.S✻Xu₁, o.S✻XDGPZ, o.DGP.β̈ );  t✻plus!(o.S✻Xu₁, o.S✻XU₂, o.DGP.γ̈ )
+	o.S✻Xu₁ .= o.S✻Xy₁;  t✻minus!(o.S✻Xu₁, o.S✻XDGPZ, o.DGP.β̈ );  t✻plus!(o.S✻Xu₁, o.S✻XU₂, o.DGP.γ̈Y )
 	o.DGP.restricted &&
 		t✻minus!(o.S✻Xu₁, o.S✻XZR₁, r₁)
 	@panelsum!(o.S✻XU₂par, o.S✻⋂XU₂par, o.info✻_✻⋂)
 
-	o.invXXS✻Xu₁ .= o.invXXS✻Xy₁;  t✻minus!(o.invXXS✻Xu₁, o.invXXS✻XDGPZ, o.DGP.β̈ );  t✻plus!(o.invXXS✻Xu₁, o.invXXS✻XU₂, o.DGP.γ̈ )
+	o.invXXS✻Xu₁ .= o.invXXS✻Xy₁;  t✻minus!(o.invXXS✻Xu₁, o.invXXS✻XDGPZ, o.DGP.β̈ );  t✻plus!(o.invXXS✻Xu₁, o.invXXS✻XU₂, o.DGP.γ̈Y )
 	o.DGP.restricted &&
 		t✻minus!(o.invXXS✻Xu₁, o.invXXS✻XDGPZR₁, r₁)
 
 	if o.liml || !isone(o.κ) || !o.robust
-		S✻U₂y₁ = o.S✻Y₂y₁ - o.DGP.Π̂' * o.S✻Xy₁
-		S✻ZU₂ = o.S✻ReplZY₂ - o.S✻ReplZX * o.DGP.Π̂
+		S✻U₂y₁ = o.S✻Y₂y₁ - (o.DGP.Π̈ )' * o.S✻Xy₁
+		S✻ZU₂ = o.S✻ReplZY₂ - o.S✻ReplZX * o.DGP.Π̈
 		t✻!(o.S✻ZU₂par, S✻ZU₂, o.Repl.RparY)
-		Π̂S✻XÜ₂γ̈ = o.DGP.Π̂' * o.S✻XU₂ * o.DGP.γ̈
-		S✻Ü₂Y₂ = o.S✻Y₂Y₂ - o.DGP.Π̂' * o.S✻XY₂
-		S✻Y₂Ü₂γ̈ = S✻Ü₂Y₂' * o.DGP.γ̈
+		Π̂S✻XÜ₂γ̈Y = (o.DGP.Π̈ )' * o.S✻XU₂ * o.DGP.γ̈Y
+		S✻Ü₂Y₂ = o.S✻Y₂Y₂ - (o.DGP.Π̈ )' * o.S✻XY₂
+		S✻Y₂Ü₂γ̈Y = S✻Ü₂Y₂' * o.DGP.γ̈Y
 
-		S✻UUterm = o.S✻Y₂y₁ - o.S✻DGPZY₂' * view(o.DGP.β̈ ,:,1) - o.DGP.Π̂' * (o.S✻Xy₁  - o.S✻XDGPZ * o.DGP.β̈)
-		o.S✻u₁u₁ .= o.S✻y₁y₁ .- (2 * o.S✻DGPZy₁ - o.S✻DGPZDGPZ * o.DGP.β̈ )'o.DGP.β̈  .+ (2 * S✻UUterm - Π̂S✻XÜ₂γ̈ + S✻Y₂Ü₂γ̈ )'o.DGP.γ̈ 
-		o.S✻U₂paru₁ .= o.Repl.RparY' * (S✻UUterm + S✻Y₂Ü₂γ̈ - Π̂S✻XÜ₂γ̈ )
-		o.S✻U₂parU₂par .= o.Repl.RparY' * (S✻Ü₂Y₂ - o.S✻XU₂' * o.DGP.Π̂) * o.Repl.RparY
+		S✻UUterm = o.S✻Y₂y₁ - o.S✻DGPZY₂' * view(o.DGP.β̈ ,:,1) - (o.DGP.Π̈ )'* (o.S✻Xy₁  - o.S✻XDGPZ * o.DGP.β̈)
+		o.S✻u₁u₁ .= o.S✻y₁y₁ .- (2 * o.S✻DGPZy₁ - o.S✻DGPZDGPZ * o.DGP.β̈ )'o.DGP.β̈  .+ (2 * S✻UUterm - Π̂S✻XÜ₂γ̈Y + S✻Y₂Ü₂γ̈Y )'o.DGP.γ̈Y 
+		o.S✻U₂paru₁ .= o.Repl.RparY' * (S✻UUterm + S✻Y₂Ü₂γ̈Y - Π̂S✻XÜ₂γ̈Y )
+		o.S✻U₂parU₂par .= o.Repl.RparY' * (S✻Ü₂Y₂ - o.S✻XU₂' * o.DGP.Π̈ ) * o.Repl.RparY
 
-		o.S✻y₁paru₁ .= o.S✻y₁y₁; t✻minus!(o.S✻y₁paru₁, o.S✻DGPZy₁', o.DGP.β̈ ); t✻plus!(o.S✻y₁paru₁, S✻U₂y₁', o.DGP.γ̈ )
+		o.S✻y₁paru₁ .= o.S✻y₁y₁; t✻minus!(o.S✻y₁paru₁, o.S✻DGPZy₁', o.DGP.β̈ ); t✻plus!(o.S✻y₁paru₁, S✻U₂y₁', o.DGP.γ̈Y )
 
-		o.S✻Zu₁ .= o.S✻ReplZy₁; t✻minus!(o.S✻Zu₁, o.S✻ReplZDGPZ, o.DGP.β̈ ); t✻plus!(o.S✻Zu₁, S✻ZU₂, o.DGP.γ̈ )
+		o.S✻Zu₁ .= o.S✻ReplZy₁; t✻minus!(o.S✻Zu₁, o.S✻ReplZDGPZ, o.DGP.β̈ ); t✻plus!(o.S✻Zu₁, S✻ZU₂, o.DGP.γ̈Y )
 
 		t✻!(o.S✻y₁parU₂par, S✻U₂y₁', o.Repl.RparY)
 
 		if o.DGP.restricted
 			r₁S✻DGPZR₁y₁ = r₁' * o.S✻DGPZR₁y₁
-			o.S✻u₁u₁ .+= -2 .* r₁S✻DGPZR₁y₁ .+ r₁' * (o.S✻DGPZR₁DGPZR₁ * r₁) .+ 2 .* r₁' * (o.S✻DGPZR₁DGPZ * o.DGP.β̈ + (o.S✻DGPZR₁X * o.DGP.Π̂ - o.S✻DGPZR₁Y₂) * o.DGP.γ̈ )
-			o.S✻U₂paru₁ .-= o.Repl.RparY' * (o.S✻DGPZR₁Y₂ - o.S✻DGPZR₁X * o.DGP.Π̂ )' * r₁
+			o.S✻u₁u₁ .+= -2 .* r₁S✻DGPZR₁y₁ .+ r₁' * (o.S✻DGPZR₁DGPZR₁ * r₁) .+ 2 .* r₁' * (o.S✻DGPZR₁DGPZ * o.DGP.β̈ + (o.S✻DGPZR₁X * o.DGP.Π̈- o.S✻DGPZR₁Y₂) * o.DGP.γ̈Y )
+			o.S✻U₂paru₁ .-= o.Repl.RparY' * (o.S✻DGPZR₁Y₂ - o.S✻DGPZR₁X * o.DGP.Π̈)' * r₁
 			o.S✻y₁paru₁ .-= r₁S✻DGPZR₁y₁
 			t✻minus!(o.S✻Zu₁, o.S✻ReplZDGPZR₁, r₁)
 		end
 
 		if o.Repl.restricted
-			o.r₁S✻ReplZR₁U₂ .= o.r₁S✻ReplZR₁Y₂; t✻minus!(o.r₁S✻ReplZR₁U₂, o.r₁S✻ReplZR₁X, o.DGP.Π̂ )
-			o.S✻y₁paru₁ .-= o.r₁S✻ReplZR₁y₁;  t✻minus!(o.S✻y₁paru₁, o.r₁S✻ReplZR₁DGPZ, o.DGP.β̈ ); t✻plus!(o.S✻y₁paru₁, o.r₁S✻ReplZR₁U₂, o.DGP.γ̈ )
+			o.r₁S✻ReplZR₁U₂ .= o.r₁S✻ReplZR₁Y₂; t✻minus!(o.r₁S✻ReplZR₁U₂, o.r₁S✻ReplZR₁X, o.DGP.Π̈)
+			o.S✻y₁paru₁ .-= o.r₁S✻ReplZR₁y₁;  t✻minus!(o.S✻y₁paru₁, o.r₁S✻ReplZR₁DGPZ, o.DGP.β̈ ); t✻plus!(o.S✻y₁paru₁, o.r₁S✻ReplZR₁U₂, o.DGP.γ̈Y )
 			t✻minus!(o.S✻y₁parU₂par,  o.r₁S✻ReplZR₁U₂, o.Repl.RparY)
 			o.DGP.restricted &&
 				t✻plus!(o.S✻y₁paru₁, o.r₁S✻ReplZR₁DGPZR₁, r₁)
 		end
+		
+		o.Π̈γY = o.DGP.Π̈ * o.DGP.γ̈Y
+		Π⃛ = [o.DGP.RperpXperp'o.DGP.γ̈X ; zeros(T, o.kX₂, 1)] + o.Π̈γY
+		o.S✻ȳ₁u₁ .= Π⃛'o.S✻Xu₁
+		o.S✻ȳ₁U₂par .= Π⃛'o.S✻XU₂par
+		o.S✻Z̄u₁ .= (o.DGP.Π̈  * o.Repl.RparY + [o.Repl.Xpar₁toX₁par; zeros(T, o.kX₂, o.Repl.kZ)])'o.S✻Xu₁
+		o.S✻Z̄U₂par .= (o.DGP.Π̈  * o.Repl.RparY + [o.Repl.Xpar₁toX₁par; zeros(T, o.kX₂, o.Repl.kZ)])'o.S✻XU₂par
 
 		@inbounds for i ∈ 0:o.Repl.kZ, j ∈ 0:i
 			o.S✻YUfold[i+1,:,j+1] .= o.S✻YU[i+1,j+1] .+ o.S✻YU[j+1,i+1]
 			o.S✻YUfold[j+1,:,i+1] .= o.S✻YUfold[i+1,:,j+1]
+			o.S✻ȲUfold[i+1,:,j+1] .= o.S✻ȲU[i+1,j+1] .+ o.S✻ȲU[j+1,i+1]
+			o.S✻ȲUfold[j+1,:,i+1] .= o.S✻ȲUfold[i+1,:,j+1]
 		end
 	end
 
 	if o.liml || !isone(o.κ) || o.bootstrapt
-		o.S✻Zperpu₁              .= o.S✻Zperpy₁; t✻minus!(o.S✻Zperpu₁, o.S✻ZperpDGPZ, o.DGP.β̈ ); t✻plus!(o.S✻Zperpu₁, o.S✻ZperpU₂, o.DGP.γ̈ )
-		o.invZperpZperpS✻Zperpu₁ .= o.invZperpZperpS✻Zperpy₁; t✻minus!(o.invZperpZperpS✻Zperpu₁, o.invZperpZperpS✻ZperpDGPZ, o.DGP.β̈ ); t✻plus!(o.invZperpZperpS✻Zperpu₁, o.invZperpZperpS✻ZperpU₂, o.DGP.γ̈ )
+		o.S✻Zperpu₁              .= o.S✻Zperpy₁; t✻minus!(o.S✻Zperpu₁, o.S✻ZperpDGPZ, o.DGP.β̈ ); t✻plus!(o.S✻Zperpu₁, o.S✻ZperpU₂, o.DGP.γ̈Y )
+		o.invZperpZperpS✻Zperpu₁ .= o.invZperpZperpS✻Zperpy₁; t✻minus!(o.invZperpZperpS✻Zperpu₁, o.invZperpZperpS✻ZperpDGPZ, o.DGP.β̈ ); t✻plus!(o.invZperpZperpS✻Zperpu₁, o.invZperpZperpS✻ZperpU₂, o.DGP.γ̈Y )
 		if o.DGP.restricted
 			t✻minus!(o.S✻Zperpu₁, o.S✻ZperpDGPZR₁, r₁)
 			t✻minus!(o.invZperpZperpS✻Zperpu₁, o.invZperpZperpS✻ZperpDGPZR₁, r₁)
 		end
 
 		if o.NFE>0 && !o.FEboot
-			o.CT✻FEU₂ .= o.CT✻FEY₂; t✻minus!(o.CT✻FEU₂, o.CT✻FEX, o.DGP.Π̂ )
-			o.CT✻FEu₁ .= o.CT✻FEy₁; t✻minus!(o.CT✻FEu₁, o.CT✻FEZ, o.DGP.β̈ ); t✻plus!(o.CT✻FEu₁, o.CT✻FEU₂, o.DGP.γ̈ )
+			o.CT✻FEU₂ .= o.CT✻FEY₂; t✻minus!(o.CT✻FEU₂, o.CT✻FEX, o.DGP.Π̈)
+			o.CT✻FEu₁ .= o.CT✻FEy₁; t✻minus!(o.CT✻FEu₁, o.CT✻FEZ, o.DGP.β̈ ); t✻plus!(o.CT✻FEu₁, o.CT✻FEU₂, o.DGP.γ̈Y )
 			t✻!(o.CT✻FEU₂par, o.CT✻FEU₂, o.Repl.RparY)
 			o.DGP.restricted &&
 				t✻minus!(o.CT✻FEu₁, o.CT✻FEZR₁, r₁)
@@ -348,13 +395,12 @@ function PrepWRE!(o::StrBootTest{T}) where T
 		end
 	end
 
-
 	if o.willfill
 		@inbounds for j ∈ 0:o.Repl.kZ
 			if o.Repl.Yendog[j+1]
 				t✻!(o.negS✻UMZperpX[j+1], o.S⋂XZperpinvZperpZperp, o.S✻ZperpU[j+1])  # S_* diag⁡(U ̈_(∥j) ) Z_⊥ (Z_⊥^' Z_⊥ )^(-1) Z_(⊥g)^' X_(∥g)
 				if iszero(j)  # - S_*  diag⁡(U ̈_(∥j) ) I_g^' X_(∥g)
-					o.S✻diagUX .= o.S✻⋂Xy₁; t✻minus!(o.S✻diagUX, o.S✻⋂XDGPZ, o.DGP.β̈ ); t✻plus!(o.S✻diagUX, o.S✻⋂XU₂, o.DGP.γ̈ )
+					o.S✻diagUX .= o.S✻⋂Xy₁; t✻minus!(o.S✻diagUX, o.S✻⋂XDGPZ, o.DGP.β̈ ); t✻plus!(o.S✻diagUX, o.S✻⋂XU₂, o.DGP.γ̈Y )
 					o.DGP.restricted &&
 						t✻minus!(o.S✻diagUX, o.S✻⋂X_DGPZR₁, r₁)
 				else
@@ -374,9 +420,22 @@ function PrepWREGranular!(o::StrBootTest{T}) where T
 		r₁ = [o.r₁ ; o.r]
 	  EstimateIV!(o.DGP, o, o.jk, r₁)
 	  MakeResidualsIV!(o.DGP, o)
-  	o.Ü₂par = o.DGP.Ü₂[1] * o.Repl.RparY
+  	t✻!(o.Ü₂par, o.DGP.Ü₂[1], o.Repl.RparY)
+		t✻!(o.Z̄, o.DGP.Ȳ₂, o.Repl.RparY); o.Z̄ .+= o.Repl.X₁par
 	else
 		r₁ = o.r₁
+	end
+# XXX pre-allocate these
+	o.invXXXZ̄ = o.Repl.XZ - o.DGP.XÜ₂ * o.Repl.RparY
+	o.XȲ = [o.DGP.Xȳ₁ o.invXXXZ̄]
+  o.invXXXZ̄ .= o.Repl.invXX * o.invXXXZ̄
+  o.ZÜ₂par = (o.Repl.ZY₂	 - o.Repl.XZ'o.DGP.Π̈ ) * o.Repl.RparY
+  o.ȲȲ = o.DGP.γ⃛'o.Repl.XZ - o.DGP.ȳ₁Ü₂ * o.Repl.RparY 
+  o.ȲȲ = [o.DGP.ȳ₁ȳ₁ o.ȲȲ
+          o.ȲȲ'       o.Repl.ZZ - o.ZÜ₂par' - o.ZÜ₂par + o.Repl.RparY'o.DGP.Ü₂Ü₂*o.Repl.RparY]
+
+	if o.willfill
+		o.PXZ̄ = X₁₂B(o.Repl.X₁, o.Repl.X₂, o.invXXXZ̄)
 	end
 
 	panelcross!(o.S✻Xu₁, o.DGP.X₁, o.DGP.X₂, o.DGP.u⃛₁[1], o.info✻)
@@ -407,9 +466,18 @@ function PrepWREGranular!(o::StrBootTest{T}) where T
 		panelcross!(o.S✻y₁parU₂par, o.Repl.y₁par, o.Ü₂par, o.info✻)
 		panelcross!(o.S✻ZU₂par, o.Repl.Z, o.Ü₂par, o.info✻)
 
+		o.Π̈γY = o.DGP.Π̈ * o.DGP.γ̈Y
+		Π⃛ = [o.DGP.RperpXperp'o.DGP.γ̈X ; zeros(T, o.kX₂, 1)] + o.Π̈γY
+		panelcross!(o.S✻ȳ₁u₁, [o.DGP.X₁ o.DGP.X₂] * Π⃛, o.DGP.u⃛₁[1], o.info✻)
+		panelcross!(o.S✻Z̄u₁, o.Z̄, o.DGP.u⃛₁[1], o.info✻)
+		panelcross!(o.S✻ȳ₁U₂par, o.DGP.ȳ₁, o.Ü₂par, o.info✻)
+		panelcross!(o.S✻Z̄U₂par, o.Z̄, o.Ü₂par, o.info✻)
+
 		@inbounds for i ∈ 0:o.Repl.kZ, j ∈ 0:i
 			o.S✻YUfold[i+1,:,j+1] .= o.S✻YU[i+1,j+1] .+ o.S✻YU[j+1,i+1]
 			o.S✻YUfold[j+1,:,i+1] .= o.S✻YUfold[i+1,:,j+1]
+			o.S✻ȲUfold[i+1,:,j+1] .= o.S✻ȲU[i+1,j+1] .+ o.S✻ȲU[j+1,i+1]
+			o.S✻ȲUfold[j+1,:,i+1] .= o.S✻ȲUfold[i+1,:,j+1]
 		end
 	end
 
@@ -450,76 +518,77 @@ function HessianFixedkappa!(o::StrBootTest{T}, dest::AbstractMatrix{T}, is::Vect
 end
 
 function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, row::Integer, i::Integer, j::Integer, κ::Number)
-  if !(o.Repl.Yendog[i+1] || o.Repl.Yendog[j+1])  # if both vars exog, result = order-0 term only, same for all draws
+  if !o.Repl.Yendog[i+1] && !o.Repl.Yendog[j+1]  # if both vars exog, result = order-0 term only, same for all draws
 		!iszero(κ) && 
-			(dest[row,:] .= dot(view(o.Repl.XZ,:,i), view(o.Repl.V,:,j)))
+			(dest[row,:] .= (view(o.XȲ,:,i+1))' * (j>0 ? view(o.invXXXZ̄,:,j) : view(o.DGP.γ⃛,:,1)))
 		if !isone(κ)
 			if iszero(κ)
-				dest[row,:] .= o.Repl.YY[i+1,j+1]
+				dest[row,:] .= o.ȲȲ[i+1,j+1]
 			else
-				dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* o.Repl.YY[i+1,j+1]
+				dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* o.ȲȲ[i+1,j+1]
 			end
 		end
 	else
 		if !iszero(κ)  # repetitiveness in this section to maintain type stability
 			if o.Repl.Yendog[i+1]
-				t✻!(o.T1L, o.S✻XU[i+1], o.v)
-				if iszero(i)
-					o.T1L .+= o.Repl.Xy₁par
-				else
-					o.T1L .+= view(o.Repl.XZ,:,i)
-				end
+				t✻!(o.T1L, o.S✻XU[i+1], (o.v.+1))
+				o.T1L .+= view(o.XȲ,:,i+1)
+				# if iszero(i)
+				# 	o.T1L .+= o.DGP.Xȳ₁
+				# else
+				# 	o.T1L .+= view(o.XȲ,:,i+1)
+				# end
 				if o.Repl.Yendog[j+1]
-					t✻!(o.T1R, o.invXXS✻XU[j+1], o.v)
+					t✻!(o.T1R, o.invXXS✻XU[j+1], (o.v.+1))
 					if iszero(j)
-						o.T1R .+=  o.Repl.invXXXy₁par
+						o.T1R .+=  view(o.DGP.γ⃛,:,1)
 					else
-						o.T1R .+= view(o.Repl.V,:,j)
+						o.T1R .+= view(o.invXXXZ̄,:,j)
 					end
 					coldot!(dest, row, o.T1L, o.T1R)
 				else
-					t✻!(view(dest,row,:), o.T1L', view(o.Repl.V,:,j))  # coldot!(dest, row, T1L, view(o.Repl.V,:,j))
+					t✻!(view(dest,row,:), o.T1L', view(o.invXXXZ̄,:,j))
 				end
 			else
 				if o.Repl.Yendog[j+1]
-					t✻!(o.T1R, o.invXXS✻XU[j+1], o.v)
+					t✻!(o.T1R, o.invXXS✻XU[j+1], (o.v.+1))
 					if iszero(j)
-						o.T1R .+=  o.Repl.invXXXy₁par
+						o.T1R .+=  o.DGP.γ⃛
 					else
-						o.T1R .+= view(o.Repl.V,:,j)
+						o.T1R .+= view(o.invXXXZ̄,:,j)
 					end
-					t✻!(view(dest,row,:), o.T1R', view(o.Repl.XZ,:,i))
+					t✻!(view(dest,row,:), o.T1R', view(o.XȲ,:,i+1))
 				else
-					dest[row,:] .= dot(view(o.Repl.V,:,j), view(o.Repl.XZ,:,i))
+					dest[row,:] .= dot(view(o.invXXXZ̄,:,j), view(o.XȲ,:,i+1))
 				end
 			end
 		end
 		if !isone(κ)
 			if o.Repl.Yendog[i+1]
-				t✻!(o.invZperpZperpS✻ZperpUv, o.invZperpZperpS✻ZperpU[i+1], o.v)
-				t✻!(             o.S✻ZperpUv,              o.S✻ZperpU[j+1], o.v)
+				t✻!(o.invZperpZperpS✻ZperpUv, o.invZperpZperpS✻ZperpU[i+1], (o.v.+1))
+				t✻!(             o.S✻ZperpUv,              o.S✻ZperpU[j+1], (o.v.+1))
 				if o.NFE>0 && !o.FEboot
-					t✻!(       o.CT✻FEUv,        o.CT✻FEU[i+1], o.v)
-					t✻!(o.invFEwtCT✻FEUv, o.invFEwtCT✻FEU[j+1], o.v)
+					t✻!(       o.CT✻FEUv,        o.CT✻FEU[i+1], (o.v.+1))
+					t✻!(o.invFEwtCT✻FEUv, o.invFEwtCT✻FEU[j+1], (o.v.+1))
 				end
 				if iszero(κ)
-					dest[row,:] .= o.Repl.YY[i+1,j+1]; t✻plus!(view(dest,row,:), o.v', view(o.S✻YUfold,i+1,:,j+1))
+					dest[row,:] .= o.ȲȲ[i+1,j+1]; t✻plus!(view(dest,row:row,:), view(o.S✻ȲUfold,i+1,:,j+1)', (o.v.+1))
 					coldotminus!(dest, row, o.invZperpZperpS✻ZperpUv, o.S✻ZperpUv)  # when is this term 0??
-					coldotplus!(dest, row, o.v, o.S✻UU[i+1,j+1], o.v)
+					coldotplus!(dest, row, (o.v.+1), o.S✻UU[i+1,j+1], (o.v.+1))
 					o.NFE>0 && !o.FEboot &&
 						coldotminus!(dest, row, o.CT✻FEUv, o.invFEwtCT✻FEUv)
 				else
-					_dest = t✻(view(o.S✻YUfold,i+1,:,j+1)', o.v); _dest .+= o.Repl.YY[i+1,j+1]
+					_dest = t✻(view(o.S✻ȲUfold,i+1,:,j+1)', (o.v.+1)); _dest .+= o.ȲȲ[i+1,j+1]
 					coldotminus!(_dest, 1, o.invZperpZperpS✻ZperpUv, o.S✻ZperpUv)
-					coldotplus!(_dest, 1, o.v, o.S✻UU[i+1, j+1], o.v)
+					coldotplus!(_dest, 1, (o.v.+1), o.S✻UU[i+1, j+1], (o.v.+1))
 					o.NFE>0 && !o.FEboot &&
 						coldotminus!(_dest, 1, o.CT✻FEUv, o.invFEwtCT✻FEUv)
 					dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* _dest
 				end
 			elseif iszero(κ)
-				dest[row,:] .= o.Repl.YY[i+1,j+1]
+				dest[row,:] .= o.ȲȲ[i+1,j+1]
 			else
-				dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* o.Repl.YY[i+1,j+1]
+				dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* o.ȲȲ[i+1,j+1]
 			end
 		end
   end

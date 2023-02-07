@@ -1,10 +1,13 @@
 # Logically, wild bootstrap tests perform estimation at two stages, once as part of the bootstrap DGP, once in each bootstrap replication
 # The StrEstimator "class" and its three "children" hold the estimation logic for the OLS, Anderson-Rubin, and IV/GMM cases
 
-function perp(A::AbstractMatrix)
-  F = eigen(Symmetric(A*invsym(A'A)*A'))
-  F.vectors[:, abs.(F.values) .< 1000eps(eltype(A))]
-end
+# @inline par(X) = Matrix(qr(X))
+@inline perp(X) = nullspace(X')
+
+# function perp(A::AbstractMatrix)
+#   F = eigen(Symmetric(A*invsym(A'A)*A'))
+#   F.vectors[:, abs.(F.values) .< 1000eps(eltype(A))]
+# end
 
 # R₁ is constraints. R is attack surface for null; only needed when using FWL for WRE
 # for DGP regression, R₁ is maintained constraints + null if imposed while R should have 0 nrows
@@ -15,8 +18,7 @@ function setR!(o::StrEstimator{T}, parent::StrBootTest{T}, R₁::AbstractMatrix{
 		singular, invR₁R₁ = invsymsingcheck(R₁ * R₁')
 		singular && throw(ErrorException("Null hypothesis or model constraints are inconsistent or redundant."))
 	  o.R₁invR₁R₁ = R₁'invR₁R₁
-	  F = eigen(Symmetric(o.R₁invR₁R₁ * R₁))
-	  o.R₁perp = F.vectors[:, abs.(F.values) .< 1000*eps(T)]  # eigenvectors orthogonal to span of R₁; foundation for parameterizing subspace compatible with constraints
+	  o.R₁perp = perp(o.R₁invR₁R₁ * R₁)  # eigenvectors orthogonal to span of R₁; foundation for parameterizing subspace compatible with constraints
   else
 	  o.R₁invR₁R₁ = Matrix{T}(undef, parent.kZ, 0)  # and R₁perp = I
   end
@@ -32,7 +34,6 @@ function setR!(o::StrEstimator{T}, parent::StrBootTest{T}, R₁::AbstractMatrix{
 	  o.RRpar = R * o.Rpar
 		o.RparX = o.Rpar[1:parent.kX₁,:]  # part of Rpar that refers to Y₂
 		o.RparY = o.Rpar[parent.kX₁+1:end,:]  # part of Rpar that refers to Y₂
-	  o.R₁invR₁R₁Y = o.R₁invR₁R₁[parent.kX₁+1:end,:]
 	  o.RR₁invR₁R₁ = R * o.R₁invR₁R₁
 
 		if o.isDGP || !parent.WREnonARubin  # DGP regressions will just copy the replication-regression Zperp, X₂par for speed
@@ -161,6 +162,8 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	!isempty(Rperp) && (o.Rperp = Rperp[1])
 	o.kZ = ncols(o.Rpar)
 
+	o.Xpar₁toX₁par = parent.DGP.RperpXperp'parent.DGP.RperpXperp \ parent.DGP.RperpXperp'o.RparX
+
 	if parent.granular
 		if !o.isDGP && parent.WREnonARubin
 			o.X₁ = parent.DGP.X₁
@@ -171,10 +174,11 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			o.Zperp = parent.X₁ * o.RperpX
 			o.invZperpZperp = iszero(length(o.Zperp)) ? Matrix{T}(undef,0,0) : invsym(o.Zperp'o.Zperp)
 			o.X₁ = parent.X₁ * o.RperpXperp
-			o.kX = ncols(o.X₁) + parent.kX₂
+			o.kX = (o.kX₁ = ncols(o.X₁)) + parent.kX₂
 		end
 	
-		o.Z   = X₁₂B(parent.X₁, parent.Y₂, o.Rpar     )  # Z∥
+		o.X₁par = o.X₁ * o.Xpar₁toX₁par
+		o.Z = parent.Y₂ * o.RparY; o.Z .+= o.X₁par   # Z∥
 		o.ZR₁ = X₁₂B(parent.X₁, parent.Y₂, o.R₁invR₁R₁)
 		ZperpZ   = o.Zperp'o.Z
 		ZperpZR₁ = o.Zperp'o.ZR₁
@@ -224,10 +228,10 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
       _X₂X₂   = parent.X₂'parent.X₂ - ZperpX₂'_invZperpZperpZperpX₂ - _invZperpZperpZperpX₂'tX₂ - panelcross(o.X₂ⱼₖ, o.X₂ⱼₖ, parent.info✻)
       _X₁Y₂   = o.X₁'parent.Y₂      - ZperpX₁'_invZperpZperpZperpY₂ - _invZperpZperpZperpX₁'tY₂ - panelcross(o.X₁ⱼₖ, o.Y₂ⱼₖ, parent.info✻)
       _X₂Y₂   = parent.X₂'parent.Y₂ - ZperpX₂'_invZperpZperpZperpY₂ - _invZperpZperpZperpX₂'tY₂ - panelcross(o.X₂ⱼₖ, o.Y₂ⱼₖ, parent.info✻)
-      o.Y₂y₁ⱼₖ = parent.Y₂'_y₁ - ZperpY₂'_invZperpZperpZperpy₁ - _invZperpZperpZperpY₂'ty₁ - panelcross(o.Y₂ⱼₖ, o.y₁ⱼₖ, parent.info✻)
-      o.X₂y₁ⱼₖ = parent.X₂'_y₁ - ZperpX₂'_invZperpZperpZperpy₁ - _invZperpZperpZperpX₂'ty₁ - panelcross(o.X₂ⱼₖ, o.y₁ⱼₖ, parent.info✻)
-      o.X₁y₁ⱼₖ = o.X₁'_y₁      - ZperpX₁'_invZperpZperpZperpy₁ - _invZperpZperpZperpX₁'ty₁ - panelcross(o.X₁ⱼₖ, o.y₁ⱼₖ, parent.info✻)
-      o.Zy₁ⱼₖ  = o.Z'_y₁       - ZperpZ'_invZperpZperpZperpy₁  - _invZperpZperpZperpZ'ty₁  - panelcross(o.Zⱼₖ,  o.y₁ⱼₖ, parent.info✻)
+      o.Y₂y₁ⱼₖ = parent.Y₂'_y₁       - ZperpY₂'_invZperpZperpZperpy₁ - _invZperpZperpZperpY₂'ty₁ - panelcross(o.Y₂ⱼₖ, o.y₁ⱼₖ, parent.info✻)
+      o.X₂y₁ⱼₖ = parent.X₂'_y₁       - ZperpX₂'_invZperpZperpZperpy₁ - _invZperpZperpZperpX₂'ty₁ - panelcross(o.X₂ⱼₖ, o.y₁ⱼₖ, parent.info✻)
+      o.X₁y₁ⱼₖ = o.X₁'_y₁            - ZperpX₁'_invZperpZperpZperpy₁ - _invZperpZperpZperpX₁'ty₁ - panelcross(o.X₁ⱼₖ, o.y₁ⱼₖ, parent.info✻)
+      o.Zy₁ⱼₖ  = o.Z'_y₁             - ZperpZ'_invZperpZperpZperpy₁  - _invZperpZperpZperpZ'ty₁  - panelcross(o.Zⱼₖ,  o.y₁ⱼₖ, parent.info✻)
       o.XZⱼₖ   = [o.X₁'o.Z           - ZperpX₁'_invZperpZperpZperpZ  - _invZperpZperpZperpX₁'tZ  - panelcross(o.X₁ⱼₖ, o.Zⱼₖ,  parent.info✻)
                   parent.X₂'o.Z      - ZperpX₂'_invZperpZperpZperpZ  - _invZperpZperpZperpX₂'tZ  - panelcross(o.X₂ⱼₖ, o.Zⱼₖ, parent.info✻)]
       o.ZZⱼₖ   = o.Z'o.Z             - ZperpZ'_invZperpZperpZperpZ   - _invZperpZperpZperpZ'tZ   - panelcross(o.Zⱼₖ,  o.Zⱼₖ,  parent.info✻)
@@ -276,6 +280,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			o.invXX = parent.DGP.invXX
 			o.XY₂ = parent.DGP.XY₂
 			o.Y₂y₁ = parent.DGP.Y₂y₁
+			o.Y₂Y₂ = parent.DGP.Y₂Y₂
 			o.X₂y₁ = parent.DGP.X₂y₁
 			o.X₁y₁ = parent.DGP.X₁y₁
 			o.y₁y₁ = parent.DGP.y₁y₁
@@ -292,6 +297,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			X₂Y₂ = o.X₂'o.Y₂
 			o.XY₂ = [X₁Y₂ ; X₂Y₂]
 			o.Y₂y₁ = o.Y₂'o.y₁
+			o.Y₂Y₂ = o.Y₂'o.Y₂
 			o.X₂y₁ = o.X₂'o.y₁
 			o.X₁y₁ = o.X₁'o.y₁
 			o.y₁y₁ = dot(o.y₁, o.y₁)
@@ -329,6 +335,8 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		end
 
 	else  # coarse
+		o.X₁par = parent.X₁ * o.RparX  # X component of retained regressors
+	  o.Z = parent.Y₂ * o.RparY; o.Z .+= o.X₁par  # Z∥
 
 		if !o.isDGP && parent.WREnonARubin
 			o.Zperp = parent.DGP.Zperp
@@ -392,8 +400,9 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			X₁X₁ .-= #=Symmetric=#(ZperpX₁'o.invZperpZperp * ZperpX₁)
 			X₂X₂ .-= #=Symmetric=#(ZperpX₂'o.invZperpZperp * ZperpX₂)
 			o.XX = #=Symmetric=#([X₁X₁ X₂X₁' ; X₂X₁ X₂X₂])
-			o.kX = ncols(o.XX)
 			o.invXX = invsym(o.XX)
+			o.kX = ncols(o.XX)
+			o.kX₁ = ncols(X₂X₁)
 
 			o.S✻⋂ZperpY₂ = panelcross(o.Zperp, parent.Y₂, parent.info✻⋂)
 			ZperpY₂ = sumpanelcross(o.S✻⋂ZperpY₂)
@@ -429,28 +438,25 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			o.y₁y₁  -= Zperpy₁'o.invZperpZperpZperpy₁
 		end
 
-	  o.Z = X₁₂B(parent.X₁, parent.Y₂, o.Rpar)  # Z∥
-
-		X₁par = parent.X₁ * o.RparX  # XXX expressible as a linear combination of Xpar₁??
-		S✻⋂X₁Zpar = panelcross(o.Xpar₁  , X₁par, parent.info✻⋂) + o.S✻⋂X₁Y₂ * o.RparY
-		S✻⋂X₂Zpar = panelcross(parent.X₂, X₁par, parent.info✻⋂) + o.S✻⋂X₂Y₂ * o.RparY
+		S✻⋂X₁Zpar = panelcross(o.Xpar₁  , o.X₁par, parent.info✻⋂) + o.S✻⋂X₁Y₂ * o.RparY
+		S✻⋂X₂Zpar = panelcross(parent.X₂, o.X₁par, parent.info✻⋂) + o.S✻⋂X₂Y₂ * o.RparY
 		o.S✻⋂XZpar = [S✻⋂X₁Zpar; S✻⋂X₂Zpar]
 		X₁Zpar = sumpanelcross(S✻⋂X₁Zpar)
 		X₂Zpar = sumpanelcross(S✻⋂X₂Zpar)
-		S✻⋂ZperpX₁par = panelcross(o.Zperp, X₁par, parent.info✻⋂)
+		S✻⋂ZperpX₁par = panelcross(o.Zperp, o.X₁par, parent.info✻⋂)
 		ZperpX₁par = sumpanelcross(S✻⋂ZperpX₁par)
 		o.S✻⋂ZperpZpar = S✻⋂ZperpX₁par + o.S✻⋂ZperpY₂ * o.RparY
 	  ZperpZpar = ZperpX₁par + sumpanelcross(o.S✻⋂ZperpY₂) * o.RparY
 		o.invZperpZperpZperpZpar = o.invZperpZperp * ZperpZpar
 
-		S✻X₁pary₁ = panelcross(X₁par, parent.y₁, parent.info✻)
+		S✻X₁pary₁ = panelcross(o.X₁par, parent.y₁, parent.info✻)
 		o.S✻Zpary₁ = S✻X₁pary₁ + o.RparY' * o.S✻Y₂y₁
 		o.Zy₁ = vec(sumpanelcross(S✻X₁pary₁)) + o.RparY' * o.Y₂y₁
 
-		S✻X₁parY₂ = panelcross(X₁par, parent.Y₂, parent.info✻)
+		S✻X₁parY₂ = panelcross(o.X₁par, parent.Y₂, parent.info✻)
 		o.XZ = [X₁Zpar - o.invZperpZperpZperpX₁'ZperpZpar ; X₂Zpar - o.invZperpZperpZperpX₂'ZperpZpar]
 	  o.S✻ZparY₂ = S✻X₁parY₂ + o.RparY' * o.S✻Y₂Y₂
-	  tmp = S✻X₁parY₂ * o.RparY; o.S✻ZparZpar = panelcross(X₁par, X₁par, parent.info✻) + tmp + tmp' + o.RparY' * o.S✻Y₂Y₂ * o.RparY
+	  tmp = S✻X₁parY₂ * o.RparY; o.S✻ZparZpar = panelcross(o.X₁par, o.X₁par, parent.info✻) + tmp + tmp' + o.RparY' * o.S✻Y₂Y₂ * o.RparY
 	  o.ZZ = #=Symmetric=#(sumpanelcross(o.S✻ZparZpar)); o.ZZ -= #=Symmetric=#(ZperpZpar'o.invZperpZperpZperpZpar)
 		o.Zy₁ .-= ZperpX₁par'o.invZperpZperpZperpy₁
 
@@ -490,7 +496,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 
 		parent.scorebs && (o.y₁par = copy(o.y₁))
 
-		o.isDGP && parent.WREnonARubin && 
+		parent.WREnonARubin && !(o.isDGP && parent.scorebs) && 
 			(o.ZY₂ = sumpanelcross(o.S✻ZparY₂) - ZperpZpar'o.invZperpZperpZperpY₂)
 		
 		t✻minus!(o.Z, o.Zperp, o.invZperpZperpZperpZpar)
@@ -517,10 +523,11 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			MakeH!(o, parent, !isempty(Rperp)) # DGP is liml except possibly when getting confidence peak for A-R plot; but liml=0 when exactly id'd, for then κ=1 always and Hessian doesn't depend on r₁ and can be computed now
 		end
 	else
+    t✻minus!(o.X₁par, o.Zperp, o.invZperpZperp * (o.Zperp'o.X₁par))
 		o.Yendog = [true colsum(o.RparY .!= zero(T)).!=0]
 	end
 
-	!o.restricted && (o.t₁Y = zeros(T, parent.kY₂))
+	!o.restricted && (o.t₁ = zeros(T, parent.kZ))
 
 	nothing
 end
@@ -560,7 +567,7 @@ end
 
 function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁::AbstractVector) where T
   if o.restricted
-	  o.t₁Y = o.R₁invR₁R₁Y * r₁
+	  o.t₁ = o.R₁invR₁R₁ * r₁
 
     o.y₁pary₁par = o.y₁y₁ - (o.twoZR₁y₁'r₁)[1] + r₁'o.ZR₁ZR₁ * r₁
 	  o.Y₂y₁par = o.Y₂y₁  - o.ZR₁Y₂'r₁
@@ -664,11 +671,28 @@ function MakeResidualsIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 
 	  Xu = o.Xy₁par - o.XZ * o.β̈  # after DGP regression, compute Y₂ residuals by regressing Y₂ on X while controlling for y₁ residuals, done through FWL
 	  negXuinvuu = Xu / -uu
-	  o.Π̂ = invsym(o.XX + negXuinvuu * Xu') * (negXuinvuu * (o.Y₂y₁par - o.ZY₂'o.β̈)' + o.XY₂)
-		o.γ̈ = o.RparY * view(o.β̈ ,:,1) + o.t₁Y - parent.Repl.t₁Y
+	  o.Π̈ = invsym(o.XX + negXuinvuu * Xu') * (negXuinvuu * (o.Y₂y₁par - o.ZY₂'o.β̈)' + o.XY₂)
+		o.γ̈ = o.Rpar * o.β̈  + o.t₁ - parent.Repl.t₁
+    o.Ü₂Ü₂ = o.Y₂Y₂ - (o.Π̈)'o.XY₂ - o.XY₂'o.Π̈ + (o.Π̈)'o.XX*o.Π̈
+
+    o.γ̈X = o.γ̈[1:parent.kX₁]
+    o.γ̈Y = o.γ̈[parent.kX₁+1:end]
+
+    tmp = o.RperpXperp'o.γ̈X
+    o.γ⃛ = o.Π̈ * o.γ̈Y; o.γ⃛[1:o.kX₁] += tmp  # (X_∥'X_∥)^-1 * X_∥'y1bar
+    o.Xȳ₁ = o.XX * o.γ⃛
+    o.ȳ₁ȳ₁ = o.γ⃛'o.Xȳ₁
+    o.XÜ₂ = o.XY₂ - o.XX * o.Π̈	
+    o.ȳ₁Ü₂ = o.γ⃛'o.XÜ₂
+
+    if parent.granular || parent.jk
+      o.Ȳ₂ = X₁₂B(o.X₁, o.X₂, o.Π̈ )  
+      o.ȳ₁ = o.X₁ * tmp + o.Ȳ₂ * o.γ̈Y
+		end
+
 	  if parent.granular
-			o.Ü₂[1] .= o.Y₂ .- X₁₂B(o.X₁, o.X₂, o.Π̂ )
-			o.u⃛₁[1] .= o.y₁par .- o.Z * view(o.β̈ ,:,1) .+ o.Ü₂[1] * o.γ̈
+			o.Ü₂[1] .= o.Y₂ .- X₁₂B(o.X₁, o.X₂, o.Π̈)
+			o.u⃛₁[1] .= o.y₁par .- o.Z * o.β̈  .+ o.Ü₂[1] * o.γ̈Y
 		end
   end
 	nothing

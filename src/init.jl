@@ -237,12 +237,6 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			InitVarsIV!(o.Repl, o)
 			EstimateIV!(o.Repl, o, false, o.r₁)
 
-			if !o.null  # if not imposing null, then DGP constraints, κ, Hessian, etc. do not vary with r and can be set now
-				EstimateIV!(o.DGP, o, o.jk, o.r₁)
-				MakeResidualsIV!(o.DGP, o)
-				o.granular && (o.Ü₂par = view(o.DGP.Ü₂[1] * o.Repl.RparY,:,:))
-			end
-
 			InitWRE!(o)
 
 		else  # the score bootstrap for IV/GMM uses a IV/GMM DGP but then masquerades as an OLS test because most factors are fixed during the bootstrap. To conform, need DGP and Repl objects with different R, R₁, one with FWL, one not
@@ -269,8 +263,8 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
   if !o.WREnonARubin && o.bootstrapt
 		if o.robust
-			o.Kcd =                       Matrix{Matrix{T}}(undef, o.NErrClustCombs, o.dof)
-			o.Jcd = iszero(o.B) ? o.Kcd : Matrix{Matrix{T}}(undef, o.NErrClustCombs, o.dof)  # if B = 0, Kcd will be multiplied by v, which is all 1's, and will constitute Jcd
+			o.Kcd =                        Matrix{Matrix{T}}(undef, o.NErrClustCombs, o.dof)
+			o.Jcd = iszero(o.B) ? o.Kcd : [Matrix{T}(undef, o.clust[c].N, o.ncolsv) for c ∈ 1:o.NErrClustCombs, _ ∈ 1:o.dof]  # if B = 0, Kcd will be multiplied by v, which is all 1's, and will constitute Jcd
 		end
 
 		if o.robust && o.granular<o.NErrClustCombs && o.B>0
@@ -303,6 +297,8 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
   if !o.WREnonARubin
 		o.numerw = Matrix{T}(undef, o.dof, o.ncolsv)
+		!o.scorebs && (!o.robust || o.granular || o.purerobust) && (o.β̈dev = Matrix{T}(undef, o.kX, o.ncolsv))
+
 		o.poles = o.anchor = zeros(T,0)
 		o.interpolable = o.getci && o.bootstrapt && o.null && o.Nw==1 && (iszero(o.κ) || o.arubin)
 		o.interpolate_u = !(o.robust || o.ml)
@@ -395,15 +391,25 @@ const ϕ = (1 + √5)/2
 
 function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) where T
   if _B>0  # in scoretest or waldtest WRE, still make v a col of 1's
-    o.v = o.enumerate ? o.WREnonARubin ? [zeros(o.N✻) count_binary(o.N✻, -2, 0)] :  # complete Rademacher set
-								                         [ones( o.N✻) count_binary(o.N✻, -1, 1)] :
-					o.auxtwtype == :normal ? randn(o.rng, T, o.N✻, _B+first) .- o.WREnonARubin :
-					o.auxtwtype == :gamma  ? quantile.(Gamma{T}(4,.5),  rand(o.rng, T, o.N✻, _B+first)) .- (2 - o.WREnonARubin) :
-					o.auxtwtype == :webb   ? rand(o.rng, T.([-√1.5, -1, -√.5, √.5, 1, √1.5] .- o.WREnonARubin), o.N✻, _B+first) :
-				  o.auxtwtype == :mammen ? getindex.(Ref(T.([1-ϕ; ϕ] .- o.WREnonARubin)), ceil.(Int16, rand(o.rng, o.N✻, _B+first) ./ (ϕ/√5))) :
-		      o.WREnonARubin         ? -2rand(o.rng, Bool, o.N✻, _B+first) : # Rademacher
-			                             (o.v_sd = .5; rand(o.rng, Bool, o.N✻, _B+first) .- T(.5))
-		first && !(o.enumerate && isone(o.v_sd)) && (o.v[:,1] .= o.WREnonARubin ? zero(T) : o.v_sd)  # keep original residuals in first entry to compute base model stat
+
+    if o.enumerate
+			if o.WREnonARubin
+				o.v = [zeros(o.N✻) count_binary(o.N✻, -2, 0)]  # complete Rademacher set
+			else
+				o.v = [ones( o.N✻) count_binary(o.N✻, -1, 1)]
+			end
+		elseif o.auxtwtype == :normal
+			o.v = randn(o.rng, T, o.N✻, _B+first); o.v .-= T(o.WREnonARubin)
+		elseif o.auxtwtype == :gamma 
+			o.v = rand(o.rng, T, o.N✻, _B+first); o.v .= quantile.(Gamma{T}(4,.5), o.v); o.v .-= T(2 - o.WREnonARubin)
+		elseif o.auxtwtype == :webb
+			o.v = rand(o.rng, T.([-√1.5, -1, -√.5, √.5, 1, √1.5] .- o.WREnonARubin), o.N✻, _B+first)
+		elseif o.auxtwtype == :mammen
+			o.v = rand(o.rng, o.N✻, _B+first); o.v .= getindex.(Ref(T.([1-ϕ; ϕ] .- o.WREnonARubin)), ceil.(Int16, o.v ./ (ϕ/√5)))
+		else
+			o.v = rand(o.rng, T.([1-o.WREnonARubin, -1-o.WREnonARubin]), o.N✻, _B+first)  # Rademacher
+		end
+		first && !o.enumerate && (o.v[:,1] .= o.WREnonARubin ? zero(T) : one(T))  # keep original residuals in first entry to compute base model stat
   else
 		o.v = Matrix{T}(undef,0,1)  # in places, ncols(v) indicates B == 1 for classical tests
   end

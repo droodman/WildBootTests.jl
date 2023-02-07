@@ -121,12 +121,13 @@ end
 # accepts views as destination
 # no error checking
 function t✻!(A::AbstractVecOrMat{T}, B::AbstractVecOrMat{T}, C::AbstractVecOrMat{T}) where T
-	fill!(A, zero(T))
-	if length(B)>0 && length(C)>0
-		@tturbo for j ∈ axes(C,2), i ∈ axes(B,1), k ∈ eachindex(axes(B,2), axes(C,1))
-			A[i,j] += B[i,k] * C[k,j]
-		end
-	end
+	mul!(A, B, C)
+	# fill!(A, zero(T))
+	# if length(B)>0 && length(C)>0
+	# 	@tturbo for j ∈ axes(C,2), i ∈ axes(B,1), k ∈ eachindex(axes(B,2), axes(C,1))
+	# 		A[i,j] += B[i,k] * C[k,j]
+	# 	end
+	# end
 	nothing
 end
 function t✻(A::AbstractVecOrMat{T}, B::AbstractVector{T}) where T

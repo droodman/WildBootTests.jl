@@ -74,9 +74,9 @@ function NoNullUpdate!(o::StrBootTest{T} where T)
 		o.numer[:,1] = o.R * o.DGP.Rpar * o.β̈s[:,1] - o.r
 	elseif o.arubin
 		EstimateARubin!(o.DGP, o, false, o.r)
-		o.numer[:,1] = o.v_sd * @view o.DGP.β̈[o.kX₁+1:end,1]  # coefficients on excluded instruments in arubin OLS
+		o.numer[:,1] = @view o.DGP.β̈[o.kX₁+1:end,1]  # coefficients on excluded instruments in arubin OLS
 	else
-		o.numer[:,1] = o.v_sd * (o.R * (o.ml ? o.β̈  : iszero(o.κ) ? view(o.M.β̈  ,:,1) : o.M.Rpar * view(o.M.β̈  ,:,1)) - o.r)  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
+		o.numer[:,1] = o.R * (o.ml ? o.β̈  : iszero(o.κ) ? view(o.M.β̈  ,:,1) : o.M.Rpar * view(o.M.β̈  ,:,1)) - o.r  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
 	end
 	o.dist[1] = isone(o.dof) ? o.numer[1] / sqrtNaN(o.statDenom[1]) : o.numer[:,1]'invsym(o.statDenom)*o.numer[:,1]
 	nothing
@@ -95,6 +95,6 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T)
 	nothing
 end
  
-include("precompiler.jl")
+# include("precompiler.jl")
 
 end

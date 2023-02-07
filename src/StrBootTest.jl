@@ -21,7 +21,7 @@ mutable struct StrEstimator{T<:AbstractFloat}
   Yendog::Matrix{Bool}
   invZperpZperp::#=Symmetric{T,=#Matrix{T}#=}=#; invZperpZperpZperpX::Matrix{T}; XZ::Matrix{T}; YPXY::#=Symmetric{T,=#Matrix{T}#=}=#; R₁invR₁R₁::Matrix{T}
 	restricted::Bool; RperpX::Matrix{T}; RperpXperp::Matrix{T}; RRpar::Matrix{T}; RparX::Matrix{T}; RparY::Matrix{T}; RR₁invR₁R₁::Matrix{T}
-	∂β̈∂r::Matrix{T}; YY::#=Symmetric{T,=#Matrix{T}#=}=#; AR::Matrix{T}; XAR::Matrix{T}; R₁invR₁R₁Y::Matrix{T}; Ü₂::Vector{Matrix{T}}; Rt₁::Vector{T}
+	∂β̈∂r::Matrix{T}; YY::#=Symmetric{T,=#Matrix{T}#=}=#; AR::Matrix{T}; XAR::Matrix{T}; Ü₂::Vector{Matrix{T}}; Rt₁::Vector{T}
 	invXX::#=Symmetric{T,=#Matrix{T}#=}=#; Y₂::Matrix{T}; X₂::Matrix{T}; invH::#=Symmetric{T,=#Matrix{T}#=}=#
 	y₁par::Vector{T}; Xy₁par::Vector{T}
 	A::#=Symmetric{T,=#Matrix{T}#=}=#; Z::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
@@ -32,22 +32,24 @@ mutable struct StrEstimator{T<:AbstractFloat}
   # IV/GMM only
   ZZ::#=Symmetric{T,=#Matrix{T}#=}=#; XY₂::Matrix{T}; XX::#=Symmetric{T,=#Matrix{T}#=}=#; H_2SLS::#=Symmetric{T,=#Matrix{T}#=}=#; V::Matrix{T}; ZY₂::Matrix{T}; ZR₁ZR₁::#=Symmetric{T,=#Matrix{T}#=}=#; X₂ZR₁::Matrix{T}; ZR₁Y₂::Matrix{T}; X₁ZR₁::Matrix{T}
   ZR₁Z::Matrix{T}; X₂y₁::Vector{T}; X₁y₁::Vector{T}; Zy₁::Vector{T}; H_2SLSmZZ::#=Symmetric{T,=#Matrix{T}#=}=#
-  ZXinvXXXy₁par::Vector{T}; t₁Y::Vector{T}
+  ZXinvXXXy₁par::Vector{T}
   Y₂y₁::Vector{T}; twoZR₁y₁::Vector{T}; y₁y₁::T; y₁pary₁par::T; Y₂Y₂::Matrix{T}
   X₂y₁par::Vector{T}; X₁y₁par::Vector{T}; Zy₁par::Vector{T}; Y₂y₁par::Vector{T}
   Rperp::Matrix{T}; ZR₁::Matrix{T}
   kX::Int64; kX₁::Int64; kZperp::Int64
-	Π̂::Matrix{T}
+	Π̈ ::Matrix{T}
 	S✻⋂ZperpZpar::Array{T,3}; S✻⋂ZperpY₂::Array{T,3}; S⋂y₁X₁::Array{T,3}; S⋂y₁X₂::Array{T,3}; S⋂Xy₁::Array{T,3}; S✻⋂ZperpZperp::Array{T,3}; ZperpX::Matrix{T}; S✻⋂Zperpy₁::Array{T,3}; S✻⋂XZR₁::Array{T,3}; S✻⋂XY₂::Array{T,3}; S✻⋂XZperp::Array{T,3}; S✻⋂Xy₁::Array{T,3}; S✻⋂XX::Array{T,3}; S✻⋂XZpar::Array{T,3}
 	S✻⋂X₁Y₂::Array{T,3}; S✻⋂X₂Y₂::Array{T,3}; S✻ZparY₂::Array{T,3}; S✻y₁y₁::Array{T,3}; S✻Zpary₁::Array{T,3}; S✻ZR₁y₁::Array{T,3}; S✻ZR₁Y₂::Array{T,3}; S✻ZR₁ZR₁::Array{T,3}; S✻ZR₁Z::Array{T,3}
 	ZperpZR₁::Matrix{T}; ZperpZperp::Matrix{T}; S✻⋂ZperpZR₁::Array{T,3}
 	S✻Y₂Y₂::Array{T,3}; S✻ZparZpar::Array{T,3}; S✻Y₂y₁::Array{T,3}
-	Xpar₁::Matrix{T}
+	Xpar₁::Matrix{T}; X₁par::Matrix{T}
 	invZperpZperpZperpX₁::Matrix{T}; invZperpZperpZperpX₂::Matrix{T}; invZperpZperpZperpy₁::Vector{T}; invZperpZperpZperpY₂::Matrix{T}; S✻UY₂::Matrix{T}; invZperpZperpZperpZpar::Matrix{T}; invZperpZperpZperpZR₁::Matrix{T}
+	Ü₂Ü₂::Matrix{T}; γ̈X::Vector{T}; γ̈Y::Vector{T}; γ⃛::Vector{T}; Xȳ₁::Vector{T}; ȳ₁ȳ₁::T; XÜ₂::Matrix{T}; ȳ₁Ü₂::Matrix{T}; Ȳ₂::Matrix{T}; ȳ₁::Vector{T}; Z̄::Matrix{T}
 
 	X₁ⱼₖ::Matrix{T}; X₂ⱼₖ::Matrix{T}; y₁ⱼₖ::Vector{T}; Y₂ⱼₖ::Matrix{T}; Zⱼₖ::Matrix{T}; ZR₁ⱼₖ::Matrix{T}; Y₂y₁ⱼₖ::Array{T,3}; X₂y₁ⱼₖ::Array{T,3}; X₁y₁ⱼₖ::Array{T,3}; Zy₁ⱼₖ::Array{T,3}; XZⱼₖ::Array{T,3}; ZZⱼₖ::Array{T,3}; ZY₂ⱼₖ::Array{T,3}; y₁y₁ⱼₖ::Array{T,3}; XY₂ⱼₖ::Array{T,3}; invXXⱼₖ::Array{T,3}; X₁ZR₁ⱼₖ::Array{T,3}; X₂ZR₁ⱼₖ::Array{T,3}; ZZR₁ⱼₖ::Array{T,3}; twoZR₁y₁ⱼₖ::Array{T,3}; ZR₁ZR₁ⱼₖ::Array{T,3}; ZR₁Y₂ⱼₖ::Array{T,3} 
 	Y₂y₁parⱼₖ::Array{T,3}; Zy₁parⱼₖ::Array{T,3}; y₁pary₁parⱼₖ::Array{T,3};	Xy₁parⱼₖ::Array{T,3}; y₁parⱼₖ::Vector{T}; XXⱼₖ::Array{T,3}; H_2SLSⱼₖ::Array{T,3}; H_2SLSmZZⱼₖ::Array{T,3}; invHⱼₖ::Array{T,3}
 	β̈ⱼₖ::Array{T,3}; κⱼₖ::Array{T,3}; YPXYⱼₖ::Array{T,3}; YYⱼₖ::Array{T,3}; invXXXy₁parⱼₖ::Array{T,3}; ZXinvXXXy₁parⱼₖ::Array{T,3}
+	Xpar₁toX₁par::Matrix{T}
 
   StrEstimator{T}(isDGP, liml, fuller, κ) where T<:AbstractFloat = new(isDGP, liml, fuller, κ, Matrix{T}(undef,0,0))
 end
@@ -69,7 +71,6 @@ mutable struct StrBootTest{T<:AbstractFloat}
   const q::Int16; const twotailed::Bool; const jk::Bool; scorebs::Bool; const robust::Bool
 
   WRE::Bool; initialized::Bool; NFE::Int64; FEboot::Bool; granular::Bool; granularjk::Bool; NErrClustCombs::Int16; subcluster::Int8; BFeas::Int64; interpolating::Bool
-  v_sd::T
   confpeak::Vector{T}
   ID✻::Vector{Int64}; ID✻_✻⋂::Vector{Int64}
   anchor::Vector{T}; poles::Vector{T}; numer::Matrix{T}
@@ -100,7 +101,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	S✻YU::Matrix{SubArray{T, 1, Array{T, 3}, Tuple{Int64, Base.Slice{Base.OneTo{Int64}}, Int64}, true}}; S✻y₁paru₁::Array{T,3}; S✻Zu₁::Array{T,3}; S✻y₁parU₂par::Array{T,3}; S✻ZU₂par::Array{T,3}; S✻YUfold::Array{T,3}
 	S✻UMZperp::Array{T,3}; S✻UPX::Array{T,3}; S✻Zperpu₁::Array{T,3}; S✻ZperpU₂par::Array{T,3}; S✻ZperpU::Vector{SubArray{T, 2, Array{T, 3}, Tuple{Base.Slice{Base.OneTo{Int64}}, Base.Slice{Base.OneTo{Int64}}, Int64}, true}}
 	CT✻FEu₁::Array{T,3}; CT✻FEU₂par::Array{T,3}; CT✻FEU::Vector{SubArray{T, 2, Array{T,3}, Tuple{Base.Slice{Base.OneTo{Int64}}, Base.Slice{Base.OneTo{Int64}}, Int64}, true}}
-	invFEwtCT✻FEu₁::Array{T,3}; invFEwtCT✻FEU₂par::Array{T,3}; invFEwtCT✻FEU::Vector{SubArray{T, 2, Array{T,3}, Tuple{Base.Slice{Base.OneTo{Int64}}, Base.Slice{Base.OneTo{Int64}}, Int64}, true}}
+	invFEwtCT✻FEu₁::Array{T,3}; invFEwtCT✻FEU₂par::Array{T,3}; invFEwtCT✻FEU::Vector{SubArray{T, 2, Array{T,3}, Tuple{Base.Slice{Base.OneTo{Int64}}, Base.Slice{Base.OneTo{Int64}}, Int64}, true}}; S✻ȲUfold::Array{T,3}
   ∂denom∂r::Array{Matrix{T},3}; ∂Jcd∂r::Array{Matrix{T},3}; ∂²denom∂r²::Array{Matrix{T},4}
 	FEs::Vector{StrFE{T}}
   T1L::Matrix{T}; T1R::Matrix{T}; J⋂s::Array{T,3}; Q::Array{T,3 #=2=#}; β̈v::Matrix{T}
@@ -126,8 +127,9 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	δnumer::Matrix{T}; YY✻::Array{T,3}; YPXY✻::Array{T,3}; κWRE::Array{T,3}; denomWRE::Array{T,3}; ARpars::Array{T,3}; J⋂ARpars::Array{T,3}; Jc::Vector{Array{T,3}}
 	invZperpZperpS✻ZperpUv::Matrix{T}; S✻ZperpUv::Matrix{T}; CT✻FEUv::Matrix{T}; invFEwtCT✻FEUv::Matrix{T}; PXY✻::Matrix{T}; S✻UMZperpv::Matrix{T}
 	T₀::Vector{T}; T₁::Matrix{T}; Qv::Matrix{T}; willfill::Bool; S✻diagUX::Array{T,3}
-
-	Ü₂par::Matrix{T}
+	invXXXZ̄::Matrix{T}; XȲ::Matrix{T}; ZÜ₂par::Matrix{T}; ȲȲ::Matrix{T}
+	S✻ȳ₁u₁::Array{T,3}; S✻Z̄u₁::Array{T,3}; S✻ȳ₁U₂par::Array{T,3}; S✻Z̄U₂par::Array{T,3};	PXZ̄::Matrix{T}; S✻ȲU::Matrix{SubArray{T, 1, Array{T, 3}, Tuple{Int64, Base.Slice{Base.OneTo{Int64}}, Int64}, true}}
+	Π̈RparY::Matrix{T}; Ü₂par::Matrix{T}; Π̈γY::Vector{T}; Z̄::Matrix{T}
 
 	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, liml, 
 	               fuller, κ, arubin, B, auxtwtype, rng, maxmatsize, ptype, null, jk, scorebs, bootstrapt, ID, NBootClustVar, NErrClustVar, issorted, robust, small, clusteradj, clustermin,
@@ -152,7 +154,6 @@ mutable struct StrBootTest{T<:AbstractFloat}
 					willplot, gridmin, gridmax, gridpoints,
 					nrows(R), ptype == :symmetric || ptype == :equaltail, jk, scorebs, robust || NErrClustVar>0,
 					false, false, NFE, false, false, false, 0, 0, 0, false,
-					one(T),
 					[zero(T)],
 					Vector{Int64}(undef,0), Vector{Int64}(undef,0),
 					Vector{T}(undef,0), Vector{T}(undef,0), Matrix{T}(undef,0,0),
@@ -164,7 +165,7 @@ end
 
 function getdist(o::StrBootTest, diststat::Symbol=:none)
   if diststat == :numer
-	  _numer = isone(o.v_sd) ? o.numer : o.numer / o.v_sd
+	  _numer = o.numer
 	  o.distCDR = (@view _numer[:,2:end]) .+ o.r
 	  # sort!(o.distCDR, dims=1)
   elseif nrows(o.distCDR)==0  # return test stats
@@ -232,7 +233,7 @@ function getp(o::StrBootTest{T}) where T
   end
 end
 
-getb(o::StrBootTest) = isone(o.v_sd) ? o.numer[:,1] : o.numer[:,1] / o.v_sd  # numerator for full-sample test stat
-getV(o::StrBootTest) = o.statDenom / ((isone(o.v_sd) ? o.smallsample : o.v_sd^2 * o.smallsample) * (o.sqrt ? o.multiplier^2 : o.multiplier) * o.dof)  # denominator for full-sample test stat
-getv(o::StrBootTest) = @views isone(o.v_sd) ? o.v[:,2:end] : o.v[:,2:end] / o.v_sd  # wild weights
+getb(o::StrBootTest) = o.numer[:,1]  # numerator for full-sample test stat
+getV(o::StrBootTest) = o.statDenom / (o.smallsample * (o.sqrt ? o.multiplier^2 : o.multiplier) * o.dof)  # denominator for full-sample test stat
+getv(o::StrBootTest) = @views o.v[:,2:end]  # wild weights
 @inline getstat(o::StrBootTest) = o.multiplier * o.dist[1]
