@@ -227,7 +227,7 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   test = wildboottest([0 0 0 0 0 1], [0]; resp, predexog, predendog, inst, fuller=1, clustid=clustid=Matrix(df[:, [:collgrad, :industry]]), nbootclustvar=1, nerrclustvar=2, small=false, reps=9999, auxwttype=:webb, rng=StableRNG(1231))
   println(log, test)
   
-  println(log, "\nareg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)")
+  println(log, "\nareg wage ttl_exp collgrad tenure [aw=hours] if occupation<. & grade<., cluster(age) absorb(industry)")
   println(log, "boottest tenure, cluster(age occupation) bootcluster(occupation)")
   df = DataFrame(load("nlsw88.dta"))
   dropmissing!(df)
@@ -237,17 +237,17 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   test = wildboottest([0 0 1], [0]; resp, predexog, clustid=Matrix(df[:, [:occupation, :age]]), nbootclustvar=1, nerrclustvar=2, obswt=df.hours, feid=df.industry, rng=StableRNG(1231))
   println(log, test)
   
-  println(log, "\nareg wage ttl_exp collgrad tenure if occupation<., robust absorb(industry)")
+  println(log, "\nareg wage ttl_exp collgrad tenure if occupation<. & grade<., robust absorb(industry)")
   println(log, "boottest tenure")
   test = wildboottest([0 0 1], [0]; resp, predexog, feid=df.industry, rng=StableRNG(1231))
   println(log, test)
   
-  println(log, "\nareg wage ttl_exp collgrad tenure [aw=hours] if occupation<., robust absorb(industry)")
+  println(log, "\nareg wage ttl_exp collgrad tenure [aw=hours] if occupation<. & grade<., robust absorb(industry)")
   println(log, "boottest tenure")
   test = wildboottest([0 0 1], [0]; resp, predexog, obswt=df.hours, feid=df.industry, rng=StableRNG(1231))
   println(log, test)
   
-  println(log, "\nivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours], liml cluster(industry) absorb(industry)")
+  println(log, "\nivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours] if grade<., liml cluster(industry) absorb(industry)")
   ivf = @formula(occupation ~ union + married)
   ivf = apply_schema(ivf, schema(ivf, df))
   predendog, inst = modelcols(ivf, df)

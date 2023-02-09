@@ -386,30 +386,26 @@ function InitFEs(o::StrBootTest{T}) where T
 	nothing
 end
 
-# draw wild weight matrix of width _B. If first=true, insert column of 1s at front. For non-Anderson-Rubin WRE, subtract 1 from all
+# draw wild weight matrix of width _B. If first=true, insert column of 1s at front.
 const ϕ = (1 + √5)/2
 
 function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) where T
   if _B>0  # in scoretest or waldtest WRE, still make v a col of 1's
 
     if o.enumerate
-			if o.WREnonARubin
-				o.v = [zeros(o.N✻) count_binary(o.N✻, -2, 0)]  # complete Rademacher set
-			else
-				o.v = [ones( o.N✻) count_binary(o.N✻, -1, 1)]
-			end
+			o.v = [ones( o.N✻) count_binary(o.N✻, -1, 1)]
 		elseif o.auxtwtype == :normal
-			o.v = randn(o.rng, T, o.N✻, _B+first); o.v .-= T(o.WREnonARubin)
+			o.v = randn(o.rng, T, o.N✻, _B+first)
 		elseif o.auxtwtype == :gamma 
-			o.v = rand(o.rng, T, o.N✻, _B+first); o.v .= quantile.(Gamma{T}(4,.5), o.v); o.v .-= T(2 - o.WREnonARubin)
+			o.v = rand(o.rng, T, o.N✻, _B+first); o.v .= quantile.(Gamma{T}(4,.5), o.v); o.v .-= T(2)
 		elseif o.auxtwtype == :webb
-			o.v = rand(o.rng, T.([-√1.5, -1, -√.5, √.5, 1, √1.5] .- o.WREnonARubin), o.N✻, _B+first)
+			o.v = rand(o.rng, T[-√1.5, -1, -√.5, √.5, 1, √1.5], o.N✻, _B+first)
 		elseif o.auxtwtype == :mammen
-			o.v = rand(o.rng, o.N✻, _B+first); o.v .= getindex.(Ref(T.([1-ϕ; ϕ] .- o.WREnonARubin)), ceil.(Int16, o.v ./ (ϕ/√5)))
+			o.v = rand(o.rng, o.N✻, _B+first); o.v .= getindex.(Ref(T[1-ϕ; ϕ]), ceil.(Int16, o.v ./ (ϕ/√5)))
 		else
-			o.v = rand(o.rng, T.([1-o.WREnonARubin, -1-o.WREnonARubin]), o.N✻, _B+first)  # Rademacher
+			o.v = rand(o.rng, T[1, -1], o.N✻, _B+first)  # Rademacher
 		end
-		first && !o.enumerate && (o.v[:,1] .= o.WREnonARubin ? zero(T) : one(T))  # keep original residuals in first entry to compute base model stat
+		first && !o.enumerate && (o.v[:,1] .= one(T))  # keep original residuals in first entry to compute base model stat
   else
 		o.v = Matrix{T}(undef,0,1)  # in places, ncols(v) indicates B == 1 for classical tests
   end

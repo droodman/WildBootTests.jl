@@ -14,7 +14,7 @@ struct BootTestResult{T}
   b::Vector{T}
   V::Matrix{T}
   auxweights::Union{Nothing,Matrix{T}}
-  o::StrBootTest
+  # o::StrBootTest
 end
 
 "Return test statistic"
@@ -155,7 +155,7 @@ function __wildboottest(
 	                  o.p, padj, o.B, o.BFeas, o.N✻, o.dof, o.dof_r, plot, peak, ci,
 	                  getdist(o, diststat),
 	                  getb(o), getV(o),
-	                  getauxweights && reps>0 ? getv(o) : nothing , o)
+	                  getauxweights && reps>0 ? getv(o) : nothing #=, o=#)
 end
 
 vecconvert(T::DataType, X) = Vector(isa(X, AbstractArray) ? vec(    eltype(X)==T ? X : T.(X)) : X)

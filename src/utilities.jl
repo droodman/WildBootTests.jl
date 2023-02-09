@@ -2,6 +2,13 @@
 @inline ncols(X::AbstractArray) = size(X,2)
 @inline sqrtNaN(x) = x<0 ? typeof(x)(NaN) : sqrt(x)
 
+# Apply .* to a matrix and row of another matrix
+function matbyrow!(dest::Matrix{T}, A::Matrix{T}, B::Matrix{T}, row::Int) where T
+	@tturbo for j ∈ eachindex(axes(dest,2), axes(A,2), axes(B,2)), i ∈ eachindex(axes(dest,1), axes(A,1))
+		dest[i,j] = A[i,j] * B[row,j]
+	end
+end
+
 # iszero(nrows(X)) && (return Symmetric(X))
 # X, ipiv, info = LinearAlgebra.LAPACK.sytrf!('U', Matrix(X))
 # iszero(info) && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)

@@ -162,8 +162,6 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	!isempty(Rperp) && (o.Rperp = Rperp[1])
 	o.kZ = ncols(o.Rpar)
 
-	o.Xpar₁toX₁par = parent.DGP.RperpXperp'parent.DGP.RperpXperp \ parent.DGP.RperpXperp'o.RparX
-
 	if parent.granular
 		if !o.isDGP && parent.WREnonARubin
 			o.X₁ = parent.DGP.X₁
@@ -177,7 +175,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			o.kX = (o.kX₁ = ncols(o.X₁)) + parent.kX₂
 		end
 	
-		o.X₁par = o.X₁ * o.Xpar₁toX₁par
+		o.X₁par = o.X₁ * (parent.DGP.RperpXperp'parent.DGP.RperpXperp \ parent.DGP.RperpXperp'o.RparX)
 		o.Z = parent.Y₂ * o.RparY; o.Z .+= o.X₁par   # Z∥
 		o.ZR₁ = X₁₂B(parent.X₁, parent.Y₂, o.R₁invR₁R₁)
 		ZperpZ   = o.Zperp'o.Z
