@@ -566,34 +566,38 @@ function crosstabFEt(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitR
 end
 
 # partial any fixed effects out of a data matrix
-function partialFE!(o::StrBootTest, In::AbstractArray)
+function partialFE!(o::StrBootTest{T}, In::AbstractArray{T}) where T
+	_sum = Matrix{T}(undef,1,size(In,2))
   if length(In)>0
 		if o.haswt
-			Threads.@threads for f ∈ o.FEs
+			#=Threads.@threads=# @inbounds @fastmath for f ∈ o.FEs
 				tmp = @view In[f.is,:]
 				tmp .-= f.sqrtwt .* (f.wt'tmp)
 			end
 		else
-			Threads.@threads for f ∈ o.FEs
+			#=Threads.@threads=# @inbounds @fastmath for f ∈ o.FEs
 				tmp = @view In[f.is,:]
-				tmp .-= f.wt[1] .* sum(tmp; dims=1)
+				sum!(_sum, tmp)
+				tmp .-= f.wt[1] .* _sum
 			end
 		end
   end
 	nothing
 end
-function partialFE(o::StrBootTest, In::AbstractArray)
+function partialFE(o::StrBootTest{T}, In::AbstractArray{T}) where T
+	_sum = Matrix{T}(undef,1,size(In,2))
   Out = copy(In)
   if length(In)>0
 		if o.haswt
-			Threads.@threads for f ∈ o.FEs
+			#=Threads.@threads=# @inbounds @fastmath for f ∈ o.FEs
 				tmp = @view Out[f.is,:]
 				tmp .-= f.sqrtwt .* (f.wt'tmp)
 			end
 		else
-			Threads.@threads for f ∈ o.FEs
+			#=Threads.@threads=# @inbounds @fastmath for f ∈ o.FEs
 				tmp = @view Out[f.is,:]
-				tmp .-= f.wt[1] .* sum(tmp; dims=1)
+				sum!(_sum, tmp)
+				tmp .-= f.wt[1] .* _sum  # sum(tmp; dims=1)
 			end
 		end
   end

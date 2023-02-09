@@ -197,7 +197,7 @@ function _wildboottest(T::DataType,
 					  auxwttype::Symbol=:rademacher,
 					  rng::AbstractRNG=MersenneTwister(),
 					  level::Number=.95,
-					  rtol::Number=1e-6,
+					  rtol::Number=1e-3,
 					  madjtype::Symbol=:none,
 					  nH0::Integer=1,
 					  ml::Bool=false,
@@ -369,7 +369,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `auxwttype::Symbol=:rademacher`: auxilliary weight type (`:rademacher`, `:mammen`, `:webb`, `:normal`, `:gamma`)
 * `rng::AbstractRNG=MersenneTwister()`: randon number generator
 * `level::Number=.95`: significance level (0-1)
-* `rtol::Number=1e-6`: tolerance for confidence set bound determination
+* `rtol::Number=1e-3`: tolerance for confidence set bound determination
 * `madjtype::Symbol=:none`: multiple hypothesis adjustment (`none`, `:bonferroni`, `:sidak`)
 * `nH0::Integer=1`: number of hypotheses tested, including one being tested now
 * `ml::Bool=false`: true for (nonlinear) ML estimation

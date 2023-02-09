@@ -385,7 +385,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 				o.X₁ = o.Xpar₁ - o.Zperp * o.invZperpZperpZperpX₁  # shrink and FWL-process X₁; do it as an O(N) operation because it can be so size-reducing
 				o.X₂ = o.Zperp * o.invZperpZperpZperpX₂; o.X₂ .= parent.X₂ .- o.X₂  # FWL-process X₂
 			end
-			
+
 			S✻⋂X₁X₁ = panelcross(o.Xpar₁, o.Xpar₁, parent.info✻⋂)
 			S✻⋂X₂X₁ = panelcross(parent.X₂, o.Xpar₁, parent.info✻⋂)
 			S✻⋂X₂X₂ = panelcross(parent.X₂, parent.X₂, parent.info✻⋂)

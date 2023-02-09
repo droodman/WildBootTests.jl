@@ -1,7 +1,7 @@
 module WildBootTests
 export BootTestResult, wildboottest, teststat, stattype, p, padj, reps, repsfeas, nbootclust, dof, dof_r, plotpoints, peak, ci, dist, statnumer, statvar, auxweights
 
-using LinearAlgebra, Random, Distributions, SortingAlgorithms, Printf, LoopVectorization, StaticArrays
+using LinearAlgebra, Random, Distributions, SortingAlgorithms, Printf, LoopVectorization
 
 include("StrBootTest.jl")
 include("utilities.jl")
@@ -95,6 +95,6 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T)
 	nothing
 end
  
-# include("precompiler.jl")
+include("precompiler.jl")
 
 end

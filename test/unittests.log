@@ -182,7 +182,7 @@ CI = [-Inf Inf]
 ivregress 2sls wage ttl_exp collgrad (tenure = union) if industry<., robust
 
 boottest tenure, ptype(equaltail) matsize(0.005) noci weight(webb)
-z  = 3.5823
+z  = 3.5814
 p  = 0.0000
 
 z  = 3.5883
@@ -244,28 +244,28 @@ p  = 0.2153
 CI = [-Inf Inf]
 
 
-areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)
+areg wage ttl_exp collgrad tenure [aw=hours] if occupation<. & grade<., cluster(age) absorb(industry)
 boottest tenure, cluster(age occupation) bootcluster(occupation)
 t(12) = 1.4294
 p     = 0.1261
 CI    = [-0.01093 0.123]
 
 
-areg wage ttl_exp collgrad tenure if occupation<., robust absorb(industry)
+areg wage ttl_exp collgrad tenure if occupation<. & grade<., robust absorb(industry)
 boottest tenure
 t(1833) = 1.6602
 p       = 0.1001
 CI      = [-0.005319 0.07348]
 
 
-areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., robust absorb(industry)
+areg wage ttl_exp collgrad tenure [aw=hours] if occupation<. & grade<., robust absorb(industry)
 boottest tenure
 t(1833) = 1.6265
 p       = 0.1091
 CI      = [-0.007315 0.07565]
 
 
-ivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours], liml cluster(industry) absorb(industry)
+ivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours] if grade<., liml cluster(industry) absorb(industry)
 boottest tenure
 t(11) = 0.8177
 p     = 0.3954

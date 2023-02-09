@@ -195,7 +195,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	else
 		if o.arubin
 			o.R = hcat(zeros(o.kX₂,o.kX₁), Matrix(I(o.kX₂)))  # attack surface is all endog vars
-			o.R₁ = o.kX₁>0 && nrows(o.R₁)>0 ? hcat(o.R₁[:,1:o.kX₁], zeros(nrows(o.R₁),o.kX₂)) : zeros(0, o.kX)  # and convert model constraints from referring to X₁, Y₂ to X₁, X₂
+			o.R₁ = o.kX₁>0 && nrows(o.R₁)>0 ? hcat(o.R₁[:,1:o.kX₁], zeros(T,nrows(o.R₁),o.kX₂)) : zeros(T,0, o.kX)  # and convert model constraints from referring to X₁, Y₂ to X₁, X₂
 		end
 		o.dof = nrows(o.R)
 
@@ -393,7 +393,7 @@ function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) wher
   if _B>0  # in scoretest or waldtest WRE, still make v a col of 1's
 
     if o.enumerate
-			o.v = [ones( o.N✻) count_binary(o.N✻, -1, 1)]
+			o.v = [ones(T,o.N✻) count_binary(o.N✻, -one(T), one(T))]
 		elseif o.auxtwtype == :normal
 			o.v = randn(o.rng, T, o.N✻, _B+first)
 		elseif o.auxtwtype == :gamma 
