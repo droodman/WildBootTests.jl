@@ -742,7 +742,7 @@ end
 # in-place inverse of a set of symmetric matrices
 function invsym!(A::Array{T,3}) where T
 	@inbounds for g ∈ eachindex(axes(A,2))
-		A[:,g,:] = invsym(@view A[:,g,:])
+		A[:,g,:] = inv(@view A[:,g,:])
 	end
 	nothing
 end

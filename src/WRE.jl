@@ -205,12 +205,17 @@ o.S⋂ReplZX = @panelsum(S✻⋂ReplZX, o.info⋂_✻⋂)
 			o.S⋂XZperpinvZperpZperp = S⋂ZperpX' * o.DGP.invZperpZperp
 
 			o.negS✻UMZperpX = [Array{T,3}(undef, o.DGP.kX, o.N⋂, o.N✻) for _ in 0:o.Repl.kZ]
-			o.T₀ = Vector{T}(undef, o.N⋂)
-			o.T₁ = Matrix{T}(undef, o.N⋂, o.N✻)
-			o.Q    = Array{T,3}(undef, o.N✻, o.N⋂, o.N✻)
+			# o.T₀ = Vector{T}(undef, o.N⋂)
+			# o.T₁ = Matrix{T}(undef, o.N⋂, o.N✻)
+			# o.Q    = Array{T,3}(undef, o.N✻, o.N⋂, o.N✻)
 			# o.T₁ = Matrix{T}(undef, 1, o.N✻)
 			# o.Q    = Array{T,2}(undef, o.N✻, o.N✻)
-			o.Qv = Matrix{T}(undef, o.N✻, o.ncolsv)
+			# o.Qv = Matrix{T}(undef, o.N✻, o.ncolsv)
+			o.F₁ = Matrix{T}(undef, o.DGP.kX, o.ncolsv)
+			o.F₁β = copy(o.F₁)
+			o.F₂ = copy(o.F₁)
+	
+	
 			o.NFE>0 && !o.FEboot && (o.CT⋂FEX = o.invFEwt .* @panelsum(CT✻⋂FEX, o.info⋂_✻⋂))
 			o.S✻diagUX = similar(o.S✻⋂Xy₁)
 		end
@@ -611,9 +616,65 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64) where T
 		end
 	else  # coarse error clustering
 		# (P_(X_∥ g) Z_∥^* )^' (M_(Z_⊥ ) y_(1∥)^* )_g
-		F1₀ = view(o.invXXXZ̄,:,i)  # o.DGP.kX x 1
-		F1₁ = view(o.invXXS✻XU₂par,:,:,i)  # o.DGP.kX x o.N✻
-		
+
+		o.F₁ .= view(o.invXXXZ̄,:,i:i)
+		o.Repl.Yendog[i+1] && t✻plus!(o.F₁, view(o.invXXS✻XU₂par,:,:,i), o.v)
+    @inbounds for g ∈ 1:o.N⋂
+			o.F₂ .= view(o.S⋂ȳ₁X,1,g,:)
+			t✻minus!(o.F₂, view(o.negS✻UMZperpX[1],:,g,:), o.v)
+      coldot!(dest, g, o.F₁, o.F₂)
+		end
+    @inbounds for j ∈ 1:o.Repl.kZ
+      matbyrow!(o.F₁β, o.F₁, o.β̈s, j)
+      for g ∈ 1:o.N⋂
+        o.F₂ .= view(o.S⋂ReplZ̄X,j,g,:)
+				o.Repl.Yendog[j+1] && t✻minus!(o.F₂, view(o.negS✻UMZperpX[j+1],:,g,:), o.v)
+        coldotminus!(dest, g, o.F₁β, o.F₂)
+			end
+		end
+
+		# F1₀ = view(o.invXXXZ̄,:,i)  # o.DGP.kX x 1
+		# F1₁ = view(o.invXXS✻XU₂par,:,:,i)  # o.DGP.kX x o.N✻
+		# F2₀ = o.S⋂ȳ₁X  # 1 x o.N⋂ x o.DGP.kX
+		# F2₁ = -o.negS✻UMZperpX[1]  # o.DGP.kX x o.N⋂ x o.N✻
+
+		# t✻!(reshape(o.T₀, 1, o.N⋂, 1    ), F2₀, F1₀)
+		# t✻!(reshape(o.T₁, 1, o.N⋂, o.N✻), F1₀', F2₁)
+
+		# dest .= o.T₀
+		# if o.Repl.Yendog[i+1]  # add terms that are zero only if Zpar[i] is exogenous, i.e. if a null refers only to exogenous variables
+		# 	t✻plus!(o.T₁, dropdims(F2₀; dims=1), F1₁)
+		# 	t✻plus!(dest, o.T₁, o.v)  # 0th- & 1st-order terms
+		# 	t✻!(o.Q, F1₁', F2₁)
+		# 	@inbounds for g ∈ 1:o.N⋂
+		# 		t✻!(o.Qv, view(o.Q,:,g,:), o.v); coldotplus!(dest, g, o.v, o.Qv)
+		# 	end
+		# else
+		# 	t✻plus!(dest, o.T₁, o.v)  # 0th- & 1st-order terms
+		# end
+
+		# # -(P_(X_∥ g) Z_∥^* )^' (M_(Z_⊥ ) Z_∥^(*b) )_g δ ̂_CRκ^*
+		# @inbounds for j ∈ 1:o.Repl.kZ
+		# 	F2₀ = view(o.S⋂ReplZ̄X,j,:,:)  # o.N⋂ x o.DGP.kX
+		# 	t✻!(o.T₀, F2₀, F1₀)
+		# 	o.β̈v .= o.v .* (_β̈ = -view(o.β̈s,j:j,:))
+
+		# 	t✻plus!(dest, o.T₀, _β̈ )
+		# 	if o.Repl.Yendog[j+1]
+		# 		F2₁ = -o.negS✻UMZperpX[j+1]
+		# 		t✻!(reshape(o.T₁, 1, o.N⋂, o.N✻), F1₀', F2₁)
+		# 		t✻plus!(o.T₁, F2₀, F1₁)
+		# 		t✻plus!(dest, o.T₁, o.β̈v)  # "minus" because S✻UMZperpX is stored negated as F2₁=negS✻UMZperpX[j+1]
+		# 		t✻!(o.Q, F1₁', F2₁)
+		# 		for g ∈ 1:o.N⋂
+		# 			t✻!(o.Qv, view(o.Q,:,g,:), o.β̈v); coldotplus!(dest, g, o.v, o.Qv)
+		# 		end
+		# 	elseif o.Repl.Yendog[i+1]
+		# 		t✻!(o.T₁, F2₀, F1₁)
+		# 		t✻plus!(dest, o.T₁, o.β̈v)
+		# 	end
+		# end
+
 		# @inbounds for g ∈ 1:o.N⋂
 		# 	F2₀ = view(o.S⋂Xy₁,:,g,1) # o.DGP.kX x o.N⋂ x 1
 		# 	F2₁ = view(o.negS✻UMZperpX[1],:,g,:) # o.DGP.kX x o.N⋂ x o.N✻
@@ -649,46 +710,6 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64) where T
 		# 	end
 		# 	coldotminus!(dest, g, o.v, o.Qv)
 		# end
-
-		F2₀ = o.S⋂ȳ₁X  # 1 x o.N⋂ x o.DGP.kX
-		F2₁ = -o.negS✻UMZperpX[1]  # o.DGP.kX x o.N⋂ x o.N✻
-
-		t✻!(reshape(o.T₀, 1, o.N⋂, 1    ), F2₀, F1₀)
-		t✻!(reshape(o.T₁, 1, o.N⋂, o.N✻), F1₀', F2₁)
-
-		dest .= o.T₀
-		if o.Repl.Yendog[i+1]  # add terms that are zero only if Zpar[i] is exogenous, i.e. if a null refers only to exogenous variables
-			t✻plus!(o.T₁, dropdims(F2₀; dims=1), F1₁)
-			t✻plus!(dest, o.T₁, o.v)  # 0th- & 1st-order terms
-			t✻!(o.Q, F1₁', F2₁)
-			@inbounds for g ∈ 1:o.N⋂
-				t✻!(o.Qv, view(o.Q,:,g,:), o.v); coldotplus!(dest, g, o.v, o.Qv)
-			end
-		else
-			t✻plus!(dest, o.T₁, o.v)  # 0th- & 1st-order terms
-		end
-
-		# -(P_(X_∥ g) Z_∥^* )^' (M_(Z_⊥ ) Z_∥^(*b) )_g δ ̂_CRκ^*
-		@inbounds for j ∈ 1:o.Repl.kZ
-			F2₀ = view(o.S⋂ReplZ̄X,j,:,:)  # o.N⋂ x o.DGP.kX
-			t✻!(o.T₀, F2₀, F1₀)
-			o.β̈v .= o.v .* (_β̈ = -view(o.β̈s,j:j,:))
-
-			t✻plus!(dest, o.T₀, _β̈ )
-			if o.Repl.Yendog[j+1]
-				F2₁ = -o.negS✻UMZperpX[j+1]
-				t✻!(reshape(o.T₁, 1, o.N⋂, o.N✻), F1₀', F2₁)
-				t✻plus!(o.T₁, F2₀, F1₁)
-				t✻plus!(dest, o.T₁, o.β̈v)  # "minus" because S✻UMZperpX is stored negated as F2₁=negS✻UMZperpX[j+1]
-				t✻!(o.Q, F1₁', F2₁)
-				for g ∈ 1:o.N⋂
-					t✻!(o.Qv, view(o.Q,:,g,:), o.β̈v); coldotplus!(dest, g, o.v, o.Qv)
-				end
-			elseif o.Repl.Yendog[i+1]
-				t✻!(o.T₁, F2₀, F1₁)
-				t✻plus!(dest, o.T₁, o.β̈v)
-			end
-		end
   end
   nothing
 end
@@ -759,8 +780,12 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			symmetrize!(o.YY✻)
 			symmetrize!(o.YPXY✻)
 
+			M1 = Matrix{T}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
+			M2 = Matrix{T}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
 			@inbounds for b ∈ axes(o.κWRE,2)
-				o.κWRE[b] = 1/(1 - real(eigvalsNaN(invsym(view(o.YY✻,:,b,:)') * Symmetric(view(o.YPXY✻,:,b,:)))[1]))
+				M1 .= inv(view(o.YY✻,:,b,:))
+				t✻!(M2, M1, view(o.YPXY✻,:,b,:))
+				o.κWRE[b] = 1/(1 - real(eigvalsNaN(M2)[1]))
 			end
 			!iszero(o.fuller) && (o.κWRE .-= o.fuller / (o._Nobs - o.kX))
 

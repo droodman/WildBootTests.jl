@@ -124,7 +124,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	YY₁₂YPXY₁₂::Matrix{T}; x₁₁::Matrix{T}; x₁₂::Matrix{T}; x₂₁::Matrix{T}; x₂₂::Matrix{T}; κs::Matrix{T}; numerWRE::Matrix{T}
 	δnumer::Matrix{T}; YY✻::Array{T,3}; YPXY✻::Array{T,3}; κWRE::Array{T,3}; denomWRE::Array{T,3}; ARpars::Array{T,3}; J⋂ARpars::Array{T,3}; Jc::Vector{Array{T,3}}
 	invZperpZperpS✻ZperpUv::Matrix{T}; S✻ZperpUv::Matrix{T}; CT✻FEUv::Matrix{T}; invFEwtCT✻FEUv::Matrix{T}; PXY✻::Matrix{T}; S✻UMZperpv::Matrix{T}
-	T₀::Vector{T}; T₁::Matrix{T}; Qv::Matrix{T}; willfill::Bool; S✻diagUX::Array{T,3}
+	F₁::Matrix{T}; F₁β::Matrix{T}; F₂::Matrix{T}; willfill::Bool; S✻diagUX::Array{T,3}
 	invXXXZ̄::Matrix{T}; XȲ::Matrix{T}; ZÜ₂par::Matrix{T}; ȲȲ::Matrix{T}
 	S✻ȳ₁u₁::Array{T,3}; S✻Z̄u₁::Array{T,3}; S✻ȳ₁U₂par::Array{T,3}; S✻Z̄U₂par::Array{T,3};	PXZ̄::Matrix{T}; S✻ȲU::Matrix{SubArray{T, 1, Array{T, 3}, Tuple{Int64, Base.Slice{Base.OneTo{Int64}}, Int64}, true}}
 	Π̈RparY::Matrix{T}; Ü₂par::Matrix{T}; Z̄::Matrix{T}; S⋂ȳ₁X::Array{T,3}; S⋂ReplZ̄X::Array{T,3}
