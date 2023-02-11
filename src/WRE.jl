@@ -396,7 +396,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 
 			if o.willfill
 				t✻!(o.S✻⋂XU₂, o.S✻⋂XX, o.DGP.Π̈) ; o.S✻⋂XU₂ .= o.S✻⋂XY₂ .- o.S✻⋂XU₂
-				o.S✻⋂Xu₁ .= o.S✻⋂Xy₁; t✻minus!(o.S✻diagUX, o.S✻⋂XDGPZ, o.DGP.β̈ ); t✻plus!(o.S✻diagUX, o.S✻⋂XU₂, o.DGP.γ̈Y )
+				o.S✻⋂Xu₁ .= o.S✻⋂Xy₁; t✻minus!(o.S✻⋂Xu₁, o.S✻⋂XDGPZ, o.DGP.β̈ ); t✻plus!(o.S✻⋂Xu₁, o.S✻⋂XU₂, o.DGP.γ̈Y )
 				o.DGP.restricted &&
 					t✻minus!(o.S✻⋂Xu₁, o.S✻⋂X_DGPZR₁, r₁)
 				t✻!(o.S✻⋂XU₂par, o.S✻⋂XU₂, o.Repl.RparY)
@@ -712,9 +712,9 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 		    	coldotplus!(o.denom[1,1], o.clust[c].multiplier, dropdims(o.Jc[c]; dims=3))
 				end
 			else
-				o.denom[1,1] .= (HessianFixedkappa(o, [0], 0, zero(T)) .-   # XXX rewrite to avoid allocations
+				o.denom[1,1] .= (HessianFixedkappa(o, [0], 0, zero(T), _jk) .-   # XXX rewrite to avoid allocations
 				                     2 .* o.β̈s .* HessianFixedkappa(o, [0], 1, zero(T), _jk) .+ 
-								             o.β̈s.^2 .* HessianFixedkappa(o, [1], 1, zero(T)), _jk) ./ _As  # classical error variance
+								             o.β̈s.^2 .* HessianFixedkappa(o, [1], 1, zero(T), _jk)) ./ _As  # classical error variance
 			end
 			@storeWtGrpResults!(o.dist, o.sqrt ? o.numerWRE ./ sqrtNaN.(o.denom[1,1]) : o.numerWRE .^ 2 ./ o.denom[1,1])
 			o.denom[1,1] .*= o.Repl.RRpar[1]^2

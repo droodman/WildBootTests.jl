@@ -262,7 +262,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 
 		!iszero(o.fuller) &&
 			(o.Nobsⱼₖ = parent._Nobs .- (parent.fweights ? @panelsum(parent.wt, parent.info✻) : length.(parent.info✻)))
-	else
+	elseif parent.granular
 		ZperpX₁    = o.Zperp'o.X₁
 		ZperpX₂    = o.Zperp'parent.X₂
 		Zperpy₁    = o.Zperp'parent.y₁
