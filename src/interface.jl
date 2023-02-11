@@ -14,7 +14,7 @@ struct BootTestResult{T}
   b::Vector{T}
   V::Matrix{T}
   auxweights::Union{Nothing,Matrix{T}}
-  # o::StrBootTest
+  o::StrBootTest
 end
 
 "Return test statistic"
@@ -155,7 +155,7 @@ function __wildboottest(
 	                  o.p, padj, o.B, o.BFeas, o.N✻, o.dof, o.dof_r, plot, peak, ci,
 	                  getdist(o, diststat),
 	                  getb(o), getV(o),
-	                  getauxweights && reps>0 ? getv(o) : nothing #=, o=#)
+	                  getauxweights && reps>0 ? getv(o) : nothing , o)
 end
 
 vecconvert(T::DataType, X) = Vector(isa(X, AbstractArray) ? vec(    eltype(X)==T ? X : T.(X)) : X)
@@ -343,7 +343,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `inst::AbstractVecOrMat`: instruments (X₂)
 * `R1::AbstractMatrix` and `r1::AbstractVector`: model constraints; same format as for `R` and `r`
 * `clustid::AbstractVecOrMat{<:Integer}`: data vector/matrix of error and bootstrapping cluster identifiers; see notes 
-* `nbootclustvar::Integer=1`: number of bootstrap-clustering variables
+* `nbootclustvar::Integer=size(clustid,2)`: number of bootstrap-clustering variables
 * `nerrclustvar::Integer=nbootclustvar`: number of error-clustering variables
 * `issorted:Bool=false`: time-saving flag: data matrices are already sort by column types 2, then 3, then 1 (see notes)
 * `hetrobust::Bool=true`: true unless errors are treated as iid

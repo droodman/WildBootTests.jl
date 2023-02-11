@@ -45,6 +45,21 @@ end
 @inline colsum(X::AbstractArray{Bool}) = iszero(length(X)) ? Array{Int}(undef, 1, size(X)[2:end]...) : sum(X, dims=1)  # type-stable
 @inline rowsum(X::AbstractArray) = vec(sum(X, dims=2))
 
+function X₁₂Bminus!(dest::AbstractVecOrMat, X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractMatrix)
+	t✻minus!(dest, X₁, view(B,1:size(X₁,2),:))
+	t✻minus!(dest, X₂, B[size(X₁,2)+1:end,:])
+	nothing
+end
+function X₁₂Bplus!(dest::AbstractVecOrMat, X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractMatrix)
+	t✻plus!(dest, X₁, view(B,1:size(X₁,2),:))
+	t✻plus!(dest, X₂, B[size(X₁,2)+1:end,:])
+	nothing
+end
+function X₁₂B!(dest::AbstractVecOrMat{T}, X₁::AbstractVecOrMat{T}, X₂::AbstractArray{T}, B::AbstractMatrix{T}) where T
+	fill!(dest, zero(T))
+	X₁₂Bplus!(dest, X₁, X₂, B)
+	nothing
+end
 function X₁₂B(X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractMatrix)
 	dest = X₁ * view(B,1:size(X₁,2),:)
 	length(dest)>0 && length(X₂)>0 && t✻plus!(dest, X₂, B[size(X₁,2)+1:end,:])
@@ -413,6 +428,7 @@ function panelsum2(X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, wt::Abs
 	end
 end
 
+
 # macros to efficiently handle result = input
 macro panelsum(X, info)
 	:(local _X = $(esc(X)); iszero(length($(esc(info)))) || length($(esc(info)))==size(_X,ndims(_X)==3 ? 2 : 1) ? _X : panelsum(_X, $(esc(info)) ) )
@@ -746,7 +762,7 @@ end
 # in-place inverse of a set of symmetric matrices
 function invsym!(A::Array{T,3}) where T
 	@inbounds for g ∈ eachindex(axes(A,2))
-		A[:,g,:] = inv(@view A[:,g,:])
+		A[:,g,:] = invsym(@view A[:,g,:])
 	end
 	nothing
 end
@@ -763,27 +779,22 @@ end
 # delete-g inner products of two vector/matrices; returns full inner product too 
 function crossjk(A::VecOrMat{T}, B::AbstractMatrix{T}, info::Vector{UnitRange{Int64}}) where T
 	t = panelcross(A,B,info)
-	sumt = sumpanelcross(t)
-	if length(t)>0
-		@tturbo for i ∈ eachindex(axes(B,2)), g ∈ eachindex(axes(info)), j ∈ eachindex(axes(A,2))
-			t[j,g,i] = sumt[j,i] - t[j,g,i]
-		end
-	end
-	(sumt, t)
+	sumt = sum(t; dims=2)  # A'B
+	(dropdims(sumt; dims=2), sumt .- t)
 end
 function crossjk(A::VecOrMat{T}, B::Vector{T}, info::Vector{UnitRange{Int64}}) where T
 	(sumt, t) = crossjk(A, view(B,:,:), info)
 	(vec(sumt), t)
 end
 
-# helper for partialling Z from A, jackknifed. A and Z are data matrices/vectors. ZZZA is a 3-array (or 2-array if A is a vector)
+# helper for partialling Z from A, jackknifed. A and Z are data matrices/vectors. ZZZA is a 3-array
 # Returns {A_g - Z_g * ZZZA_g} stacked
 function partialjk(A::VecOrMat{T}, Z::Matrix{T}, ZZZA::Array{T}, info::Vector{UnitRange{Int64}}) where T
-	dest = similar(A)
+	dest = copy(A)
 	if length(A)>0
 		for (g,G) ∈ enumerate(info)
 	    @tturbo for i ∈ eachindex(axes(ZZZA,3)), j ∈ G, k ∈ eachindex(axes(Z,2))
-			  dest[j,i] = A[j,i] - Z[j,k] * ZZZA[k,g,i]
+			  dest[j,i] -= Z[j,k] * ZZZA[k,g,i]
 	    end
 		end
 	end
@@ -797,5 +808,4 @@ end
 @inline *(A::Vector{Matrix{T}}, B::Union{VecOrMat{T},Adjoint{T, Matrix{T}}}) where T = [a * B for a ∈ A]
 @inline *(A::Union{VecOrMat{T},Adjoint{T, Matrix{T}}}, B::Vector{Matrix{T}}) where T = [A * b for b ∈ B]
 @inline tranpose(A::Vector{Matrix{T}}) where T = transpose.(A)  # transpose entrywise
-@inline inv(A::Vector{Matrix{T}}) where T = inv.(A)
 @inline pinv(A::Vector{Matrix{T}}) where T = pinv.(A)

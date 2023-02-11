@@ -162,7 +162,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	!isempty(Rperp) && (o.Rperp = Rperp[1])
 	o.kZ = ncols(o.Rpar)
 
-	if parent.granular
+	if parent.granular || (parent.jk && parent.WREnonARubin)
 		if !o.isDGP && parent.WREnonARubin
 			o.X₁ = parent.DGP.X₁
 			o.Zperp = parent.DGP.Zperp
@@ -180,96 +180,99 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.ZR₁ = X₁₂B(parent.X₁, parent.Y₂, o.R₁invR₁R₁)
 		ZperpZ   = o.Zperp'o.Z
 		ZperpZR₁ = o.Zperp'o.ZR₁
+	end
 
-		if parent.jk && o.isDGP && parent.WREnonARubin
-			o.β̈ⱼₖ = Array{T,3}(undef, o.kZ, parent.N✻,1)
-			o.YYⱼₖ = Array{T,3}(undef, o.kZ+1, parent.N✻, o.kZ+1)
-			o.invXXXy₁parⱼₖ = Array{T,3}(undef, o.kX, parent.N✻, 1)
-			o.ZXinvXXXy₁parⱼₖ = Array{T,3}(undef, o.kZ, parent.N✻, 1)
-			if o.liml
-				o.κⱼₖ = Array{T,3}(undef, 1, parent.N✻, 1)
-				o.YPXYⱼₖ = Array{T,3}(undef, o.kZ+1, parent.N✻, o.kZ+1)
-			end
-
-			ZperpX₁   , _ZperpX₁    = crossjk(o.Zperp, o.X₁     , parent.info✻)  # full-sample and delete-g cross-moments
-			ZperpX₂   , _ZperpX₂    = crossjk(o.Zperp, parent.X₂, parent.info✻)
-			Zperpy₁   , _Zperpy₁    = crossjk(o.Zperp, parent.y₁, parent.info✻)
-			ZperpY₂   , _ZperpY₂    = crossjk(o.Zperp, parent.Y₂, parent.info✻)
-			ZperpZ    , _ZperpZ     = crossjk(o.Zperp, o.Z      , parent.info✻)
-			ZperpZR₁  , _ZperpZR₁   = crossjk(o.Zperp, o.ZR₁    , parent.info✻)
-			  ZperpZperp, _ZperpZperp = crossjk(o.Zperp, o.Zperp, parent.info✻)
-			_invZperpZperp = invsym(_ZperpZperp)  # inverses of all delete-g Zperp'Zperp
-
-      _invZperpZperpZperpX₁  = _invZperpZperp * _ZperpX₁
-      _invZperpZperpZperpX₂  = _invZperpZperp * _ZperpX₂
-      _invZperpZperpZperpZ   = _invZperpZperp * _ZperpZ
-      _invZperpZperpZperpZR₁ = _invZperpZperp * _ZperpZR₁
-      _invZperpZperpZperpY₂  = _invZperpZperp * _ZperpY₂
-      _invZperpZperpZperpy₁  = _invZperpZperp * _Zperpy₁
-
-			o.X₁ⱼₖ  = partialjk(     o.X₁ , o.Zperp, _invZperpZperpZperpX₁ , parent.info✻)    # FWL-process
-			o.X₂ⱼₖ  = partialjk(parent.X₂ , o.Zperp, _invZperpZperpZperpX₂ , parent.info✻)
-			o.y₁ⱼₖ  = partialjk(parent.y₁ , o.Zperp, _invZperpZperpZperpy₁ , parent.info✻)
-			o.Y₂ⱼₖ  = partialjk(parent.Y₂ , o.Zperp, _invZperpZperpZperpY₂ , parent.info✻)
-			o.Zⱼₖ   = partialjk(     o.Z  , o.Zperp, _invZperpZperpZperpZ  , parent.info✻)
-			o.ZR₁ⱼₖ = partialjk(     o.ZR₁, o.Zperp, _invZperpZperpZperpZR₁, parent.info✻)
-
-			tX₁ = ZperpX₁ - ZperpZperp * _invZperpZperpZperpX₁
-      tX₂ = ZperpX₂ - ZperpZperp * _invZperpZperpZperpX₂
-      tZ  = ZperpZ  - ZperpZperp * _invZperpZperpZperpZ 
-      tY₂ = ZperpY₂ - ZperpZperp * _invZperpZperpZperpY₂
-      ty₁ = Zperpy₁ .- ZperpZperp * _invZperpZperpZperpy₁
-
-			_y₁ = view(parent.y₁,:,:)
-			_X₂X₁   = parent.X₂'o.X₁      - ZperpX₂'_invZperpZperpZperpX₁ - _invZperpZperpZperpX₂'tX₁ - panelcross(o.X₂ⱼₖ, o.X₁ⱼₖ, parent.info✻)
-      _X₁X₁   = o.X₁'o.X₁           - ZperpX₁'_invZperpZperpZperpX₁ - _invZperpZperpZperpX₁'tX₁ - panelcross(o.X₁ⱼₖ, o.X₁ⱼₖ, parent.info✻)
-      _X₂X₂   = parent.X₂'parent.X₂ - ZperpX₂'_invZperpZperpZperpX₂ - _invZperpZperpZperpX₂'tX₂ - panelcross(o.X₂ⱼₖ, o.X₂ⱼₖ, parent.info✻)
-      _X₁Y₂   = o.X₁'parent.Y₂      - ZperpX₁'_invZperpZperpZperpY₂ - _invZperpZperpZperpX₁'tY₂ - panelcross(o.X₁ⱼₖ, o.Y₂ⱼₖ, parent.info✻)
-      _X₂Y₂   = parent.X₂'parent.Y₂ - ZperpX₂'_invZperpZperpZperpY₂ - _invZperpZperpZperpX₂'tY₂ - panelcross(o.X₂ⱼₖ, o.Y₂ⱼₖ, parent.info✻)
-      o.Y₂y₁ⱼₖ = parent.Y₂'_y₁       - ZperpY₂'_invZperpZperpZperpy₁ - _invZperpZperpZperpY₂'ty₁ - panelcross(o.Y₂ⱼₖ, o.y₁ⱼₖ, parent.info✻)
-      o.X₂y₁ⱼₖ = parent.X₂'_y₁       - ZperpX₂'_invZperpZperpZperpy₁ - _invZperpZperpZperpX₂'ty₁ - panelcross(o.X₂ⱼₖ, o.y₁ⱼₖ, parent.info✻)
-      o.X₁y₁ⱼₖ = o.X₁'_y₁            - ZperpX₁'_invZperpZperpZperpy₁ - _invZperpZperpZperpX₁'ty₁ - panelcross(o.X₁ⱼₖ, o.y₁ⱼₖ, parent.info✻)
-      o.Zy₁ⱼₖ  = o.Z'_y₁             - ZperpZ'_invZperpZperpZperpy₁  - _invZperpZperpZperpZ'ty₁  - panelcross(o.Zⱼₖ,  o.y₁ⱼₖ, parent.info✻)
-      o.XZⱼₖ   = [o.X₁'o.Z           - ZperpX₁'_invZperpZperpZperpZ  - _invZperpZperpZperpX₁'tZ  - panelcross(o.X₁ⱼₖ, o.Zⱼₖ,  parent.info✻)
-                  parent.X₂'o.Z      - ZperpX₂'_invZperpZperpZperpZ  - _invZperpZperpZperpX₂'tZ  - panelcross(o.X₂ⱼₖ, o.Zⱼₖ, parent.info✻)]
-      o.ZZⱼₖ   = o.Z'o.Z             - ZperpZ'_invZperpZperpZperpZ   - _invZperpZperpZperpZ'tZ   - panelcross(o.Zⱼₖ,  o.Zⱼₖ,  parent.info✻)
-      o.ZY₂ⱼₖ  = o.Z'parent.Y₂       - ZperpZ'_invZperpZperpZperpY₂  - _invZperpZperpZperpZ'tY₂  - panelcross(o.Zⱼₖ,  o.Y₂ⱼₖ, parent.info✻)
-      o.y₁y₁ⱼₖ = _y₁'_y₁ -2 * (Zperpy₁'_invZperpZperpZperpy₁) + _invZperpZperpZperpy₁'ZperpZperp*_invZperpZperpZperpy₁ - panelcross(o.y₁ⱼₖ, o.y₁ⱼₖ, parent.info✻)
-
-      o.XY₂ⱼₖ = [_X₁Y₂ ; _X₂Y₂]
-      o.XXⱼₖ = [_X₁X₁ ; _X₂X₁ ;;; _X₂X₁' ;  _X₂X₂]
-			o.invXXⱼₖ = invsym(o.XXⱼₖ)
-      o.H_2SLSⱼₖ = o.XZⱼₖ'o.invXXⱼₖ * o.XZⱼₖ
-      (!isone(o.κ) || o.liml) && (o.H_2SLSmZZⱼₖ = o.H_2SLSⱼₖ - o.ZZⱼₖ)
-
-			if o.restricted
-        tZR₁ = ZperpZR₁ - ZperpZperp * _invZperpZperpZperpZR₁
-        o.X₁ZR₁ⱼₖ    =  o.X₁'o.ZR₁      - ZperpX₁'_invZperpZperpZperpZR₁  - _invZperpZperpZperpX₁'tZR₁  - panelcross(o.X₁ⱼₖ,  o.ZR₁ⱼₖ, parent.info✻)
-        o.X₂ZR₁ⱼₖ    =  parent.X₂'o.ZR₁ - ZperpX₂'_invZperpZperpZperpZR₁  - _invZperpZperpZperpX₂'tZR₁  - panelcross(o.X₂ⱼₖ,  o.ZR₁ⱼₖ, parent.info✻)
-        o.ZZR₁ⱼₖ     =  o.Z'o.ZR₁       - ZperpZ'_invZperpZperpZperpZR₁   - _invZperpZperpZperpZ'tZR₁   - panelcross(o.Zⱼₖ,   o.ZR₁ⱼₖ, parent.info✻)
-        o.twoZR₁y₁ⱼₖ =2(o.ZR₁'_y₁       - ZperpZR₁'_invZperpZperpZperpy₁  - _invZperpZperpZperpZR₁'ty₁  - panelcross(o.ZR₁ⱼₖ,  o.y₁ⱼₖ, parent.info✻))
-        o.ZR₁ZR₁ⱼₖ   =  o.ZR₁'o.ZR₁     - ZperpZR₁'_invZperpZperpZperpZR₁ - _invZperpZperpZperpZR₁'tZR₁ - panelcross(o.ZR₁ⱼₖ, o.ZR₁ⱼₖ, parent.info✻)
-        o.ZR₁Y₂ⱼₖ    =  o.ZR₁'parent.Y₂ - ZperpZR₁'_invZperpZperpZperpY₂  - _invZperpZperpZperpZR₁'tY₂  - panelcross(o.ZR₁ⱼₖ, o.Y₂ⱼₖ,  parent.info✻)
-			else
-				o.Y₂y₁parⱼₖ    = o.Y₂y₁ⱼₖ 
-				o.Zy₁parⱼₖ     = o.Zy₁ⱼₖ
-				o.y₁pary₁parⱼₖ = o.y₁y₁ⱼₖ 
-				o.Xy₁parⱼₖ     = [o.X₁y₁ⱼₖ ; o.X₂y₁ⱼₖ]
-				o.y₁parⱼₖ      = o.y₁ⱼₖ
-			end
-
-			!iszero(o.fuller) &&
-				(o.Nobsⱼₖ = parent._Nobs .- (parent.fweights ? @panelsum(parent.wt, parent.info✻) : length.(parent.info✻)))
-		else
-			ZperpX₁    = o.Zperp'o.X₁
-			ZperpX₂    = o.Zperp'parent.X₂
-			Zperpy₁    = o.Zperp'parent.y₁
-			ZperpY₂    = o.Zperp'parent.Y₂
-			ZperpZ     = o.Zperp'o.Z
-			ZperpZR₁   = o.Zperp'o.ZR₁
-			ZperpZperp = o.Zperp'o.Zperp
+	if parent.jk && o.isDGP && parent.WREnonARubin
+		o.β̈ⱼₖ = Array{T,3}(undef, o.kZ, parent.N✻,1)
+		o.YYⱼₖ = Array{T,3}(undef, o.kZ+1, parent.N✻, o.kZ+1)
+		o.invXXXy₁parⱼₖ = Array{T,3}(undef, o.kX, parent.N✻, 1)
+		o.ZXinvXXXy₁parⱼₖ = Array{T,3}(undef, o.kZ, parent.N✻, 1)
+		if o.liml
+			o.κⱼₖ = Array{T,3}(undef, 1, parent.N✻, 1)
+			o.YPXYⱼₖ = Array{T,3}(undef, o.kZ+1, parent.N✻, o.kZ+1)
 		end
 
+		ZperpX₁   , _ZperpX₁    = crossjk(o.Zperp, o.X₁     , parent.info✻)  # full-sample and delete-g cross-moments
+		ZperpX₂   , _ZperpX₂    = crossjk(o.Zperp, parent.X₂, parent.info✻)
+		Zperpy₁   , _Zperpy₁    = crossjk(o.Zperp, parent.y₁, parent.info✻)
+		ZperpY₂   , _ZperpY₂    = crossjk(o.Zperp, parent.Y₂, parent.info✻)
+		ZperpZ    , _ZperpZ     = crossjk(o.Zperp, o.Z      , parent.info✻)
+		ZperpZR₁  , _ZperpZR₁   = crossjk(o.Zperp, o.ZR₁    , parent.info✻)
+		ZperpZperp, _invZperpZperp = crossjk(o.Zperp, o.Zperp  , parent.info✻)
+		invsym!(_invZperpZperp)  # inverses of all delete-g Zperp'Zperp
+
+    _invZperpZperpZperpX₁  = _invZperpZperp * _ZperpX₁
+    _invZperpZperpZperpX₂  = _invZperpZperp * _ZperpX₂
+    _invZperpZperpZperpZ   = _invZperpZperp * _ZperpZ
+    _invZperpZperpZperpZR₁ = _invZperpZperp * _ZperpZR₁
+    _invZperpZperpZperpY₂  = _invZperpZperp * _ZperpY₂
+    _invZperpZperpZperpy₁  = _invZperpZperp * _Zperpy₁
+
+		o.X₁ⱼₖ  = partialjk(     o.X₁ , o.Zperp, _invZperpZperpZperpX₁ , parent.info✻)    # FWL-process
+		o.X₂ⱼₖ  = partialjk(parent.X₂ , o.Zperp, _invZperpZperpZperpX₂ , parent.info✻)
+		o.y₁ⱼₖ  = partialjk(parent.y₁ , o.Zperp, _invZperpZperpZperpy₁ , parent.info✻)
+		o.Y₂ⱼₖ  = partialjk(parent.Y₂ , o.Zperp, _invZperpZperpZperpY₂ , parent.info✻)
+		o.Zⱼₖ   = partialjk(     o.Z  , o.Zperp, _invZperpZperpZperpZ  , parent.info✻)
+		o.ZR₁ⱼₖ = partialjk(     o.ZR₁, o.Zperp, _invZperpZperpZperpZR₁, parent.info✻)
+
+		tX₁ = ZperpX₁ - ZperpZperp * _invZperpZperpZperpX₁
+    tX₂ = ZperpX₂ - ZperpZperp * _invZperpZperpZperpX₂
+    tZ  = ZperpZ  - ZperpZperp * _invZperpZperpZperpZ 
+    tY₂ = ZperpY₂ - ZperpZperp * _invZperpZperpZperpY₂
+    ty₁ = Zperpy₁ .- ZperpZperp * _invZperpZperpZperpy₁
+
+		_y₁ = view(parent.y₁,:,:)
+		_X₂X₁   = parent.X₂'o.X₁      - ZperpX₂'_invZperpZperpZperpX₁ - _invZperpZperpZperpX₂'tX₁ - panelcross(o.X₂ⱼₖ, o.X₁ⱼₖ, parent.info✻)
+    _X₁X₁   = o.X₁'o.X₁           - ZperpX₁'_invZperpZperpZperpX₁ - _invZperpZperpZperpX₁'tX₁ - panelcross(o.X₁ⱼₖ, o.X₁ⱼₖ, parent.info✻)
+    _X₂X₂   = parent.X₂'parent.X₂ - ZperpX₂'_invZperpZperpZperpX₂ - _invZperpZperpZperpX₂'tX₂ - panelcross(o.X₂ⱼₖ, o.X₂ⱼₖ, parent.info✻)
+    _X₁Y₂   = o.X₁'parent.Y₂      - ZperpX₁'_invZperpZperpZperpY₂ - _invZperpZperpZperpX₁'tY₂ - panelcross(o.X₁ⱼₖ, o.Y₂ⱼₖ, parent.info✻)
+    _X₂Y₂   = parent.X₂'parent.Y₂ - ZperpX₂'_invZperpZperpZperpY₂ - _invZperpZperpZperpX₂'tY₂ - panelcross(o.X₂ⱼₖ, o.Y₂ⱼₖ, parent.info✻)
+    o.Y₂y₁ⱼₖ = parent.Y₂'_y₁       - ZperpY₂'_invZperpZperpZperpy₁ - _invZperpZperpZperpY₂'ty₁ - panelcross(o.Y₂ⱼₖ, o.y₁ⱼₖ, parent.info✻)
+    o.X₂y₁ⱼₖ = parent.X₂'_y₁       - ZperpX₂'_invZperpZperpZperpy₁ - _invZperpZperpZperpX₂'ty₁ - panelcross(o.X₂ⱼₖ, o.y₁ⱼₖ, parent.info✻)
+    o.X₁y₁ⱼₖ = o.X₁'_y₁            - ZperpX₁'_invZperpZperpZperpy₁ - _invZperpZperpZperpX₁'ty₁ - panelcross(o.X₁ⱼₖ, o.y₁ⱼₖ, parent.info✻)
+    o.Zy₁ⱼₖ  = o.Z'_y₁             - ZperpZ'_invZperpZperpZperpy₁  - _invZperpZperpZperpZ'ty₁  - panelcross(o.Zⱼₖ,  o.y₁ⱼₖ, parent.info✻)
+    o.XZⱼₖ   = [o.X₁'o.Z           - ZperpX₁'_invZperpZperpZperpZ  - _invZperpZperpZperpX₁'tZ  - panelcross(o.X₁ⱼₖ, o.Zⱼₖ,  parent.info✻)
+                parent.X₂'o.Z      - ZperpX₂'_invZperpZperpZperpZ  - _invZperpZperpZperpX₂'tZ  - panelcross(o.X₂ⱼₖ, o.Zⱼₖ, parent.info✻)]
+    o.ZZⱼₖ   = o.Z'o.Z             - ZperpZ'_invZperpZperpZperpZ   - _invZperpZperpZperpZ'tZ   - panelcross(o.Zⱼₖ,  o.Zⱼₖ,  parent.info✻)
+    o.ZY₂ⱼₖ  = o.Z'parent.Y₂       - ZperpZ'_invZperpZperpZperpY₂  - _invZperpZperpZperpZ'tY₂  - panelcross(o.Zⱼₖ,  o.Y₂ⱼₖ, parent.info✻)
+    o.y₁y₁ⱼₖ = _y₁'_y₁ -2 * (Zperpy₁'_invZperpZperpZperpy₁) + _invZperpZperpZperpy₁'ZperpZperp*_invZperpZperpZperpy₁ - panelcross(o.y₁ⱼₖ, o.y₁ⱼₖ, parent.info✻)
+
+    o.XY₂ⱼₖ = [_X₁Y₂ ; _X₂Y₂]
+    o.XXⱼₖ = [_X₁X₁ ; _X₂X₁ ;;; _X₂X₁' ;  _X₂X₂]
+		o.invXXⱼₖ = invsym(o.XXⱼₖ)
+    o.H_2SLSⱼₖ = o.XZⱼₖ'o.invXXⱼₖ * o.XZⱼₖ
+    (!isone(o.κ) || o.liml) && (o.H_2SLSmZZⱼₖ = o.H_2SLSⱼₖ - o.ZZⱼₖ)
+
+		if o.restricted
+      tZR₁ = ZperpZR₁ - ZperpZperp * _invZperpZperpZperpZR₁
+      o.X₁ZR₁ⱼₖ    =  o.X₁'o.ZR₁      - ZperpX₁'_invZperpZperpZperpZR₁  - _invZperpZperpZperpX₁'tZR₁  - panelcross(o.X₁ⱼₖ,  o.ZR₁ⱼₖ, parent.info✻)
+      o.X₂ZR₁ⱼₖ    =  parent.X₂'o.ZR₁ - ZperpX₂'_invZperpZperpZperpZR₁  - _invZperpZperpZperpX₂'tZR₁  - panelcross(o.X₂ⱼₖ,  o.ZR₁ⱼₖ, parent.info✻)
+      o.ZZR₁ⱼₖ     =  o.Z'o.ZR₁       - ZperpZ'_invZperpZperpZperpZR₁   - _invZperpZperpZperpZ'tZR₁   - panelcross(o.Zⱼₖ,   o.ZR₁ⱼₖ, parent.info✻)
+      o.twoZR₁y₁ⱼₖ =2(o.ZR₁'_y₁       - ZperpZR₁'_invZperpZperpZperpy₁  - _invZperpZperpZperpZR₁'ty₁  - panelcross(o.ZR₁ⱼₖ,  o.y₁ⱼₖ, parent.info✻))
+      o.ZR₁ZR₁ⱼₖ   =  o.ZR₁'o.ZR₁     - ZperpZR₁'_invZperpZperpZperpZR₁ - _invZperpZperpZperpZR₁'tZR₁ - panelcross(o.ZR₁ⱼₖ, o.ZR₁ⱼₖ, parent.info✻)
+      o.ZR₁Y₂ⱼₖ    =  o.ZR₁'parent.Y₂ - ZperpZR₁'_invZperpZperpZperpY₂  - _invZperpZperpZperpZR₁'tY₂  - panelcross(o.ZR₁ⱼₖ, o.Y₂ⱼₖ,  parent.info✻)
+			o.y₁parⱼₖ    = Vector{T}(undef, parent.Nobs)
+		else
+			o.Y₂y₁parⱼₖ    = o.Y₂y₁ⱼₖ 
+			o.Zy₁parⱼₖ     = o.Zy₁ⱼₖ
+			o.y₁pary₁parⱼₖ = o.y₁y₁ⱼₖ 
+			o.Xy₁parⱼₖ     = [o.X₁y₁ⱼₖ ; o.X₂y₁ⱼₖ]
+			o.y₁parⱼₖ      = o.y₁ⱼₖ
+		end
+
+		!iszero(o.fuller) &&
+			(o.Nobsⱼₖ = parent._Nobs .- (parent.fweights ? @panelsum(parent.wt, parent.info✻) : length.(parent.info✻)))
+	else
+		ZperpX₁    = o.Zperp'o.X₁
+		ZperpX₂    = o.Zperp'parent.X₂
+		Zperpy₁    = o.Zperp'parent.y₁
+		ZperpY₂    = o.Zperp'parent.Y₂
+		ZperpZ     = o.Zperp'o.Z
+		ZperpZR₁   = o.Zperp'o.ZR₁
+		ZperpZperp = o.Zperp'o.Zperp
+	end
+
+	if parent.granular || (parent.jk && parent.WREnonARubin)
 		if !o.isDGP && parent.WREnonARubin
 			o.X₂ = parent.DGP.X₂
 			o.y₁ = parent.DGP.y₁
@@ -328,11 +331,14 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.y₁par = copy(o.y₁)
 
 		if o.isDGP && !parent.scorebs
-			o.Ü₂ = [Matrix{T}(undef, parent.Nobs, parent.kY₂) for _ in 0:parent.jk]
-			o.u⃛₁ = [Vector{T}(undef, parent.Nobs) for _ in 0:parent.jk]
+			o.u⃛₁ = Vector{T}(undef, parent.Nobs)
+			o.Ü₂ = Matrix{T}(undef, parent.Nobs, parent.kY₂)
 		end
+		o.ȳ₁ = Vector{T}(undef, parent.Nobs)
+		o.Ȳ₂ = Matrix{T}(undef, parent.Nobs, parent.kY₂)
+	end
 
-	else  # coarse
+	if !parent.granular
 		o.X₁par = parent.X₁ * o.RparX  # X component of retained regressors
 	  o.Z = parent.Y₂ * o.RparY; o.Z .+= o.X₁par  # Z∥
 
@@ -513,7 +519,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			end
 		end
 
-		parent.scorebs &&
+		(parent.scorebs || parent.granular || parent.jk) &&
 			(o.ü₁ = [Vector{T}(undef, parent.Nobs) for _ in 0:parent.jk])
 		if o.liml
 			o.H_2SLSmZZ = o.H_2SLS - o.ZZ
@@ -523,9 +529,13 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	else
     t✻minus!(o.X₁par, o.Zperp, o.invZperpZperp * (o.Zperp'o.X₁par))
 		o.Yendog = [true colsum(o.RparY .!= zero(T)).!=0]
+		parent.jk && parent.willfill && (o.PXZ = X₁₂B(o.X₁, o.X₂, o.V))
 	end
 
-	!o.restricted && (o.t₁ = zeros(T, parent.kZ))
+	if !o.restricted
+		o.t₁ = zeros(T, parent.kZ)
+		parent.jk && (o.t₁Y = o.t₁[parent.kX₁+1:end])
+	end
 
 	nothing
 end
@@ -552,8 +562,6 @@ function MakeH!(o::StrEstimator{T}, parent::StrBootTest{T}, makeXAR::Bool=false)
   H = isone(o.κ) ? o.H_2SLS : o.ZZ + o.κ * o.H_2SLSmZZ
   o.invH = invsym(H)
 
-	# parent.jk && (_invH = inv(isone(o.κ) ? _H_2SLS : _ZZ + o.κ * _H_2SLSmZZ))
-
   if makeXAR  # for replication regression in score bootstrap of IV/GMM
 	  o.A = ncols(o.Rperp)>0 ? #=Symmetric=#(o.Rperp * invsym(o.Rperp'H*o.Rperp) * o.Rperp') : o.invH
 	  o.AR = o.A * (o.Rpar'parent.R')
@@ -577,6 +585,8 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁
 			(o.y₁par .= o.y₁ .- o.ZR₁ * r₁)
 
 		if _jk
+			o.t₁Y = o.t₁[parent.kX₁+1:end]
+			o.y₁parⱼₖ .= o.y₁ⱼₖ; t✻minus!(o.y₁parⱼₖ, o.ZR₁ⱼₖ, r₁)
 			o.y₁pary₁parⱼₖ = o.y₁y₁ⱼₖ - o.twoZR₁y₁ⱼₖ'r₁ + r₁'o.ZR₁ZR₁ⱼₖ * r₁
 			o.Y₂y₁parⱼₖ    = o.Y₂y₁ⱼₖ - o.ZR₁Y₂ⱼₖ'r₁
 			o.Zy₁parⱼₖ     = o.Zy₁ⱼₖ  - o.ZZR₁ⱼₖ * r₁
@@ -661,15 +671,22 @@ function MakeResidualsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 end
 
 function MakeResidualsIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
-  if parent.scorebs
-		o.ü₁[1] .= o.y₁par .- o.Z * o.β̈
-	else
+	if parent.jk
+		o.ü₁[1] .= o.y₁parⱼₖ
+		for (g,S) ∈ enumerate(parent.info✻)
+			t✻minus!(view(o.ü₁[1],S), view(o.Zⱼₖ,S,:), view(o.β̈ⱼₖ,:,g,1))
+		end
+	elseif parent.granular || parent.scorebs
+		o.ü₁[1] .= o.y₁par .- o.Z * o.β̈  
+	end
+
+  if !parent.scorebs
 		_β = [1 ; -o.β̈ ]
 	  uu = _β'o.YY * _β
 
 	  Xu = o.Xy₁par - o.XZ * o.β̈  # after DGP regression, compute Y₂ residuals by regressing Y₂ on X while controlling for y₁ residuals, done through FWL
 	  negXuinvuu = Xu / -uu
-	  o.Π̈ = invsym(o.XX + negXuinvuu * Xu') * (negXuinvuu * (o.Y₂y₁par - o.ZY₂'o.β̈)' + o.XY₂)
+	  o.Π̈ = invsym(o.XX + negXuinvuu * Xu') * (negXuinvuu * (o.Y₂y₁par - o.ZY₂'o.β̈ )' + o.XY₂)
 		o.γ̈ = o.Rpar * o.β̈  + o.t₁ - parent.Repl.t₁
     o.Ü₂Ü₂ = o.Y₂Y₂ - (o.Π̈)'o.XY₂ - o.XY₂'o.Π̈ + (o.Π̈)'o.XX*o.Π̈
 
@@ -684,13 +701,28 @@ function MakeResidualsIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
     o.ȳ₁Ü₂ = o.γ⃛'o.XÜ₂
 
     if parent.granular || parent.jk
-      o.Ȳ₂ = X₁₂B(o.X₁, o.X₂, o.Π̈ )  
-      o.ȳ₁ = o.X₁ * tmp + o.Ȳ₂ * o.γ̈Y
+      X₁₂B!(o.Ȳ₂, o.X₁, o.X₂, o.Π̈ )  
+      t✻!(o.ȳ₁, o.X₁, tmp); t✻plus!(o.ȳ₁, o.Ȳ₂, o.γ̈Y)
 		end
 
-	  if parent.granular
-			o.Ü₂[1] .= o.Y₂ .- X₁₂B(o.X₁, o.X₂, o.Π̈)
-			o.u⃛₁[1] .= o.y₁par .- o.Z * o.β̈  .+ o.Ü₂[1] * o.γ̈Y
+		if parent.jk
+			o.Ü₂ .= o.Y₂ⱼₖ
+			o.u⃛₁ .= o.ü₁[1]
+			_t₁Y = o.t₁Y - parent.Repl.t₁Y
+			Π̈ⱼₖ = Matrix{T}(undef, o.kX, parent.kY₂)
+			for (g,S) ∈ enumerate(parent.info✻)
+				_β .= [1 ; -view(o.β̈ⱼₖ,:,g,1)]
+				uu = _β'view(o.YYⱼₖ,:,g,:) * _β
+		
+				Xu .= view(o.Xy₁parⱼₖ,:,g,:); t✻minus!(Xu, view(o.XZⱼₖ,:,g,:), view(o.β̈ⱼₖ,:,g,1))  # after DGP regression, compute Y₂ residuals by regressing Y₂ on X while controlling for y₁ residuals, done through FWL
+				negXuinvuu .= Xu ./ -uu
+				Π̈ⱼₖ .= invsym(view(o.XXⱼₖ,:,g,:) + negXuinvuu * Xu') * (negXuinvuu * (view(o.Y₂y₁parⱼₖ,:,g,:) - view(o.ZY₂ⱼₖ,:,g,:)'view(o.β̈ⱼₖ,:,g,1))' + view(o.XY₂ⱼₖ,:,g,:))
+				X₁₂Bminus!(view(o.Ü₂,S,:), view(o.X₁ⱼₖ,S,:), view(o.X₂ⱼₖ,S,:), Π̈ⱼₖ)
+				t✻plus!(view(o.u⃛₁,S), view(o.Ü₂,S,:), o.RparY * view(o.β̈ⱼₖ,:,g,1) + _t₁Y)
+			end
+		elseif parent.granular
+			o.Ü₂ .= o.Y₂; X₁₂Bminus!(o.Ü₂, o.X₁, o.X₂, o.Π̈ )
+			o.u⃛₁ .= o.ü₁[1]; t✻plus!(o.u⃛₁, o.Ü₂, o.γ̈Y)
 		end
   end
 	nothing

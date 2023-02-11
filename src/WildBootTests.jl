@@ -54,7 +54,7 @@ function boottestWRE!(o::StrBootTest{T}) where T
 		MakeWildWeights!(o, last(o.WeightGrp[1])-1, first=true)
 	end
 
-	o.granular ? PrepWREGranular!(o) : PrepWRE!(o)
+	PrepWRE!(o)
 
 	MakeWREStats!(o, 1)
 	for w ∈ 2:o.Nw  # do group 1 first because it includes col 1, which is all that might need updating in constructing CI in WCU
@@ -95,6 +95,6 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T)
 	nothing
 end
  
-include("precompiler.jl")
+# include("precompiler.jl")
 
 end
