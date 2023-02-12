@@ -261,7 +261,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		end
 
 		!iszero(o.fuller) &&
-			(o.Nobsⱼₖ = parent._Nobs .- (parent.fweights ? @panelsum(parent.wt, parent.info✻) : length.(parent.info✻)))
+			(o.Nobsⱼₖ = parent._Nobs .- (parent.fweights ? @panelsum(parent.wt, parent.info✻) : T.(length.(parent.info✻))))
 	elseif parent.granular
 		ZperpX₁    = o.Zperp'o.X₁
 		ZperpX₂    = o.Zperp'parent.X₂
@@ -617,7 +617,7 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁
 
 			if o.liml
 				o.YPXYⱼₖ .= [o.invXXXy₁parⱼₖ'o.Xy₁parⱼₖ ; o.ZXinvXXXy₁parⱼₖ ;;; o.ZXinvXXXy₁parⱼₖ' ; o.H_2SLSⱼₖ]
-				o.κⱼₖ .= reshape(one(T) ./ (one(T) .- real(getindex.(eigvalsNaN.(each(invsym(o.YYⱼₖ) * o.YPXYⱼₖ)), 1))), (1,:,1))
+				o.κⱼₖ .= reshape(one(T) ./ (one(T) .- getindex.(real.(eigvalsNaN.(each(invsym(o.YYⱼₖ) * o.YPXYⱼₖ))), 1)), (1,:,1))
 				!iszero(o.fuller) && (o.κⱼₖ .-= reshape(o.fuller ./ (o.Nobsⱼₖ .- parent.kX)), (1,:,1))
 				o.invHⱼₖ .= o.ZZⱼₖ .+ o.κⱼₖ .* o.H_2SLSmZZⱼₖ; invsym!(o.invHⱼₖ)
 				o.β̈ⱼₖ .= o.κⱼₖ .* (o.ZXinvXXXy₁parⱼₖ .- o.Zy₁parⱼₖ) .+ o.Zy₁parⱼₖ
@@ -702,7 +702,7 @@ function MakeResidualsIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 
     if parent.granular || parent.jk
       X₁₂B!(o.Ȳ₂, o.X₁, o.X₂, o.Π̈ )  
-      t✻!(o.ȳ₁, o.X₁, tmp); t✻plus!(o.ȳ₁, o.Ȳ₂, o.γ̈Y)
+      mul!(o.ȳ₁, o.X₁, tmp); t✻plus!(o.ȳ₁, o.Ȳ₂, o.γ̈Y)
 		end
 
 		if parent.jk

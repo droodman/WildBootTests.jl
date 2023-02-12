@@ -259,6 +259,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 	nothing
 end
 
+# stuff done when r changes, but outside looping in HessianFixedkappa() and Filling!()
 function PrepWRE!(o::StrBootTest{T}) where T
 	if o.null
 		r₁ = [o.r₁ ; o.r]
@@ -278,8 +279,8 @@ function PrepWRE!(o::StrBootTest{T}) where T
 
 	if o.granular || o.jk
 		if o.null
-	  	t✻!(o.Ü₂par, o.DGP.Ü₂, o.Repl.RparY)
-			t✻!(o.Z̄, o.DGP.Ȳ₂, o.Repl.RparY); o.Z̄ .+= o.Repl.X₁par
+	  	mul!(o.Ü₂par, o.DGP.Ü₂, o.Repl.RparY)
+			mul!(o.Z̄, o.DGP.Ȳ₂, o.Repl.RparY); o.Z̄ .+= o.Repl.X₁par
 		end
 
 		panelcross!(o.S✻Xu₁, o.DGP.X₁, o.DGP.X₂, o.DGP.u⃛₁, o.info✻)
@@ -331,7 +332,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 
 	if !o.granular
 		if !o.jk  # in coarse case, if not jackknifing, construct things while avoiding O(N) operations
-		 	t✻!(o.Π̈Rpar, o.DGP.Π̈  , o.Repl.RparY); o.Π̈Rpar[1:o.DGP.kX₁,:] += o.DGP.RperpXperp'o.DGP.RperpXperp \ o.DGP.RperpXperp'o.Repl.RparX 
+		 	mul!(o.Π̈Rpar, o.DGP.Π̈  , o.Repl.RparY); o.Π̈Rpar[1:o.DGP.kX₁,:] += o.DGP.RperpXperp'o.DGP.RperpXperp \ o.DGP.RperpXperp'o.Repl.RparX 
 			Π⃛y = [o.DGP.RperpXperp'o.DGP.γ̈X ; zeros(T, o.kX₂, 1)] + o.DGP.Π̈ * o.DGP.γ̈Y
 
 			t✻!(o.S✻XU₂, o.S✻XX, o.DGP.Π̈); o.S✻XU₂ .= o.S✻XY₂ .- o.S✻XU₂
@@ -421,20 +422,6 @@ function PrepWRE!(o::StrBootTest{T}) where T
 		end
 	end
 
-# if o.jk
-#   for i ∈ 1:o.Repl.kZ
-#     F1₀ = o.invXXXX₁par[:,i] + o.Π̈Rpar[:,i]
-#     for g ∈ 1:o.Clust[1].N
-#       S⋂PXȲZperp[i+1][g,] = F1₀'o.S⋂XZperp[g]
-#       for j ∈ 1:i
-#         o.FillingT0[i+1,j+1][g] = (o.S⋂XX₁par[g,j] + o.S⋂XX[g] * PiddotRparY[:,j])'F1₀
-# 			end
-# 			o.FillingT0[i+1,  1][g] = o.DGP.γ⃛'o.S⋂XX[g] * F1₀
-# 		end
-#     o.NFE && !o.FEboot &&
-#       (crosstabFE!(o, o.CT_FEcapȲ[i+1], view(o.PXZ̄,:,i), o.info⋂Data) .* o.invFEwt)
-# 	end
-# end
 
 	if o.not2SLS
 		@inbounds for i ∈ 0:o.Repl.kZ, j ∈ 0:i
@@ -477,10 +464,10 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, row::Integer,
 	else
 		if !iszero(κ)  # repetitiveness in this section to maintain type stability
 			if o.Repl.Yendog[i+1]
-				t✻!(o.T1L, o.S✻XU[i+1], o.v)
+				mul!(o.T1L, o.S✻XU[i+1], o.v)
 				o.T1L .+= view(o.XȲ,:,i+1)
 				if o.Repl.Yendog[j+1]
-					t✻!(o.T1R, o.invXXS✻XU[j+1], o.v)
+					mul!(o.T1R, o.invXXS✻XU[j+1], o.v)
 					if iszero(j)
 						o.T1R .+=  view(o.DGP.γ⃛,:,1)
 					else
@@ -488,17 +475,17 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, row::Integer,
 					end
 					coldot!(dest, row, o.T1L, o.T1R)
 				else
-					t✻!(view(dest,row,:), o.T1L', view(o.invXXXZ̄,:,j))
+					mul!(view(dest,row,:), o.T1L', view(o.invXXXZ̄,:,j))
 				end
 			else
 				if o.Repl.Yendog[j+1]
-					t✻!(o.T1R, o.invXXS✻XU[j+1], o.v)
+					mul!(o.T1R, o.invXXS✻XU[j+1], o.v)
 					if iszero(j)
 						o.T1R .+=  o.DGP.γ⃛
 					else
 						o.T1R .+= view(o.invXXXZ̄,:,j)
 					end
-					t✻!(view(dest,row,:), o.T1R', view(o.XȲ,:,i+1))
+					mul!(view(dest,row,:), o.T1R', view(o.XȲ,:,i+1))
 				else
 					dest[row,:] .= dot(view(o.invXXXZ̄,:,j), view(o.XȲ,:,i+1))
 				end
@@ -506,11 +493,11 @@ function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, row::Integer,
 		end
 		if !isone(κ)
 			if o.Repl.Yendog[j+1] && o.Repl.Yendog[i+1]
-				t✻!(o.invZperpZperpS✻ZperpUv, o.invZperpZperpS✻ZperpU[i+1], o.v)
-				t✻!(             o.S✻ZperpUv,              o.S✻ZperpU[j+1], o.v)
+				mul!(o.invZperpZperpS✻ZperpUv, o.invZperpZperpS✻ZperpU[i+1], o.v)
+				mul!(             o.S✻ZperpUv,              o.S✻ZperpU[j+1], o.v)
 				if o.NFE>0 && !o.FEboot
-					t✻!(       o.CT✻FEUv,        o.CT✻FEU[i+1], o.v)
-					t✻!(o.invFEwtCT✻FEUv, o.invFEwtCT✻FEU[j+1], o.v)
+					mul!(       o.CT✻FEUv,        o.CT✻FEU[i+1], o.v)
+					mul!(o.invFEwtCT✻FEUv, o.invFEwtCT✻FEU[j+1], o.v)
 				end
 				if iszero(κ)
 					dest[row,:] .= o.ȲȲ[i+1,j+1]; t✻plus!(view(dest,row:row,:), view(o.S✻ȲUfold,i+1,:,j+1)', o.v)
@@ -608,14 +595,15 @@ end
 function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, _jk::Bool) where T
 	if o.granular
 		if o.Nw == 1  # create or avoid NxB matrix?
-			t✻!(o.S✻UMZperpv, view(o.negS✻UMZperp,:,:,1), o.v); o.S✻UMZperpv .= o.DGP.ȳ₁ .- o.S✻UMZperpv
+			o.S✻UMZperpv .= o.DGP.ȳ₁
+			t✻minus!(o.S✻UMZperpv, view(o.negS✻UMZperp,:,:,1), o.v)
 			if o.Repl.Yendog[i+1]
 				o.PXY✻ .= view(o.PXZ̄,:,i); t✻plus!(o.PXY✻, view(o.S✻UPX,:,:,i), o.v)
 				panelcoldot!(dest, o.S✻UMZperpv, o.PXY✻, o.info⋂)
 				@inbounds for j ∈ 1:o.Repl.kZ
 					_β̈  = view(o.β̈s,j:j,:)
 					matbyrow!(o.β̈v, o.v, o.β̈s, j)
-					t✻!(o.S✻UMZperpv, view(o.Z̄,:,j), _β̈ )
+					mul!(o.S✻UMZperpv, view(o.Z̄,:,j), _β̈ )
 					o.Repl.Yendog[j+1] &&
 						(t✻minus!(o.S✻UMZperpv, view(o.negS✻UMZperp,:,:,j+1), o.β̈v))
 					panelcoldotminus!(dest, o.S✻UMZperpv, o.PXY✻, o.info⋂)
@@ -626,7 +614,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, _jk::Boo
 				@inbounds for j ∈ 1:o.Repl.kZ
 					_β̈  = view(o.β̈s,j:j,:)
 					matbyrow!(o.β̈v, o.v, o.β̈s, j)
-					t✻!(o.S✻UMZperpv, view(o.Z̄,:,j), _β̈ )
+					mul!(o.S✻UMZperpv, view(o.Z̄,:,j), _β̈ )
 					o.Repl.Yendog[j+1] &&
 						(t✻minus!(o.S✻UMZperpv, view(o.negS✻UMZperp,:,:,j+1), o.β̈v))
 					panelsumminus!(dest, o.S✻UMZperpv, PXY✻, o.info⋂)
@@ -639,7 +627,11 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, _jk::Boo
 					_β̈ = view(o.β̈s,j:j,:)
 					matbyrow!(o.β̈v, o.v, o.β̈s, j)
 				end
-				(o.purerobust ? FillingLoop1! : FillingLoop2!)(o, dest, i, j, _β̈ )
+				if o.purerobust
+					FillingLoop1!(o, dest, i, j, _β̈ )
+				else
+					FillingLoop2!(o, dest, i, j, _β̈ )
+				end
 			end
 		end
 	else  # coarse error clustering
@@ -733,9 +725,9 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 
 			M1 = Matrix{T}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
 			M2 = Matrix{T}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
-			@inbounds for b ∈ axes(o.κWRE,2)
-				M1 .= invsym(view(o.YY✻,:,b,:))
-				t✻!(M2, M1, view(o.YPXY✻,:,b,:))
+			@inbounds for b ∈ eachindex(axes(o.κWRE,2))
+				M1 .= invsym(#=@view=# o.YY✻[:,b,:])
+				mul!(M2, M1, #=@view=# o.YPXY✻[:,b,:])
 				o.κWRE[b] = 1/(1 - real(eigvalsNaN(M2)[1]))
 			end
 			!iszero(o.fuller) && (o.κWRE .-= o.fuller / (o._Nobs - o.kX))
@@ -770,7 +762,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			o.numerWRE .= o.Repl.Rt₁ - o.r                ; t✻plus!(o.numerWRE, o.Repl.RRpar, o.β̈s)
 		else
 			o.numerWRE .= o.Repl.RRpar * (-o.DGP.β̈[:,1:1]); t✻plus!(o.numerWRE, o.Repl.RRpar, o.β̈s); 
-			w==1 && b==1 && (o.numerWRE[:,1:1] .= o.Repl.RRpar * o.β̈s[:,1:1] .+ o.Repl.Rt₁ .- o.r)
+			w==1 && (o.numerWRE[:,1:1] .= o.Repl.RRpar * o.β̈s[:,1:1] .+ o.Repl.Rt₁ .- o.r)
 		end
 
 		if o.bootstrapt

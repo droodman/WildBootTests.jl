@@ -154,12 +154,12 @@ function t✻!(A::AbstractVecOrMat{T}, B::AbstractVecOrMat{T}, C::AbstractVecOrM
 end
 function t✻(A::AbstractVecOrMat{T}, B::AbstractVector{T}) where T
 	dest = Vector{T}(undef, size(A,1))
-	t✻!(dest, A, B)
+	mul!(dest, A, B)
 	dest
 end
 function t✻(A::AbstractVecOrMat{T}, B::AbstractMatrix{T}) where T
 	dest = Matrix{T}(undef, size(A,1), size(B,2))
-	t✻!(dest, A, B)
+	mul!(dest, A, B)
 	dest
 end
 function t✻plus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # add B*C to A in place
@@ -780,7 +780,8 @@ end
 function crossjk(A::VecOrMat{T}, B::AbstractMatrix{T}, info::Vector{UnitRange{Int64}}) where T
 	t = panelcross(A,B,info)
 	sumt = sum(t; dims=2)  # A'B
-	(dropdims(sumt; dims=2), sumt .- t)
+	t .= sumt .- t
+	(dropdims(sumt; dims=2), t)
 end
 function crossjk(A::VecOrMat{T}, B::Vector{T}, info::Vector{UnitRange{Int64}}) where T
 	(sumt, t) = crossjk(A, view(B,:,:), info)

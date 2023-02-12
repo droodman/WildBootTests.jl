@@ -188,13 +188,13 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 			if iszero(o.B)
 				o.numerw .= o.SuwtXA
 			else
-				t✻!(o.numerw, o.SuwtXA', o.v)
+				mul!(o.numerw, o.SuwtXA', o.v)
 			end
 		elseif !o.robust || o.granular || o.purerobust
-			t✻!(o.β̈dev, o.SuwtXA, o.v)
-			t✻!(o.numerw, o.R, o.β̈dev)
+			mul!(o.β̈dev, o.SuwtXA, o.v)
+			mul!(o.numerw, o.R, o.β̈dev)
 		else
-			t✻!(o.numerw, o.R * o.SuwtXA, o.v)
+			mul!(o.numerw, o.R * o.SuwtXA, o.v)
 		end
 
 		if isone(w)
@@ -246,7 +246,7 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 				end
 			end
 			@inbounds	for c ∈ o.granular+1:o.NErrClustCombs, d ∈ eachindex(axes(o.Jcd, 2), axes(o.Kcd, 2))
-				t✻!(o.Jcd[c,d], o.Kcd[c,d], o.v)
+				mul!(o.Jcd[c,d], o.Kcd[c,d], o.v)
 			end
 		end
 	end
