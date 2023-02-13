@@ -696,7 +696,8 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 				J⋂s1 = dropdims(o.J⋂s; dims=3)
 				Filling!(o, J⋂s1, 1, _jk)
 				J⋂s1 ./= _As
-				t✻!(reshape(o.denom[1,1],1,:,1), o.clust[1].multiplier, o.J⋂s', o.J⋂s)
+				coldot!(o.denom[1,1], o.clust[1].multiplier, dropdims(o.J⋂s; dims=3))
+				# t✻!(reshape(o.denom[1,1],1,:,1), o.clust[1].multiplier, o.J⋂s', o.J⋂s)
 				@inbounds for c ∈ 2:o.NErrClustCombs  # sum sandwich over error clusteringssrc/WRE.jl
 					nrows(o.clust[c].order)>0 && 
 						(J⋂s1 .= J⋂s1[o.clust[c].order,:])

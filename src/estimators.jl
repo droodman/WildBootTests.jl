@@ -170,7 +170,6 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		else
 			o.kZperp = ncols(o.RperpX)
 			o.Zperp = parent.X₁ * o.RperpX
-			o.invZperpZperp = iszero(length(o.Zperp)) ? Matrix{T}(undef,0,0) : invsym(o.Zperp'o.Zperp)
 			o.X₁ = parent.X₁ * o.RperpXperp
 			o.kX = (o.kX₁ = ncols(o.X₁)) + parent.kX₂
 		end
@@ -198,8 +197,8 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		ZperpY₂   , _ZperpY₂    = crossjk(o.Zperp, parent.Y₂, parent.info✻)
 		ZperpZ    , _ZperpZ     = crossjk(o.Zperp, o.Z      , parent.info✻)
 		ZperpZR₁  , _ZperpZR₁   = crossjk(o.Zperp, o.ZR₁    , parent.info✻)
-		ZperpZperp, _invZperpZperp = crossjk(o.Zperp, o.Zperp  , parent.info✻)
-		invsym!(_invZperpZperp)  # inverses of all delete-g Zperp'Zperp
+
+		ZperpZperp, o.invZperpZperp, _invZperpZperp = invsymcrossjk(o.Zperp, parent.info✻)
 
     _invZperpZperpZperpX₁  = _invZperpZperp * _ZperpX₁
     _invZperpZperpZperpX₂  = _invZperpZperp * _ZperpX₂
@@ -270,6 +269,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		ZperpZ     = o.Zperp'o.Z
 		ZperpZR₁   = o.Zperp'o.ZR₁
 		ZperpZperp = o.Zperp'o.Zperp
+		o.invZperpZperp = iszero(length(o.Zperp)) ? Matrix{T}(undef,0,0) : invsym(ZperpZperp)
 	end
 
 	if parent.granular || (parent.jk && parent.WREnonARubin)
@@ -369,10 +369,10 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			o.S✻Y₂y₁ = parent.DGP.S✻Y₂y₁
 		else
 			o.kZperp = ncols(o.RperpX)
-			o.Zperp = t✻(parent.X₁, o.RperpX)
+			!(parent.jk && parent.WREnonARubin) && (o.Zperp = parent.X₁ * o.RperpX)
 			o.S✻⋂ZperpZperp = panelcross(o.Zperp, o.Zperp, parent.info✻⋂)
-			o.ZperpZperp = iszero(ncols(o.RperpX)) ? #=Symmetric=#(Matrix{T}(undef,0,0)) : sumpanelcross(o.S✻⋂ZperpZperp)
-			o.invZperpZperp = invsym(o.ZperpZperp)
+			!(parent.jk && parent.WREnonARubin) && (o.ZperpZperp = iszero(o.kZperp) ? Matrix{T}(undef,0,0) : sumpanelcross(o.S✻⋂ZperpZperp))
+			!(parent.jk && parent.WREnonARubin) && (o.invZperpZperp = invsym(o.ZperpZperp))
 
 			o.Xpar₁ = parent.X₁ * o.RperpXperp  # X∥ := [Xpar₁ X₂]
 			S✻⋂X₁Zperp = panelcross(o.Xpar₁, o.Zperp, parent.info✻⋂)

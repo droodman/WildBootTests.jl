@@ -102,6 +102,11 @@ function coldotplus!(dest::AbstractMatrix{T}, c::T, A::AbstractMatrix{T}) where 
   end
 	nothing
 end
+function coldot!(dest::AbstractMatrix{T}, c::T, A::AbstractMatrix{T}) where T
+	fill!(dest, zero(T))
+	coldotplus!(dest, c, A)
+	nothing
+end
 function coldotplus!(dest::AbstractMatrix, row::Integer, A::AbstractMatrix, v::AbstractVector, B::AbstractMatrix)
   @tturbo for i ∈ eachindex(axes(A,2),axes(B,2)), j ∈ eachindex(axes(A,1),axes(B,1))
 	  dest[row,i] += A[j,i] * v[j] * B[j,i]
@@ -786,6 +791,24 @@ end
 function crossjk(A::VecOrMat{T}, B::Vector{T}, info::Vector{UnitRange{Int64}}) where T
 	(sumt, t) = crossjk(A, view(B,:,:), info)
 	(vec(sumt), t)
+end
+
+# given data matrix X and cluster-defining info vector, compute X'X, inv(X'X), and delete-g inv(X'X)'s efficiently
+function invsymcrossjk(X::Matrix{T}, info::Vector{UnitRange{Int64}}) where T
+	SXX =  panelcross(X,X,info)
+	XX = sumpanelcross(SXX)
+	invXX = invsym(XX)
+	for (g,S) ∈ enumerate(info)
+		Xg = view(X,S,:)
+		if size(Xg,1) > size(Xg,2)
+			SXX[:,g,:] = invsym(XX - Xg'Xg)
+		else
+			XginvXX = Xg * invXX
+			tmp = XginvXX * Xg'; tmp -= I
+			SXX[:,g,:] = invXX; t✻minus!(view(SXX,:,g,:), XginvXX'invsym(tmp), XginvXX)
+		end
+	end
+	(XX, invXX, SXX)
 end
 
 # helper for partialling Z from A, jackknifed. A and Z are data matrices/vectors. ZZZA is a 3-array

@@ -97,9 +97,6 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   test = wildboottest([0 1 0 0], [0]; resp, predexog, clustid=[collect(1:1000); collect(1:1217)], feid=df.industry, reps=9999, rng=StableRNG(1231))
   println(log, test)
   
-  println(log, "\nivregress liml wage ttl_exp collgrad (tenure = union), cluster(industry)")
-  println(log, "boottest tenure, ptype(equaltail) reps(9999)")
-  
   df = DataFrame(load("nlsw88.dta"))
   df = df[:, [:wage; :tenure; :ttl_exp; :collgrad; :industry; :union]]
   dropmissing!(df)
@@ -109,7 +106,14 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   ivf = @formula(tenure ~ union)
   ivf = apply_schema(ivf, schema(ivf, df))
   predendog, inst = modelcols(ivf, df)
+
+  println(log, "\nivregress liml wage ttl_exp collgrad (tenure = union), cluster(industry)")
+  println(log, "boottest tenure, ptype(equaltail) reps(9999)")
   test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, ptype=:equaltail, rng=StableRNG(1231))
+  println(log, test)
+  
+  println(log, "boottest tenure, ptype(equaltail) reps(9999) jk")
+  test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, ptype=:equaltail, rng=StableRNG(1231), jk=true)
   println(log, test)
   
   println(log, "boottest tenure, nonull reps(9999) matsize(.1)")
@@ -226,13 +230,14 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   test = wildboottest([0 0 0 0 0 1], [0]; resp, predexog, predendog, inst, fuller=1, clustid=clustid=Matrix(df[:, [:collgrad, :industry]]), nbootclustvar=1, nerrclustvar=2, small=false, reps=9999, auxwttype=:webb, rng=StableRNG(1231))
   println(log, test)
   
-  println(log, "\nareg wage ttl_exp collgrad tenure [aw=hours] if occupation<. & grade<., cluster(age) absorb(industry)")
-  println(log, "boottest tenure, cluster(age occupation) bootcluster(occupation)")
   df = DataFrame(load("nlsw88.dta"))
   dropmissing!(df)
   f = @formula(wage ~ ttl_exp + collgrad + tenure)  # constant unneeded in FE model
   f = apply_schema(f, schema(f, df))
   resp, predexog = modelcols(f, df)
+
+  println(log, "\nareg wage ttl_exp collgrad tenure [aw=hours] if occupation<. & grade<., cluster(age) absorb(industry)")
+  println(log, "boottest tenure, cluster(age occupation) bootcluster(occupation)")
   test = wildboottest([0 0 1], [0]; resp, predexog, clustid=Matrix(df[:, [:occupation, :age]]), nbootclustvar=1, nerrclustvar=2, obswt=df.hours, feid=df.industry, rng=StableRNG(1231))
   println(log, test)
   
@@ -260,6 +265,8 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   println(log, "\nivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours] if grade<., liml cluster(industry) absorb(age)")
   println(log, "boottest tenure")
   test = wildboottest([0 0 1 0], [0]; resp, predexog, predendog, inst, clustid=df.industry, obswt=df.hours, feid=df.age, rng=StableRNG(1231), liml=true)
+  println(log, "boottest tenure, jk")
+  test = wildboottest([0 0 1 0], [0]; resp, predexog, predendog, inst, clustid=df.industry, obswt=df.hours, feid=df.age, rng=StableRNG(1231), liml=true, jk=true)
   println(log, test)
   println(log, "boottest collgrad tenure")
   test = wildboottest([0 0 1 0; 0 1 0 0], [0; 0]; resp, predexog, predendog, inst, clustid=df.industry, obswt=df.hours, feid=df.age, rng=StableRNG(1231), liml=true, reps=99)
