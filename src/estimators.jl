@@ -376,11 +376,11 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 
 			o.Xpar₁ = parent.X₁ * o.RperpXperp  # X∥ := [Xpar₁ X₂]
 			S✻⋂X₁Zperp = panelcross(o.Xpar₁, o.Zperp, parent.info✻⋂)
-			ZperpX₁ = sumpanelcross(S✻⋂X₁Zperp)'
+			!(parent.jk && parent.WREnonARubin) && (ZperpX₁ = sumpanelcross(S✻⋂X₁Zperp)')
 			o.invZperpZperpZperpX₁ = o.invZperpZperp * ZperpX₁
 
 			S✻⋂X₂Zperp = panelcross(parent.X₂, o.Zperp, parent.info✻⋂)
-			ZperpX₂ = sumpanelcross(S✻⋂X₂Zperp)'
+			!(parent.jk && parent.WREnonARubin) && (ZperpX₂ = sumpanelcross(S✻⋂X₂Zperp)')
 			o.ZperpX = [ZperpX₁ ZperpX₂]
 			o.S✻⋂XZperp = [S✻⋂X₁Zperp; S✻⋂X₂Zperp]
 
@@ -409,12 +409,12 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			o.kX₁ = ncols(X₂X₁)
 
 			o.S✻⋂ZperpY₂ = panelcross(o.Zperp, parent.Y₂, parent.info✻⋂)
-			ZperpY₂ = sumpanelcross(o.S✻⋂ZperpY₂)
+			!(parent.jk && parent.WREnonARubin) && (ZperpY₂ = sumpanelcross(o.S✻⋂ZperpY₂))
 			o.invZperpZperpZperpY₂ = o.invZperpZperp * ZperpY₂
 			(parent.NFE>0 && (parent.liml || !isone(parent.κ) || parent.bootstrapt)) &&
 				(o.Y₂ = parent.Y₂ - o.Zperp * o.invZperpZperpZperpY₂)
 			o.S✻⋂Zperpy₁ = panelcross(o.Zperp, parent.y₁, parent.info✻⋂)
-			Zperpy₁ = vec(sumpanelcross(o.S✻⋂Zperpy₁))
+			!(parent.jk && parent.WREnonARubin) && (Zperpy₁ = vec(sumpanelcross(o.S✻⋂Zperpy₁)))
 			o.invZperpZperpZperpy₁ = o.invZperpZperp * Zperpy₁
 			((parent.NFE>0 && (parent.liml || !isone(parent.κ) || parent.bootstrapt)) || parent.scorebs) &&
 				(o.y₁ = parent.y₁ - o.Zperp * o.invZperpZperpZperpy₁)
@@ -482,7 +482,8 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		  o.twoZR₁y₁ = 2 * vec(sumpanelcross(o.S✻ZR₁y₁))
 			o.S✻ZR₁ZR₁ = panelcross(o.ZR₁, o.ZR₁, parent.info✻)
 		  o.ZR₁ZR₁   = #=Symmetric=#(sumpanelcross(o.S✻ZR₁ZR₁))
-			o.ZR₁ .-= o.Zperp * o.invZperpZperpZperpZR₁
+			(parent.scorebs || (parent.NFE>0 && !parent.FEboot && o.isDGP && o.restricted && (parent.willfill || parent.not2SLS))) &&
+				(o.ZR₁ .-= o.Zperp * o.invZperpZperpZperpZR₁)
 		  t✻minus!(o.X₁ZR₁, o.invZperpZperpZperpX₁', o.ZperpZR₁)
 		  t✻minus!(o.X₂ZR₁, o.invZperpZperpZperpX₂', o.ZperpZR₁)
 		  o.ZR₁Z    -= o.ZperpZR₁'o.invZperpZperp * ZperpZpar
@@ -504,7 +505,6 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			(o.ZY₂ = sumpanelcross(o.S✻ZparY₂) - ZperpZpar'o.invZperpZperpZperpY₂)
 		
 		t✻minus!(o.Z, o.Zperp, o.invZperpZperpZperpZpar)
-
 	end  # end coarse
 
 	o.V =  o.invXX * o.XZ  # in 2SLS case, estimator is (V' XZ)^-1 * (V'Xy₁). Also used in k-class and liml robust VCV by Stata convention

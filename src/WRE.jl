@@ -16,8 +16,6 @@ function InitWRE!(o::StrBootTest{T}) where T
 
 	o.Repl.kZ>1 && (o.numer_b = Vector{T}(undef,nrows(o.Repl.RRpar)))
 
-	o.not2SLS = o.liml || !o.robust || !isone(o.κ)  # sometimes κ ≠ 1?
-
 	if o.willfill
 		o.J⋂s = Array{T,3}(undef, o.N⋂, o.ncolsv, o.Repl.kZ)
 		o.ARpars = Array{T,3}(undef, o.Repl.kZ, o.ncolsv, o.q)
@@ -134,8 +132,6 @@ function InitWRE!(o::StrBootTest{T}) where T
 			end
 		end
 	else
-		o.Repl.Zperp = o.DGP.Zperp = Matrix{T}(undef,0,0)  # drop this potentially large array
-
 		o.Π̈Rpar = Matrix{T}(undef, o.DGP.kX, o.Repl.kZ)
 
 		o.invXXS✻XU₂ = Array{T,3}(undef, o.DGP.kX, o.N✻, o.kY₂)
@@ -187,7 +183,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 			o.CT✻FEZ   = crosstabFE(o, o.DGP.Z, o.info✻)
 			o.CT✻FEy₁  = crosstabFE(o, o.DGP.y₁, o.info✻)
 			o.DGP.restricted &&
-				(o.CT✻FEZR₁ = crosstabFE(o, o.DGP.ZR₁, o.info✻))
+				(o.CT✻FEZR₁ = crosstabFE(o, o.DGP.ZR₁, o.info✻))  #  XXX just do o.CT✻FEZ * R₁ ?
 		end
 
 		((o.willfill) || o.not2SLS) &&
@@ -331,8 +327,11 @@ function PrepWRE!(o::StrBootTest{T}) where T
 	end
 
 	if !o.granular
+		if o.willfill || o.not2SLS
+			mul!(o.Π̈Rpar, o.DGP.Π̈  , o.Repl.RparY); o.Π̈Rpar[1:o.DGP.kX₁,:] += o.DGP.RperpXperp'o.DGP.RperpXperp \ o.DGP.RperpXperp'o.Repl.RparX 
+		end
+
 		if !o.jk  # in coarse case, if not jackknifing, construct things while avoiding O(N) operations
-		 	mul!(o.Π̈Rpar, o.DGP.Π̈  , o.Repl.RparY); o.Π̈Rpar[1:o.DGP.kX₁,:] += o.DGP.RperpXperp'o.DGP.RperpXperp \ o.DGP.RperpXperp'o.Repl.RparX 
 			Π⃛y = [o.DGP.RperpXperp'o.DGP.γ̈X ; zeros(T, o.kX₂, 1)] + o.DGP.Π̈ * o.DGP.γ̈Y
 
 			t✻!(o.S✻XU₂, o.S✻XX, o.DGP.Π̈); o.S✻XU₂ .= o.S✻XY₂ .- o.S✻XU₂
@@ -421,7 +420,6 @@ function PrepWRE!(o::StrBootTest{T}) where T
 			end
 		end
 	end
-
 
 	if o.not2SLS
 		@inbounds for i ∈ 0:o.Repl.kZ, j ∈ 0:i
@@ -585,6 +583,7 @@ function FillingLoop2!(o::StrBootTest{T}, dest::Matrix{T}, i::Integer, j::Intege
 	end
 	nothing
 end
+
 
 # Workhorse for WRE CRVE sandwich filling
 # Given a zero-based column index, i>0, and a matrix β̈s of all the bootstrap estimates, 

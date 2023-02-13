@@ -62,6 +62,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	    o.info✻, o.ID✻ = panelsetupID(o.ID, 1:o.NBootClustVar)
   	end
 		o.willfill = o.robust && o.bootstrapt  # will compute sandwich filling for robust denominator?
+		o.not2SLS = o.liml || !o.robust || !isone(o.κ)  # sometimes κ ≠ 1?
   elseif iszero(o.NClustVar)
 	  o.info✻ = [i:i for i in 1:o.Nobs]  # causes no collapsing of data in panelsum() calls
   else
