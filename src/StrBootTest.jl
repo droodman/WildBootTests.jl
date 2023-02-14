@@ -89,7 +89,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 
 	distCDR::Matrix{T}; plotX::Vector{Vector{T}}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
   numersum::Vector{T}; u✻₀::Matrix{T}; invFEwt::Vector{T}
-	β̈s::Matrix{T}; As::Array{T,3}
+	β̈s::Matrix{T}; As::Array{T,3}; β̈sAs::Matrix{T}
 	info✻⋂::Vector{UnitRange{Int64}}; info⋂::Vector{UnitRange{Int64}}; ID✻⋂::Matrix{T}
 	DGP::StrEstimator{T}; Repl::StrEstimator{T}; M::StrEstimator{T}
 	clust::Vector{StrClust{T}}

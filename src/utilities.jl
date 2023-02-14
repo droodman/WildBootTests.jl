@@ -3,7 +3,7 @@
 @inline sqrtNaN(x) = x<0 ? typeof(x)(NaN) : sqrt(x)
 
 # Apply .* to a matrix and row of another matrix
-function matbyrow!(dest::Matrix{T}, A::Matrix{T}, B::Matrix{T}, row::Int) where T
+function matbyrow!(dest::Matrix{T}, A::Matrix{T}, B::AbstractMatrix{T}, row::Int) where T
 	@tturbo for j ∈ eachindex(axes(dest,2), axes(A,2), axes(B,2)), i ∈ eachindex(axes(dest,1), axes(A,1))
 		dest[i,j] = A[i,j] * B[row,j]
 	end
@@ -377,7 +377,7 @@ function panelcross!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, Y::Abstra
 		end
 		return
 	elseif X===Y
-    @inbounds Threads.@threads for g in eachindex(info)
+    @inbounds Threads.@threads for g ∈ eachindex(info)
       v = view(X,info[g],:)
       dest[:,g,:] = v'v
     end

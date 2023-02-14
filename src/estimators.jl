@@ -128,9 +128,9 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 
 	if parent.jk
 		if parent.purerobust
-			o.invMjkv =     rowquadform(parent.X₁, (@view o.invH[1:parent.kX₁,     1:parent.kX₁    ]), parent.X₁) +
-			            2 * rowquadform(parent.X₁, (@view o.invH[1:parent.kX₁,     parent.kX₁+1:end]), parent.X₂) +
-									    rowquadform(parent.X₂, (@view o.invH[parent.kX₁+1:end, parent.kX₁+1:end]), parent.X₂)
+			o.invMjkv =     rowquadform(parent.X₁, (@view o.A[1:parent.kX₁,     1:parent.kX₁    ]), parent.X₁) +
+			            2 * rowquadform(parent.X₁, (@view o.A[1:parent.kX₁,     parent.kX₁+1:end]), parent.X₂) +
+									    rowquadform(parent.X₂, (@view o.A[parent.kX₁+1:end, parent.kX₁+1:end]), parent.X₂)
 			o.invMjkv .= 1 ./ (1 .- o.invMjkv)  # standard hc3 multipliers
 		elseif parent.granularjk
 			o.invMjk = Vector{Matrix{T}}(undef, parent.N✻)

@@ -158,8 +158,8 @@ function __wildboottest(
 	                  getauxweights && reps>0 ? getv(o) : nothing #=, o=#)
 end
 
-vecconvert(T::DataType, X) = Vector(isa(X, AbstractArray) ? vec(    eltype(X)==T ? X : T.(X)) : X)
-matconvert(T::DataType, X) = Matrix(isa(X, AbstractArray) ? reshape(eltype(X)==T ? X : T.(X), size(X,1), size(X,2)) : X)
+vecconvert(T::DataType, X) = isa(X, Vector{T}) ? X : Vector{T}(reshape(X, size(X,1)))
+matconvert(T::DataType, X) = isa(X, Matrix{T}) ? X : Matrix{T}(reshape(X, size(X,1), size(X,2)))
 
 function _wildboottest(T::DataType,
 					  R::AbstractVecOrMat,
@@ -201,7 +201,7 @@ function _wildboottest(T::DataType,
 					  madjtype::Symbol=:none,
 					  nH0::Integer=1,
 					  ml::Bool=false,
-					  scores::AbstractVecOrMat=Matrix{Float32}(undef,0,0),
+					  scores::AbstractVecOrMat=Matrix{Float64}(undef,0,0),
 					  beta::AbstractVecOrMat=T[],
 					  A::AbstractMatrix=zeros(T,0,0),
 					  gridmin::Union{VecOrMat{S},VecOrMat{Union{S,Missing}}} where S<:Number = T[],

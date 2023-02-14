@@ -25,8 +25,12 @@ function InitWRE!(o::StrBootTest{T}) where T
 
 	o.T1L = Matrix{T}(undef, o.DGP.kX, o.ncolsv)
 	o.T1R = similar(o.T1L)
-	o.β̈s = Matrix{T}(undef, o.Repl.kZ, o.ncolsv)
-	o.As = Array{T,3}(undef, o.Repl.kZ, o.ncolsv, o.Repl.kZ)
+	if o.Repl.kZ==1 && !o.liml
+		o.β̈sAs = Matrix{T}(undef, 2, o.ncolsv)
+	else
+		o.β̈s = Matrix{T}(undef, o.Repl.kZ, o.ncolsv)
+		o.As = Array{T,3}(undef, o.Repl.kZ, o.ncolsv, o.Repl.kZ)
+	end
 	o.numerWRE = Matrix{T}(undef, o.dof, o.ncolsv)
 	o.invXXXZ̄ = Matrix{T}(undef, o.DGP.kX, o.Repl.kZ)
 	o.XȲ = Matrix{T}(undef, o.DGP.kX, o.Repl.kZ+1) 
@@ -436,101 +440,96 @@ end
 # (only really the Hessian when we narrow Y to Z)
 function HessianFixedkappa(o::StrBootTest{T}, is::Vector{S} where S<:Integer, j::Integer, κ::Number, _jk::Bool) where T
   dest = Matrix{T}(undef, length(is), o.ncolsv)
-  @inbounds for i ∈ eachindex(is, axes(dest,1))
-		_HessianFixedkappa!(o, dest, i, is[i], j, κ, _jk)
-  end
+  HessianFixedkappa!(o, dest, is, j, κ, _jk)
   dest
 end
 function HessianFixedkappa!(o::StrBootTest{T}, dest::AbstractMatrix{T}, is::Vector{S} where S<:Integer, j::Integer, κ::Number, _jk::Bool) where T
-  @inbounds for i ∈ eachindex(is, axes(dest,1))
-		_HessianFixedkappa!(o, dest, i, is[i], j, κ, _jk)
-  end
-  dest
-end
-
-function _HessianFixedkappa!(o::StrBootTest, dest::AbstractMatrix, row::Integer, i::Integer, j::Integer, κ::Number, _jk::Bool)
-  if !o.Repl.Yendog[i+1] && !o.Repl.Yendog[j+1]  # if both vars exog, result = order-0 term only, same for all draws
-		!iszero(κ) && 
-			(dest[row,:] .= (view(o.XȲ,:,i+1))' * (j>0 ? view(o.invXXXZ̄,:,j) : view(o.DGP.γ⃛,:,1)))
+	if o.Repl.Yendog[j+1] && any(o.Repl.Yendog[is.+1])
+		if !iszero(κ)
+			mul!(o.T1R, o.invXXS✻XU[j+1], o.v)
+			if iszero(j)
+				o.T1R .+=  view(o.DGP.γ⃛,:,1)
+			else
+				o.T1R .+= view(o.invXXXZ̄,:,j)
+			end
+		end
 		if !isone(κ)
-			if iszero(κ)
+			mul!(o.S✻ZperpUv, o.S✻ZperpU[j+1], o.v)
+			o.NFE>0 && !o.FEboot &&
+				mul!(o.invFEwtCT✻FEUv, o.invFEwtCT✻FEU[j+1], o.v)
+		end
+	end
+
+	@inbounds for (row,i) ∈ enumerate(is)
+		if !o.Repl.Yendog[i+1] && !o.Repl.Yendog[j+1]  # if both vars exog, result = order-0 term only, same for all draws
+			!iszero(κ) && 
+				(dest[row,:] .= (view(o.XȲ,:,i+1))' * (j>0 ? view(o.invXXXZ̄,:,j) : view(o.DGP.γ⃛,:,1)))
+			if !isone(κ)
+				if iszero(κ)
+					dest[row,:] .= o.ȲȲ[i+1,j+1]
+				else
+					dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* o.ȲȲ[i+1,j+1]
+				end
+			end
+		else
+			if !iszero(κ)  # repetitiveness in this section to maintain type stability
+				if o.Repl.Yendog[i+1]
+					mul!(o.T1L, o.S✻XU[i+1], o.v)
+					o.T1L .+= view(o.XȲ,:,i+1)
+					if o.Repl.Yendog[j+1]
+						coldot!(dest, row, o.T1L, o.T1R)
+					else
+						mul!(view(dest,row,:), o.T1L', view(o.invXXXZ̄,:,j))
+					end
+				else
+					if o.Repl.Yendog[j+1]
+						mul!(view(dest,row,:), o.T1R', view(o.XȲ,:,i+1))
+					else
+						dest[row,:] .= dot(view(o.invXXXZ̄,:,j), view(o.XȲ,:,i+1))
+					end
+				end
+			end
+			if !isone(κ)
+				if o.Repl.Yendog[j+1] && o.Repl.Yendog[i+1]
+					mul!(o.invZperpZperpS✻ZperpUv, o.invZperpZperpS✻ZperpU[i+1], o.v)
+					if o.NFE>0 && !o.FEboot
+						mul!(       o.CT✻FEUv,        o.CT✻FEU[i+1], o.v)
+					end
+					if iszero(κ)
+						dest[row,:] .= o.ȲȲ[i+1,j+1]; t✻plus!(view(dest,row:row,:), view(o.S✻ȲUfold,i+1,:,j+1)', o.v)
+						coldotminus!(dest, row, o.invZperpZperpS✻ZperpUv, o.S✻ZperpUv)
+						coldotplus!(dest, row, o.v, o.S✻UU[i+1,j+1], o.v)
+						o.NFE>0 && !o.FEboot &&
+							coldotminus!(dest, row, o.CT✻FEUv, o.invFEwtCT✻FEUv)
+					else
+						_dest = t✻(view(o.S✻ȲUfold,i+1,:,j+1)', o.v); _dest .+= o.ȲȲ[i+1,j+1]
+						coldotminus!(_dest, 1, o.invZperpZperpS✻ZperpUv, o.S✻ZperpUv)
+						coldotplus!(_dest, 1, o.v, o.S✻UU[i+1, j+1], o.v)
+						o.NFE>0 && !o.FEboot &&
+							coldotminus!(_dest, 1, o.CT✻FEUv, o.invFEwtCT✻FEUv)
+						dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* _dest
+					end
+				elseif iszero(κ)
+					dest[row,:] .= o.ȲȲ[i+1,j+1]; t✻plus!(view(dest,row:row,:), view(o.S✻ȲUfold,i+1,:,j+1)', o.v)
+				else
+					_dest = t✻(view(o.S✻ȲUfold,i+1,:,j+1)', o.v); _dest .+= o.ȲȲ[i+1,j+1]
+					dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* _dest
+				end
+			elseif iszero(κ)
 				dest[row,:] .= o.ȲȲ[i+1,j+1]
 			else
 				dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* o.ȲȲ[i+1,j+1]
 			end
 		end
-	else
-		if !iszero(κ)  # repetitiveness in this section to maintain type stability
-			if o.Repl.Yendog[i+1]
-				mul!(o.T1L, o.S✻XU[i+1], o.v)
-				o.T1L .+= view(o.XȲ,:,i+1)
-				if o.Repl.Yendog[j+1]
-					mul!(o.T1R, o.invXXS✻XU[j+1], o.v)
-					if iszero(j)
-						o.T1R .+=  view(o.DGP.γ⃛,:,1)
-					else
-						o.T1R .+= view(o.invXXXZ̄,:,j)
-					end
-					coldot!(dest, row, o.T1L, o.T1R)
-				else
-					mul!(view(dest,row,:), o.T1L', view(o.invXXXZ̄,:,j))
-				end
-			else
-				if o.Repl.Yendog[j+1]
-					mul!(o.T1R, o.invXXS✻XU[j+1], o.v)
-					if iszero(j)
-						o.T1R .+=  o.DGP.γ⃛
-					else
-						o.T1R .+= view(o.invXXXZ̄,:,j)
-					end
-					mul!(view(dest,row,:), o.T1R', view(o.XȲ,:,i+1))
-				else
-					dest[row,:] .= dot(view(o.invXXXZ̄,:,j), view(o.XȲ,:,i+1))
-				end
-			end
+	
+		if _jk
+			!iszero(κ) &&
+				(dest[row,1] = (i>0 ? view(o.Repl.XZ,:,i) : view(o.Repl.Xy₁par,:,1))' * (j>0 ? view(o.Repl.V,:,j) : view(o.Repl.invXXXy₁par,:,1)))
+			!isone(κ) &&
+				(dest[row,1] = iszero(κ) ? o.Repl.YY[i+1,j+1] : κ * dest[:,1] + (1 - κ) * o.Repl.YY[i+1,j+1])
 		end
-		if !isone(κ)
-			if o.Repl.Yendog[j+1] && o.Repl.Yendog[i+1]
-				mul!(o.invZperpZperpS✻ZperpUv, o.invZperpZperpS✻ZperpU[i+1], o.v)
-				mul!(             o.S✻ZperpUv,              o.S✻ZperpU[j+1], o.v)
-				if o.NFE>0 && !o.FEboot
-					mul!(       o.CT✻FEUv,        o.CT✻FEU[i+1], o.v)
-					mul!(o.invFEwtCT✻FEUv, o.invFEwtCT✻FEU[j+1], o.v)
-				end
-				if iszero(κ)
-					dest[row,:] .= o.ȲȲ[i+1,j+1]; t✻plus!(view(dest,row:row,:), view(o.S✻ȲUfold,i+1,:,j+1)', o.v)
-					coldotminus!(dest, row, o.invZperpZperpS✻ZperpUv, o.S✻ZperpUv)
-					coldotplus!(dest, row, o.v, o.S✻UU[i+1,j+1], o.v)
-					o.NFE>0 && !o.FEboot &&
-						coldotminus!(dest, row, o.CT✻FEUv, o.invFEwtCT✻FEUv)
-				else
-					_dest = t✻(view(o.S✻ȲUfold,i+1,:,j+1)', o.v); _dest .+= o.ȲȲ[i+1,j+1]
-					coldotminus!(_dest, 1, o.invZperpZperpS✻ZperpUv, o.S✻ZperpUv)
-					coldotplus!(_dest, 1, o.v, o.S✻UU[i+1, j+1], o.v)
-					o.NFE>0 && !o.FEboot &&
-						coldotminus!(_dest, 1, o.CT✻FEUv, o.invFEwtCT✻FEUv)
-					dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* _dest
-				end
-			elseif iszero(κ)
-				dest[row,:] .= o.ȲȲ[i+1,j+1]; t✻plus!(view(dest,row:row,:), view(o.S✻ȲUfold,i+1,:,j+1)', o.v)
-			else
-				_dest = t✻(view(o.S✻ȲUfold,i+1,:,j+1)', o.v); _dest .+= o.ȲȲ[i+1,j+1]
-				dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* _dest
-			end
-		elseif iszero(κ)
-			dest[row,:] .= o.ȲȲ[i+1,j+1]
-		else
-			dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* o.ȲȲ[i+1,j+1]
-		end
-  end
-
-	if _jk
-    !iszero(κ) &&
-      (dest[row,1] = (i>0 ? view(o.Repl.XZ,:,i) : view(o.Repl.Xy₁par,:,1))' * (j>0 ? view(o.Repl.V,:,j) : view(o.Repl.invXXXy₁par,:,1)))
-		!isone(κ) &&
-      (dest[row,1] = iszero(κ) ? o.Repl.YY[i+1,j+1] : κ * dest[:,1] + (1 - κ) * o.Repl.YY[i+1,j+1])
 	end
-	nothing
+  nothing
 end
 
 # put threaded loops in functions to prevent compiler-perceived type instability https://discourse.julialang.org/t/type-inference-with-threads/2004/3
@@ -591,7 +590,7 @@ end
 # for all groups in the intersection of all error clusterings
 # return value has one row per ⋂ cluster, one col per bootstrap replication
 # that is, given i, β̈s = δ ̂_CRκ^(*), return, over all g, b (P_(X_∥ g) Z_(∥i)^(*b) )^' (M_(Z_⊥ ) y_(1∥)^(*b) )_g-(P_(X_∥ g) Z_(∥i)^(*b) )^' (M_(Z_⊥ ) Z_∥^(*b) )_g δ ̂_CRκ^(*b)
-function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, _jk::Bool) where T
+function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::AbstractMatrix{T}, _jk::Bool) where T
 	if o.granular
 		if o.Nw == 1  # create or avoid NxB matrix?
 			o.S✻UMZperpv .= o.DGP.ȳ₁
@@ -600,8 +599,8 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, _jk::Boo
 				o.PXY✻ .= view(o.PXZ̄,:,i); t✻plus!(o.PXY✻, view(o.S✻UPX,:,:,i), o.v)
 				panelcoldot!(dest, o.S✻UMZperpv, o.PXY✻, o.info⋂)
 				@inbounds for j ∈ 1:o.Repl.kZ
-					_β̈  = view(o.β̈s,j:j,:)
-					matbyrow!(o.β̈v, o.v, o.β̈s, j)
+					_β̈  = view(β̈s,j:j,:)
+					matbyrow!(o.β̈v, o.v, β̈s, j)
 					mul!(o.S✻UMZperpv, view(o.Z̄,:,j), _β̈ )
 					o.Repl.Yendog[j+1] &&
 						(t✻minus!(o.S✻UMZperpv, view(o.negS✻UMZperp,:,:,j+1), o.β̈v))
@@ -611,8 +610,8 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, _jk::Boo
 				PXY✻ = view(o.PXZ̄,:,i)
 				panelsum!(dest, o.S✻UMZperpv, PXY✻, o.info⋂)
 				@inbounds for j ∈ 1:o.Repl.kZ
-					_β̈  = view(o.β̈s,j:j,:)
-					matbyrow!(o.β̈v, o.v, o.β̈s, j)
+					_β̈  = view(β̈s,j:j,:)
+					matbyrow!(o.β̈v, o.v, β̈s, j)
 					mul!(o.S✻UMZperpv, view(o.Z̄,:,j), _β̈ )
 					o.Repl.Yendog[j+1] &&
 						(t✻minus!(o.S✻UMZperpv, view(o.negS✻UMZperp,:,:,j+1), o.β̈v))
@@ -620,11 +619,11 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, _jk::Boo
 				end
 			end
 		else  # create pieces of each N x B matrix one at a time
-			_β̈ = view(o.β̈s,1:1,:)  # hack to create for j=0
+			_β̈ = view(β̈s,1:1,:)  # hack to create for j=0
 			@inbounds for j ∈ 0:o.Repl.kZ
 				if j>0
-					_β̈ = view(o.β̈s,j:j,:)
-					matbyrow!(o.β̈v, o.v, o.β̈s, j)
+					_β̈ = view(β̈s,j:j,:)
+					matbyrow!(o.β̈v, o.v, β̈s, j)
 				end
 				if o.purerobust
 					FillingLoop1!(o, dest, i, j, _β̈ )
@@ -642,7 +641,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, _jk::Boo
       coldot!(dest, g, o.F₁, o.F₂)
 		end
     @inbounds for j ∈ 1:o.Repl.kZ
-      matbyrow!(o.F₁β, o.F₁, o.β̈s, j)
+      matbyrow!(o.F₁β, o.F₁, β̈s, j)
       for g ∈ 1:o.N⋂
         o.F₂ .= view(o.S⋂ReplZ̄X,j,g,:)
 				o.Repl.Yendog[j+1] && t✻minus!(o.F₂, view(o.negS✻UMZperpX[j+1],:,g,:), o.v)
@@ -650,7 +649,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, _jk::Boo
 			end
 		end
 		end
-	_jk && (panelsum!(view(dest,:,1), view(o.Repl.PXZ,:,i), o.Repl.y₁par - o.Repl.Z * view(o.β̈s,:,1), o.info⋂))
+	_jk && (panelsum!(view(dest,:,1), view(o.Repl.PXZ,:,i), o.Repl.y₁par - o.Repl.Z * β̈s[:,1], o.info⋂))
   nothing
 end
 
@@ -658,8 +657,8 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 	_jk = o.jk & w==1
 
   if isone(o.Repl.kZ)  # optimized code for 1 retained coefficient in bootstrap regression
-		_As = view(o.As,:,:,1)
 		if o.liml
+			_As = view(o.As,:,:,1)
 			HessianFixedkappa!(o, o.YY₁₁  , [0], 0, zero(T), _jk)  # κ=0 => Y*MZperp*Y
 			HessianFixedkappa!(o, o.YY₁₂  , [0], 1, zero(T), _jk)
 			HessianFixedkappa!(o, o.YY₂₂  , [1], 1, zero(T), _jk)
@@ -678,25 +677,24 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			_As .= o.κs .* (o.YPXY₂₂ .- o.YY₂₂) .+ o.YY₂₂
 			o.β̈s .= (o.κs .* (o.YPXY₁₂ .- o.YY₁₂) .+ o.YY₁₂) ./ _As
 		else
-			HessianFixedkappa!(o, _As, [1], 1, o.κ, _jk)
-			HessianFixedkappa!(o, o.β̈s, [1], 0, o.κ, _jk); o.β̈s ./= _As
+			HessianFixedkappa!(o, o.β̈sAs, [0; 1], 1, o.κ, _jk)
+			o.β̈sAs[1,:] ./= view(o.β̈sAs,2,:)  # o.β̈s ./= _As
 		end
 
 		if o.null
-			o.numerWRE .= o.β̈s .+ (o.Repl.Rt₁ - o.r) / o.Repl.RRpar
+			o.numerWRE .= view(o.β̈sAs,1:1,:) .+ (o.Repl.Rt₁ - o.r) / o.Repl.RRpar
 		else
-			o.numerWRE .= o.β̈s .- view(o.DGP.β̈ ,:,1)
-			isone(w) && (o.numerWRE[1] = o.β̈s[1] + (o.Repl.Rt₁[1] - o.r[1]) / o.Repl.RRpar[1])
+			o.numerWRE .=  view(o.β̈sAs,1:1,:) .- view(o.DGP.β̈ ,:,1)
+			isone(w) && (o.numerWRE[1] = o.β̈sAs[1] + (o.Repl.Rt₁[1] - o.r[1]) / o.Repl.RRpar[1])
 		end
 
 		@storeWtGrpResults!(o.numer, o.numerWRE)
 		if o.bootstrapt
 			if o.robust
 				J⋂s1 = dropdims(o.J⋂s; dims=3)
-				Filling!(o, J⋂s1, 1, _jk)
-				J⋂s1 ./= _As
+				Filling!(o, J⋂s1, 1, view(o.β̈sAs,1:1,:), _jk)
+				J⋂s1 ./= view(o.β̈sAs,2:2,:)  # ./= _As
 				coldot!(o.denom[1,1], o.clust[1].multiplier, dropdims(o.J⋂s; dims=3))
-				# t✻!(reshape(o.denom[1,1],1,:,1), o.clust[1].multiplier, o.J⋂s', o.J⋂s)
 				@inbounds for c ∈ 2:o.NErrClustCombs  # sum sandwich over error clusteringssrc/WRE.jl
 					nrows(o.clust[c].order)>0 && 
 						(J⋂s1 .= J⋂s1[o.clust[c].order,:])
@@ -705,8 +703,8 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 				end
 			else
 				o.denom[1,1] .= (HessianFixedkappa(o, [0], 0, zero(T), _jk) .-   # XXX rewrite to avoid allocations
-				                     2 .* o.β̈s .* HessianFixedkappa(o, [0], 1, zero(T), _jk) .+ 
-								             o.β̈s.^2 .* HessianFixedkappa(o, [1], 1, zero(T), _jk)) ./ _As  # classical error variance
+				                     2 .* view(o.β̈sAs,1:1,:) .* HessianFixedkappa(o, [0], 1, zero(T), _jk) .+ 
+								             view(o.β̈sAs,1:1,:).^2 .* HessianFixedkappa(o, [1], 1, zero(T), _jk)) ./ view(o.β̈sAs,2:2,:)  # classical error variance
 			end
 			@storeWtGrpResults!(o.dist, o.sqrt ? o.numerWRE ./ sqrtNaN.(o.denom[1,1]) : o.numerWRE .^ 2 ./ o.denom[1,1])
 			o.denom[1,1] .*= o.Repl.RRpar[1]^2
@@ -748,7 +746,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 		if o.bootstrapt
 			if o.robust
 				@inbounds for i ∈ 1:o.Repl.kZ  # avoid list comprehension construction for compiler-perceived type stability
-					Filling!(o, view(o.J⋂s,:,:,i), i, _jk)
+					Filling!(o, view(o.J⋂s,:,:,i), i, o.β̈s, _jk)
 				end
 			else
 				@inbounds for i ∈ 0:o.Repl.kZ
