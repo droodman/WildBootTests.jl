@@ -136,7 +136,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 				end
 
 				if o.NFE>0 && !o.FEboot
-					tmp = o.invFEwt .* crosstabFE(o, o.DGP.ü₁[1+_jk], o.info✻)
+					tmp = o.invFEwt .* dropdims(crosstabFE(o, o.DGP.ü₁[1+_jk], o.info✻); dims=3)
 					@inbounds for d ∈ 1:o.dof
 						K[d] .+= o.M.CT_XAR[d] * tmp
 					end
@@ -201,7 +201,7 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 			if o.arubin
 				o.numerw[:,1] = o.DGP.β̈[o.kX₁+1:end,1]  # coefficients on excluded instruments in arubin OLS
 			elseif !o.null  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this.
-				o.numerw[:,1] = o.R * (o.ml ? o.β̈ : iszero(o.κ) ? view(o.M.β̈  ,:,1) : o.M.Rpar * view(o.M.β̈  ,:,1)) - r  # κ≂̸0  score bootstrap of IV ⇒ using FWL and must factor in R∥ 
+				o.numerw[:,1] = o.R * (o.ml ? o.β̈ : iszero(o.κ) ? view(o.M.β̈ ,:,1) : o.M.Rpar * view(o.M.β̈  ,:,1)) - r  # κ≂̸0  score bootstrap of IV ⇒ using FWL and must factor in R∥ 
 			end
 		end
 
@@ -254,7 +254,7 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 end
 
 function MakeNonWRELoop1!(o::StrBootTest, tmp::Matrix, w::Integer)
-	@inbounds #=Threads.@threads=# for k ∈ 1:o.ncolsv
+	@inbounds #=Threads.@threads=# for k ∈ o.ncolsv:-1:1
 		@inbounds for i ∈ 1:o.dof
 			for j ∈ 1:i
 				tmp[j,i] = o.denom[i,j][k]  # fill upper triangle, which is all invsym() looks at
@@ -289,14 +289,14 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 			@storeWtGrpResults!(o.dist, o.numerw ./ sqrtNaN.(o.denom[1,1]))
 			isone(w) &&
 				(o.statDenom = hcat(o.denom[1,1][1]))  # original-sample denominator
-		elseif o.dof==2  # hand-code 2D numer'inv(denom)*numer
+		elseif o.dof==2  # hand-code 2D numer'invNaN(denom)*numer
 			t1 = view(o.numerw,1,:)'; t2 = view(o.numerw,2,:)'; t12 = t1.*t2
 			@storeWtGrpResults!(o.dist, (t1.^2 .* o.denom[2,2] .- 2 .* t12 .* o.denom[2,1] .+ t2.^2 .* o.denom[1,1]) ./ (o.denom[1,1].*o.denom[2,2] .- o.denom[2,1].^2))
 			isone(w) &&
 				(o.statDenom = [o.denom[1,1][1] o.denom[2,1][1] ; o.denom[2,1][1] o.denom[2,2][1]])  # original-sample denominator
 		else  # build each replication's denominator from vectors that hold values for each position in denominator, all replications
 			tmp = Matrix{T}(undef, o.dof, o.dof)
-			MakeNonWRELoop1!(o,tmp, w)
+			MakeNonWRELoop1!(o,tmp,w)
 			isone(w) && (o.statDenom = tmp)  # original-sample denominator
 		end
 	else  # non-robust

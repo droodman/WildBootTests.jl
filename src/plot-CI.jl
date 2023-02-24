@@ -116,8 +116,7 @@ function plot!(o::StrBootTest{T}) where T
 				end
 			end
 		else  # both grid bounds pre-specified
-			lo = [o.gridmin[1]]
-			hi = [o.gridmax[1]]
+			lo, hi = [o.gridmin[1]], [o.gridmax[1]]
 		end
 
 		_gridpoints = round.(Int32, o.gridpoints)

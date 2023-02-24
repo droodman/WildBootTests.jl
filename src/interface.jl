@@ -14,7 +14,7 @@ struct BootTestResult{T}
   b::Vector{T}
   V::Matrix{T}
   auxweights::Union{Nothing,Matrix{T}}
-  # o::StrBootTest
+  o::StrBootTest
 end
 
 "Return test statistic"
@@ -123,7 +123,7 @@ function __wildboottest(
 	ml::Bool,
 	scores::Matrix{T},
 	beta::Vector{T},
-	A::Symmetric{T,Matrix{T}},
+	A::Matrix{T},
 	gridmin::VecOrMat{T},
 	gridmax::VecOrMat{T},
 	gridpoints::VecOrMat{T},
@@ -155,7 +155,7 @@ function __wildboottest(
 	                  o.p, padj, o.B, o.BFeas, o.N✻, o.dof, o.dof_r, plot, peak, ci,
 	                  getdist(o, diststat),
 	                  getb(o), getV(o),
-	                  getauxweights && reps>0 ? getv(o) : nothing #=, o=#)
+	                  getauxweights && reps>0 ? getv(o) : nothing , o)
 end
 
 vecconvert(T::DataType, X) = isa(X, Vector{T}) ? X : Vector{T}(reshape(X, size(X,1)))
@@ -309,7 +309,7 @@ function _wildboottest(T::DataType,
 		ml,
 		scores=matconvert(T,scores),
 		beta=vecconvert(T,beta),
-		A=Symmetric(matconvert(T,A)),
+		A=matconvert(T,A),
 		gridmin=_gridmin,
 		gridmax=_gridmax,
 		gridpoints=_gridpoints,

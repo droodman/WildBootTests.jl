@@ -3,7 +3,7 @@ export BootTestResult, wildboottest, teststat, stattype, p, padj, reps, repsfeas
 
 using LinearAlgebra, Random, Distributions, SortingAlgorithms, Printf, LoopVectorization
 
-include("StrBootTest.jl")
+include("structs.jl")
 include("utilities.jl")
 include("estimators.jl")
 include("init.jl")
@@ -71,7 +71,7 @@ end
 # if not imposing null and we have returned to boottest!(), then dof=1 or 2; we're plotting or finding CI, and only test stat, not distribution, changes with r
 function NoNullUpdate!(o::StrBootTest{T} where T)
 	if o.WREnonARubin
-		o.numer[:,1] = o.R * o.DGP.Rpar * o.β̈s[:,1] - o.r
+		o.numer[:,1] = o.R * o.DGP.Rpar * (isone(o.Repl.kZ) ? o.β̈sAs[1:1,1] : o.β̈s[:,1]) - o.r
 	elseif o.arubin
 		EstimateARubin!(o.DGP, o, false, o.r)
 		o.numer[:,1] = @view o.DGP.β̈[o.kX₁+1:end,1]  # coefficients on excluded instruments in arubin OLS
@@ -90,11 +90,11 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T)
 	if o.sqrt
 		o.dist = o.numer ./ sqrtNaN.(o.statDenom)
 	else
-		o.dist = colquadform(invsym(o.statDenom), o.numer)  # to reduce latency by minimizing @tturbo instances, work with negative of colquadform in order to fuse code with colquadformminus!
+		o.dist = colquadform(Matrix(invsym(o.statDenom)), o.numer)  # to reduce latency by minimizing @tturbo instances, work with negative of colquadform in order to fuse code with colquadformminus!
 	end
 	nothing
 end
  
-include("precompiler.jl")
+# include("precompiler.jl")
 
 end

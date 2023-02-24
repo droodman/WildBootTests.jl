@@ -33,8 +33,8 @@ p    = 0.1040
 
 boottest post_self=.04, weight(mammen) reps(9999) boottype(score)
 t(7) = 1.8479
-p    = 0.0903
-CI   = [-47.81 -36.07; -33.36 -5.966; -2.353 7.28; 15.71 21.73; 31.36 48.07]
+p    = 0.1651
+CI   = [0.03008 0.07798]
 
 
 boottest post_self=.04, reps(9999) jk
@@ -259,8 +259,8 @@ CI    = [-0.01093 0.123]
 areg wage ttl_exp collgrad tenure if occupation<. & grade<., robust absorb(industry)
 boottest tenure
 t(1833) = 1.6602
-p       = 0.1001
-CI      = [-0.005319 0.07348]
+p       = 0.0981
+CI      = [-0.004887 0.07348]
 
 
 areg wage ttl_exp collgrad tenure [aw=hours] if occupation<. & grade<., robust absorb(industry)
@@ -286,12 +286,12 @@ ivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours] i
 boottest tenure
 t(11) = 0.6068
 p     = 0.4935
-CI    = [-0.03728 0.05498]
+CI    = [-0.03753 0.05658]
 
 boottest tenure, jk
 t(11) = 0.6068
-p     = 0.5175
-CI    = [-0.04344 0.04218]
+p     = 0.5145
+CI    = [-0.04454 0.04321]
 
 boottest collgrad tenure
 F(2, 11) = 3.5295
@@ -304,12 +304,12 @@ CI    = [-0.5631 Inf]
 
 boottest tenure | _b[collgrad] = 0
 t(11) = -2.0551
-p     = 0.1071
-CI    = [-0.1935 0.06437; 0.6088 Inf]
+p     = 0.1081
+CI    = [-0.1933 0.06403; 0.6103 Inf]
 
 t(11) = -2.0551
 p     = 0.1071
-CI    = [-0.1935 0.06437; 0.6088 Inf]
+CI    = [-0.1935 0.06437; 0.6089 Inf]
 
 
 areg n w k, absorb(ind)
@@ -317,7 +317,7 @@ areg n w k, absorb(ind)
 boottest k, cluster(id year)
 t(8) = 28.5012
 p    = 0.0000
-CI   = [0.783 0.9413]
+CI   = [0.7824 0.9413]
 
 
 areg n w k [aw=ys], absorb(ind)

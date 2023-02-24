@@ -12,6 +12,131 @@ struct StrFE{T<:Real}
   sqrtwt::Vector{T}
 end
 
+# DesignerMatrix type to efficiently represent selection matrices
+@enum MatType identity selection regular
+struct DesignerMatrix{T} <: AbstractMatrix{T}
+	type::MatType
+	size::Tuple{Int64,Int64}
+	p::Vector{Int64}  # rows with 1's/columns of left-multipled matrix to retain
+	q::Vector{Int64}  # corresponding cols with the 1's/destination columns in result (remainder will be all 0)
+	M::Matrix{T}
+end
+
+AdjointDesignerMatrix{T} = Adjoint{T, DesignerMatrix{T}} where T
+DesignerProduct{T}  = SubArray{T, 2, Matrix{T}, Tuple{Base.Slice{Base.OneTo{Int64}}, Vector{Int64}}, false} where T
+
+function DesignerMatrix(X::AbstractMatrix{T}) where T
+	if isa(X,AbstractMatrix) && length(X)>0 && all(sum(isone.(X) .| iszero.(X), dims=1) .== size(X,1)) && all(sum(isone.(X), dims=1) .<= one(T))
+		d = diag(X)
+		if length(d)==size(X,1)==size(X,2)==sum(isone.(d))
+			DesignerMatrix{T}(identity, (length(d),length(d)), Int64[], Int64[], zeros(T,0,0))
+		else
+			p = getindex.(findall(>(0), sum(X;dims=2)),1)
+			DesignerMatrix{T}(selection, size(X), p, [findall(>(0), X[i,:])[1] for i ∈ p], Matrix{T}(undef,0,0))
+		end
+	else
+		DesignerMatrix{T}(regular, size(X), Int64[], Int64[], X)
+	end
+end
+
+import Base.size, Base.getindex, Base.*
+size(X::DesignerMatrix) = X.size
+function getindex(X::DesignerMatrix{T}, i, j) where T
+	if X.type==identity
+		T(i==j)
+	elseif X.type==selection
+		a = findfirst(==(i),X.p)
+		T(!isnothing(a) && j==X.q[a])
+	else
+		X.M[i,j]
+	end
+end
+
+function *(X::AbstractMatrix{T}, Y::DesignerMatrix{T}) where T
+	if Y.type==regular
+		view(Base.:*(X, Y.M),:,collect(1:size(Y.M,2)))  # collect() makes the column slicer Vector{Int64}, for type consistency
+	elseif Y.type==identity
+		view(X,:,collect(1:size(X,2)))
+	elseif length(Y.p)==Y.size[2]
+		 view(X,:,Y.p[Y.q])
+	else
+		dest = zeros(T, size(X,1), Y.size[2])  # Y is selection matrix with some cols all 0
+		if length(dest)>0
+			@inbounds for j ∈ axes(Y.p,1)
+				pⱼ, qⱼ = Y.p[j], Y.q[j] 
+				@tturbo warn_check_args=false for i ∈ indices((dest,X),1)
+				 dest[i,qⱼ] = X[i,pⱼ]
+				end
+			end
+		end
+		view(dest,:,collect(1:size(dest,2)))
+	end
+end
+function *(X::AbstractArray{T,3}, Y::DesignerMatrix{T}) where T
+	if Y.type==regular
+		view(Base.:*(X, Y.M),:,:,collect(1:size(Y.M,2)))  # collect() makes the column slicer Vector{Int64}, for type consistency
+	elseif Y.type==identity
+		view(X,:,:,collect(1:size(X,3)))
+	elseif length(Y.q)==Y.size[2]
+		 view(X,:,:,Y.p[Y.q])
+	else
+		dest = zeros(T, size(X,1), size(X,2), Y.size[2])  # Y is selection matrix with some cols all 0
+		if length(dest)>0
+			@inbounds for j ∈ axes(Y.p,1)
+				pⱼ, qⱼ = Y.p[j], Y.q[j] 
+				@tturbo warn_check_args=false for i ∈ indices((dest,X),1), g ∈ indices((dest,X),2)
+					dest[i,g,qⱼ] = X[i,g,pⱼ]
+				end
+			end
+		end
+		view(dest,:,:,collect(1:size(dest,3)))
+	end
+end
+function *(Y::AdjointDesignerMatrix{T}, X::AbstractMatrix{T}) where T
+	if Y.parent.type==regular
+		view(Base.:*(Y.parent.M', X),collect(1:size(Y.parent.M,2)),:)  # collect() makes the column slicer Vector{Int64}, for type consistency
+	elseif Y.parent.type==identity
+		view(X,collect(1:size(X,2)),:)
+	elseif length(Y.parent.p)==Y.parent.size[2]
+		 view(X,Y.parent.p[Y.parent.q],:)
+	else
+		dest = zeros(T, Y.parent.size[2], size(X,2))  # Y is selection matrix with some cols all 0
+		if length(dest)>0
+			@inbounds for j ∈ axes(Y.parent.p,1)
+				pⱼ, qⱼ = Y.parent.p[j], Y.parent.q[j] 
+				@tturbo warn_check_args=false for i ∈ indices((X,dest),2)
+				 dest[qⱼ,i] = X[pⱼ,i]
+				end
+			end
+		end
+		view(dest,collect(1:size(dest,1)),:)
+	end
+end
+function *(Y::AdjointDesignerMatrix{T}, X::AbstractArray{T,3}) where T
+	if Y.parent.type==regular
+		view(Base.:*(Y.parent.M', X),collect(1:size(Y.parent.M,2)),:,:)  # collect() makes the column slicer Vector{Int64}, for type consistency
+	elseif Y.parent.type==identity
+		view(X,collect(1:size(X,3)),:,:)
+	elseif length(Y.parent.q)==Y.parent.size[2]
+		 view(X,Y.parent.p[Y.parent.q],:,:)
+	else
+		dest = zeros(T, Y.parent.size[2], size(X,2), size(X,3))  # Y is selection matrix with some cols all 0
+		if length(dest)>0
+			@inbounds for j ∈ eachindex(axes(Y.parent.p,1))
+				pⱼ, qⱼ = Y.parent.p[j], Y.parent.q[j] 
+				@tturbo warn_check_args=false for i ∈ indices((dest,X),3), g ∈ indices((dest,X),2)
+					dest[qⱼ,g,i] = X[pⱼ,g,i]
+				end
+			end
+		end
+		view(dest,collect(1:size(dest,1)),:,:)
+	end
+end
+
+function *(X::AdjointDesignerMatrix{T}, Y::DesignerMatrix{T})::DesignerMatrix{T} where T 
+	return DesignerMatrix(Matrix(X.parent)'Matrix(Y))
+end
+
 mutable struct StrEstimator{T<:AbstractFloat}
   const isDGP::Bool; const liml::Bool; const fuller::T; κ::T
   R₁perp::Matrix{T}; Rpar::Matrix{T}
@@ -19,32 +144,33 @@ mutable struct StrEstimator{T<:AbstractFloat}
   kZ::Int64
   y₁::Vector{T}; ü₁::Vector{Vector{T}}; u⃛₁::Vector{T}; β̈::Vector{T}; γ̈::Vector{T}; β̈₀::Vector{T}; invXXXy₁par::Vector{T}
   Yendog::Matrix{Bool}
-  invZperpZperp::#=Symmetric{T,=#Matrix{T}#=}=#; invZperpZperpZperpX::Matrix{T}; XZ::Matrix{T}; YPXY::#=Symmetric{T,=#Matrix{T}#=}=#; R₁invR₁R₁::Matrix{T}
-	restricted::Bool; RperpX::Matrix{T}; RperpXperp::Matrix{T}; RRpar::Matrix{T}; RparX::Matrix{T}; RparY::Matrix{T}; RR₁invR₁R₁::Matrix{T}
-	∂β̈∂r::Matrix{T}; YY::#=Symmetric{T,=#Matrix{T}#=}=#; AR::Matrix{T}; XAR::Matrix{T}; Ü₂::Matrix{T}; Rt₁::Vector{T}
-	invXX::#=Symmetric{T,=#Matrix{T}#=}=#; Y₂::Matrix{T}; X₂::Matrix{T}; invH::#=Symmetric{T,=#Matrix{T}#=}=#
+  invZperpZperp::Matrix{T}; invZperpZperpZperpX::Matrix{T}; XZ::Matrix{T}; YPXY::Matrix{T}; R₁invR₁R₁::Matrix{T}; R₁invR₁R₁X::DesignerMatrix{T}; R₁invR₁R₁Y::DesignerMatrix{T}
+	restricted::Bool; RperpX::DesignerMatrix{T}; RperpXperp::DesignerMatrix{T}; RRpar::Matrix{T}; RparX::Matrix{T}; RparY::DesignerMatrix{T}; RR₁invR₁R₁::Matrix{T}
+	∂β̈∂r::Matrix{T}; YY::Matrix{T}; AR::Matrix{T}; XAR::Matrix{T}; Ü₂::Matrix{T}; Rt₁::Vector{T}
+	invXX::Matrix{T}; Y₂::Matrix{T}; X₂::Matrix{T}; invH::Matrix{T}
 	y₁par::Vector{T}; Xy₁par::Vector{T}
-	A::#=Symmetric{T,=#Matrix{T}#=}=#; Z::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
+	A::Matrix{T}; Zpar::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
 	WXAR::Matrix{T}; CT_XAR::Vector{Matrix{T}}
 
 	S✻XX::Array{T,3}; XinvHjk::Vector{Matrix{T}}; invMjk::Vector{Matrix{T}}; invMjkv::Vector{T}; XXt1jk::Matrix{T}; t₁::Vector{T}
 
   # IV/GMM only
-  ZZ::#=Symmetric{T,=#Matrix{T}#=}=#; XY₂::Matrix{T}; XX::#=Symmetric{T,=#Matrix{T}#=}=#; H_2SLS::#=Symmetric{T,=#Matrix{T}#=}=#; V::Matrix{T}; ZY₂::Matrix{T}; ZR₁ZR₁::#=Symmetric{T,=#Matrix{T}#=}=#; X₂ZR₁::Matrix{T}; ZR₁Y₂::Matrix{T}; X₁ZR₁::Matrix{T}
-  ZR₁Z::Matrix{T}; X₂y₁::Vector{T}; X₁y₁::Vector{T}; Zy₁::Vector{T}; H_2SLSmZZ::#=Symmetric{T,=#Matrix{T}#=}=#
+  ZZ::Matrix{T}; XY₂::Matrix{T}; XX::Matrix{T}; H_2SLS::Matrix{T}; V::Matrix{T}; ZY₂::Matrix{T}; ZR₁ZR₁::Matrix{T}; X₂ZR₁::Matrix{T}; ZR₁Y₂::Matrix{T}; X₁ZR₁::Matrix{T}
+  ZR₁Z::Matrix{T}; X₂y₁::Vector{T}; X₁y₁::Vector{T}; Zy₁::Vector{T}; H_2SLSmZZ::Matrix{T}
   ZXinvXXXy₁par::Vector{T}
   Y₂y₁::Vector{T}; twoZR₁y₁::Vector{T}; y₁y₁::T; y₁pary₁par::T; Y₂Y₂::Matrix{T}
   X₂y₁par::Vector{T}; X₁y₁par::Vector{T}; Zy₁par::Vector{T}; Y₂y₁par::Vector{T}
   Rperp::Matrix{T}; ZR₁::Matrix{T}
   kX::Int64; kX₁::Int64; kZperp::Int64
 	Π̈ ::Matrix{T}; t₁Y::Vector{T}; PXZ::Matrix{T}
-	S✻⋂ZperpZpar::Array{T,3}; S✻⋂ZperpY₂::Array{T,3}; S⋂y₁X₁::Array{T,3}; S⋂y₁X₂::Array{T,3}; S✻⋂ZperpZperp::Array{T,3}; ZperpX::Matrix{T}; S✻⋂Zperpy₁::Array{T,3}; S✻⋂XZR₁::Array{T,3}; S✻⋂XY₂::Array{T,3}; S✻⋂XZperp::Array{T,3}; S✻⋂XX::Array{T,3}; S✻⋂XZpar::Array{T,3}
+	S✻⋂ZperpZpar::Array{T,3}; S✻⋂ZperpY₂::Array{T,3}; S⋂y₁X₁::Array{T,3}; S⋂y₁X₂::Array{T,3}; S✻⋂ZperpZperp::Array{T,3}; S✻⋂Zperpy₁::Array{T,3}; S✻⋂XZR₁::Array{T,3}; S✻⋂XY₂::Array{T,3}; S✻⋂XZperp::Array{T,3}; S✻⋂XX::Array{T,3}; S✻⋂XZpar::Array{T,3}
 	S✻⋂X₁Y₂::Array{T,3}; S✻⋂X₂Y₂::Array{T,3}; S✻ZparY₂::Array{T,3}; S✻y₁y₁::Array{T,3}; S✻Zpary₁::Array{T,3}; S✻ZR₁y₁::Array{T,3}; S✻ZR₁Y₂::Array{T,3}; S✻ZR₁ZR₁::Array{T,3}; S✻ZR₁Z::Array{T,3}
-	ZperpZR₁::Matrix{T}; ZperpZperp::Matrix{T}; S✻⋂ZperpZR₁::Array{T,3}
+	ZperpZR₁::Matrix{T}; S✻⋂ZperpZR₁::Array{T,3}
 	S✻Y₂Y₂::Array{T,3}; S✻ZparZpar::Array{T,3}; S✻Y₂y₁::Array{T,3}; S✻⋂Xy₁::Array{T,3}
-	Xpar₁::Matrix{T}; X₁par::Matrix{T}
+	ZparX::Matrix{T}
 	invZperpZperpZperpX₁::Matrix{T}; invZperpZperpZperpX₂::Matrix{T}; invZperpZperpZperpy₁::Vector{T}; invZperpZperpZperpY₂::Matrix{T}; S✻UY₂::Matrix{T}; invZperpZperpZperpZpar::Matrix{T}; invZperpZperpZperpZR₁::Matrix{T}
 	Ü₂Ü₂::Matrix{T}; γ̈X::Vector{T}; γ̈Y::Vector{T}; γ⃛::Vector{T}; Xȳ₁::Vector{T}; ȳ₁ȳ₁::T; XÜ₂::Matrix{T}; ȳ₁Ü₂::Matrix{T}; Ȳ₂::Matrix{T}; ȳ₁::Vector{T}
+	Xpar₁toZparX::DesignerMatrix{T}; X₁noFWL::DesignerProduct{T}
 
 	X₁ⱼₖ::Matrix{T}; X₂ⱼₖ::Matrix{T}; y₁ⱼₖ::Vector{T}; Y₂ⱼₖ::Matrix{T}; Zⱼₖ::Matrix{T}; ZR₁ⱼₖ::Matrix{T}; Y₂y₁ⱼₖ::Array{T,3}; X₂y₁ⱼₖ::Array{T,3}; X₁y₁ⱼₖ::Array{T,3}; Zy₁ⱼₖ::Array{T,3}; XZⱼₖ::Array{T,3}; ZZⱼₖ::Array{T,3}; ZY₂ⱼₖ::Array{T,3}; y₁y₁ⱼₖ::Array{T,3}; XY₂ⱼₖ::Array{T,3}; invXXⱼₖ::Array{T,3}; XXⱼₖ::Array{T,3}; X₁ZR₁ⱼₖ::Array{T,3}; X₂ZR₁ⱼₖ::Array{T,3}; ZZR₁ⱼₖ::Array{T,3}; twoZR₁y₁ⱼₖ::Array{T,3}; ZR₁ZR₁ⱼₖ::Array{T,3}; ZR₁Y₂ⱼₖ::Array{T,3} 
 	Y₂y₁parⱼₖ::Array{T,3}; Zy₁parⱼₖ::Array{T,3}; y₁pary₁parⱼₖ::Array{T,3};	Xy₁parⱼₖ::Array{T,3}; y₁parⱼₖ::Vector{T}; H_2SLSⱼₖ::Array{T,3}; H_2SLSmZZⱼₖ::Array{T,3}; invHⱼₖ::Array{T,3}
@@ -64,7 +190,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   FEID::Vector{Int64}; FEdfadj::Int64
   const level::T; const rtol::T
   const madjtype::Symbol; const NH₀::Int16
-  const ml::Bool; β̈::Vector{T}; A::#=Symmetric{T,=#Matrix{T}#=}=#; sc::Matrix{T}
+  const ml::Bool; β̈::Vector{T}; A::Matrix{T}; sc::Matrix{T}
   const willplot::Bool; gridmin::Vector{T}; gridmax::Vector{T}; gridpoints::Vector{Float32}
 
   const q::Int16; const twotailed::Bool; const jk::Bool; scorebs::Bool; const robust::Bool

@@ -246,7 +246,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			InitVarsIV!(o.DGP, o)
 
 			o.Repl = StrEstimator{T}(true, o.liml, o.fuller, o.κ)
-			setR!(o.Repl, o, o.R₁, I)  # process replication restraints = model constraints only
+			setR!(o.Repl, o, o.R₁, I)  # process replication restraints = model constraints only; I arg short-circuits FWL processing
 			InitVarsIV!(o.Repl, o, o.Repl.R₁perp)
 			EstimateIV!(o.Repl, o, false, o.r₁)  # bit inefficient to estimate in both objects, but maintains the conformity
 			InitTestDenoms!(o.Repl, o)
@@ -391,22 +391,23 @@ end
 const ϕ = (1 + √5)/2
 
 function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) where T
-  if _B>0  # in scoretest or waldtest WRE, still make v a col of 1's
-
+	m = o.WREnonARubin && o.jk && o.small ? T(sqrt(1 - 1 / o.N✻)) : one(T)  # finite-sample adjuster for jk regressions
+	
+	if _B>0  # in scoretest or waldtest WRE, still make v a col of 1's
     if o.enumerate
-			o.v = [ones(T,o.N✻) count_binary(o.N✻, -one(T), one(T))]
+			o.v = [ones(T,o.N✻) count_binary(o.N✻, -m, m)]
 		elseif o.auxtwtype == :normal
-			o.v = randn(o.rng, T, o.N✻, _B+first)
+			o.v = m * randn(o.rng, T, o.N✻, _B+first)
 		elseif o.auxtwtype == :gamma 
-			o.v = rand(o.rng, T, o.N✻, _B+first); o.v .= quantile.(Gamma{T}(4,.5), o.v); o.v .-= T(2)
+			o.v = rand(o.rng, T, o.N✻, _B+first); o.v .= quantile.(Gamma{T}(4,.5), o.v); o.v .-= T(2); o.v .*= m
 		elseif o.auxtwtype == :webb
-			o.v = rand(o.rng, T[-√1.5, -1, -√.5, √.5, 1, √1.5], o.N✻, _B+first)
+			o.v = rand(o.rng, m*T[-√1.5, -1, -√.5, √.5, 1, √1.5], o.N✻, _B+first)
 		elseif o.auxtwtype == :mammen
-			o.v = rand(o.rng, o.N✻, _B+first); o.v .= getindex.(Ref(T[1-ϕ; ϕ]), ceil.(Int16, o.v ./ (ϕ/√5)))
+			o.v = rand(o.rng, o.N✻, _B+first); o.v .= getindex.(Ref(m*T[1-ϕ; ϕ]), ceil.(Int16, o.v ./ (ϕ/√5)))
 		else
-			o.v = rand(o.rng, T[1, -1], o.N✻, _B+first)  # Rademacher
+			o.v = rand(o.rng, T[m, -m	], o.N✻, _B+first)  # Rademacher
 		end
-		first && !o.enumerate && (o.v[:,1] .= one(T))  # keep original residuals in first entry to compute base model stat
+		first && !o.enumerate && (o.v[:,1] .= m)  # keep original residuals in first entry to compute base model stat
   else
 		o.v = Matrix{T}(undef,0,1)  # in places, ncols(v) indicates B == 1 for classical tests
   end
