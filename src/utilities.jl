@@ -223,9 +223,9 @@ function t✻plus!(A::AbstractVector{T}, B::AbstractMatrix{T}, C::AbstractVector
 end
 function t✻minus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # add B*C to A in place
 	if length(B)>0 && length(C)>0
-		@tturbo warn_check_args=false for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2))
+		@tturbo warn_check_args=false for i ∈ indices((A,B),1), k ∈ indices((A,C),2)
 			Aᵢₖ = zero(T)
-			for j ∈ eachindex(axes(B,2),axes(C,1))
+			for j ∈ indices((B,C),(2,1))
 				Aᵢₖ += B[i,j] * C[j,k]
 			end
 			A[i,k] -= Aᵢₖ	

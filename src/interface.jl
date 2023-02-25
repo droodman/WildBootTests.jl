@@ -158,7 +158,7 @@ function __wildboottest(
 	                  getauxweights && reps>0 ? getv(o) : nothing #=, o=#)
 end
 
-vecconvert(T::DataType, X) = isa(X, Vector{T}) ? X : Vector{T}(reshape(X, size(X,1)))
+vecconvert(T::DataType, X) = iszero(length(X)) ? T[] : isa(X, Vector{T}) ? X : Vector{T}(reshape(X, size(X,1)))
 matconvert(T::DataType, X) = isa(X, Matrix{T}) ? X : Matrix{T}(reshape(X, size(X,1), size(X,2)))
 
 function _wildboottest(T::DataType,
@@ -347,9 +347,9 @@ Function to perform wild-bootstrap-based hypothesis test
 * `nerrclustvar::Integer=nbootclustvar`: number of error-clustering variables
 * `issorted:Bool=false`: time-saving flag: data matrices are already sort by column types 2, then 3, then 1 (see notes)
 * `hetrobust::Bool=true`: true unless errors are treated as iid
-* `nfe::Integer=0`: number of fixed-effect groups; if 0 yet `feid` is provided, will be computed
+* `nfe::Integer=0`: number of fixed-effect groups; if 0 yet `feid` is provided, will be computed, at small speed penalty
 * `feid::AbstractVector{<:Integer}`: data vector for one-way fixed effect group identifier
-* `fedfadj::Integer=nfe`: degrees of freedom that fixed effects (if any) consume
+* `fedfadj::Integer`: degrees of freedom that fixed effects (if any) consume; defaults to number of FEs
 * `obswt::AbstractVector=[]`: observation weight vector; default is equal weighting
 * `fweights::Bool=false`: true for frequency weights
 * `maxmatsize::Number`: maximum size of auxilliary weight matrix (v), in gigabytes

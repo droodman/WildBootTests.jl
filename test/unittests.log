@@ -259,8 +259,8 @@ CI    = [-0.01093 0.123]
 areg wage ttl_exp collgrad tenure if occupation<. & grade<., robust absorb(industry)
 boottest tenure
 t(1833) = 1.6602
-p       = 0.0971
-CI      = [-0.004733 0.07348]
+p       = 0.0951
+CI      = [-0.005038 0.07348]
 
 
 areg wage ttl_exp collgrad tenure [aw=hours] if occupation<. & grade<., robust absorb(industry)
@@ -313,7 +313,7 @@ areg n w k, absorb(ind)
 boottest k, cluster(id year)
 t(8) = 28.5012
 p    = 0.0000
-CI   = [0.7823 0.9412]
+CI   = [0.7823 0.946]
 
 
 areg n w k [aw=ys], absorb(ind)

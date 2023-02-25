@@ -366,12 +366,13 @@ function InitFEs(o::StrBootTest{T}) where T
 			resize!(o.invFEwt, o.NFE)
 			resize!(o.FEs    , o.NFE)
 		end
-		o.FEdfadj==-1 && (o.FEdfadj = o.NFE)
 
 		if o.FEboot  # are all of this FE's obs in same bootstrapping cluster?
 			tmp = o.ID[is, 1:o.NBootClustVar]
 			o.FEboot = all(tmp .== view(tmp,1,:)')
 		end
+
+		o.FEdfadj==-1 && (o.FEdfadj = o.NFE)
 
 		if o.robust && o.B>0 && o.bootstrapt && !o.FEboot && o.granular < o.NErrClustVar
 			o.infoBootAll = panelsetup(o.ID✻⋂, 1:o.NBootClustVar)  # info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping && error clusters

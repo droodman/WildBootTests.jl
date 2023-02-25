@@ -464,121 +464,41 @@ function HessianFixedkappa!(o::StrBootTest{T}, dest::AbstractMatrix{T}, is::Vect
 	end
 
 	@inbounds for (row,i) ∈ enumerate(is)
-		if !iszero(κ)
+		if iszero(κ)
+			dest[row,:] .= o.ȲȲ[i+1,j+1]; t✻plus!(view(dest,row:row,:), view(o.S✻ȲUfold,i+1,:,j+1)', o.v); 
+			coldotplus!(dest, row, o.v, o.S✻UU[i+1, j+1], o.v)
+			if o.Repl.Yendog[i+1] && o.Repl.Yendog[j+1]
+				mul!(o.invZperpZperpS✻ZperpUv, o.invZperpZperpS✻ZperpU[i+1], o.v)
+				coldotminus!(dest, row, o.invZperpZperpS✻ZperpUv, o.S✻ZperpUv)
+			end
+
+			if o.NFE>0 && !o.FEboot
+				mul!(o.CT✻FEUv, o.CT✻FEU[i+1], o.v)
+				coldotminus!(dest, row, o.CT✻FEUv, o.invFEwtCT✻FEUv)
+			end
+		else
 	    o.T1L .= o.XȲ[:,i+1]  # X_∥^' Y_(∥i)
 	    o.Repl.Yendog[i+1] &&
 				t✻plus!(o.T1L, o.S✻XU[i+1], o.v)
 			coldot!(dest, row, o.T1L, o.T1R)  # multiply in the left-side linear term
-		end
 
-	  if !isone(κ)
-	    _dest = t✻(view(o.S✻ȲUfold,i+1,:,j+1)', o.v); _dest .+= o.ȲȲ[i+1,j+1]
-			coldotplus!(_dest, 1, o.v, o.S✻UU[i+1, j+1], o.v)
-	    if o.Repl.Yendog[i+1] && o.Repl.Yendog[j+1]
-				mul!(o.invZperpZperpS✻ZperpUv, o.invZperpZperpS✻ZperpU[i+1], o.v)
-	      coldotminus!(_dest, 1, o.invZperpZperpS✻ZperpUv, o.S✻ZperpUv)
-			end
+		  if !isone(κ)
+		    _dest = t✻(view(o.S✻ȲUfold,i+1,:,j+1)', o.v); _dest .+= o.ȲȲ[i+1,j+1]
+				coldotplus!(_dest, 1, o.v, o.S✻UU[i+1, j+1], o.v)
+		    if o.Repl.Yendog[i+1] && o.Repl.Yendog[j+1]
+					mul!(o.invZperpZperpS✻ZperpUv, o.invZperpZperpS✻ZperpU[i+1], o.v)
+		      coldotminus!(_dest, 1, o.invZperpZperpS✻ZperpUv, o.S✻ZperpUv)
+				end
 
-	    if o.NFE>0 && !o.FEboot
-				mul!(o.CT✻FEUv, o.CT✻FEU[i+1], o.v)
-				coldotminus!(_dest, 1, o.CT✻FEUv, o.invFEwtCT✻FEUv)
-			end
+		    if o.NFE>0 && !o.FEboot
+					mul!(o.CT✻FEUv, o.CT✻FEU[i+1], o.v)
+					coldotminus!(_dest, 1, o.CT✻FEUv, o.invFEwtCT✻FEUv)
+				end
 
-	    if iszero(κ)
-				dest[row:row,:] .= _dest
-			else
-				dest[row:row,:] .*= κ;  dest[row:row,:] .+= (1-κ) .* _dest
+		    dest[row:row,:] .*= κ;  dest[row:row,:] .+= (1-κ) .* _dest
 			end
 		end
 
-	# 	if o.Repl.Yendog[i+1] && o.Repl.Yendog[j+1]
-	# 		mul!(o.invZperpZperpS✻ZperpUv, o.invZperpZperpS✻ZperpU[i+1], o.v)
-	# 		o.NFE>0 && !o.FEboot &&
-	# 			mul!(o.CT✻FEUv, o.CT✻FEU[i+1], o.v)
-	# 		if iszero(κ)
-	# 			dest[row,:] .= o.ȲȲ[i+1,j+1]; t✻plus!(view(dest,row:row,:), view(o.S✻ȲUfold,i+1,:,j+1)', o.v)
-	# 			coldotminus!(dest, row, o.invZperpZperpS✻ZperpUv, o.S✻ZperpUv)
-	# 			coldotplus!(dest, row, o.v, o.S✻UU[i+1,j+1], o.v)
-	# 			o.NFE>0 && !o.FEboot &&
-	# 				coldotminus!(dest, row, o.CT✻FEUv, o.invFEwtCT✻FEUv)
-	# 		elseif isone(κ)
-	# 			t✻!(view(dest,row,:), view(o.S✻ȲUfold,i+1,:,j+1)', o.v); dest[row,:] .+= o.ȲȲ[i+1,j+1]
-	# 			coldotminus!(dest, row, o.invZperpZperpS✻ZperpUv, o.S✻ZperpUv)
-	# 			coldotplus!(dest, row, o.v, o.S✻UU[i+1, j+1], o.v)
-	# 			o.NFE>0 && !o.FEboot &&
-	# 				coldotminus!(dest, row, o.CT✻FEUv, o.invFEwtCT✻FEUv)
-	# 		else
-	# 			_dest = t✻(view(o.S✻ȲUfold,i+1,:,j+1)', o.v); _dest .+= o.ȲȲ[i+1,j+1]
-	# 			coldotminus!(_dest, 1, o.invZperpZperpS✻ZperpUv, o.S✻ZperpUv)
-	# 			coldotplus!(_dest, 1, o.v, o.S✻UU[i+1, j+1], o.v)
-	# 			o.NFE>0 && !o.FEboot &&
-	# 				coldotminus!(_dest, 1, o.CT✻FEUv, o.invFEwtCT✻FEUv)
-	# 			dest[row,:] .*= κ;  dest[row,:] .+= (1 - κ) .* _dest
-	# 		end
-
-
-
-
-	# 	if !o.Repl.Yendog[i+1] && !o.Repl.Yendog[j+1]  # if both vars exog, result = order-0 term only, same for all draws
-	# 		!iszero(κ) && 
-	# 			(dest[row,:] .= dot(view(o.XȲ,:,i+1), j>0 ? view(o.invXXXZ̄,:,j) : view(o.DGP.γ⃛,:,1)))
-	# 		if !isone(κ)
-	# 			if iszero(κ)
-	# 				dest[row,:] .= o.ȲȲ[i+1,j+1]
-	# 			else
-	# 				dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* o.ȲȲ[i+1,j+1]
-	# 			end
-	# 		end
-	# 	else
-	# 		if !iszero(κ)  # repetitiveness in this section to maintain type stability
-	# 			if o.Repl.Yendog[i+1]
-	# 				mul!(o.T1L, o.S✻XU[i+1], o.v)
-	# 				o.T1L .+= view(o.XȲ,:,i+1)
-	# 				if o.Repl.Yendog[j+1]
-	# 					coldot!(dest, row, o.T1L, o.T1R)
-	# 				else
-	# 					mul!(view(dest,row,:), o.T1L', view(o.invXXXZ̄,:,j))
-	# 				end
-	# 			else
-	# 				if o.Repl.Yendog[j+1]
-	# 					mul!(view(dest,row,:), o.T1R', view(o.XȲ,:,i+1))
-	# 				else
-	# 					dest[row,:] .= dot(view(o.invXXXZ̄,:,j), view(o.XȲ,:,i+1))
-	# 				end
-	# 			end
-	# 		end
-	# 		if !isone(κ)
-	# 			if o.Repl.Yendog[i+1] && o.Repl.Yendog[j+1]
-	# 				mul!(o.invZperpZperpS✻ZperpUv, o.invZperpZperpS✻ZperpU[i+1], o.v)
-	# 				o.NFE>0 && !o.FEboot &&
-	# 					mul!(o.CT✻FEUv, o.CT✻FEU[i+1], o.v)
-	# 				if iszero(κ)
-	# 					dest[row,:] .= o.ȲȲ[i+1,j+1]; t✻plus!(view(dest,row:row,:), view(o.S✻ȲUfold,i+1,:,j+1)', o.v)
-	# 					coldotminus!(dest, row, o.invZperpZperpS✻ZperpUv, o.S✻ZperpUv)
-	# 					coldotplus!(dest, row, o.v, o.S✻UU[i+1,j+1], o.v)
-	# 					o.NFE>0 && !o.FEboot &&
-	# 						coldotminus!(dest, row, o.CT✻FEUv, o.invFEwtCT✻FEUv)
-	# 				else
-	# 					_dest = t✻(view(o.S✻ȲUfold,i+1,:,j+1)', o.v); _dest .+= o.ȲȲ[i+1,j+1]
-	# 					coldotminus!(_dest, 1, o.invZperpZperpS✻ZperpUv, o.S✻ZperpUv)
-	# 					coldotplus!(_dest, 1, o.v, o.S✻UU[i+1, j+1], o.v)
-	# 					o.NFE>0 && !o.FEboot &&
-	# 						coldotminus!(_dest, 1, o.CT✻FEUv, o.invFEwtCT✻FEUv)
-	# 					dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* _dest
-	# 				end
-	# 			elseif iszero(κ)
-	# 				dest[row,:] .= o.ȲȲ[i+1,j+1]; t✻plus!(view(dest,row:row,:), view(o.S✻ȲUfold,i+1,:,j+1)', o.v)
-	# 			else
-	# 				_dest = t✻(view(o.S✻ȲUfold,i+1,:,j+1)', o.v); _dest .+= o.ȲȲ[i+1,j+1]
-	# 				dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* _dest
-	# 			end
-	# 		elseif iszero(κ)
-	# 			dest[row,:] .= o.ȲȲ[i+1,j+1]
-	# 		else
-	# 			dest[row,:] .= κ .* dest[row,:] .+ (1 - κ) .* o.ȲȲ[i+1,j+1]
-	# 		end
-	# 	end
-	
 		if _jk
 			!iszero(κ) &&
 				(dest[row,1] = dot(i>0 ? o.Repl.XZ[:,i] : o.Repl.Xy₁par, 
