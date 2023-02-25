@@ -19,6 +19,14 @@ using SnoopPrecompile, StableRNGs
       wildboottest(T, T[0 0 0 0 1], T[.04]; resp, predexog, predendog, inst, rng, clustid=idcoarse)
       wildboottest(T, T[0 0 0 0 1], T[.04]; resp, predexog, predendog, inst, rng, clustid=idcoarse, arubin=true)
       wildboottest(T, T[0 0 0 1 0], T[.04]; resp, predexog, predendog, inst, rng, clustid=idgranular, liml=true)
+      wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog,      clustid=idcoarse)
+      wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, rng, clustid=idgranular)
+      wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, rng, small=false)
+      wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, rng, clustid=idcoarse, R1=T[0 0 1 0], r1=T[.2])
+      wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, rng, feid)
+      wildboottest(    [0 0 0 0 1], T[.04]; resp, predexog, predendog, inst, rng, clustid=idcoarse)
+      wildboottest(    [0 0 0 0 1], T[.04]; resp, predexog, predendog, inst, rng, clustid=idcoarse, arubin=true)
+      wildboottest(    [0 0 0 1 0], T[.04]; resp, predexog, predendog, inst, rng, clustid=idgranular, liml=true)
     end
   end
 end
