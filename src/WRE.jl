@@ -581,7 +581,8 @@ function HessianFixedkappa!(o::StrBootTest{T}, dest::AbstractMatrix{T}, is::Vect
 	
 		if _jk
 			!iszero(κ) &&
-				(dest[row,1] = dot(i>0 ? o.Repl.XZ[:,i] : o.Repl.Xy₁par, j>0 ? o.Repl.V[:,j] : o.Repl.invXXXy₁par))
+				(dest[row,1] = dot(i>0 ? o.Repl.XZ[:,i] : o.Repl.Xy₁par, 
+				                   j>0 ? o.Repl.V[ :,j] : o.Repl.invXXXy₁par))
 			!isone(κ) &&
 				(dest[row,1] = iszero(κ) ? o.Repl.YY[i+1,j+1] : κ * dest[row,1] + (1 - κ) * o.Repl.YY[i+1,j+1])
 		end
@@ -770,7 +771,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 		if o.null
 			o.numerWRE .= view(o.β̈sAs,1:1,:) .+ (o.Repl.Rt₁ - o.r) / o.Repl.RRpar
 		else
-			o.numerWRE .=  view(o.β̈sAs,1:1,:) .- view(o.DGP.β̈ ,:,1)
+			o.numerWRE .= view(o.β̈sAs,1:1,:) .- view(o.DGP.β̈ ,:,1)
 			isone(w) && (o.numerWRE[1] = o.β̈sAs[1] + (o.Repl.Rt₁[1] - o.r[1]) / o.Repl.RRpar[1])
 		end
 
@@ -817,7 +818,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			!iszero(o.fuller) && (o.κWRE .-= o.fuller / (o._Nobs - o.kX))
 
 			o.As .= o.κWRE .* view(o.YPXY✻, 2:o.Repl.kZ+1, :, 2:o.Repl.kZ+1) .+ (1 .- o.κWRE) .* view(o.YY✻, 2:o.Repl.kZ+1, :, 2:o.Repl.kZ+1)
-			invNaN!(o.As)
+			invsym!(o.As)
 			t✻!(view(o.β̈s,:,:,1:1), o.As, o.κWRE .* view(o.YPXY✻, 2:o.Repl.kZ+1, :, 1) .+ (1 .- o.κWRE) .* view(o.YY✻, 2:o.Repl.kZ+1, :,  1))
 		else
 			HessianFixedkappa!(o, o.δnumer, collect(1:o.Repl.kZ), 0, o.κ, _jk)
@@ -825,7 +826,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 				HessianFixedkappa!(o, view(o.As, 1:i, :, i), collect(1:i), i, o.κ, _jk)
 			end
 			symmetrize!(o.As)
-			invNaN!(o.As)
+			invsym!(o.As)
 			t✻!(view(o.β̈s,:,:,1:1), o.As, view(o.δnumer,:,:,1:1))
 		end
 
@@ -871,7 +872,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			if o.sqrt
 				@storeWtGrpResults!(o.dist, o.numerWRE ./ sqrtNaN.(dropdims(o.denomWRE; dims=3)))
 			else
-				invNaN!(o.denomWRE)
+				invsym!(o.denomWRE)
 				_numer = view(o.numerWRE,:,:,1:1)
 				@storeWtGrpResults!(o.dist, dropdims(_numer'o.denomWRE*_numer; dims=3))  # hand-code for 2-dimensional?  XXX allocations
 			end

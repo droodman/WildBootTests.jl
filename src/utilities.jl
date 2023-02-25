@@ -20,22 +20,7 @@ end
 # iszero(nrows(X)) && (return Symmetric(X))
 # X, ipiv, info = LinearAlgebra.LAPACK.sytrf!('U', Matrix(X))
 # iszero(info) && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)
-function invNaN(X)
-	iszero(length(X)) && (return X)
-	try
-		pinv(X)
-	catch _
-		fill(eltype(X)(NaN), size(X))
-	end
-end
-function invsym(X)
-	iszero(length(X)) && (return X)
-	try
-		pinv(Symmetric(X))
-	catch _
-		fill(eltype(X)(NaN), size(X))
-	end
-end
+@inline invsym(X) = X \ I
 
 eigvalsNaN(X) =
 	try
@@ -845,16 +830,16 @@ function t✻minus!(dest::AbstractArray{T,3}, A::AbstractVecOrMat{T}, B::Abstrac
 end
 
 # in-place inverse of a set of symmetric matrices
-function invNaN!(A::Array{T,3}) where T
+function invsym!(A::Array{T,3}) where T
 	@inbounds for g ∈ eachindex(axes(A,2))
-		A[:,g,:] = invNaN(@view A[:,g,:])
+		A[:,g,:] = invsym(@view A[:,g,:])
 	end
 	nothing
 end
-function invNaN(A::Array{T,3}) where T
+function invsym(A::Array{T,3}) where T
 	dest = similar(A)
 	@inbounds for g ∈ eachindex(axes(A,2))
-		dest[:,g,:] = invNaN(@view A[:,g,:])
+		dest[:,g,:] = invsym(@view A[:,g,:])
 	end
 	dest
 end
@@ -873,19 +858,19 @@ function crossjk(A::VecOrMat{T}, B::Vector{T}, info::Vector{UnitRange{Int64}}) w
 	(vec(sumt), t)
 end
 
-# given data matrix X and cluster-defining info vector, compute X'X, invNaN(X'X), and delete-g invNaN(X'X)'s efficiently
+# given data matrix X and cluster-defining info vector, compute X'X, invsym(X'X), and delete-g invsym(X'X)'s efficiently
 function invsymcrossjk(X::Matrix{T}, info::Vector{UnitRange{Int64}}) where T
 	SXX =  panelcross(X,X,info)
 	XX = sumpanelcross(SXX)
-	invXX = invNaN(XX)
+	invXX = invsym(XX)
 	for (g,S) ∈ enumerate(info)
 		Xg = view(X,S,:)
 		if size(Xg,1) > size(Xg,2)
-			SXX[:,g,:] = invNaN(XX - Xg'Xg)
+			SXX[:,g,:] = invsym(XX - Xg'Xg)
 		else
 			XginvXX = Xg * invXX
 			tmp = XginvXX * Xg'; tmp -= I
-			SXX[:,g,:] = invXX; t✻minus!(view(SXX,:,g,:), XginvXX'invNaN(tmp), XginvXX)
+			SXX[:,g,:] = invXX; t✻minus!(view(SXX,:,g,:), XginvXX'invsym(tmp), XginvXX)
 		end
 	end
 	(XX, invXX, SXX)

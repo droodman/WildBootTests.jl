@@ -54,22 +54,22 @@ end
 
 function *(X::AbstractMatrix{T}, Y::DesignerMatrix{T}) where T
 	if Y.type==regular
-		view(Base.:*(X, Y.M),:,collect(1:size(Y.M,2)))  # collect() makes the column slicer Vector{Int64}, for type consistency
+		Base.:*(X, Y.M)  # collect() makes the column slicer Vector{Int64}, for type consistency
 	elseif Y.type==identity
-		view(X,:,collect(1:size(X,2)))
+		X
 	elseif length(Y.p)==Y.size[2]
-		 view(X,:,Y.p[Y.q])
+		 X[:,Y.p[Y.q]]
 	else
 		dest = zeros(T, size(X,1), Y.size[2])  # Y is selection matrix with some cols all 0
 		if length(dest)>0
-			@inbounds for j ∈ axes(Y.p,1)
+			@inbounds for j ∈ eachindex(axes(Y.p,1))
 				pⱼ, qⱼ = Y.p[j], Y.q[j] 
 				@tturbo warn_check_args=false for i ∈ indices((dest,X),1)
-				 dest[i,qⱼ] = X[i,pⱼ]
+					dest[i,qⱼ] = X[i,pⱼ]
 				end
 			end
 		end
-		view(dest,:,collect(1:size(dest,2)))
+		dest
 	end
 end
 function *(X::AbstractArray{T,3}, Y::DesignerMatrix{T}) where T
@@ -170,7 +170,7 @@ mutable struct StrEstimator{T<:AbstractFloat}
 	ZparX::Matrix{T}
 	invZperpZperpZperpX₁::Matrix{T}; invZperpZperpZperpX₂::Matrix{T}; invZperpZperpZperpy₁::Vector{T}; invZperpZperpZperpY₂::Matrix{T}; S✻UY₂::Matrix{T}; invZperpZperpZperpZpar::Matrix{T}; invZperpZperpZperpZR₁::Matrix{T}
 	Ü₂Ü₂::Matrix{T}; γ̈X::Vector{T}; γ̈Y::Vector{T}; γ⃛::Vector{T}; Xȳ₁::Vector{T}; ȳ₁ȳ₁::T; XÜ₂::Matrix{T}; ȳ₁Ü₂::Matrix{T}; Ȳ₂::Matrix{T}; ȳ₁::Vector{T}
-	Xpar₁toZparX::DesignerMatrix{T}; X₁noFWL::DesignerProduct{T}
+	Xpar₁toZparX::DesignerMatrix{T}; X₁noFWL::Matrix{T} #=DesignerProduct{T}=#
 
 	X₁ⱼₖ::Matrix{T}; X₂ⱼₖ::Matrix{T}; y₁ⱼₖ::Vector{T}; Y₂ⱼₖ::Matrix{T}; Zⱼₖ::Matrix{T}; ZR₁ⱼₖ::Matrix{T}; Y₂y₁ⱼₖ::Array{T,3}; X₂y₁ⱼₖ::Array{T,3}; X₁y₁ⱼₖ::Array{T,3}; Zy₁ⱼₖ::Array{T,3}; XZⱼₖ::Array{T,3}; ZZⱼₖ::Array{T,3}; ZY₂ⱼₖ::Array{T,3}; y₁y₁ⱼₖ::Array{T,3}; XY₂ⱼₖ::Array{T,3}; invXXⱼₖ::Array{T,3}; XXⱼₖ::Array{T,3}; X₁ZR₁ⱼₖ::Array{T,3}; X₂ZR₁ⱼₖ::Array{T,3}; ZZR₁ⱼₖ::Array{T,3}; twoZR₁y₁ⱼₖ::Array{T,3}; ZR₁ZR₁ⱼₖ::Array{T,3}; ZR₁Y₂ⱼₖ::Array{T,3} 
 	Y₂y₁parⱼₖ::Array{T,3}; Zy₁parⱼₖ::Array{T,3}; y₁pary₁parⱼₖ::Array{T,3};	Xy₁parⱼₖ::Array{T,3}; y₁parⱼₖ::Vector{T}; H_2SLSⱼₖ::Array{T,3}; H_2SLSmZZⱼₖ::Array{T,3}; invHⱼₖ::Array{T,3}

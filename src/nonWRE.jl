@@ -289,7 +289,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 			@storeWtGrpResults!(o.dist, o.numerw ./ sqrtNaN.(o.denom[1,1]))
 			isone(w) &&
 				(o.statDenom = hcat(o.denom[1,1][1]))  # original-sample denominator
-		elseif o.dof==2  # hand-code 2D numer'invNaN(denom)*numer
+		elseif o.dof==2  # hand-code 2D numer'invsym(denom)*numer
 			t1 = view(o.numerw,1,:)'; t2 = view(o.numerw,2,:)'; t12 = t1.*t2
 			@storeWtGrpResults!(o.dist, (t1.^2 .* o.denom[2,2] .- 2 .* t12 .* o.denom[2,1] .+ t2.^2 .* o.denom[1,1]) ./ (o.denom[1,1].*o.denom[2,2] .- o.denom[2,1].^2))
 			isone(w) &&
