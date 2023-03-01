@@ -8,7 +8,7 @@ end
 
 struct StrFE{T<:Real}
 	is::SubArray{Int64, 1, Vector{Int64}, Tuple{UnitRange{Int64}}, true}
-  wt::Vector{T}
+  wtscalar::T; wtvec::Vector{T}
   sqrtwt::Vector{T}
 end
 
@@ -23,7 +23,7 @@ struct DesignerMatrix{T} <: AbstractMatrix{T}
 end
 
 AdjointDesignerMatrix{T} = Adjoint{T, DesignerMatrix{T}} where T
-DesignerProduct{T}  = SubArray{T, 2, Matrix{T}, Tuple{Base.Slice{Base.OneTo{Int64}}, Vector{Int64}}, false} where T
+# DesignerProduct{T}  = SubArray{T, 2, Matrix{T}, Tuple{Base.Slice{Base.OneTo{Int64}}, Vector{Int64}}, false} where T
 
 function DesignerMatrix(X::AbstractMatrix{T}) where T
 	if isa(X,AbstractMatrix) && length(X)>0 && all(sum(isone.(X) .| iszero.(X), dims=1) .== size(X,1)) && all(sum(isone.(X), dims=1) .<= one(T))
@@ -54,7 +54,7 @@ end
 
 function *(X::AbstractMatrix{T}, Y::DesignerMatrix{T}) where T
 	if Y.type==regular
-		Base.:*(X, Y.M)  # collect() makes the column slicer Vector{Int64}, for type consistency
+		Base.:*(X, Y.M)
 	elseif Y.type==identity
 		X
 	elseif length(Y.p)==Y.size[2]
@@ -228,7 +228,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	invFEwtCT✻FEu₁::Array{T,3}; invFEwtCT✻FEU₂par::Array{T,3}; invFEwtCT✻FEU::Vector{SubArray{T, 2, Array{T,3}, Tuple{Base.Slice{Base.OneTo{Int64}}, Base.Slice{Base.OneTo{Int64}}, Int64}, true}}; S✻ȲUfold::Array{T,3}
   ∂denom∂r::Array{Matrix{T},3}; ∂Jcd∂r::Array{Matrix{T},3}; ∂²denom∂r²::Array{Matrix{T},4}
 	FEs::Vector{StrFE{T}}
-  T1L::Matrix{T}; T1R::Matrix{T}; J⋂s::Array{T,3}; Q::Array{T,3 #=2=#}; β̈v::Matrix{T}
+  T1L::Matrix{T}; T1R::Matrix{T}; J⋂s::Array{T,3}; J⋂s1::Vector{Matrix{T}}; β̈v::Matrix{T}
 	crosstab⋂✻ind::Vector{Int64}; crosstab✻ind::Vector{Int64}
   seed::UInt64
 
@@ -247,7 +247,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 
 	YY₁₁::Matrix{T}; YY₁₂::Matrix{T}; YY₂₂::Matrix{T}; YPXY₁₁::Matrix{T}; YPXY₁₂::Matrix{T}; YPXY₂₂::Matrix{T}
 	YY₁₂YPXY₁₂::Matrix{T}; x₁₁::Matrix{T}; x₁₂::Matrix{T}; x₂₁::Matrix{T}; x₂₂::Matrix{T}; κs::Matrix{T}; numerWRE::Matrix{T}
-	δnumer::Matrix{T}; YY✻::Array{T,3}; YPXY✻::Array{T,3}; κWRE::Array{T,3}; denomWRE::Array{T,3}; ARpars::Array{T,3}; J⋂ARpars::Array{T,3}; Jc::Vector{Array{T,3}}
+	δnumer::Matrix{T}; YY✻::Array{T,3}; YPXY✻::Array{T,3}; κWRE::Array{T,3}; denomWRE::Array{T,3}; ARpars::Array{T,3}; J⋂ARpars::Vector{Array{T,3}}; Jc::Vector{Array{T,3}}
 	invZperpZperpS✻ZperpUv::Matrix{T}; S✻ZperpUv::Matrix{T}; CT✻FEUv::Matrix{T}; invFEwtCT✻FEUv::Matrix{T}; PXY✻::Matrix{T}; S✻UMZperpv::Matrix{T}
 	F₁::Matrix{T}; F₁β::Matrix{T}; F₂::Matrix{T}; willfill::Bool; not2SLS::Bool
 	invXXXZ̄::Matrix{T}; XȲ::Matrix{T}; ZÜ₂par::Matrix{T}; ȲȲ::Matrix{T}

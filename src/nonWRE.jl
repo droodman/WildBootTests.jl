@@ -59,7 +59,7 @@ function MakeInterpolables!(o::StrBootTest{T}) where T
 			if o.q==2  # in this case we haven't yet actually computed interpolables at r, so interpolate them
 				o.numerw .= o.numer₀ .+ o.∂numer∂r[1] .* Δ[1] .+ o.∂numer∂r[2] .* Δ[2]
 				if o.interpolate_u
-					o.u✻ = o.u✻₀ .+ o.∂u∂r[1] .* Δ[1] .+ o.∂u∂r[2] .* Δ[2]
+					o.u✻ .= o.u✻₀ .+ o.∂u∂r[1] .* Δ[1] .+ o.∂u∂r[2] .* Δ[2]
 				end
 			end
 
@@ -127,7 +127,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 								  o.DGP.A * panelsum2(o.X₁, o.X₂, o.DGP.ü₁[1+_jk], o.info✻)'  # same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined; X₂ empty except in Anderson-Rubin
 
 		if o.robust && o.bootstrapt && o.granular < o.NErrClustCombs
-			u✻XAR = @panelsum(uXAR, o.info✻⋂)  # collapse data to all-boot && error-cluster-var intersections. If no collapsing needed, panelsum() will still fold in any weights
+			u✻XAR = @panelsum(uXAR, o.info✻⋂)  # collapse data to all-boot && error-cluster-var intersections
 			if o.B>0
 				if o.scorebs
 					K = [zeros(T, o.N⋂, o.N✻) for _ in 1:o.dof]::Vector{Matrix{T}}  # inefficient, but not optimizing for the score bootstrap
@@ -209,7 +209,7 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 	end
 
 	if o.interpolate_u
-		o.u✻ = o.B>0 ? o.v .* o.DGP.ü₁[1+_jk] : reshape(o.DGP.ü₁[1+_jk],:,1)
+		o.u✻ .= o.B>0 ? o.v .* o.DGP.ü₁[1+_jk] : reshape(o.DGP.ü₁[1+_jk],:,1)
 		if o.scorebs
 			o.u✻ .-= o.ClustShare * colsum(o.u✻)
 		else
@@ -225,12 +225,12 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 		else
 			if o.granular || o.purerobust  # optimized treatment when bootstrapping by many/small groups
 				if o.purerobust && !o.interpolable
-					o.u✻ = o.DGP.ü₁[1+_jk] .* o.v
+					o.u✻ .= o.DGP.ü₁[1+_jk] .* o.v
 					o.NFE>0 && partialFE!(o, o.u✻)
 					o.u✻ .-= o.X₁ * (@view o.β̈dev[1:o.kX₁,:]) .+ o.X₂ * (@view o.β̈dev[o.kX₁+1:end,:])
 				else  # clusters small but not all singletons
 					if o.NFE>0 && !o.FEboot
-						o.u✻ = o.DGP.ü₁[1+_jk] .* (o.purerobust ? view(o.v, :, :) : view(o.v, o.ID✻, :))
+						o.u✻ .= o.DGP.ü₁[1+_jk] .* (o.purerobust ? view(o.v, :, :) : view(o.v, o.ID✻, :))
 						partialFE!(o, o.u✻)
 						@inbounds for d ∈ 1:o.dof
 							panelsum!(o.Jcd[1,d], o.u✻, view(o.M.WXAR,:,d), o.info⋂)

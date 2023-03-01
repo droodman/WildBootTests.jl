@@ -2,11 +2,13 @@
 # The StrEstimator "class" and its three "children" hold the estimation logic for the OLS, Anderson-Rubin, and IV/GMM cases
 
 @inline denegate(X) = X .* [any(map(<(0), x)) ? -1 : 1 for x ∈ eachcol(X)]'  # try to turn -1's into 1's for proper selection matrix
+@inline identify(X::AbstractMatrix{T}) where T = size(X,1)==size(X,2) && DesignerMatrix(X).type==selection ? Matrix{T}(I(size(X,1))) : X  # try to turn square selection matrix into idnentity: same projection space
+
 function par(X::AbstractMatrix{T}) where T
 	F = eigen(Symmetric(X'pinv(X * X')*X))
-	return denegate(F.vectors[:, abs.(F.values) .> 1000*eps(T)])
+	return identify(denegate(F.vectors[:, abs.(F.values) .> 1000*eps(T)]))
 end
-@inline perp(X) = denegate(nullspace(X'))
+@inline perp(X) = identify(denegate(nullspace(X')))
 
 # R₁ is constraints. R is attack surface for null; only needed when using FWL for WRE
 # for DGP regression, R₁ is maintained constraints + null if imposed while R should have 0 nrows
@@ -41,7 +43,7 @@ function setR!(o::StrEstimator{T}, parent::StrBootTest{T}, R₁::AbstractMatrix{
 			_RperpX = perp(par(RR₁perp))
 			o.restricted && (_RperpX = o.R₁perp * _RperpX)  # fold model constraint factors into Rpar, RperpX
 			_RperpX = _RperpX[1:parent.kX₁,:]
-			o.RperpX = DesignerMatrix(_RperpX)  # Zperp=Z*RperpX; though formally a multiplier on Z, it will only extract exogenous components, in X₁, since all endogenous ones will be retained
+			o.RperpX = DesignerMatrix(identify(_RperpX))  # Zperp=Z*RperpX; though formally a multiplier on Z, it will only extract exogenous components, in X₁, since all endogenous ones will be retained
 			o.RperpXperp = DesignerMatrix(perp(_RperpX))
 		end
   end
@@ -179,13 +181,15 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	end
 	if parent.WREnonARubin  # faster, doesn't work for score test because only do FWL in DGP, not Repl
 		o.Xpar₁toZparX = DesignerMatrix(parent.DGP.RperpXperp'parent.DGP.RperpXperp \ parent.DGP.RperpXperp'o.RparX)
-		o.ZparX = o.X₁noFWL * o.Xpar₁toZparX
+		o.Zpar = o.X₁noFWL * o.Xpar₁toZparX
 	else
-		o.ZparX = parent.X₁ * o.RparX
+		o.Zpar = parent.X₁ * o.RparX
 	end
+	!o.isDGP && !parent.scorebs && (parent.jk || parent.granular) &&
+		(o.ZparX = copy(o.Zpar))
 
-	o.Zpar = parent.Y₂ * o.RparY; o.Zpar .+= o.ZparX
-	o.restricted && (o.ZR₁ = parent.X₁ * o.R₁invR₁R₁X + parent.Y₂ * o.R₁invR₁R₁Y)
+	o.Zpar .+= parent.Y₂ * o.RparY
+	o.restricted && (o.ZR₁ = parent.X₁ * o.R₁invR₁R₁X; t✻plus!(o.ZR₁, parent.Y₂, o.R₁invR₁R₁Y))
 
 	if prepjk
 		o.β̈ⱼₖ = Array{T,3}(undef, o.kZ, parent.N✻,1)
@@ -429,27 +433,20 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			end
 		end
 
-		S✻⋂X₁Zpar = panelcross(o.X₁noFWL, o.ZparX, parent.info✻⋂) + o.S✻⋂X₁Y₂ * o.RparY
-		S✻⋂X₂Zpar = panelcross(parent.X₂, o.ZparX, parent.info✻⋂) + o.S✻⋂X₂Y₂ * o.RparY
+		S✻⋂X₁Zpar = panelcross(o.X₁noFWL, o.Zpar, parent.info✻⋂)
+		S✻⋂X₂Zpar = panelcross(parent.X₂, o.Zpar, parent.info✻⋂)
 		o.S✻⋂XZpar = [S✻⋂X₁Zpar; S✻⋂X₂Zpar]
 		X₁Zpar = sumpanelcross(S✻⋂X₁Zpar)
 		X₂Zpar = sumpanelcross(S✻⋂X₂Zpar)
-		S✻⋂ZperpZparX = panelcross(o.Zperp, o.ZparX, parent.info✻⋂)
-		ZperpZparX = sumpanelcross(S✻⋂ZperpZparX)
-		o.S✻⋂ZperpZpar = S✻⋂ZperpZparX + o.S✻⋂ZperpY₂ * o.RparY
-	  ZperpZpar = ZperpZparX + sumpanelcross(o.S✻⋂ZperpY₂) * o.RparY
+		o.S✻⋂ZperpZpar = panelcross(o.Zperp, o.Zpar, parent.info✻⋂)
+		ZperpZpar = sumpanelcross(o.S✻⋂ZperpZpar)
 		o.invZperpZperpZperpZpar = o.invZperpZperp * ZperpZpar
-
-		S✻ZparXy₁ = panelcross(o.ZparX, parent.y₁, parent.info✻)
-		o.S✻Zpary₁ = S✻ZparXy₁ + o.RparY' * o.S✻Y₂y₁
-		o.Zy₁ = vec(sumpanelcross(S✻ZparXy₁)) + o.RparY' * o.Y₂y₁
-
-		S✻ZparXY₂ = panelcross(o.ZparX, parent.Y₂, parent.info✻)
+		o.S✻Zpary₁ = panelcross(o.Zpar, parent.y₁, parent.info✻)
+		o.Zy₁ = vec(sumpanelcross(o.S✻Zpary₁)); o.Zy₁ .-= ZperpZpar'o.invZperpZperpZperpy₁
+		o.S✻ZparY₂ = panelcross(o.Zpar, parent.Y₂, parent.info✻)
 		o.XZ = [X₁Zpar - o.invZperpZperpZperpX₁'ZperpZpar ; X₂Zpar - o.invZperpZperpZperpX₂'ZperpZpar]
-	  o.S✻ZparY₂ = S✻ZparXY₂ + o.RparY' * o.S✻Y₂Y₂
-	  tmp = S✻ZparXY₂ * o.RparY; o.S✻ZparZpar = panelcross(o.ZparX, o.ZparX, parent.info✻) + tmp + tmp' + o.RparY' * o.S✻Y₂Y₂ * o.RparY
-	  o.ZZ = sumpanelcross(o.S✻ZparZpar); o.ZZ .-= ZperpZpar'o.invZperpZperpZperpZpar
-		o.Zy₁ .-= ZperpZparX'o.invZperpZperpZperpy₁
+	 	o.S✻ZparZpar = panelcross(o.Zpar, o.Zpar, parent.info✻)
+		o.ZZ = sumpanelcross(o.S✻ZparZpar); o.ZZ .-= ZperpZpar'o.invZperpZperpZperpZpar
 
 	  if o.restricted
 			S✻⋂X₁ZR₁ = panelcross(o.X₁noFWL, o.ZR₁, parent.info✻⋂)
@@ -522,9 +519,10 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			MakeH!(o, parent, !isempty(Rperp)) # DGP is liml except possibly when getting confidence peak for A-R plot; but liml=0 when exactly id'd, for then κ=1 always and Hessian doesn't depend on r₁ and can be computed now
 		end
 	else
-    t✻minus!(o.ZparX, o.Zperp, o.invZperpZperp * (o.Zperp'o.ZparX))
 		o.Yendog = [true colsum(o.RparY .!= zero(T)).!=0]
 		parent.jk && parent.willfill && (o.PXZ = X₁₂B(o.X₁, o.X₂, o.V))
+		!parent.scorebs && (parent.jk || parent.granular) &&
+			t✻minus!(o.ZparX, o.Zperp, o.invZperpZperp * (o.Zperp'o.ZparX))
 	end
 
 	if !o.restricted

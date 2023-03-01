@@ -1,4 +1,4 @@
-@inline _sortperm(X::AbstractVecOrMat) = size(X,2)==1 ? sortperm(ndims(X)==1 ? X : vec(X), alg=RadixSort) : sortperm(collect(eachrow(X)))  # sort a data matrix
+@inline _sortperm(X::AbstractVecOrMat) = size(X,2)==1 ? sortperm(ndims(X)==1 ? X : vec(X), alg=RadixSort) : sortperm(collect(eachrow(X)); alg=TimSort)  # sort a data matrix
 
 function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repeatedly to make CI, do stuff once that doesn't depend on r
 	o.kX = o.kX₁ + o.kX₂
@@ -274,7 +274,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 								o.NClustVar == o.NBootClustVar ?
 										[CartesianIndex(i, i) for i ∈ 1:o.N✻⋂] :  # crosstab ∩,* is square
 										[CartesianIndex(i, j) for (j,v) ∈ enumerate(o.clust[o.BootClust].info) for i ∈ v]  # crosstab ∩,* is tall
-			o.crosstab⋂✻ind = LinearIndices(FakeArray(Tuple(max(inds...))...))[inds]
+			o.crosstab⋂✻ind = LinearIndices((1:o.N⋂, 1:o.N✻))[inds]
 		end
 	end
 
@@ -303,6 +303,8 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.poles = o.anchor = zeros(T,0)
 		o.interpolable = o.getci && o.bootstrapt && o.null && o.Nw==1 && (iszero(o.κ) || o.arubin)
 		o.interpolate_u = !(o.robust || o.ml)
+		(o.interpolate_u || (o.B>0 && o.robust && o.bootstrapt && (o.granular || o.purerobust) && (o.purerobust && !o.interpolable || o.NFE>0 && !o.FEboot))) &&
+			(o.u✻ = Matrix{T}(undef,o.N✻,o.ncolsv))
 		if o.interpolable
 			o.∂numer∂r = [Matrix{T}(undef, o.dof, o.ncolsv) for _ ∈ 1:o.q]
 			o.interpolate_u && (o.∂u∂r = Vector{Matrix{T}}(undef, o.q))
@@ -317,6 +319,16 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	nothing
 end
 
+function samerows(X::AbstractMatrix)
+	@inbounds for j ∈ eachindex(axes(X,2))
+		X₁ⱼ = X[1,j]
+		for i ∈ eachindex(axes(X,1))
+			X₁ⱼ ≠ X[i,j] && return false
+		end
+	end
+	return true
+end
+
 function InitFEs(o::StrBootTest{T}) where T
 	if isdefined(o, :FEID) && length(o.FEID)>0
 		p = _sortperm(o.FEID)
@@ -324,26 +336,25 @@ function InitFEs(o::StrBootTest{T}) where T
 		i_FE = 1; o.FEboot = o.B>0 && o.NClustVar>0; j = o.Nobs; o._FEID = ones(Int64, o.Nobs)
 		o.invFEwt = zeros(T, o.NFE>0 ? o.NFE : o.Nobs)
 		o.FEs = Vector{StrFE{T}}(undef, o.NFE>0 ? o.NFE : o.Nobs)
-		_sqrtwt = T[]
+		wtvec = _sqrtwt = T[]; wtscalar = zero(T)
 		@inbounds for i ∈ o.Nobs-1:-1:1
 			if sortID[i] ≠ sortID[i+1]
 				is = @view p[i+1:j]
 				if o.haswt
 					_sqrtwt  = @view o.sqrtwt[is]
-					wt = _sqrtwt / (sumFEwt = sum(@view o.wt[is]))
+					wtvec = _sqrtwt / (sumFEwt = sum(@view o.wt[is]))
 				else
 					sumFEwt = T(j - i)
-					wt = [one(T)/sumFEwt]
+					wtscalar = one(T)/sumFEwt
 				end
-				o.FEs[i_FE] = StrFE{T}(is, wt, _sqrtwt)
-				((o.B>0 && o.robust && o.granular < o.NErrClustVar) || (o.WREnonARubin && o.robust && o.granular && o.bootstrapt)) &&
+				o.FEs[i_FE] = StrFE{T}(is, wtscalar, wtvec, _sqrtwt)
+				o.robust && ((o.B>0 && o.granular < o.NErrClustVar) || (o.WREnonARubin && o.granular && o.bootstrapt)) &&
 					(o.invFEwt[i_FE] = one(T) / sumFEwt)
 
 				j = i
 
 				if o.FEboot  # are all of this FE's obs in same bootstrapping cluster? (But no need to check if B=0 for then CT(W.*E) in 2nd term of (62) orthogonal to v = col of 1's)
-					tmp = o.ID[is, 1:o.NBootClustVar]
-					o.FEboot = all(tmp .== view(tmp, 1,:)')
+					o.FEboot = samerows(view(o.ID, is, 1:o.NBootClustVar))
 				end
 				i_FE += 1
 			end
@@ -352,13 +363,13 @@ function InitFEs(o::StrBootTest{T}) where T
 		is = @view p[1:j]
 		if o.haswt
 			_sqrtwt  = @view o.sqrtwt[is]
-			wt = _sqrtwt / (sumFEwt = sum(@view o.wt[is]))
+			wtvec = _sqrtwt / (sumFEwt = sum(@view o.wt[is]))
 		else
 			sumFEwt = T(j)
-			wt = T[1/sumFEwt]
+			wtscalar = one(T)/sumFEwt
 		end
-		o.FEs[i_FE] = StrFE{T}(is, wt, _sqrtwt)
-		((o.B>0 && o.robust && o.granular < o.NErrClustVar) || (o.WREnonARubin && o.robust && o.granular && o.bootstrapt)) &&
+		o.FEs[i_FE] = StrFE{T}(is, wtscalar, wtvec, _sqrtwt)
+		o.robust && ((o.B>0 && o.granular < o.NErrClustVar) || (o.WREnonARubin && o.granular && o.bootstrapt)) &&
 			(o.invFEwt[i_FE] = one(T) / sumFEwt)
 
 		if iszero(o.NFE)
@@ -368,8 +379,7 @@ function InitFEs(o::StrBootTest{T}) where T
 		end
 
 		if o.FEboot  # are all of this FE's obs in same bootstrapping cluster?
-			tmp = o.ID[is, 1:o.NBootClustVar]
-			o.FEboot = all(tmp .== view(tmp,1,:)')
+			o.FEboot = samerows(view(o.ID, is, 1:o.NBootClustVar))
 		end
 
 		o.FEdfadj==-1 && (o.FEdfadj = o.NFE)

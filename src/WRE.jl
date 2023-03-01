@@ -17,9 +17,19 @@ function InitWRE!(o::StrBootTest{T}) where T
 	o.Repl.kZ>1 && (o.numer_b = Vector{T}(undef,nrows(o.Repl.RRpar)))
 
 	if o.willfill
-		o.J⋂s = Array{T,3}(undef, o.N⋂, o.ncolsv, o.Repl.kZ)
-		o.ARpars = Array{T,3}(undef, o.Repl.kZ, o.ncolsv, o.q)
-		o.J⋂ARpars = Array{T,3}(undef, o.N⋂, o.ncolsv, o.q)
+		if o.Repl.kZ==1 
+			o.J⋂s1 = Vector{Matrix{T}}(undef, o.NErrClustCombs)
+			for c ∈ 1:o.NErrClustCombs
+				o.J⋂s1[c] = c==1 || nrows(o.clust[c].order)>0 ? Matrix{T}(undef, o.N⋂, o.ncolsv) : o.J⋂s1[c-1]
+			end
+		else
+			o.J⋂s = Array{T,3}(undef, o.N⋂, o.ncolsv, o.Repl.kZ)
+			o.J⋂ARpars = Vector{Matrix{T}}(undef, o.NErrClustCombs)
+			for c ∈ 1:o.NErrClustCombs
+				o.J⋂ARpars[c] = c==1 || nrows(o.clust[c].order)>0 ? Array{T,3}(undef, o.N⋂, o.ncolsv, o.q) : o.J⋂ARpars[c-1]
+			end
+			o.ARpars = Array{T,3}(undef, o.Repl.kZ, o.ncolsv, o.q)
+		end
 		o.Jc = [c==1 ?  Array{T,3}(undef,0,0,0) : Array{T,3}(undef, o.clust[c].N, o.ncolsv, o.q) for c ∈ 1:o.NErrClustCombs]
 	end
 
@@ -124,7 +134,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 		if o.willfill
 			o.negS✻UMZperp = Array{T,3}(undef, o.Nobs, o.N✻, o.Repl.kZ+1)
 			o.S✻UPX     = Array{T,3}(undef, o.Nobs, o.N✻, o.Repl.kZ  )
-			o.crosstab✻ind = o.Nobs==o.N✻ ? Vector(diagind(FakeArray(o.N✻,o.N✻))) : LinearIndices(FakeArray(o.Nobs,o.N✻))[CartesianIndex.(1:o.Nobs, o.ID✻)]
+			o.crosstab✻ind = o.Nobs==o.N✻ ? collect(diagind(LinearIndices((1:o.N✻,1:o.N✻)))) : LinearIndices((1:o.Nobs,1:o.N✻))[CartesianIndex.(1:o.Nobs, o.ID✻)]
 			o.XinvXX = X₁₂B(o.Repl.X₁, o.Repl.X₂, o.Repl.invXX)
 
 			if isone(o.Nw)
@@ -201,16 +211,16 @@ function InitWRE!(o::StrBootTest{T}) where T
 			o.S⋂ȳ₁X 	  = Array{T,3}(undef, 1, o.N⋂, o.DGP.kX)
 			o.S⋂ReplZ̄X = Array{T,3}(undef, o.Repl.kZ, o.N⋂, o.DGP.kX)
 
+			o.S⋂XZperpinvZperpZperp = S⋂ZperpX' * o.DGP.invZperpZperp
+			o.negS✻UMZperpX = [Array{T,3}(undef, o.DGP.kX, o.N⋂, o.N✻) for _ in 0:o.Repl.kZ]
+
 			_inds = o.subcluster>0 ?
 							[CartesianIndex(j,i) for (j,v) ∈ enumerate(o.info⋂_✻⋂) for i ∈ v] :  # crosstab ∩,* is wide
 							o.NClustVar == o.NBootClustVar ?
 									[CartesianIndex(i,i) for i ∈ 1:o.N✻⋂] :  # crosstab *,∩ is square
 									[CartesianIndex(i,j) for (j,v) ∈ enumerate(o.clust[o.BootClust].info) for i ∈ v]  # crosstab ∩,* is tall
 			inds = [CartesianIndex(k,I) for I ∈ _inds for k ∈ 1:o.DGP.kX]
-			o.crosstab⋂✻ind = LinearIndices(FakeArray(Tuple(max(inds...))...))[inds]
-
-			o.S⋂XZperpinvZperpZperp = S⋂ZperpX' * o.DGP.invZperpZperp
-			o.negS✻UMZperpX = [Array{T,3}(undef, o.DGP.kX, o.N⋂, o.N✻) for _ in 0:o.Repl.kZ]
+			o.crosstab⋂✻ind = LinearIndices(o.negS✻UMZperpX[1])[inds]
 
 			o.F₁ = Matrix{T}(undef, o.DGP.kX, o.ncolsv)
 			o.F₁β = similar(o.F₁)
@@ -641,17 +651,17 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 			end
 		end
 	else  # coarse error clustering
-		fillcols!(o.F₁, o.invXXXZ̄[:,i])
+		fillcols!(o.F₁, o.invXXXZ̄, i)
 		o.Repl.Yendog[i+1] && t✻plus!(o.F₁, o.invXXS✻XU[i+1], o.v)
     @inbounds for g ∈ 1:o.N⋂
-			fillcols!(o.F₂, o.S⋂ȳ₁X[1,g,:])
+			fillcols!(o.F₂, o.S⋂ȳ₁X, 1, g)
 			t✻minus!(o.F₂, view(o.negS✻UMZperpX[1],:,g,:), o.v)
       coldot!(dest, g, o.F₁, o.F₂)
 		end
 		@inbounds for j ∈ 1:o.Repl.kZ
 	    matbyrow!(o.F₁β, o.F₁, β̈s, j)
 	    for g ∈ 1:o.N⋂
-	      fillcols!(o.F₂, o.S⋂ReplZ̄X[j,g,:])
+	      fillcols!(o.F₂, o.S⋂ReplZ̄X, j, g)
 				o.Repl.Yendog[j+1] && t✻minus!(o.F₂, view(o.negS✻UMZperpX[j+1],:,g,:), o.v)
 	      coldotminus!(dest, g, o.F₁β, o.F₂)
 			end
@@ -698,14 +708,13 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 		@storeWtGrpResults!(o.numer, o.numerWRE)
 		if o.bootstrapt
 			if o.robust
-				J⋂s1 = dropdims(o.J⋂s; dims=3)
-				Filling!(o, J⋂s1, 1, view(o.β̈sAs,1:1,:), _jk)
-				J⋂s1 ./= view(o.β̈sAs,2:2,:)  # ./= As
-				coldot!(o.denom[1,1], o.clust[1].multiplier, dropdims(o.J⋂s; dims=3))
+				Filling!(o, o.J⋂s1[1], 1, view(o.β̈sAs,1:1,:), _jk)
+				o.J⋂s1[1] ./= view(o.β̈sAs,2:2,:)  # ./= As
+				coldot!(o.denom[1,1], o.clust[1].multiplier, o.J⋂s1[1])
 				@inbounds for c ∈ 2:o.NErrClustCombs  # sum sandwich over error clusteringssrc/WRE.jl
 					nrows(o.clust[c].order)>0 && 
-						(J⋂s1 .= J⋂s1[o.clust[c].order,:])
-					panelsum!(dropdims(o.Jc[c]; dims=3), J⋂s1, o.clust[c].info)
+						(o.J⋂s1[c] .= o.J⋂s1[c-1][o.clust[c].order,:])
+					panelsum!(dropdims(o.Jc[c]; dims=3), o.J⋂s1[c], o.clust[c].info)
 		    	coldotplus!(o.denom[1,1], o.clust[c].multiplier, dropdims(o.Jc[c]; dims=3))
 				end
 			else
@@ -773,12 +782,12 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 		if o.bootstrapt
 			if o.robust  # Compute denominator for this WRE test stat
 				t✻!(o.ARpars, o.As, o.Repl.RRpar')
-				t✻!(o.J⋂ARpars, o.J⋂s, o.ARpars)
-				t✻!(o.denomWRE, o.clust[1].multiplier, o.J⋂ARpars', o.J⋂ARpars)
+				t✻!(o.J⋂ARpars[1], o.J⋂s, o.ARpars)
+				t✻!(o.denomWRE, o.clust[1].multiplier, o.J⋂ARpars[1]', o.J⋂ARpars[1])
 				for c ∈ 2:o.NErrClustCombs
 					(!isone(o.NClustVar) && nrows(o.clust[c].order)>0) &&
-						(o.J⋂ARpars = o.J⋂ARpars[o.clust[c].order,:,:])
-					panelsum!(reshape(o.Jc[c], o.clust[c].N, :), reshape(o.J⋂ARpars, o.N⋂, :), o.clust[c].info)
+						(o.J⋂ARpars[c] .= o.J⋂ARpars[c-1][o.clust[c].order,:,:])
+					panelsum!(reshape(o.Jc[c], o.clust[c].N, :), reshape(o.J⋂ARpars[c], o.N⋂, :), o.clust[c].info)
 					t✻plus!(o.denomWRE, o.clust[c].multiplier, o.Jc[c]', o.Jc[c])
 				end
 			else  # non-robust

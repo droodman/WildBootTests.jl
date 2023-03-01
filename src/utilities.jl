@@ -9,18 +9,25 @@ function matbyrow!(dest::Matrix{T}, A::Matrix{T}, B::AbstractMatrix{T}, row::Int
 	end
 end
 
-# fill the columns of a matrix with copies of a vector. Faster than X .= v?
-@inline function fillcols!(X::Matrix{T}, v::Vector{T}) where T
-	@tturbo warn_check_args=false for j ∈ eachindex(axes(X,2)), i ∈ eachindex(axes(X,1), axes(v,1))
-		X[i,j] = v[i]
+# do X .= Y[:,k], hopefully faster
+@inline function fillcols!(X::Matrix{T}, Y::Matrix{T}, k::Int) where T
+	@tturbo warn_check_args=false for j ∈ indices(X,2), i ∈ indices((X,Y),1)
+		X[i,j] = Y[i,k]
+	end
+	nothing
+end
+@inline function fillcols!(X::Matrix{T}, Y::Array{T,3}, k::Int, l::Int) where T
+	@tturbo warn_check_args=false for j ∈ indices(X,2), i ∈ indices((X,Y),(1,3))
+		X[i,j] = Y[k,l,i]
 	end
 	nothing
 end
 
+
 # iszero(nrows(X)) && (return Symmetric(X))
 # X, ipiv, info = LinearAlgebra.LAPACK.sytrf!('U', Matrix(X))
 # iszero(info) && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)
-@inline invsym(X) = X \ I
+@inline invsym(X) = try X \ I catch _ pinv(X) end
 
 eigvalsNaN(X) =
 	try
@@ -279,8 +286,8 @@ end
 function panelsetupID(X::AbstractArray{S} where S, colinds::UnitRange{T} where T<:Integer)
   N = nrows(X)
   info = Vector{UnitRange{Int64}}(undef, N)
-  ID = ones(Int64, N)
-  lo = p = 1
+  ID   = Vector{Int64}(undef,N)
+	ID[1] = lo = p = 1
   @inbounds for hi ∈ 2:N
     for j ∈ colinds
       if X[hi,j] ≠ X[lo,j]
@@ -628,41 +635,71 @@ function crosstabFEt(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitR
 end
 
 # partial any fixed effects out of a data matrix
-function partialFE!(o::StrBootTest{T}, In::AbstractArray{T}) where T
-	_sum = Matrix{T}(undef,1,size(In,2))
+function partialFE!(o::StrBootTest{T}, In::AbstractVector{T}) where T
   if length(In)>0
 		if o.haswt
-			@inbounds @fastmath Threads.@threads for f ∈ o.FEs
-				tmp = @view In[f.is,:]
-				tmp .-= f.sqrtwt .* (f.wt'tmp)
+			@inbounds @fastmath for f ∈ o.FEs
+				fis = f.is; wt = f.wtvec; sqrtwt = f.sqrtwt
+				s = zero(T)
+				for i ∈ eachindex(fis)
+					s += In[fis[i]] * wt[i]
+				end
+				for i ∈ eachindex(fis)
+					In[fis[i]] -= sqrtwt[i] * s
+				end
 			end
 		else
-			@inbounds @fastmath Threads.@threads for f ∈ o.FEs
-				tmp = @view In[f.is,:]
-				sum!(_sum, tmp)
-				tmp .-= f.wt[1] .* _sum
+			@inbounds @fastmath for f ∈ o.FEs
+				s = zero(T)
+				fis = f.is
+				for i ∈ eachindex(fis)
+					s += In[fis[i]]
+				end
+				s *= f.wtscalar
+				for i ∈ eachindex(fis)
+					In[fis[i]] -= s
+				end
 			end
 		end
   end
 	nothing
 end
-function partialFE(o::StrBootTest{T}, In::AbstractArray{T}) where T
-	_sum = Matrix{T}(undef,1,size(In,2))
-  Out = copy(In)
-  if length(In)>0
+function partialFE!(o::StrBootTest{T}, In::AbstractMatrix{T}) where T
+	if length(In)>0
 		if o.haswt
-			@inbounds @fastmath #=Threads.@threads=# for f ∈ o.FEs
-				tmp = @view Out[f.is,:]
-				tmp .-= f.sqrtwt .* (f.wt'tmp)
+			Threads.@threads for j ∈ eachindex(axes(In,2))
+				@inbounds @fastmath for f ∈ o.FEs
+					fis = f.is; wt = f.wtvec; sqrtwt = f.sqrtwt
+					s = zero(T)
+					for i ∈ eachindex(fis)
+						s += In[fis[i],j] * wt[i]
+					end
+					for i ∈ eachindex(fis)
+						In[fis[i],j] -= sqrtwt[i] * s
+					end
+				end
 			end
 		else
-			@inbounds @fastmath #=Threads.@threads=# for f ∈ o.FEs
-				tmp = @view Out[f.is,:]
-				sum!(_sum, tmp)
-				tmp .-= f.wt[1] .* _sum  # sum(tmp; dims=1)
+			Threads.@threads for j ∈ eachindex(axes(In,2))
+				@inbounds @fastmath for f ∈ o.FEs
+					fis = f.is
+					s = zero(T)
+					for i ∈ eachindex(fis)
+						s += In[fis[i],j]
+					end
+					s *= f.wtscalar
+					for i ∈ eachindex(fis)
+						In[fis[i],j] -= s
+					end
+				end
 			end
 		end
   end
+	nothing
+end
+function partialFE(o::StrBootTest{T}, In::AbstractVecOrMat{T}) where T
+  Out = copy(In)
+	partialFE!(o, Out)
   Out
 end
 
@@ -711,10 +748,6 @@ macro clustAccum!(X, c, Y)  # efficiently add a cluster combination-specific ter
 end
 
 import Base.*, Base.adjoint, Base.hcat, Base.vcat, Base.-, Base.size #, LinearAlgebra.pinv
-
-struct FakeArray{N} <: AbstractArray{Bool,N} size::Tuple{Vararg{Int64,N}} end # AbstractArray with almost no storage, just for LinearIndices() conversion         
-FakeArray(size...) = FakeArray{length(size)}(size)
-size(X::FakeArray) = X.size
 
 # use 3-arrays to hold single-indexed sets of matrices. Index in _middle_ dimension.
 @inline each(A::Array{T,3}) where T = [view(A,:,i,:) for i ∈ 1:size(A,2)]  #	eachslice(A; dims=2) more elegant but type-unstable
