@@ -51,7 +51,7 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   println(log, "boottest (post_self=.05) (post=-.02), reps(9999) weight(webb)")
   test = wildboottest([0 0 0 1; 0 0 1 0], [.05; -.02]; resp, predexog, clustid=Int32.(df.year), reps=9999, auxwttype=:webb, rng=StableRNG(1231))
   println(log, test)
-  # BAD to here
+
   test = wildboottest([0 0 0 1; 0 0 1 0], [.05; -.02]; resp, predexog, clustid=Int32.(df.year), reps=9999, auxwttype=:webb, rng=StableRNG(1231), bootstrapc=true)
   println(log, test)
   
@@ -108,7 +108,7 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   ivf = apply_schema(ivf, schema(ivf, df))
   predendog, inst = modelcols(ivf, df)
 
-  println(log, "\nivregress liml wage ttl_exp collgrad (tenure = union), cluster(industry)")
+  println(log, "\nivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)")
   println(log, "boottest tenure, ptype(equaltail) reps(9999)")
   test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, ptype=:equaltail, rng=StableRNG(1231))
   println(log, test)

@@ -125,9 +125,9 @@ function InitWRE!(o::StrBootTest{T}) where T
 	if o.not2SLS
 		o.S✻ȳ₁u₁   = Array{T,3}(undef, 1, o.N✻, 1)
 		o.S✻Z̄u₁    = Array{T,3}(undef, o.Repl.kZ, o.N✻, 1)
-		o.S✻ȳ₁U₂par = Array{T,3}(undef, 1, o.N✻, o.Repl.kZ)
-		o.S✻Z̄U₂par = Array{T,3}(undef, o.Repl.kZ, o.N✻, o.Repl.kZ)
-		o.S✻ȲU     = [i>0 ? j>0 ? view(o.S✻Z̄U₂par,i,:,j) : view(o.S✻Z̄u₁,i,:,1) : j>0 ? view(o.S✻ȳ₁U₂par,1,:,j) : view(o.S✻ȳ₁u₁,1,:,1) for i ∈ 0:o.Repl.kZ, j ∈ 0:o.Repl.kZ]
+		o.S✻ȳ₁Ü₂par = Array{T,3}(undef, 1, o.N✻, o.Repl.kZ)
+		o.S✻Z̄Ü₂par = Array{T,3}(undef, o.Repl.kZ, o.N✻, o.Repl.kZ)
+		o.S✻ȲU     = [i>0 ? j>0 ? view(o.S✻Z̄Ü₂par,i,:,j) : view(o.S✻Z̄u₁,i,:,1) : j>0 ? view(o.S✻ȳ₁Ü₂par,1,:,j) : view(o.S✻ȳ₁u₁,1,:,1) for i ∈ 0:o.Repl.kZ, j ∈ 0:o.Repl.kZ]
 	end
 
 	if o.granular
@@ -144,56 +144,11 @@ function InitWRE!(o::StrBootTest{T}) where T
 	else
 		o.Π̈Rpar = Matrix{T}(undef, o.DGP.kX, o.Repl.kZ)
 
-		o.invXXS✻XU₂ = Array{T,3}(undef, o.DGP.kX, o.N✻, o.kY₂)
-
-		if o.willfill || o.not2SLS  
-			o.S✻ZperpU₂ = Array{T,3}(undef, o.DGP.kZperp, o.N✻, o.kY₂)
-			o.invZperpZperpS✻ZperpU₂ = Array{T,3}(undef, o.DGP.kZperp, o.N✻, o.kY₂)
-		end
-
-		o.S✻⋂XY₂      = o.DGP.S✻⋂XY₂     - o.DGP.S✻⋂XZperp     * o.DGP.invZperpZperpZperpY₂   - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂ZperpY₂   - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpY₂ )
-		o.S✻⋂XX       = o.DGP.S✻⋂XX      - o.DGP.S✻⋂XZperp     * o.DGP.invZperpZperpZperpX    - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂XZperp'   - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpX  )
-		o.S✻⋂XDGPZ    = o.DGP.S✻⋂XZpar   - o.DGP.S✻⋂XZperp     * o.DGP.invZperpZperpZperpZpar - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂ZperpZpar - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpZpar)
-		o.S✻⋂Xy₁      = o.DGP.S✻⋂Xy₁     - o.DGP.S✻⋂XZperp     * o.DGP.invZperpZperpZperpy₁   - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂Zperpy₁   - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpy₁ )
-		  S✻⋂ZperpX   = o.DGP.S✻⋂XZperp' - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpX
-		o.DGP.restricted &&
-			(o.S✻⋂X_DGPZR₁ = o.DGP.S✻⋂XZR₁ - o.DGP.S✻⋂XZperp     * o.DGP.invZperpZperpZperpZR₁  - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂ZperpZR₁  - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpZR₁ ))
-
-		o.invXXS✻⋂XY₂    = o.DGP.invXX * o.S✻⋂XY₂ 
-		o.invXXS✻⋂XX     = o.DGP.invXX * o.S✻⋂XX  
-		o.invXXS✻⋂XDGPZ  = o.DGP.invXX * o.S✻⋂XDGPZ 
-		o.invXXS✻⋂Xy₁    = o.DGP.invXX * o.S✻⋂Xy₁ 
-		o.DGP.restricted &&
-			(o.invXXS✻⋂XDGPZR₁ = o.DGP.invXX * o.S✻⋂X_DGPZR₁)
-
-		_S✻ZperpY₂      = @panelsum(o.DGP.S✻⋂ZperpY₂, o.info✻_✻⋂)  # moments of variables _before_ FWL processing
-		_S✻Zperpy₁      = @panelsum(o.DGP.S✻⋂Zperpy₁, o.info✻_✻⋂)
-		_S✻ZperpDGPZpar = @panelsum(o.DGP.S✻⋂ZperpZpar, o.info✻_✻⋂)
-		o.DGP.restricted &&
-			(_S✻ZperpDGPZR₁  = @panelsum(o.DGP.S✻⋂ZperpZR₁, o.info✻_✻⋂))
-
-		S✻ZperpZperp    = @panelsum(o.DGP.S✻⋂ZperpZperp, o.info✻_✻⋂)
-		o.S✻XY₂         = @panelsum(o.S✻⋂XY₂   , o.info✻_✻⋂)
-		o.S✻XX          = @panelsum(o.S✻⋂XX    , o.info✻_✻⋂)
-		o.S✻XDGPZ       = @panelsum(o.S✻⋂XDGPZ, o.info✻_✻⋂)
-		o.S✻Xy₁         = @panelsum(o.S✻⋂Xy₁, o.info✻_✻⋂)
-		o.S✻ZperpX      = @panelsum(S✻⋂ZperpX, o.info✻_✻⋂)
-		o.S✻ZperpY₂     = _S✻ZperpY₂ - S✻ZperpZperp * o.DGP.invZperpZperpZperpY₂
-		o.S✻ZperpDGPZ   = _S✻ZperpDGPZpar - S✻ZperpZperp * o.DGP.invZperpZperpZperpZpar
-		o.S✻Zperpy₁     = _S✻Zperpy₁ - S✻ZperpZperp * o.DGP.invZperpZperpZperpy₁
-		if o.DGP.restricted
-			o.S✻XZR₁        = @panelsum(o.S✻⋂X_DGPZR₁, o.info✻_✻⋂)
-			o.S✻ZperpDGPZR₁ = @panelsum(o.DGP.S✻⋂ZperpZR₁ , o.info✻_✻⋂) - S✻ZperpZperp * o.DGP.invZperpZperpZperpZR₁
-		end
-
-		if o.NFE>0 && !o.FEboot && (o.willfill || o.not2SLS)
-			  CT✻⋂FEX  = [crosstabFE(o, o.DGP.X₁, o.info✻⋂) crosstabFE(o, o.DGP.X₂, o.info✻⋂)]
-			o.CT✻FEX   = @panelsum(CT✻⋂FEX, o.info✻_✻⋂)
-			o.CT✻FEY₂  = crosstabFE(o, o.DGP.Y₂, o.info✻); o.CT✻FEU₂ = similar(o.CT✻FEY₂)
-			o.CT✻FEZ   = crosstabFE(o, o.DGP.Zpar, o.info✻)
-			o.CT✻FEy₁  = crosstabFE(o, o.DGP.y₁, o.info✻)
-			o.DGP.restricted &&
-				(o.CT✻FEZR₁ = crosstabFE(o, o.DGP.ZR₁, o.info✻))  #  XXX just do o.CT✻FEZ * R₁ ?
+		if o.willfill || !o.jk
+			o.S✻⋂XX       = o.DGP.S✻⋂XX      - o.DGP.S✻⋂XZperp     * o.DGP.invZperpZperpZperpX    - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂XZperp'   - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpX  )
+			S✻⋂ZperpX = o.DGP.S✻⋂XZperp' - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpX
+			o.NFE>0 && !o.FEboot &&
+			  (CT✻⋂FEX  = [crosstabFE(o, o.DGP.X₁, o.info✻⋂) crosstabFE(o, o.DGP.X₂, o.info✻⋂)])
 		end
 
 		if o.willfill
@@ -221,42 +176,82 @@ function InitWRE!(o::StrBootTest{T}) where T
 	
 			o.NFE>0 && !o.FEboot && (o.CT⋂FEX = o.invFEwt .* @panelsum(CT✻⋂FEX, o.info⋂_✻⋂))
 			o.S✻⋂Xu₁ = Array{T,3}(undef, o.DGP.kX, o.N✻⋂, 1)
-			o.S✻⋂XU₂par = Array{T,3}(undef, o.DGP.kX, o.N✻⋂, o.Repl.kZ)
-			!o.jk && (o.S✻⋂XU₂ = Array{T,3}(undef, o.DGP.kX, o.N✻⋂, o.kY₂))
+			o.S✻⋂XÜ₂par = Array{T,3}(undef, o.DGP.kX, o.N✻⋂, o.Repl.kZ)
 		end
 
-		if o.not2SLS  # cluster-wise moments after FWL
-			o.S✻Y₂Y₂     = o.DGP.S✻Y₂Y₂     - _S✻ZperpY₂'      * o.DGP.invZperpZperpZperpY₂   - o.DGP.invZperpZperpZperpY₂'   * o.S✻ZperpY₂
-			o.S✻DGPZDGPZ = o.DGP.S✻ZparZpar - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpZpar - o.DGP.invZperpZperpZperpZpar' * o.S✻ZperpDGPZ
-			o.S✻DGPZY₂   = o.DGP.S✻ZparY₂   - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpY₂   - o.DGP.invZperpZperpZperpZpar' * o.S✻ZperpY₂
-			o.S✻DGPZy₁   = o.DGP.S✻Zpary₁   - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpy₁   - o.DGP.invZperpZperpZperpZpar' * o.S✻Zperpy₁   
-			o.S✻Y₂y₁     = o.DGP.S✻Y₂y₁     - _S✻ZperpY₂'      * o.DGP.invZperpZperpZperpy₁   - o.DGP.invZperpZperpZperpY₂'   * o.S✻Zperpy₁
-			o.S✻y₁y₁     = o.DGP.S✻y₁y₁     - _S✻Zperpy₁'      * o.DGP.invZperpZperpZperpy₁   - o.S✻Zperpy₁'                  * o.DGP.invZperpZperpZperpy₁
-			o.DGP.restricted && 
-				(o.S✻DGPZR₁y₁ = o.DGP.S✻ZR₁y₁ - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpy₁ - o.DGP.invZperpZperpZperpZR₁' * o.S✻Zperpy₁)
+		if !o.jk
+			o.invXXS✻XU₂ = Array{T,3}(undef, o.DGP.kX, o.N✻, o.kY₂)
+			if o.willfill || o.not2SLS  
+				o.S✻ZperpU₂ = Array{T,3}(undef, o.DGP.kZperp, o.N✻, o.kY₂)
+				o.invZperpZperpS✻ZperpU₂ = Array{T,3}(undef, o.DGP.kZperp, o.N✻, o.kY₂)
+			end
+	
+			o.S✻⋂XY₂        = o.DGP.S✻⋂XY₂     - o.DGP.S✻⋂XZperp     * o.DGP.invZperpZperpZperpY₂   - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂ZperpY₂   - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpY₂ )
+			o.S✻⋂XDGPZ      = o.DGP.S✻⋂XZpar   - o.DGP.S✻⋂XZperp     * o.DGP.invZperpZperpZperpZpar - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂ZperpZpar - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpZpar)
+			o.S✻⋂Xy₁        = o.DGP.S✻⋂Xy₁     - o.DGP.S✻⋂XZperp     * o.DGP.invZperpZperpZperpy₁   - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂Zperpy₁   - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpy₁ )
+			_S✻ZperpY₂      = @panelsum(o.DGP.S✻⋂ZperpY₂, o.info✻_✻⋂)  # moments of variables _before_ FWL processing
+			_S✻Zperpy₁      = @panelsum(o.DGP.S✻⋂Zperpy₁, o.info✻_✻⋂)
+			_S✻ZperpDGPZpar = @panelsum(o.DGP.S✻⋂ZperpZpar, o.info✻_✻⋂)
+
+			S✻ZperpZperp   = @panelsum(o.DGP.S✻⋂ZperpZperp, o.info✻_✻⋂)
+			o.S✻XY₂       = @panelsum(o.S✻⋂XY₂  , o.info✻_✻⋂)
+			o.S✻XX        = @panelsum(o.S✻⋂XX   , o.info✻_✻⋂)
+			o.S✻XDGPZ     = @panelsum(o.S✻⋂XDGPZ, o.info✻_✻⋂)
+			o.S✻Xy₁       = @panelsum(o.S✻⋂Xy₁  , o.info✻_✻⋂)
+			o.S✻ZperpX    = @panelsum(S✻⋂ZperpX, o.info✻_✻⋂)
+			o.S✻ZperpY₂   = _S✻ZperpY₂ - S✻ZperpZperp * o.DGP.invZperpZperpZperpY₂
+			o.S✻ZperpDGPZ = _S✻ZperpDGPZpar - S✻ZperpZperp * o.DGP.invZperpZperpZperpZpar
+			o.S✻Zperpy₁   = _S✻Zperpy₁ - S✻ZperpZperp * o.DGP.invZperpZperpZperpy₁
+
+			if o.NFE>0 && !o.FEboot && (o.willfill || o.not2SLS)
+				o.CT✻FEX   = @panelsum(CT✻⋂FEX, o.info✻_✻⋂)
+				o.CT✻FEY₂  = crosstabFE(o, o.DGP.Y₂, o.info✻); o.CT✻FEU₂ = similar(o.CT✻FEY₂)
+				o.CT✻FEZ   = crosstabFE(o, o.DGP.Zpar, o.info✻)
+				o.CT✻FEy₁  = crosstabFE(o, o.DGP.y₁, o.info✻)
+				o.DGP.restricted &&
+					(o.CT✻FEZR₁ = crosstabFE(o, o.DGP.ZR₁, o.info✻))  #  XXX just do o.CT✻FEZ * R₁ ?
+			end
+
+			o.willfill &&
+				(o.S✻⋂XU₂ = Array{T,3}(undef, o.DGP.kX, o.N✻⋂, o.kY₂))
 
 			if o.DGP.restricted
-				_S✻⋂XDGPZR₁ = @panelsum(o.DGP.S✻⋂XZR₁, o.info✻_✻⋂)
-
-				o.S✻DGPZR₁Y₂     = o.DGP.S✻ZR₁Y₂  - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpY₂  - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpY₂
-				o.S✻DGPZR₁DGPZR₁ = o.DGP.S✻ZR₁ZR₁ - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpZR₁  - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpDGPZR₁
-				o.S✻DGPZR₁DGPZ   = o.DGP.S✻ZR₁Z   - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpZpar - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpDGPZ
-				o.S✻DGPZR₁X      = _S✻⋂XDGPZR₁'   - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpX   - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpX
+				o.S✻⋂X_DGPZR₁ = o.DGP.S✻⋂XZR₁ - o.DGP.S✻⋂XZperp     * o.DGP.invZperpZperpZperpZR₁  - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂ZperpZR₁  - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpZR₁ )
+				_S✻ZperpDGPZR₁ = @panelsum(o.DGP.S✻⋂ZperpZR₁, o.info✻_✻⋂)
+				o.S✻XZR₁ = @panelsum(o.S✻⋂X_DGPZR₁, o.info✻_✻⋂)
+				o.S✻ZperpDGPZR₁ = @panelsum(o.DGP.S✻⋂ZperpZR₁, o.info✻_✻⋂) - S✻ZperpZperp * o.DGP.invZperpZperpZperpZR₁
 			end
-		end
 
-		o.invXXS✻XY₂   = @panelsum(o.invXXS✻⋂XY₂  , o.info✻_✻⋂)
-		o.invXXS✻XX    = @panelsum(o.invXXS✻⋂XX   , o.info✻_✻⋂)
-		o.invXXS✻XDGPZ = @panelsum(o.invXXS✻⋂XDGPZ, o.info✻_✻⋂)
-		o.invXXS✻Xy₁   = @panelsum(o.invXXS✻⋂Xy₁, o.info✻_✻⋂)
-		o.invZperpZperpS✻ZperpY₂   = o.DGP.invZperpZperp * o.S✻ZperpY₂ 
-		o.invZperpZperpS✻ZperpX    = o.DGP.invZperpZperp * o.S✻ZperpX  
-		o.invZperpZperpS✻Zperpy₁   = o.DGP.invZperpZperp * o.S✻Zperpy₁ 
-		o.invZperpZperpS✻ZperpDGPZ = o.DGP.invZperpZperp * o.S✻ZperpDGPZ
+			if o.not2SLS  # cluster-wise moments after FWL
+				o.S✻Y₂Y₂     = o.DGP.S✻Y₂Y₂     - _S✻ZperpY₂'      * o.DGP.invZperpZperpZperpY₂   - o.DGP.invZperpZperpZperpY₂'   * o.S✻ZperpY₂
+				o.S✻DGPZDGPZ = o.DGP.S✻ZparZpar - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpZpar - o.DGP.invZperpZperpZperpZpar' * o.S✻ZperpDGPZ
+				o.S✻DGPZY₂   = o.DGP.S✻ZparY₂   - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpY₂   - o.DGP.invZperpZperpZperpZpar' * o.S✻ZperpY₂
+				o.S✻DGPZy₁   = o.DGP.S✻Zpary₁   - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpy₁   - o.DGP.invZperpZperpZperpZpar' * o.S✻Zperpy₁   
+				o.S✻Y₂y₁     = o.DGP.S✻Y₂y₁     - _S✻ZperpY₂'      * o.DGP.invZperpZperpZperpy₁   - o.DGP.invZperpZperpZperpY₂'   * o.S✻Zperpy₁
+				o.S✻y₁y₁     = o.DGP.S✻y₁y₁     - _S✻Zperpy₁'      * o.DGP.invZperpZperpZperpy₁   - o.S✻Zperpy₁'                  * o.DGP.invZperpZperpZperpy₁
+				o.DGP.restricted && 
+					(o.S✻DGPZR₁y₁ = o.DGP.S✻ZR₁y₁ - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpy₁ - o.DGP.invZperpZperpZperpZR₁' * o.S✻Zperpy₁)
 
-		if o.DGP.restricted
-			o.invXXS✻XDGPZR₁ = @panelsum(o.invXXS✻⋂XDGPZR₁, o.info✻_✻⋂)
-			o.invZperpZperpS✻ZperpDGPZR₁ = o.DGP.invZperpZperp * o.S✻ZperpDGPZR₁
+				if o.DGP.restricted
+					_S✻⋂XDGPZR₁     = @panelsum(o.DGP.S✻⋂XZR₁, o.info✻_✻⋂)
+					o.S✻DGPZR₁Y₂     = o.DGP.S✻ZR₁Y₂  - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpY₂  - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpY₂
+					o.S✻DGPZR₁DGPZR₁ = o.DGP.S✻ZR₁ZR₁ - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpZR₁  - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpDGPZR₁
+					o.S✻DGPZR₁DGPZ   = o.DGP.S✻ZR₁Z   - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpZpar - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpDGPZ
+					o.S✻DGPZR₁X      = _S✻⋂XDGPZR₁'   - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpX   - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpX
+				end
+			end
+
+			o.invXXS✻XDGPZ = @panelsum(o.DGP.invXX * o.S✻⋂XDGPZ, o.info✻_✻⋂)
+			o.invXXS✻Xy₁   = o.DGP.invXX * o.S✻Xy₁
+			o.invZperpZperpS✻ZperpY₂   = o.DGP.invZperpZperp * o.S✻ZperpY₂ 
+			o.invZperpZperpS✻ZperpX    = o.DGP.invZperpZperp * o.S✻ZperpX  
+			o.invZperpZperpS✻Zperpy₁   = o.DGP.invZperpZperp * o.S✻Zperpy₁ 
+			o.invZperpZperpS✻ZperpDGPZ = o.DGP.invZperpZperp * o.S✻ZperpDGPZ
+
+			if o.DGP.restricted
+				o.invXXS✻XDGPZR₁ = o.DGP.invXX * o.S✻XZR₁ 
+				o.invZperpZperpS✻ZperpDGPZR₁ = o.DGP.invZperpZperp * o.S✻ZperpDGPZR₁
+			end
 		end
 	end
 	nothing
@@ -311,8 +306,8 @@ function PrepWRE!(o::StrBootTest{T}) where T
 
 			panelcross!(o.S✻ȳ₁u₁, o.DGP.ȳ₁, o.DGP.u⃛₁, o.info✻)
 			panelcross!(o.S✻Z̄u₁, o.Z̄, o.DGP.u⃛₁, o.info✻)
-			panelcross!(o.S✻ȳ₁U₂par, o.DGP.ȳ₁, o.Ü₂par, o.info✻)
-			panelcross!(o.S✻Z̄U₂par, o.Z̄, o.Ü₂par, o.info✻)
+			panelcross!(o.S✻ȳ₁Ü₂par, o.DGP.ȳ₁, o.Ü₂par, o.info✻)
+			panelcross!(o.S✻Z̄Ü₂par, o.Z̄, o.Ü₂par, o.info✻)
 		end
 	end
 
@@ -364,9 +359,9 @@ function PrepWRE!(o::StrBootTest{T}) where T
 				end
 
 				o.S✻ȳ₁u₁ .= Π⃛y'o.S✻Xu₁
-				o.S✻ȳ₁U₂par .= Π⃛y'o.S✻XU₂par
+				o.S✻ȳ₁Ü₂par .= Π⃛y'o.S✻XU₂par
 				o.S✻Z̄u₁ .= o.Π̈Rpar'o.S✻Xu₁
-				o.S✻Z̄U₂par .= o.Π̈Rpar'o.S✻XU₂par
+				o.S✻Z̄Ü₂par .= o.Π̈Rpar'o.S✻XU₂par
 			end
 
 			if o.willfill || o.not2SLS  # make Z⟂U
@@ -393,11 +388,11 @@ function PrepWRE!(o::StrBootTest{T}) where T
 				o.S✻⋂Xu₁ .= o.S✻⋂Xy₁; t✻minus!(o.S✻⋂Xu₁, o.S✻⋂XDGPZ, o.DGP.β̈ ); t✻plus!(o.S✻⋂Xu₁, o.S✻⋂XU₂, o.DGP.γ̈Y )
 				o.DGP.restricted &&
 					t✻minus!(o.S✻⋂Xu₁, o.S✻⋂X_DGPZR₁, r₁)
-				o.S✻⋂XU₂par .= o.S✻⋂XU₂ * o.Repl.RparY
+				o.S✻⋂XÜ₂par .= o.S✻⋂XU₂ * o.Repl.RparY
 			end
 		elseif o.willfill  # for coarse, jk, construct this input in granular fashion rather than in for coarse, non-jk above
 			panelcross!(o.S✻⋂Xu₁, o.DGP.X₁, o.DGP.X₂, o.DGP.u⃛₁, o.info✻⋂)
-			panelcross!(o.S✻⋂XU₂par, o.DGP.X₁, o.DGP.X₂, o.Ü₂par, o.info✻⋂)
+			panelcross!(o.S✻⋂XÜ₂par, o.DGP.X₁, o.DGP.X₂, o.Ü₂par, o.info✻⋂)
 		end
 
 		if o.willfill
@@ -407,7 +402,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 			@inbounds for j ∈ 0:o.Repl.kZ
 				if o.Repl.Yendog[j+1]
 					t✻!(o.negS✻UMZperpX[j+1], o.S⋂XZperpinvZperpZperp, o.S✻ZperpU[j+1])  # S_* diag⁡(U ̈_(∥j) ) Z_⊥ (Z_⊥^' Z_⊥ )^(-1) Z_(⊥g)^' X_(∥g)
-					o.negS✻UMZperpX[j+1][o.crosstab⋂✻ind] .-= vec(j>0 ? view(o.S✻⋂XU₂par,:,:,j) : view(o.S✻⋂Xu₁,:,:,1))
+					o.negS✻UMZperpX[j+1][o.crosstab⋂✻ind] .-= vec(j>0 ? view(o.S✻⋂XÜ₂par,:,:,j) : view(o.S✻⋂Xu₁,:,:,1))
 					o.NFE>0 && !o.FEboot &&
 						t✻plus!(o.negS✻UMZperpX[j+1], o.CT⋂FEX', o.CT✻FEU[j+1])  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
 				end
@@ -513,7 +508,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 			t✻!(o.invFEwtCT✻FEUv, o.invFEwtCT✻FEU[1], o.v)
 		if o.purerobust
 			@inbounds for g ∈ 1:o.N⋂
-				o.PXY✻ .= view(o.PXZ̄,g:g,i)
+				o.PXY✻ .= o.PXZ̄[g,i]
 				o.Repl.Yendog[i+1] &&
 					t✻plus!(o.PXY✻, view(o.XinvXX,g:g,:), o.S✻XUv)
 
@@ -536,7 +531,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 				o.NFE>0 && !o.FEboot &&
 					(S✻UMZperpg .+= view(o.invFEwtCT✻FEUv, view(o.FEID,S), :))  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
 
-					t✻!(dest[g,:], PXY✻g', view(o.DGP.ȳ₁, S))
+				t✻!(view(dest,g,:), PXY✻g', view(o.DGP.ȳ₁, S))
 				coldotminus!(dest, g, PXY✻g, S✻UMZperpg)
 			end
 		end

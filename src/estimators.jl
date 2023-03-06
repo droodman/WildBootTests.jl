@@ -55,19 +55,16 @@ function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstrac
   o.y₁par = parent.y₁
 	o.ü₁ = [Vector{T}(undef, parent.Nobs) for _ in 0:parent.jk]
 
-	if parent.granular
-		X₁y₁ = parent.X₁'parent.y₁
-		H    = parent.X₁'parent.X₁
-	else	
-		S✻X₁y₁ = panelcross(parent.X₁, parent.y₁, parent.info✻)
-		X₁y₁ = vec(sumpanelcross(S✻X₁y₁))
+	if parent.jk
 		o.S✻XX = panelcross(parent.X₁, parent.X₁, parent.info✻)
 	  H = sumpanelcross(o.S✻XX)
+	else	
+		H    = parent.X₁'parent.X₁
 	end
 
 	o.invH = (pinv(H))
   R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.invH : (o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')  # for DGP regression
-	o.β̈₀ = R₁AR₁ * X₁y₁
+	o.β̈₀ = R₁AR₁ * (parent.X₁'parent.y₁)
 	o.∂β̈∂r = R₁AR₁ * H * o.R₁invR₁R₁ - o.R₁invR₁R₁
 
 	if parent.jk
@@ -101,11 +98,6 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	o.y₁par = Vector{T}(undef, parent.Nobs)
 	o.ü₁    = [Vector{T}(undef, parent.Nobs) for _ in 0:parent.jk]
 
-	X₁y₁ = parent.X₁'parent.y₁
-	X₂y₁ = parent.X₂'parent.y₁
-	X₁Y₂ = parent.X₁'parent.Y₂
-	X₂Y₂ = parent.X₂'parent.Y₂
-
 	if !parent.jk || !(parent.granularjk || parent.purerobust)
 		X₂X₁ = parent.X₂'parent.X₁
 		X₁X₁ = parent.X₁'parent.X₁
@@ -127,8 +119,8 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
   H = ([X₁X₁ X₂X₁' ; X₂X₁ X₂X₂])
   o.A = invsym(H)
   R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.A : (o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')
-	o.β̈₀   = R₁AR₁ * [X₁y₁ ; X₂y₁]
-	o.∂β̈∂r = R₁AR₁ * [X₁Y₂ ; X₂Y₂]
+	o.β̈₀   = R₁AR₁ * [parent.X₁'parent.y₁ ; parent.X₂'parent.y₁]
+	o.∂β̈∂r = R₁AR₁ * [parent.X₁'parent.Y₂ ; parent.X₂'parent.Y₂]
 
 	if parent.jk
 		if parent.purerobust

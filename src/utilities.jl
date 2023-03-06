@@ -4,20 +4,20 @@
 
 # Apply .* to a matrix and row of another matrix
 function matbyrow!(dest::Matrix{T}, A::Matrix{T}, B::AbstractMatrix{T}, row::Int) where T
-	#=@tturbo warn_check_args=false=# for j ∈ eachindex(axes(dest,2), axes(A,2), axes(B,2)), i ∈ eachindex(axes(dest,1), axes(A,1))
+	@tturbo warn_check_args=false for j ∈ eachindex(axes(dest,2), axes(A,2), axes(B,2)), i ∈ eachindex(axes(dest,1), axes(A,1))
 		dest[i,j] = A[i,j] * B[row,j]
 	end
 end
 
 # do X .= Y[:,k], hopefully faster
 @inline function fillcols!(X::Matrix{T}, Y::Matrix{T}, k::Int) where T
-	#=@tturbo warn_check_args=false=# for j ∈ indices(X,2), i ∈ indices((X,Y),1)
+	@tturbo warn_check_args=false for j ∈ indices(X,2), i ∈ indices((X,Y),1)
 		X[i,j] = Y[i,k]
 	end
 	nothing
 end
 @inline function fillcols!(X::Matrix{T}, Y::Array{T,3}, k::Int, l::Int) where T
-	#=@tturbo warn_check_args=false=# for j ∈ indices(X,2), i ∈ indices((X,Y),(1,3))
+	@tturbo warn_check_args=false for j ∈ indices(X,2), i ∈ indices((X,Y),(1,3))
 		X[i,j] = Y[k,l,i]
 	end
 	nothing
@@ -99,7 +99,7 @@ function coldotplus!(dest::AbstractMatrix{T}, row::Integer, A::AbstractMatrix{T}
 	nothing
 end
 function coldotplus!(dest::AbstractMatrix{T}, c::T, A::AbstractMatrix{T}, B::AbstractMatrix{T}) where T
-  #=@tturbo warn_check_args=false=# for i ∈ indices((A,B),2)
+  @tturbo warn_check_args=false for i ∈ indices((A,B),2)
 		destᵢ = zero(T)
 		for j ∈ indices((A,B),1)
 	  	destᵢ += A[j,i] * B[j,i]
@@ -109,7 +109,7 @@ function coldotplus!(dest::AbstractMatrix{T}, c::T, A::AbstractMatrix{T}, B::Abs
 	nothing
 end
 function coldotplus!(dest::AbstractMatrix{T}, c::T, A::AbstractMatrix{T}) where T
-  #=@tturbo warn_check_args=false=# for i ∈ indices((dest,A),2)
+  @tturbo warn_check_args=false for i ∈ indices((dest,A),2)
 		destᵢ = zero(T)
 		for j ∈ indices(A,1)
 	  	destᵢ += A[j,i]^2
@@ -124,7 +124,7 @@ function coldot!(dest::AbstractMatrix{T}, c::T, A::AbstractMatrix{T}) where T
 	nothing
 end
 function coldotplus!(dest::AbstractMatrix{T}, row::Integer, A::AbstractMatrix{T}, v::AbstractVector{T}, B::AbstractMatrix{T}) where T
-  #=@tturbo warn_check_args=false=# for i ∈ eachindex(axes(A,2),axes(B,2))
+  @tturbo warn_check_args=false for i ∈ eachindex(axes(A,2),axes(B,2))
 		destᵢ = zero(T)
 		for j ∈ eachindex(axes(A,1),axes(B,1))
 	  	destᵢ += A[j,i] * v[j] * B[j,i]
@@ -135,7 +135,7 @@ function coldotplus!(dest::AbstractMatrix{T}, row::Integer, A::AbstractMatrix{T}
 end
 
 function coldotminus!(dest::AbstractVecOrMat{T}, row::Integer, A::AbstractMatrix{T}, B::AbstractMatrix{T}) where T
-  #=@tturbo warn_check_args=false=# for i ∈ indices((dest,A,B),2)
+  @tturbo warn_check_args=false for i ∈ indices((dest,A,B),2)
 		destᵢ = zero(T)
 		for j ∈ indices((A,B),1)
 	  	destᵢ += A[j,i] * B[j,i]
@@ -147,7 +147,7 @@ end
 
 # Add Q-norms of rows of A to dest; despite "!", puts result in return value too
 function rowquadformplus!(dest::AbstractVector{T}, A::AbstractMatrix{T}, Q::AbstractMatrix{T}, B::AbstractMatrix{T}) where T
-  #=@tturbo warn_check_args=false=# for i ∈ axes(A,1)
+  @tturbo warn_check_args=false for i ∈ axes(A,1)
 		destᵢ = zero(T)
 		for j ∈ axes(A,2), k ∈ axes(A,2)
     	destᵢ += A[i,j] * Q[k,j] * B[i,k]
@@ -166,7 +166,7 @@ end
 # compute norm of each col of A using quadratic form Q; returns one-row matrix
 function colquadform(Q::AbstractMatrix{T}, A::AbstractMatrix{T}) where T
   dest = Matrix{T}(undef, 1, size(A,2))
-  #=@tturbo warn_check_args=false=# for i ∈ eachindex(axes(A,2),axes(dest,2))
+  @tturbo warn_check_args=false for i ∈ eachindex(axes(A,2),axes(dest,2))
 		destᵢ = zero(T)
 		for j ∈ eachindex(axes(A,1),axes(Q,2)), k ∈ eachindex(axes(A,1),axes(Q,1))
     	destᵢ += A[j,i] * Q[k,j] * A[k,i]
@@ -194,7 +194,7 @@ function t✻(A::AbstractVecOrMat{T}, B::AbstractMatrix{T}) where T
 end
 function t✻plus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # add B*C to A in place
 	if length(B)>0 && length(C)>0
-		#=@tturbo warn_check_args=false=# for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2))
+		@tturbo warn_check_args=false for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2))
 			Aᵢₖ = zero(T)
 			for j ∈ eachindex(axes(B,2),axes(C,1))
 				Aᵢₖ += B[i,j] * C[j,k]
@@ -206,7 +206,7 @@ function t✻plus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMatr
 end
 function t✻plus!(A::AbstractMatrix{T}, c::T, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # add B*C to A in place
 	if length(B)>0 && length(C)>0
-		#=@tturbo warn_check_args=false=# for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2))
+		@tturbo warn_check_args=false for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2))
 			Aᵢₖ = zero(T)
 			for j ∈ eachindex(axes(B,2),axes(C,1))
 				Aᵢₖ += B[i,j] * C[j,k]
@@ -218,7 +218,7 @@ function t✻plus!(A::AbstractMatrix{T}, c::T, B::AbstractVecOrMat{T}, C::Abstra
 end
 function t✻plus!(A::AbstractVector{T}, B::AbstractMatrix{T}, C::AbstractVector{T}) where T  # add B*C to A in place
 	if length(B)>0 && length(C)>0
-		#=@tturbo warn_check_args=false=# for i ∈ eachindex(axes(A,1),axes(B,1))
+		@tturbo warn_check_args=false for i ∈ eachindex(axes(A,1),axes(B,1))
 			Aᵢ = zero(T)
 			for j ∈ eachindex(axes(B,2),C)
 				Aᵢ += B[i,j] * C[j]
@@ -230,7 +230,7 @@ function t✻plus!(A::AbstractVector{T}, B::AbstractMatrix{T}, C::AbstractVector
 end
 function t✻minus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # add B*C to A in place
 	if length(B)>0 && length(C)>0
-		#=@tturbo warn_check_args=false=# for i ∈ indices((A,B),1), k ∈ indices((A,C),2)
+		@tturbo warn_check_args=false for i ∈ indices((A,B),1), k ∈ indices((A,C),2)
 			Aᵢₖ = zero(T)
 			for j ∈ indices((B,C),(2,1))
 				Aᵢₖ += B[i,j] * C[j,k]
@@ -242,7 +242,7 @@ function t✻minus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMat
 end
 function t✻minus!(A::AbstractVector{T}, B::AbstractVecOrMat{T}, C::AbstractVector{T}) where T  # add B*C to A in place
 	if length(B)>0 && length(C)>0
-			#=@tturbo warn_check_args=false=# for i ∈ eachindex(axes(A,1),axes(B,1))
+			@tturbo warn_check_args=false for i ∈ eachindex(axes(A,1),axes(B,1))
 				Aᵢ = zero(T)
 				for j ∈ eachindex(axes(B,2),axes(C,1))
 					Aᵢ += B[i,j] * C[j]
@@ -254,7 +254,7 @@ function t✻minus!(A::AbstractVector{T}, B::AbstractVecOrMat{T}, C::AbstractVec
 end
 function t✻minus!(A::AbstractVecOrMat{T}, B::T, C::AbstractVecOrMat{T}) where T  # add B*C to A in place
 	if length(C)>0
-		#=@tturbo warn_check_args=false=# for j ∈ indices((A,C),2), i ∈ indices((A,C),1)
+		@tturbo warn_check_args=false for j ∈ indices((A,C),2), i ∈ indices((A,C),1)
 			A[i,j] -= B * C[i,j]
 		end
 	end
@@ -322,7 +322,7 @@ function panelsum!(dest::AbstractVecOrMat, X::AbstractVecOrMat, info::AbstractVe
 			for j ∈ eachindexJ
 				Jj = J[j]
 				tmp = X[f,Jj]
-				#=@tturbo warn_check_args=false=# for i ∈ fl
+				@tturbo warn_check_args=false for i ∈ fl
 					tmp += X[i,Jj]
 				end
 				dest[g,Jj] = tmp
@@ -350,7 +350,7 @@ function panelsum!(dest::AbstractVecOrMat{T}, X::AbstractVecOrMat{T}, wt::Abstra
 			for j ∈ eachindexJ
 				Jj = J[j]
 				tmp = X[f,Jj] * _wt
-				#=@tturbo warn_check_args=false=# for i ∈ fl
+				@tturbo warn_check_args=false for i ∈ fl
 					tmp += X[i,Jj] * wt[i]
 				end
 				dest[g,Jj] = tmp
@@ -379,7 +379,7 @@ function panelsumminus!(dest::AbstractVecOrMat{T}, X::AbstractVecOrMat{T}, wt::A
 			for j ∈ eachindexJ
 				Jj = J[j]
 				tmp = X[f,Jj] * _wt
-				#=@tturbo warn_check_args=false=# for i ∈ fl
+				@tturbo warn_check_args=false for i ∈ fl
 					tmp += X[i,Jj] * wt[i]
 				end
 				dest[g,Jj] -= tmp
@@ -399,7 +399,7 @@ function panelsum!(dest::AbstractArray, X::AbstractArray{T,3} where T, info::Vec
     if f<l
       for i ∈ axes(X,1), k ∈ axes(X,3)
         tmp = X[i,f,k]
-        #=@tturbo warn_check_args=false=# for j ∈ fl
+        @tturbo warn_check_args=false for j ∈ fl
           tmp += X[i,j,k]
         end
         dest[i,g,k] = tmp
@@ -417,26 +417,64 @@ end
 function panelcross!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
 	iszero(length(dest)) && return
 	if iszero(nrows(info)) || nrows(info)==nrows(X)
-		if size(X,2)==size(Y,2)==1
-			dest[1,:,1] .= X .* Y
+		if isone(size(X,2))
+			if isone(size(Y,2))
+				dest[1,:,1] .= X .* Y
+			else
+				@tturbo warn_check_args=false for k ∈ eachindex(axes(dest,3),axes(Y,2)), j ∈ eachindex(axes(dest,2),axes(X,1),axes(Y,1))
+					dest[1,j,k] = X[j] * Y[j,k]
+				end
+			end
 		else
 			for k ∈ eachindex(axes(dest,3),axes(Y,2)), j ∈ eachindex(axes(dest,2),axes(X,1),axes(Y,1))
 				Yⱼₖ = Y[j,k]
-				#=@tturbo warn_check_args=false=# for i ∈ eachindex(axes(dest,1),axes(X,2))
+				@tturbo warn_check_args=false for i ∈ eachindex(axes(dest,1),axes(X,2))
 					dest[i,j,k] = X[j,i] * Yⱼₖ
 				end
 			end
 		end
 	else
-    @inbounds for (g, infog) ∈ enumerate(info)
-      #=@tturbo warn_check_args=false=# for j ∈ eachindex(axes(dest,1),axes(X,2)), k ∈ eachindex(axes(dest,3),axes(Y,2))
-				dest_jgk = zero(T)
-				for i ∈ infog
-        	dest_jgk += X[i,j] * Y[i,k]
+		if isone(size(Y,2))  # handle special cases to prevent @tturbo crash
+			if isone(size(X,2))
+				@inbounds for (g, infog) ∈ enumerate(info)
+						dest_jgk = zero(T)
+					@tturbo warn_check_args=false for i ∈ infog
+						dest_jgk += X[i] * Y[i]
+					end
+					dest[1,g,1] = dest_jgk
 				end
-				dest[j,g,k] = dest_jgk
-      end
-    end
+			else
+				@inbounds for (g, infog) ∈ enumerate(info)
+					@tturbo warn_check_args=false for j ∈ eachindex(axes(dest,1),axes(X,2))
+						dest_jgk = zero(T)
+						for i ∈ infog
+							dest_jgk += X[i,j] * Y[i]
+						end
+						dest[j,g,1] = dest_jgk
+					end
+				end
+			end
+		elseif isone(size(X,2))
+			@inbounds for (g, infog) ∈ enumerate(info)
+				@tturbo warn_check_args=false for k ∈ eachindex(axes(dest,3),axes(Y,2))
+					dest_jgk = zero(T)
+					for i ∈ infog
+						dest_jgk += X[i] * Y[i,k]
+					end
+					dest[1,g,k] = dest_jgk
+				end
+			end
+		else
+			@inbounds for (g, infog) ∈ enumerate(info)
+				@tturbo warn_check_args=false for j ∈ eachindex(axes(dest,1),axes(X,2)), k ∈ eachindex(axes(dest,3),axes(Y,2))
+					dest_jgk = zero(T)
+					for i ∈ infog
+						dest_jgk += X[i,j] * Y[i,k]
+					end
+					dest[j,g,k] = dest_jgk
+				end
+			end
+		end
   end
 	nothing
 end
@@ -510,7 +548,7 @@ function panelcoldot!(dest::AbstractMatrix{T}, X::AbstractMatrix{T}, Y::Abstract
 			for j ∈ eachindexJ
 				Jj = J[j]
 				tmp = X[f,Jj] * Y[f,Jj]
-				#=@tturbo warn_check_args=false=# for i ∈ fl
+				@tturbo warn_check_args=false for i ∈ fl
 					tmp += X[i,Jj] * Y[i,Jj]
 				end
 				dest[g,Jj] = tmp
@@ -539,7 +577,7 @@ function panelcoldotminus!(dest::AbstractMatrix{T}, X::AbstractMatrix{T}, Y::Abs
 			for j ∈ eachindexJ
 				Jj = J[j]
 				tmp = X[f,Jj] * Y[f,Jj]
-				#=@tturbo warn_check_args=false=# for i ∈ fl
+				@tturbo warn_check_args=false for i ∈ fl
 					tmp += X[i,Jj] * Y[i,Jj]
 				end
 				dest[g,Jj] -= tmp
@@ -792,7 +830,7 @@ function t✻!(dest::AbstractArray{T}, c::T, A::AbstractArray{T}, B::AbstractArr
 end
 function t✻plus!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T
 	if length(dest)>0 && length(A)>0 && length(B)>0
-		#=@tturbo warn_check_args=false=# for i ∈ eachindex(axes(B,2),axes(dest,3)), j ∈ eachindex(axes(A,1),axes(dest,1)), g ∈ eachindex(axes(A,2),axes(dest,2))
+		@tturbo warn_check_args=false for i ∈ eachindex(axes(B,2),axes(dest,3)), j ∈ eachindex(axes(A,1),axes(dest,1)), g ∈ eachindex(axes(A,2),axes(dest,2))
 			dest_jgi = zero(T)
 			for k ∈ eachindex(axes(A,3),axes(B,1))
 				dest_jgi += A[j,g,k] * B[k,i]
@@ -804,7 +842,7 @@ function t✻plus!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractV
 end
 function t✻plus!(dest::AbstractArray{T,3}, A::AbstractVecOrMat{T}, B::AbstractArray{T,3}) where T
 	if length(dest)>0 && length(A)>0 && length(B)>0
-		#=@tturbo warn_check_args=false=# for i ∈ eachindex(axes(B,3),axes(dest,3)), j ∈ eachindex(axes(A,1), axes(dest,1)), g ∈ eachindex(axes(B,2),axes(dest,2))
+		@tturbo warn_check_args=false for i ∈ eachindex(axes(B,3),axes(dest,3)), j ∈ eachindex(axes(A,1), axes(dest,1)), g ∈ eachindex(axes(B,2),axes(dest,2))
 			dest_jgi = zero(T)
 			for k ∈ eachindex(axes(A,2),axes(B,1))
 				dest_jgi += A[j,k] * B[k,g,i]
@@ -816,7 +854,7 @@ function t✻plus!(dest::AbstractArray{T,3}, A::AbstractVecOrMat{T}, B::Abstract
 end
 function t✻plus!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractArray{T,3}) where T
 	if length(dest)>0 && length(A)>0 && length(B)>0
-		#=@tturbo warn_check_args=false=# for i ∈ eachindex(axes(B,3),axes(dest,3)), j ∈ eachindex(axes(A,1),axes(dest,1)), g ∈ eachindex(axes(A,2),axes(B,2),axes(dest,2))
+		@tturbo warn_check_args=false for i ∈ eachindex(axes(B,3),axes(dest,3)), j ∈ eachindex(axes(A,1),axes(dest,1)), g ∈ eachindex(axes(A,2),axes(B,2),axes(dest,2))
 			dest_jgi = zero(T)
 			for k ∈ eachindex(axes(A,3),axes(B,1))
 				dest_jgi += A[j,g,k] * B[k,g,i]
@@ -828,7 +866,7 @@ function t✻plus!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractA
 end
 function t✻plus!(dest::AbstractArray{T,3}, c::T, A::AbstractArray{T,3}, B::AbstractArray{T,3}) where T
 	if length(dest)>0 && length(A)>0 && length(B)>0
-		#=@tturbo warn_check_args=false=# for i ∈ eachindex(axes(B,3),axes(dest,3)), j ∈ eachindex(axes(A,1),axes(dest,1)), g ∈ eachindex(axes(A,2),axes(B,2),axes(dest,2))
+		@tturbo warn_check_args=false for i ∈ eachindex(axes(B,3),axes(dest,3)), j ∈ eachindex(axes(A,1),axes(dest,1)), g ∈ eachindex(axes(A,2),axes(B,2),axes(dest,2))
 			dest_jgi = zero(T)
 			for k ∈ eachindex(axes(A,3),axes(B,1))
 				dest_jgi += A[j,g,k] * B[k,g,i]
@@ -840,7 +878,7 @@ function t✻plus!(dest::AbstractArray{T,3}, c::T, A::AbstractArray{T,3}, B::Abs
 end
 function t✻minus!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractVecOrMat{T}) where T
 	if length(dest)>0 && length(A)>0 && length(B)>0
-		#=@tturbo warn_check_args=false=# for i ∈ indices((B,dest), (2,3)), j ∈ indices((A,dest),1), g ∈ indices((A,dest),2)
+		@tturbo warn_check_args=false for i ∈ indices((B,dest), (2,3)), j ∈ indices((A,dest),1), g ∈ indices((A,dest),2)
 			dest_jgi = zero(T)
 			for k ∈ indices((A,B),(3,1))
 				dest_jgi += A[j,g,k] * B[k,i]
@@ -852,7 +890,7 @@ function t✻minus!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::Abstract
 end
 function t✻minus!(dest::AbstractArray{T,3}, A::AbstractVecOrMat{T}, B::AbstractArray{T,3}) where T
 	if length(dest)>0 && length(A)>0 && length(B)>0
-		#=@tturbo warn_check_args=false=# for i ∈ eachindex(axes(B,3),axes(dest,3)), j ∈ eachindex(axes(A,1), axes(dest,1)), g ∈ eachindex(axes(B,2),axes(dest,2))
+		@tturbo warn_check_args=false for i ∈ eachindex(axes(B,3),axes(dest,3)), j ∈ eachindex(axes(A,1), axes(dest,1)), g ∈ eachindex(axes(B,2),axes(dest,2))
 			dest_jgi = zero(T)
 			for k ∈ eachindex(axes(A,3),axes(B,1))
 				dest_jgi += A[j,k] * B[k,g,i]
@@ -916,7 +954,7 @@ function partialjk(A::AbstractVecOrMat{T}, Z::AbstractMatrix{T}, ZZZA::AbstractA
 	dest = copy(A)
 	if length(A)>0
 		for (g,G) ∈ enumerate(info)
-	    #=@tturbo warn_check_args=false=# for i ∈ indices((dest,ZZZA),(2,3)), j ∈ G
+	    @tturbo warn_check_args=false for i ∈ indices((dest,ZZZA),(2,3)), j ∈ G
 				destⱼᵢ = zero(T)
 				for k ∈ indices((Z,ZZZA), (2,1))
 			  	destⱼᵢ += Z[j,k] * ZZZA[k,g,i]

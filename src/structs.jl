@@ -64,7 +64,7 @@ function *(X::AbstractMatrix{T}, Y::DesignerMatrix{T}) where T
 		if length(dest)>0
 			@inbounds for j ∈ eachindex(axes(Y.p,1))
 				pⱼ, qⱼ = Y.p[j], Y.q[j] 
-				#=@tturbo warn_check_args=false=# for i ∈ indices((dest,X),1)
+				@tturbo warn_check_args=false for i ∈ indices((dest,X),1)
 					dest[i,qⱼ] = X[i,pⱼ]
 				end
 			end
@@ -84,7 +84,7 @@ function *(X::AbstractArray{T,3}, Y::DesignerMatrix{T}) where T
 		if length(dest)>0
 			@inbounds for j ∈ axes(Y.p,1)
 				pⱼ, qⱼ = Y.p[j], Y.q[j] 
-				#=@tturbo warn_check_args=false=# for i ∈ indices((dest,X),1), g ∈ indices((dest,X),2)
+				@tturbo warn_check_args=false for i ∈ indices((dest,X),1), g ∈ indices((dest,X),2)
 					dest[i,g,qⱼ] = X[i,g,pⱼ]
 				end
 			end
@@ -104,7 +104,7 @@ function *(Y::AdjointDesignerMatrix{T}, X::AbstractMatrix{T}) where T
 		if length(dest)>0
 			@inbounds for j ∈ axes(Y.parent.p,1)
 				pⱼ, qⱼ = Y.parent.p[j], Y.parent.q[j] 
-				#=@tturbo warn_check_args=false=# for i ∈ indices((X,dest),2)
+				@tturbo warn_check_args=false for i ∈ indices((X,dest),2)
 				 dest[qⱼ,i] = X[pⱼ,i]
 				end
 			end
@@ -124,7 +124,7 @@ function *(Y::AdjointDesignerMatrix{T}, X::AbstractArray{T,3}) where T
 		if length(dest)>0
 			@inbounds for j ∈ eachindex(axes(Y.parent.p,1))
 				pⱼ, qⱼ = Y.parent.p[j], Y.parent.q[j] 
-				#=@tturbo warn_check_args=false=# for i ∈ indices((dest,X),3), g ∈ indices((dest,X),2)
+				@tturbo warn_check_args=false for i ∈ indices((dest,X),3), g ∈ indices((dest,X),2)
 					dest[qⱼ,g,i] = X[pⱼ,g,i]
 				end
 			end
@@ -233,9 +233,8 @@ mutable struct StrBootTest{T<:AbstractFloat}
   seed::UInt64
 
 	S✻XY₂::Array{T,3}; S✻XX::Array{T,3}; S✻XDGPZ::Array{T,3}; S✻Xy₁::Array{T,3}; S✻XZR₁::Array{T,3}
-	invXXS✻XY₂::Array{T,3}; invXXS✻XX::Array{T,3}; invXXS✻XDGPZ::Array{T,3}; invXXS✻Xy₁::Array{T,3}; invXXS✻XDGPZR₁::Array{T,3}
+	invXXS✻XDGPZ::Array{T,3}; invXXS✻Xy₁::Array{T,3}; invXXS✻XDGPZR₁::Array{T,3}
 	S✻⋂XY₂::Array{T,3}; S✻⋂XX::Array{T,3}; S✻⋂XDGPZ::Array{T,3}; S✻⋂Xy₁::Array{T,3}; S✻⋂X_DGPZR₁::Array{T,3}
-	invXXS✻⋂XY₂::Array{T,3}; invXXS✻⋂XX::Array{T,3}; invXXS✻⋂XDGPZ::Array{T,3}; invXXS✻⋂Xy₁::Array{T,3}; invXXS✻⋂XDGPZR₁::Array{T,3}
 	S✻ZperpY₂::Array{T,3}; S✻ZperpX::Array{T,3}; S✻ZperpDGPZ::Array{T,3}; S✻Zperpy₁::Array{T,3}; S✻ZperpDGPZR₁::Array{T,3}
 	invZperpZperpS✻ZperpY₂::Array{T,3}; invZperpZperpS✻ZperpX::Array{T,3}; invZperpZperpS✻ZperpDGPZ::Array{T,3}; invZperpZperpS✻Zperpy₁::Array{T,3}; invZperpZperpS✻ZperpDGPZR₁::Array{T,3}
 	_ID✻⋂::Vector{Int}
@@ -243,7 +242,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	negS✻UMZperpX::Vector{Array{T,3}}; S⋂XZperpinvZperpZperp::Array{T,3}; CT✻FEX::Array{T,3}; CT⋂FEX::Array{T,3}; CT✻FEY₂::Array{T,3}; CT✻FEU₂::Array{T,3}; CT✻FEZ::Array{T,3}; CT✻FEy₁::Array{T,3}; CT✻FEZR₁::Array{T,3}
 	S✻Y₂Y₂::Array{T,3}; S✻ZparY₂Z_DGPZ::Array{T,3}; S✻DGPZY₂::Array{T,3}; S✻DGPZR₁Y₂::Array{T,3}; S✻DGPZDGPZ::Array{T,3};  S✻DGPZR₁DGPZR₁::Array{T,3}; S✻DGPZR₁DGPZ::Array{T,3}; S✻DGPZR₁X::Array{T,3}
 	XinvXX::Matrix{T}; S⋂XX::Array{T,3}
-	S✻⋂XU₂::Array{T,3}; S✻⋂XU₂par::Array{T,3}; S✻⋂Xu₁::Array{T,3}; S✻XU₂::Array{T,3}; S✻ZperpU₂::Array{T,3}; invZperpZperpS✻ZperpU₂::Array{T,3}; invXXS✻XU₂::Array{T,3}
+	S✻⋂XU₂::Array{T,3}; S✻⋂XÜ₂par::Array{T,3}; S✻⋂Xu₁::Array{T,3}; S✻XU₂::Array{T,3}; S✻ZperpU₂::Array{T,3}; invZperpZperpS✻ZperpU₂::Array{T,3}; invXXS✻XU₂::Array{T,3}
 
 	YY₁₁::Matrix{T}; YY₁₂::Matrix{T}; YY₂₂::Matrix{T}; YPXY₁₁::Matrix{T}; YPXY₁₂::Matrix{T}; YPXY₂₂::Matrix{T}
 	YY₁₂YPXY₁₂::Matrix{T}; x₁₁::Matrix{T}; x₁₂::Matrix{T}; x₂₁::Matrix{T}; x₂₂::Matrix{T}; κs::Matrix{T}; numerWRE::Matrix{T}
@@ -251,7 +250,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	invZperpZperpS✻ZperpUv::Matrix{T}; S✻ZperpUv::Matrix{T}; CT✻FEUv::Matrix{T}; S✻UMZperp::Matrix{T}; PXY✻::Matrix{T}; S✻UZperpinvZperpZperpv::Matrix{T}; invFEwtCT✻FEUv::Matrix{T}
 	F₁::Matrix{T}; F₁β::Matrix{T}; F₂::Matrix{T}; willfill::Bool; not2SLS::Bool
 	invXXXZ̄::Matrix{T}; XȲ::Matrix{T}; ZÜ₂par::Matrix{T}; ȲȲ::Matrix{T}
-	S✻ȳ₁u₁::Array{T,3}; S✻Z̄u₁::Array{T,3}; S✻ȳ₁U₂par::Array{T,3}; S✻Z̄U₂par::Array{T,3};	PXZ̄::Matrix{T}; S✻XUv::Matrix{T}; S✻ȲU::Matrix{SubArray{T, 1, Array{T, 3}, Tuple{Int64, Base.Slice{Base.OneTo{Int64}}, Int64}, true}}
+	S✻ȳ₁u₁::Array{T,3}; S✻Z̄u₁::Array{T,3}; S✻ȳ₁Ü₂par::Array{T,3}; S✻Z̄Ü₂par::Array{T,3};	PXZ̄::Matrix{T}; S✻XUv::Matrix{T}; S✻ȲU::Matrix{SubArray{T, 1, Array{T, 3}, Tuple{Int64, Base.Slice{Base.OneTo{Int64}}, Int64}, true}}
 	Π̈Rpar::Matrix{T}; Ü₂par::Matrix{T}; Z̄::Matrix{T}; S⋂ȳ₁X::Array{T,3}; S⋂ReplZ̄X::Array{T,3}
 
 	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, liml, 
