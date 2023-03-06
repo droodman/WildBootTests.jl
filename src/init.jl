@@ -175,17 +175,23 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	end
 
 	o.enumerate = o.B>0 && o.auxtwtype == :rademacher && o.N✻*log(2) < log(o.B)+1e-6  # generate full Rademacher set?
-	o.enumerate && (o.maxmatsize = 0)
+	if o.enumerate
+		o.maxmatsize = 0
+		o.B = 2^o.N✻
+		o.Nw = 1
+	else
+		o.Nw = iszero(o.maxmatsize) ? one(Int64) : ceil(Int64, (o.B+1) * Float64(max(nrows(o.ID✻), length(o.ID✻_✻⋂), o.N✻) * sizeof(T)) / o.maxmatsize / 1073741824) # 1073741824 = giga(byte)
+	end
 
-	o.Nw = iszero(o.maxmatsize) ? one(Int64) : ceil(Int64, (o.B+1) * Float64(max(nrows(o.ID✻), length(o.ID✻_✻⋂), o.N✻) * sizeof(T)) / o.maxmatsize / 1073741824) # 1073741824 = giga(byte)
 	if isone(o.Nw)
+		o.v = Matrix{T}(undef, o.N✻, o.B+1)
 		MakeWildWeights!(o, o.B, first=true)  # make all wild weights, once
-		o.ncolsv = ncols(o.v)
-		o.enumerate && (o.B = o.ncolsv - 1)  # replications reduced to 2^G
+		o.ncolsv = o.B + 1
 		o.WeightGrp = [1:o.ncolsv]
 	else
     o.seed = rand(o.rng, UInt64)
 		o.ncolsv = ceil(Int64, (o.B+1) / o.Nw)
+		o.v = Matrix{T}(undef, o.N✻, o.ncolsv)
 		o.Nw = ceil(Int64, (o.B+1) / o.ncolsv)
 		o.WeightGrp = [(i-1)*o.ncolsv+1:i*o.ncolsv for i ∈ 1:o.Nw]
 		o.B = o.Nw * o.ncolsv - 1  # replicaions may be slightly increased so each block of v same size
@@ -406,21 +412,19 @@ function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) wher
 	
 	if _B>0  # in scoretest or waldtest WRE, still make v a col of 1's
     if o.enumerate
-			o.v = [ones(T,o.N✻) count_binary(o.N✻, -m, m)]
+			o.v[:,2:end] = count_binary(o.N✻, -m, m); o.v[:,1] .= one(T)
 		elseif o.auxtwtype == :normal
-			o.v = m * randn(o.rng, T, o.N✻, _B+first)
+			randn!(o.rng, o.v); !isone(m) && (o.v .*= m)
 		elseif o.auxtwtype == :gamma 
-			o.v = rand(o.rng, T, o.N✻, _B+first); o.v .= quantile.(Gamma{T}(4,.5), o.v); o.v .-= T(2); o.v .*= m
+			rand!(o.rng, o.v); o.v .= quantile.(Gamma{T}(4,.5), o.v); o.v .-= T(2); !isone(m) && (o.v .*= m)
 		elseif o.auxtwtype == :webb
-			o.v = rand(o.rng, m*T[-√1.5, -1, -√.5, √.5, 1, √1.5], o.N✻, _B+first)
+			rand!(o.rng, o.v, m*T[-√1.5, -1, -√.5, √.5, 1, √1.5])
 		elseif o.auxtwtype == :mammen
-			o.v = rand(o.rng, o.N✻, _B+first); o.v .= getindex.(Ref(m*T[1-ϕ; ϕ]), ceil.(Int16, o.v ./ (ϕ/√5)))
+			rand!(o.rng, o.v); o.v .= getindex.(Ref(m*T[1-ϕ; ϕ]), ceil.(Int16, o.v ./ (ϕ/√5)))
 		else
-			o.v = rand(o.rng, T[m, -m	], o.N✻, _B+first)  # Rademacher
+			rand!(o.rng, o.v, T[m, -m])  # Rademacher 
 		end
 		first && !o.enumerate && (o.v[:,1] .= m)  # keep original residuals in first entry to compute base model stat
-  else
-		o.v = Matrix{T}(undef,0,1)  # in places, ncols(v) indicates B == 1 for classical tests
   end
 	nothing
 end

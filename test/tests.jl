@@ -51,7 +51,7 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   println(log, "boottest (post_self=.05) (post=-.02), reps(9999) weight(webb)")
   test = wildboottest([0 0 0 1; 0 0 1 0], [.05; -.02]; resp, predexog, clustid=Int32.(df.year), reps=9999, auxwttype=:webb, rng=StableRNG(1231))
   println(log, test)
-  
+  # BAD to here
   test = wildboottest([0 0 0 1; 0 0 1 0], [.05; -.02]; resp, predexog, clustid=Int32.(df.year), reps=9999, auxwttype=:webb, rng=StableRNG(1231), bootstrapc=true)
   println(log, test)
   
@@ -329,13 +329,13 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   println(log, "\ninfile coll merit male black asian year state chst using regm.raw, clear")
   println(log, "qui regress coll merit male black asian i.year i.state if !inlist(state,34,57,59,61,64,71,72,85,88), cluster(state)	")
   println(log, "generate individual = _n  // unique ID for each observation")
-  println(log, "boottest merit, nogr reps(9999) gridpoints(10)  // defaults to bootcluster(state)")
-  println(log, "boottest merit, nogr reps(9999) gridpoints(10) nonull")
-  println(log, "boottest merit, nogr reps(9999) gridpoints(10) bootcluster(state year)")
-  println(log, "boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(state year)")
-  println(log, "boottest merit, nogr reps(9999) gridpoints(10) bootcluster(individual)")
-  println(log, "boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual)")
-  println(log, "boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual) matsize(.1)")
+  println(log, "boottest merit, nogr reps(9999)  // defaults to bootcluster(state)")
+  println(log, "boottest merit, nogr reps(9999) nonull")
+  println(log, "boottest merit, nogr reps(9999) bootcluster(state year)")
+  println(log, "boottest merit, nogr reps(9999) nonull bootcluster(state year)")
+  println(log, "boottest merit, nogr reps(9999) bootcluster(individual)")
+  println(log, "boottest merit, nogr reps(9999) nonull bootcluster(individual)")
+  println(log, "boottest merit, nogr reps(9999) nonull bootcluster(individual) matsize(.1)")
   df = DataFrame(load("regm.dta"))
   df = DataFrame(coll=Bool.(df.coll), merit=Bool.(df.merit), male=Bool.(df.male), black=Bool.(df.black), asian=Bool.(df.asian), state=categorical(Int8.(df.state)), year=categorical(Int16.(df.year)))
   dropmissing!(df)
@@ -344,7 +344,7 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   f = apply_schema(f, schema(f, df))
   resp, predexog = modelcols(f, df)
 
-  test = wildboottest([0 1 zeros(1,size(predexog,2)-2)], [0]; resp, predexog, clustid=levelcode.(df.state), gridpoints=[10], reps=9999, rng=StableRNG(1231))
+  test = wildboottest([0 1 zeros(1,size(predexog,2)-2)], [0]; resp, predexog, clustid=levelcode.(df.state), reps=9999, rng=StableRNG(1231))
   println(log, test)
   test = wildboottest([0 1 zeros(1,size(predexog,2)-2)], [0]; resp, predexog, clustid=levelcode.(df.state), reps=9999, imposenull=false, rng=StableRNG(1231))
   println(log, test)
