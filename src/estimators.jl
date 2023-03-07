@@ -722,7 +722,7 @@ function InitTestDenoms!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 
 	  if parent.robust && parent.NFE>0 && !(parent.FEboot || parent.scorebs) && parent.granular < parent.NErrClustCombs  # make first factor of second term of (64) for c=⋂ (c=1)
 	    !isdefined(o, :WXAR) && (o.WXAR = o.XAR)  # XXX simplify
-	    o.CT_XAR = [crosstabFEt(parent, view(o.WXAR,:,d), parent.info⋂) for d ∈ 1:parent.dof]
+	    o.CT_XAR = crosstabFE(parent, o.WXAR, parent.info⋂)
 	  end
   end
 	nothing

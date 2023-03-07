@@ -479,7 +479,7 @@ function HessianFixedkappa!(o::StrBootTest{T}, dest::AbstractMatrix{T}, is::Vect
 					coldotminus!(_dest, 1, o.CT✻FEUv, o.invFEwtCT✻FEUv)
 				end
 
-		    dest[row:row,:] .*= κ;  dest[row:row,:] .+= (1-κ) .* _dest
+		    view(dest,row:row,:) .*= κ;  view(dest,row:row,:) .+= (1-κ) .* _dest  # "view(dest,row:row,:)" avoids allocations where dest[row:row,:] doesn't
 			end
 		end
 
@@ -516,7 +516,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 				o.NFE>0 && !o.FEboot &&
 					(o.S✻UMZperp .+= view(o.invFEwtCT✻FEUv, o.FEID[g]:o.FEID[g], :))  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
 
-				dest[g:g,:] .= o.PXY✻ .* o.DGP.ȳ₁[g]
+				t✻!(view(dest,g:g,:), o.DGP.ȳ₁[g], o.PXY✻)
 				coldotminus!(dest, g, o.PXY✻, o.S✻UMZperp)
 			end
 		else
@@ -554,7 +554,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 						o.NFE>0 && !o.FEboot &&
 							(o.S✻UMZperp .+= view(o.invFEwtCT✻FEUv, o.FEID[g]:o.FEID[g], :))  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
 	
-						dest[g:g,:] .-= o.PXY✻ .* (o.Z̄[g,j] * _β̈ )
+						t✻minus!(view(dest,g:g,:), o.Z̄[g,j], o.PXY✻, _β̈ )
 						coldotplus!(dest, g, o.PXY✻, o.S✻UMZperp)
 					else
 						coldotminus!(dest, g, o.PXY✻, o.Z̄[g,j] * _β̈)

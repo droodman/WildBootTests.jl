@@ -150,7 +150,7 @@ mutable struct StrEstimator{T<:AbstractFloat}
 	invXX::Matrix{T}; Y₂::Matrix{T}; X₂::Matrix{T}; invH::Matrix{T}
 	y₁par::Vector{T}; Xy₁par::Vector{T}
 	A::Matrix{T}; Zpar::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
-	WXAR::Matrix{T}; CT_XAR::Vector{Matrix{T}}
+	WXAR::Matrix{T}; CT_XAR::Array{T,3}
 
 	S✻XX::Array{T,3}; XinvHjk::Vector{Matrix{T}}; invMjk::Vector{Matrix{T}}; invMjkv::Vector{T}; XXt1jk::Matrix{T}; t₁::Vector{T}
 

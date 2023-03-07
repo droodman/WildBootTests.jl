@@ -182,6 +182,12 @@ end
 @inline function t✻!(A::AbstractVecOrMat{T}, B::AbstractVecOrMat{T}, C::AbstractVecOrMat{T}) where T
 	mul!(A, B, C)
 end
+@inline function t✻!(A::AbstractVecOrMat{T}, b::T, C::AbstractVecOrMat{T}) where T
+	@tturbo for i ∈ indices((A,C),1), j ∈ indices((A,C),2)
+		A[i,j] = b * C[i,j]
+	end
+	nothing
+end
 function t✻(A::AbstractVecOrMat{T}, B::AbstractVector{T}) where T
 	dest = Vector{T}(undef, size(A,1))
 	mul!(dest, A, B)
@@ -236,6 +242,18 @@ function t✻minus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMat
 				Aᵢₖ += B[i,j] * C[j,k]
 			end
 			A[i,k] -= Aᵢₖ	
+		end
+	end
+	nothing
+end
+function t✻minus!(A::AbstractMatrix{T}, c::T, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # add B*C to A in place
+	if length(B)>0 && length(C)>0
+		@tturbo warn_check_args=false for i ∈ indices((A,B),1), k ∈ indices((A,C),2)
+			Aᵢₖ = zero(T)
+			for j ∈ indices((B,C),(2,1))
+				Aᵢₖ += B[i,j] * C[j,k]
+			end
+			A[i,k] -= c * Aᵢₖ	
 		end
 	end
 	nothing
@@ -591,44 +609,32 @@ function panelcoldotminus!(dest::AbstractMatrix{T}, X::AbstractMatrix{T}, Y::Abs
 end
 
 
-# cross-tab sum of a column vector w.r.t. given panel info and fixed-effect var
+# crosstab of a column vector w.r.t. given panel info and fixed-effect var
 # one row per FE, one col per other grouping
 # handling multiple columns in v
 # dimensions: (FEs,entries of info, cols of v)
 # this facilitates reshape() to 2-D array in which results for each col of v are stacked vertically
 function crosstabFE!(o::StrBootTest{T}, dest::Array{T,3}, v::AbstractVecOrMat{T}, info::Vector{UnitRange{Int64}}) where T
-  if o.haswt
-		vw = v .* o.sqrtwt
-		if nrows(info)>0
-			fill!(dest, zero(T))
-			@inbounds Threads.@threads  for i ∈ axes(info,1)
-				FEIDi = view(o._FEID, info[i])
-				vi = @view vw[info[i],:]
-				@inbounds for j ∈ axes(FEIDi,1)
-					dest[FEIDi[j],i,:] += @view vi[j,:]
+	vw = o.haswt ? v .* o.sqrtwt : v
+	if nrows(info)>0
+		fill!(dest, zero(T))
+		@inbounds Threads.@threads for i ∈ eachindex(axes(info,1))
+			infoi = info[i]
+			@inbounds @fastmath for infoij ∈ infoi
+				FEIDij = o._FEID[infoij]
+				for k ∈ eachindex(axes(vw,2))
+					dest[FEIDij,i,k] += vw[infoij,k]
 				end
 			end
-		else  # "robust" case, no clustering
-			@inbounds Threads.@threads  for i ∈ axes(o._FEID,1)
-				dest[o._FEID[i],i,:] .= @view vw[i,:]
+		end
+	else  # "robust" case, no clustering
+		@inbounds Threads.@threads for i ∈ eachindex(axes(o._FEID,1))
+			FEIDi = o._FEID[i]
+			@inbounds for k ∈ eachindex(axes(vw,2))
+				dest[FEIDi,i,k] .= vw[i,k]
 			end
 		end
-	else
-		if nrows(info)>0
-			fill!(dest, zero(T))
-			@inbounds Threads.@threads  for i ∈ axes(info,1)
-				FEIDi = view(o._FEID, info[i])
-				vi = @view v[info[i],:]
-				@inbounds for j ∈ axes(FEIDi,1)
-					dest[FEIDi[j],i,:] += @view vi[j,:]
-				end
-			end
-		else  # "robust" case, no clustering
-			@inbounds Threads.@threads  for i ∈ axes(o._FEID,1)
-				dest[o._FEID[i],i,:] .= @view v[i,:]
-			end
-		end
-	end		
+	end
   nothing
 end
 function crosstabFE(o::StrBootTest{T}, v::AbstractVecOrMat{T}, info::Vector{UnitRange{Int64}}) where T
@@ -637,41 +643,6 @@ function crosstabFE(o::StrBootTest{T}, v::AbstractVecOrMat{T}, info::Vector{Unit
 	dest
 end
 
-# same, transposed
-function crosstabFEt(o::StrBootTest{T}, v::AbstractVector{T}, info::Vector{UnitRange{Int64}}) where T
-  dest = zeros(T, nrows(info), o.NFE)
-	if o.haswt
-		vw = v .* o.sqrtwt
-		if nrows(info)>0
-			@inbounds Threads.@threads  for i ∈ axes(info,1)
-				FEIDi = @view o._FEID[info[i]]
-				vi    = @view      vw[info[i]]
-				@inbounds for j ∈ eachindex(vi, FEIDi)
-					dest[i,FEIDi[j]] += vi[j]
-				end
-			end
-		else  # "robust" case, no clustering
-			@inbounds Threads.@threads  for i ∈ eachindex(v,o._FEID)
-				dest[i,o._FEID[i]] = vw[i]
-			end
-		end
-	else
-		if nrows(info)>0
-			@inbounds Threads.@threads  for i ∈ axes(info,1)
-				FEIDi = @view o._FEID[info[i]]
-				vi    = @view       v[info[i]]
-				@inbounds for j ∈ eachindex(vi, FEIDi)
-					dest[i,FEIDi[j]] += vi[j]
-				end
-			end
-		else  # "robust" case, no clustering
-			@inbounds Threads.@threads  for i ∈ eachindex(v,o._FEID)
-				dest[i,o._FEID[i]] = v[i]
-			end
-		end
-	end	
-  dest
-end
 
 # partial any fixed effects out of a data matrix
 function partialFE!(o::StrBootTest{T}, In::AbstractVector{T}) where T
@@ -706,7 +677,7 @@ end
 function partialFE!(o::StrBootTest{T}, In::AbstractMatrix{T}) where T
 	if length(In)>0
 		if o.haswt
-			Threads.@threads for j ∈ eachindex(axes(In,2))
+			@inbounds #=Threads.@threads=# for j ∈ eachindex(axes(In,2))
 				@inbounds @fastmath for f ∈ o.FEs
 					fis = f.is; wt = f.wtvec; sqrtwt = f.sqrtwt
 					s = zero(T)
@@ -719,7 +690,7 @@ function partialFE!(o::StrBootTest{T}, In::AbstractMatrix{T}) where T
 				end
 			end
 		else
-			Threads.@threads for j ∈ eachindex(axes(In,2))
+			@inbounds #=Threads.@threads=# for j ∈ eachindex(axes(In,2))
 				@inbounds @fastmath for f ∈ o.FEs
 					fis = f.is
 					s = zero(T)

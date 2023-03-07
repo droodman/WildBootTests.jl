@@ -284,10 +284,6 @@ CI    = [-0.4649 2.001]
 
 ivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours] if grade<., liml cluster(industry) absorb(age)
 boottest tenure
-t(11) = 0.6068
-p     = 0.4935
-CI    = [-0.03753 0.05658]
-
 boottest tenure, jk
 t(11) = 0.6068
 p     = 0.5145
@@ -361,7 +357,7 @@ boottest merit, nogr reps(9999) nonull bootcluster(individual)
 boottest merit, nogr reps(9999) nonull bootcluster(individual) matsize(.1)
 t(41) = 6.7127
 p     = 0.4918
-CI    = [-2.814 1.285]
+CI    = [-2.816 1.285]
 
 t(41) = 6.7127
 p     = 0.0000
