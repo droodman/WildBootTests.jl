@@ -60,8 +60,8 @@ F(2, 7) = 0.3444
 p       = 0.7332
 
 boottest (post_self=.05) (post=-.02) (selfemployed=-.15), reps(9999) weight(webb)
-F(3, 7) = 0.7430
-p       = 0.5166
+F(3, 7) = 0.8534
+p       = 0.7525
 
 
 regress hasinsurance selfemployed post post_self

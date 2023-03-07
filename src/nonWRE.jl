@@ -261,7 +261,7 @@ function MakeNonWRELoop1!(o::StrBootTest, tmp::Matrix, w::Integer)
 			end
 		end
 		numerₖ = view(o.numerw,:,k)
-		o.dist[k+first(o.WeightGrp[w])-1] = numerₖ'invsym(tmp)*numerₖ  # in degenerate cases, cross() would turn cross(.,.) into 0
+		o.dist[k+first(o.WeightGrp[w])-1] = numerₖ'invsym(Symmetric(tmp))*numerₖ  # in degenerate cases, cross() would turn cross(.,.) into 0
 	end
 	nothing
 end
