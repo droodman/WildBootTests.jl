@@ -412,7 +412,7 @@ function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) wher
 	
 	if _B>0  # in scoretest or waldtest WRE, still make v a col of 1's
     if o.enumerate
-			o.v[:,2:end] = count_binary(o.N✻, -m, m); o.v[:,1] .= one(T)
+			o.v[:,2:end] = map(x->iszero(x) ? -m : m, 2 .^ (0:o.N✻-1) .& collect(0:2^o.N✻-1)')
 		elseif o.auxtwtype == :normal
 			randn!(o.rng, o.v); !isone(m) && (o.v .*= m)
 		elseif o.auxtwtype == :gamma 
@@ -424,7 +424,7 @@ function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) wher
 		else
 			rand!(o.rng, o.v, T[m, -m])  # Rademacher 
 		end
-		first && !o.enumerate && (o.v[:,1] .= m)  # keep original residuals in first entry to compute base model stat
+		first && fill!(view(o.v,:,1), one(T))  # keep original residuals in first entry to compute base model stat
   end
 	nothing
 end

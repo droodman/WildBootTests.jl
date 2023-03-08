@@ -322,13 +322,6 @@ function panelsetupID(X::AbstractArray{S} where S, colinds::UnitRange{T} where T
   info, ID
 end
 
-# Return matrix that counts from 0 to 2^N-1 in binary, one column for each number, one row for each binary digit
-# except use provided lo and hi values for 0 and 1
-count_binary(N::Integer, lo::Number, hi::Number) = N≤1 ? [lo  hi] :
-														  (tmp = count_binary(N-1, lo, hi);
-														   [fill(lo, 1, ncols(tmp)) fill(hi, 1, ncols(tmp)) ;
-																			            tmp                     tmp     ])
-
 function panelsum!(dest::AbstractVecOrMat, X::AbstractVecOrMat, info::AbstractVector{UnitRange{T}} where T<:Integer)
 	iszero(length(dest)) && return
 	J = CartesianIndices(axes(X)[2:end])

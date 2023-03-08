@@ -269,10 +269,10 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			ZperpX₂ = o.Zperp'parent.X₂
 			Zperpy₁ = o.Zperp'parent.y₁
 			ZperpY₂ = o.Zperp'parent.Y₂
+			o.invZperpZperp = invsym(o.Zperp'o.Zperp)
 		end
-		ZperpZ   = o.Zperp'o.Zpar
+		ZperpZ = o.Zperp'o.Zpar
 		o.restricted && (ZperpZR₁ = o.Zperp'o.ZR₁)
-		o.invZperpZperp = invsym(o.Zperp'o.Zperp)
 	end
 
 	if !o.isDGP && parent.WREnonARubin
@@ -296,7 +296,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	# copy or construct objects that are same in DGP and Repl, including O(N) ones
 	if parent.granular || prepjk
 		if o.isDGP || !parent.WREnonARubin
-			o.X₁ = o.Zperp * (o.invZperpZperp * ZperpX₁); o.X₁ .= o.X₁noFWL .- o.X₁  # FWL-processing
+			o.X₁ = o.Zperp * (o.invZperpZperp * ZperpX₁); o.X₁ .= o.X₁noFWL .- o.X₁
 			o.X₂ = o.Zperp * (o.invZperpZperp * ZperpX₂); o.X₂ .= parent.X₂  .- o.X₂
 			o.y₁ = o.Zperp * (o.invZperpZperp * Zperpy₁); o.y₁ .= parent.y₁  .- o.y₁
 			o.Y₂ = o.Zperp * (o.invZperpZperp * ZperpY₂); o.Y₂ .= parent.Y₂  .- o.Y₂
@@ -471,7 +471,6 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		  o.X₁y₁par    = o.X₁y₁
 		  o.Zy₁par     = o.Zy₁
 		  o.y₁pary₁par = o.y₁y₁
-		  o.Xy₁par     = [o.X₁y₁ ; o.X₂y₁]
 		end
 
 		parent.scorebs && (o.y₁par = copy(o.y₁))
