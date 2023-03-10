@@ -30,7 +30,9 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
 	o.subcluster = o.NClustVar - o.NErrClustVar
 
-	if !(iszero(o.NClustVar) || o.issorted)
+	overwrite = !(iszero(o.NClustVar) || o.issorted)  # if data will be sorted, optimal to place it in new arrays, which can then be overwritten
+
+	if overwrite
 		p = _sortperm(view(o.ID, :, [collect(o.subcluster+1:o.NClustVar); collect(1:o.subcluster)]))  # sort by err cluster vars, then remaining boot cluster vars
 		o.ID = ndims(o.ID)==1 ? o.ID[p] : o.ID[p,:]
 		o.X₁ = ndims(o.X₁)==1 ? o.X₁[p] : o.X₁[p,:]
@@ -42,14 +44,14 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		if o.haswt
 			o.wt = o.wt[p]
 			o.sqrtwt = sqrt.(o.wt)
-			o.y₁ .*= o.sqrtwt  # can overwrite sorted copy of user's data
+			o.y₁ .*= o.sqrtwt
 			length(o.Y₂)>0 && (o.Y₂ .*= o.sqrtwt)
 			length(o.X₁)>0 && (o.X₁ .*= o.sqrtwt)
 			length(o.X₂)>0 && (o.X₂ .*= o.sqrtwt)
 		end
 	elseif o.haswt
 		o.sqrtwt = sqrt.(o.wt)
-		o.y₁ = o.y₁ .* o.sqrtwt  # don't overwrite user's data
+		o.y₁ = o.y₁ .* o.sqrtwt
 		length(o.Y₂)>0 && (o.Y₂ = o.Y₂ .* o.sqrtwt)
 		length(o.X₁)>0 && (o.X₁ = o.X₁ .* o.sqrtwt)
 		length(o.X₂)>0 && (o.X₂ = o.X₂ .* o.sqrtwt)
@@ -57,18 +59,18 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
   if o.WREnonARubin
 	  if iszero(o.NClustVar)
-	    o.info⋂ = o.info✻ = [i:i for i in 1:o.Nobs]  # no clustering, so no collapsing by cluster
+	    o.info⋂ = o.info✻ = UnitRange{Int64}[]  # [i:i for i in 1:o.Nobs]  # no clustering, so no collapsing by cluster
 	  else
 	    o.info✻, o.ID✻ = panelsetupID(o.ID, 1:o.NBootClustVar)
   	end
 		o.willfill = o.robust && o.bootstrapt  # will compute sandwich filling for robust denominator?
 		o.not2SLS = o.liml || !o.robust || !isone(o.κ)  # sometimes κ ≠ 1?
   elseif iszero(o.NClustVar)
-	  o.info✻ = [i:i for i in 1:o.Nobs]  # causes no collapsing of data in panelsum() calls
+	  o.info✻ = UnitRange{Int64}[]  # [i:i for i in 1:o.Nobs]  # causes no collapsing of data in panelsum() calls
   else
 	  o.info✻ = panelsetup(o.ID, 1:min(o.NClustVar,o.NBootClustVar))  # bootstrap cluster grouping defs rel to original data
   end
-	o.N✻ = nrows(o.info✻)
+	o.N✻ = iszero(nrows(o.info✻)) ? o.Nobs : nrows(o.info✻)
 
 	if o.NClustVar > o.NBootClustVar  # info for grouping by intersections of all bootstrap && clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusters
 		o.info✻⋂ = panelsetup(o.ID, 1:o.NClustVar)
@@ -79,7 +81,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.info✻⋂ = o.info✻  # info for grouping by intersections of all bootstrap && clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusters
 		o.WREnonARubin && (o._ID✻⋂ = o.ID✻)
 	end
-	o.N✻⋂ = nrows(o.info✻⋂)
+	o.N✻⋂ = iszero(nrows(o.info✻⋂)) ? o.Nobs : nrows(o.info✻⋂)
 
 	if o.NClustVar > o.NErrClustVar  # info for intersections of error clustering wrt data
 		o.info⋂ = panelsetup(o.ID, o.subcluster+1:o.NClustVar)
@@ -87,10 +89,10 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.ID✻⋂ = o.N✻⋂==o.Nobs ? o.ID : o.ID[first.(o.info✻⋂),:]  # version of ID matrix with one row for each all-bootstrap && error cluster-var intersection instead of 1 row for each obs
 	else
 		o.info⋂ = o.info✻⋂  # info for intersections of error clustering wrt data
-		o.ID✻⋂ = ID⋂_✻⋂ = nrows(o.info⋂)==o.Nobs ? o.ID : o.ID[first.(o.info⋂),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
+		o.ID✻⋂ = ID⋂_✻⋂ = nrows(o.info⋂)==o.Nobs || iszero(nrows(o.info⋂)) ? o.ID : o.ID[first.(o.info⋂),:]  # version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
 	end
 	o.WREnonARubin && (o.info✻_✻⋂ = iszero(o.NBootClustVar) ? o.info✻⋂ : panelsetup(o.ID✻⋂, 1:o.NBootClustVar))
-	o.N⋂ = nrows(o.info⋂)
+	o.N⋂ = iszero(nrows(o.info⋂)) ? o.Nobs : nrows(o.info⋂)
 
 	if o.bootstrapt
     if o.NClustVar>0
@@ -163,7 +165,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	  minN = T(nrows(o.info✻))
 	end
 
-	InitFEs(o)
+	InitFEs(o, overwrite)
 	if o.B>0 && o.robust && o.granular && o.bootstrapt && !o.WREnonARubin
 		if o.purerobust
 			o.ID✻ = Vector{Int64}[]  # panelsum treats 0 length same as max length
@@ -335,7 +337,7 @@ function samerows(X::AbstractMatrix)
 	return true
 end
 
-function InitFEs(o::StrBootTest{T}) where T
+function InitFEs(o::StrBootTest{T}, overwrite::Bool) where T
 	if isdefined(o, :FEID) && length(o.FEID)>0
 		p = _sortperm(o.FEID)
 		sortID = o.FEID[p]
@@ -394,10 +396,17 @@ function InitFEs(o::StrBootTest{T}) where T
 			o.infoBootAll = panelsetup(o.ID✻⋂, 1:o.NBootClustVar)  # info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping && error clusters
 		end
 
-		o.X₁ = partialFE(o, o.X₁)  # don't overwrite caller's data
-		o.X₂ = partialFE(o, o.X₂)
-		o.y₁ = partialFE(o, o.y₁)
-		o.Y₂ = partialFE(o, o.Y₂)
+		if overwrite
+			partialFE!(o, o.X₁)
+			partialFE!(o, o.X₂)
+			partialFE!(o, o.y₁)
+			partialFE!(o, o.Y₂)
+		else
+			o.X₁ = partialFE(o, o.X₁)
+			o.X₂ = partialFE(o, o.X₂)
+			o.y₁ = partialFE(o, o.y₁)
+			o.Y₂ = partialFE(o, o.Y₂)
+		end
 	else
 		o.FEdfadj = 0
 	end

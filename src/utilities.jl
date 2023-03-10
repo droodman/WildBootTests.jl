@@ -162,6 +162,7 @@ function rowquadform(A::AbstractMatrix{T}, Q::AbstractMatrix{T}, B::AbstractMatr
 	rowquadformplus!(dest, A, Q, B)
 	dest
 end
+@inline rowquadform(Q::AbstractMatrix{T}, A::AbstractMatrix{T}) where T = rowquadform(A, Q, A)
 
 # compute norm of each col of A using quadratic form Q; returns one-row matrix
 function colquadform(Q::AbstractMatrix{T}, A::AbstractMatrix{T}) where T
@@ -437,9 +438,10 @@ function panelcross!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, Y::Abstra
 				end
 			end
 		else
+			indicesᵢ = eachindex(axes(dest,1),axes(X,2))
 			for k ∈ eachindex(axes(dest,3),axes(Y,2)), j ∈ eachindex(axes(dest,2),axes(X,1),axes(Y,1))
 				Yⱼₖ = Y[j,k]
-				@tturbo warn_check_args=false for i ∈ eachindex(axes(dest,1),axes(X,2))
+				@tturbo warn_check_args=false for i ∈ indicesᵢ
 					dest[i,j,k] = X[j,i] * Yⱼₖ
 				end
 			end
@@ -455,8 +457,9 @@ function panelcross!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, Y::Abstra
 					dest[1,g,1] = dest_jgk
 				end
 			else
+				indicesⱼ =  eachindex(axes(dest,1),axes(X,2))
 				@inbounds for (g, infog) ∈ enumerate(info)
-					@tturbo warn_check_args=false for j ∈ eachindex(axes(dest,1),axes(X,2))
+					@tturbo warn_check_args=false for j ∈ indicesⱼ
 						dest_jgk = zero(T)
 						for i ∈ infog
 							dest_jgk += X[i,j] * Y[i]
@@ -466,8 +469,9 @@ function panelcross!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, Y::Abstra
 				end
 			end
 		elseif isone(size(X,2))
+			indicesₖ = eachindex(axes(dest,3),axes(Y,2))
 			@inbounds for (g, infog) ∈ enumerate(info)
-				@tturbo warn_check_args=false for k ∈ eachindex(axes(dest,3),axes(Y,2))
+				@tturbo warn_check_args=false for k ∈ indicesₖ
 					dest_jgk = zero(T)
 					for i ∈ infog
 						dest_jgk += X[i] * Y[i,k]
@@ -476,8 +480,9 @@ function panelcross!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, Y::Abstra
 				end
 			end
 		else
+			indicesⱼ = eachindex(axes(dest,1),axes(X,2)); indiciesₖ = eachindex(axes(dest,3),axes(Y,2))
 			@inbounds for (g, infog) ∈ enumerate(info)
-				@tturbo warn_check_args=false for j ∈ eachindex(axes(dest,1),axes(X,2)), k ∈ eachindex(axes(dest,3),axes(Y,2))
+				@tturbo warn_check_args=false for j ∈ indicesⱼ, k ∈ indiciesₖ
 					dest_jgk = zero(T)
 					for i ∈ infog
 						dest_jgk += X[i,j] * Y[i,k]
@@ -552,7 +557,7 @@ function panelcoldot!(dest::AbstractMatrix{T}, X::AbstractMatrix{T}, Y::Abstract
 
 	J = CartesianIndices(axes(X)[2:end])
 	eachindexJ = eachindex(J)
-	@inbounds for g in eachindex(info)
+	@inbounds for g ∈ eachindex(info)
 		f, l = first(info[g]), last(info[g])
 		fl = f+1:l
 		if f<l
@@ -609,7 +614,14 @@ end
 # this facilitates reshape() to 2-D array in which results for each col of v are stacked vertically
 function crosstabFE!(o::StrBootTest{T}, dest::Array{T,3}, v::AbstractVecOrMat{T}, info::Vector{UnitRange{Int64}}) where T
 	vw = o.haswt ? v .* o.sqrtwt : v
-	if nrows(info)>0
+	if iszero(nrows(info)) || nrows(info)==o.Nobs  # "robust" case, no clustering
+		@inbounds Threads.@threads for i ∈ eachindex(axes(o._FEID,1),axes(dest,2),axes(vw,1))
+			FEIDi = o._FEID[i]
+			@inbounds for k ∈ eachindex(axes(dest,3),axes(vw,2))
+				dest[FEIDi,i,k] = vw[i,k]
+			end
+		end
+	else
 		fill!(dest, zero(T))
 		@inbounds Threads.@threads for i ∈ eachindex(axes(info,1))
 			infoi = info[i]
@@ -620,18 +632,11 @@ function crosstabFE!(o::StrBootTest{T}, dest::Array{T,3}, v::AbstractVecOrMat{T}
 				end
 			end
 		end
-	else  # "robust" case, no clustering
-		@inbounds Threads.@threads for i ∈ eachindex(axes(o._FEID,1))
-			FEIDi = o._FEID[i]
-			@inbounds for k ∈ eachindex(axes(vw,2))
-				dest[FEIDi,i,k] .= vw[i,k]
-			end
-		end
 	end
   nothing
 end
 function crosstabFE(o::StrBootTest{T}, v::AbstractVecOrMat{T}, info::Vector{UnitRange{Int64}}) where T
-  dest = Array{T,3}(undef, o.NFE, nrows(info), ncols(v))
+  dest = zeros(T, o.NFE, iszero(nrows(info)) ? o.Nobs : nrows(info), ncols(v))
 	crosstabFE!(o, dest, v, info)
 	dest
 end
@@ -856,7 +861,7 @@ function t✻minus!(dest::AbstractArray{T,3}, A::AbstractVecOrMat{T}, B::Abstrac
 	if length(dest)>0 && length(A)>0 && length(B)>0
 		@tturbo warn_check_args=false for i ∈ eachindex(axes(B,3),axes(dest,3)), j ∈ eachindex(axes(A,1), axes(dest,1)), g ∈ eachindex(axes(B,2),axes(dest,2))
 			dest_jgi = zero(T)
-			for k ∈ eachindex(axes(A,3),axes(B,1))
+			for k ∈ eachindex(axes(A,2),axes(B,1))
 				dest_jgi += A[j,k] * B[k,g,i]
 			end
 			dest[j,g,i] -= dest_jgi
@@ -864,11 +869,26 @@ function t✻minus!(dest::AbstractArray{T,3}, A::AbstractVecOrMat{T}, B::Abstrac
 	end
 	nothing
 end
+function t✻minus!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::AbstractArray{T,3}) where T
+	if length(dest)>0 && length(A)>0 && length(B)>0
+		@tturbo warn_check_args=false for i ∈ eachindex(axes(B,3),axes(dest,3)), j ∈ eachindex(axes(A,1), axes(dest,1)), g ∈ eachindex(axes(A,2),axes(B,2),axes(dest,2))
+			dest_jgi = zero(T)
+			for k ∈ eachindex(axes(A,3),axes(B,1))
+				dest_jgi += A[j,g,k] * B[k,g,i]
+			end
+			dest[j,g,i] -= dest_jgi
+		end
+	end
+	nothing
+end
 
+@inline invsym!(Y::AbstractMatrix{T}, X::AbstractMatrix{T}) where T = ldiv!(Y, qr(X), )
 # in-place inverse of a set of symmetric matrices
 function invsym!(A::Array{T,3}) where T
+	Iₖ = I(size(A,1))
 	@inbounds for g ∈ eachindex(axes(A,2))
-		A[:,g,:] = invsym(@view A[:,g,:])
+		v = view(A,:,g,:)
+		ldiv!(v, qr(v), Iₖ)
 	end
 	nothing
 end
@@ -879,8 +899,17 @@ function invsym(A::Array{T,3}) where T
 	end
 	dest
 end
+# function invsym(A::Array{T,3}) where T
+# 	dest = similar(A)
+# 	Iₖ = I(size(A,1))
+# 	@inbounds for g ∈ eachindex(axes(A,2))
+# 		ldiv!(view(dest,:,g,:), qr(view(A,:,g,:)), Iₖ)
+# 	end
+# 	dest
+# end
 
-@inline (-)(A::AbstractMatrix{T}, B::Array{T,3}) where T = reshape(A, (size(A,1),1,size(A,2))) .- B # would be better to overload .-, but more complicated
+@inline (-)(A::AbstractMatrix{T}, B::Array{T,3}) where T = reshape(A, (size(A,1),1,size(A,2))) .- B  # would be better to overload .-, but more complicated
+@inline (-)(B::Array{T,3}, A::AbstractMatrix{T}) where T = B .- reshape(A, (size(A,1),1,size(A,2)))  # would be better to overload .-, but more complicated
 
 # delete-g inner products of two vector/matrices; returns full inner product too 
 function crossjk(A::VecOrMat{T}, B::AbstractMatrix{T}, info::Vector{UnitRange{Int64}}) where T
@@ -917,8 +946,9 @@ end
 function partialjk(A::AbstractVecOrMat{T}, Z::AbstractMatrix{T}, ZZZA::AbstractArray{T}, info::Vector{UnitRange{Int64}}) where T
 	dest = copy(A)
 	if length(A)>0
+		indicesᵢ = indices((dest,ZZZA),(2,3))
 		for (g,G) ∈ enumerate(info)
-	    @tturbo warn_check_args=false for i ∈ indices((dest,ZZZA),(2,3)), j ∈ G
+	    @tturbo warn_check_args=false for i ∈ indicesᵢ, j ∈ G
 				destⱼᵢ = zero(T)
 				for k ∈ indices((Z,ZZZA), (2,1))
 			  	destⱼᵢ += Z[j,k] * ZZZA[k,g,i]
@@ -929,12 +959,3 @@ function partialjk(A::AbstractVecOrMat{T}, Z::AbstractMatrix{T}, ZZZA::AbstractA
 	end
   dest
 end
-
-# XXX which needed?
-# @inline hcat(A::Vector{Matrix{T}}, B::Vector{Matrix{T}}) where T = hcat.(A,B)  # interpret [A B] entrywise
-# @inline vcat(A::Vector{Matrix{T}}, B::Vector{Matrix{T}}) where T = vcat.(A,B)  # interpret [A B] entrywise
-# @inline *(A::Vector{Matrix{T}}, B::Vector{Matrix{T}}) where T = A .* B
-# @inline *(A::Vector{Matrix{T}}, B::Union{VecOrMat{T},Adjoint{T, Matrix{T}}}) where T = [a * B for a ∈ A]
-# @inline *(A::Union{VecOrMat{T},Adjoint{T, Matrix{T}}}, B::Vector{Matrix{T}}) where T = [A * b for b ∈ B]
-# @inline tranpose(A::Vector{Matrix{T}}) where T = transpose.(A)  # transpose entrywise
-# @inline pinv(A::Vector{Matrix{T}}) where T = pinv.(A)

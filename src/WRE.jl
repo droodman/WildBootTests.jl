@@ -669,13 +669,12 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			symmetrize!(o.YY✻)
 			symmetrize!(o.YPXY✻)
 
-			M1 = Matrix{T}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
-			M2 = Matrix{T}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
+			M = Matrix{T}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
 			@inbounds for b ∈ eachindex(axes(o.κWRE,2))
-				M1 .= invsym(#=@view=# o.YY✻[:,b,:])
-				mul!(M2, M1, #=@view=# o.YPXY✻[:,b,:])
-				o.κWRE[b] = 1/(1 - real(eigvalsNaN(M2)[1]))
+				ldiv!(M, bunchkaufman(view(o.YY✻,:,b,:)), view(o.YPXY✻,:,b,:))
+				o.κWRE[b] = one(T)/(one(T) - real(eigvalsNaN(M)[1]))
 			end
+			# view(o.κWRE,1,:,1) .= one(T) ./ (one(T) .- getindex.(real.(eigvalsNaN.(each(invsym(o.YY✻) * o.YPXY✻))), 1))
 			!iszero(o.fuller) && (o.κWRE .-= o.fuller / (o._Nobs - o.kX))
 
 			o.As .= o.κWRE .* view(o.YPXY✻, 2:o.Repl.kZ+1, :, 2:o.Repl.kZ+1) .+ (1 .- o.κWRE) .* view(o.YY✻, 2:o.Repl.kZ+1, :, 2:o.Repl.kZ+1)

@@ -400,5 +400,5 @@ Order the columns of `clustid` this way:
 be restricted to the estimation sample.
 
 """
-wildboottest(   R, r; kwargs...) = _wildboottest(                                                  R, r; Dict(a.first => isa(a.second, AbstractString) ? Meta.parse(a.second) : a.second for a ∈ kwargs)...)
+wildboottest(   R, r; kwargs...) = _wildboottest(                                                  R, r; Dict(a.first => isa(a.second, AbstractString) ? Meta.parse(a.second) : a.second for a ∈ kwargs)...)  # parse any parameters passed as strings
 wildboottest(T, R, r; kwargs...) = _wildboottest(isa(T, AbstractString) ? eval(Meta.parse(T)) : T, R, r; Dict(a.first => isa(a.second, AbstractString) ? Meta.parse(a.second) : a.second for a ∈ kwargs)...)
