@@ -151,28 +151,28 @@ mutable struct StrEstimator{T<:AbstractFloat}
 	y₁par::Vector{T}; Xy₁par::Vector{T}
 	A::Matrix{T}; Zpar::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
 	WXAR::Matrix{T}; CT_XAR::Array{T,3}
-
+	copyfromDGP::Bool
 	S✻XX::Array{T,3}; XinvHjk::Vector{Matrix{T}}; invMjk::Vector{Matrix{T}}; invMjkv::Vector{T}; XXt1jk::Matrix{T}; t₁::Vector{T}
 
   # IV/GMM only
   ZZ::Matrix{T}; XY₂::Matrix{T}; XX::Matrix{T}; H_2SLS::Matrix{T}; V::Matrix{T}; ZY₂::Matrix{T}; ZR₁ZR₁::Matrix{T}; X₂ZR₁::Matrix{T}; ZR₁Y₂::Matrix{T}; X₁ZR₁::Matrix{T}
   ZR₁Z::Matrix{T}; X₂y₁::Vector{T}; X₁y₁::Vector{T}; Zy₁::Vector{T}; H_2SLSmZZ::Matrix{T}
   ZXinvXXXy₁par::Vector{T}
-  Y₂y₁::Vector{T}; twoZR₁y₁::Vector{T}; y₁y₁::T; y₁pary₁par::T; Y₂Y₂::Matrix{T}
-  X₂y₁par::Vector{T}; X₁y₁par::Vector{T}; Zy₁par::Vector{T}; Y₂y₁par::Vector{T}
+  Y₂y₁::Vector{T}; twoZR₁y₁::Vector{T}; y₁y₁::T; y₁pary₁par::T; Y₂Y₂::Matrix{T}; X₁X₁::Matrix{T}; X₂X₁::Matrix{T}; X₂X₂::Matrix{T}; X₂Y₂::Matrix{T}; X₁Z::Matrix{T}; X₂Z::Matrix{T}
+  X₂y₁par::Vector{T}; X₁y₁par::Vector{T}; Zy₁par::Vector{T}; Y₂y₁par::Vector{T}; X₁Y₂::Matrix{T}
   Rperp::Matrix{T}; ZR₁::Matrix{T}
   kX::Int64; kX₁::Int64; kZperp::Int64
 	Π̈ ::Matrix{T}; t₁Y::Vector{T}; PXZ::Matrix{T}
 	S✻⋂ZperpZpar::Array{T,3}; S✻⋂ZperpY₂::Array{T,3}; S⋂y₁X₁::Array{T,3}; S⋂y₁X₂::Array{T,3}; S✻⋂ZperpZperp::Array{T,3}; S✻⋂Zperpy₁::Array{T,3}; S✻⋂XZR₁::Array{T,3}; S✻⋂XY₂::Array{T,3}; S✻⋂XZperp::Array{T,3}; S✻⋂XX::Array{T,3}; S✻⋂XZpar::Array{T,3}
 	S✻⋂X₁Y₂::Array{T,3}; S✻⋂X₂Y₂::Array{T,3}; S✻ZparY₂::Array{T,3}; S✻y₁y₁::Array{T,3}; S✻Zpary₁::Array{T,3}; S✻ZR₁y₁::Array{T,3}; S✻ZR₁Y₂::Array{T,3}; S✻ZR₁ZR₁::Array{T,3}; S✻ZR₁Z::Array{T,3}
-	ZperpZR₁::Matrix{T}; S✻⋂ZperpZR₁::Array{T,3}
+	S✻⋂ZperpZR₁::Array{T,3}
 	S✻Y₂Y₂::Array{T,3}; S✻ZparZpar::Array{T,3}; S✻Y₂y₁::Array{T,3}; S✻⋂Xy₁::Array{T,3}
-	ZparX::Matrix{T}
+	ZparX::Matrix{T}; ZperpX₁::Matrix{T}; ZperpX₂::Matrix{T}; Zperpy₁::Vector{T}; ZperpY₂::Matrix{T}; ZperpZpar::Matrix{T}; ZperpZR₁::Matrix{T};
 	invZperpZperpZperpX₁::Matrix{T}; invZperpZperpZperpX₂::Matrix{T}; invZperpZperpZperpy₁::Vector{T}; invZperpZperpZperpY₂::Matrix{T}; S✻UY₂::Matrix{T}; invZperpZperpZperpZpar::Matrix{T}; invZperpZperpZperpZR₁::Matrix{T}
 	Ü₂Ü₂::Matrix{T}; γ̈X::Vector{T}; γ̈Y::Vector{T}; γ⃛::Vector{T}; Xȳ₁::Vector{T}; ȳ₁ȳ₁::T; XÜ₂::Matrix{T}; ȳ₁Ü₂::Matrix{T}; Ȳ₂::Matrix{T}; ȳ₁::Vector{T}
-	Xpar₁toZparX::DesignerMatrix{T}; X₁noFWL::Matrix{T} #=DesignerProduct{T}=#
+	Xpar₁toZparX::DesignerMatrix{T}
 
-	X₁ⱼₖ::Matrix{T}; X₂ⱼₖ::Matrix{T}; y₁ⱼₖ::Vector{T}; Y₂ⱼₖ::Matrix{T}; Zⱼₖ::Matrix{T}; ZR₁ⱼₖ::Matrix{T}; Y₂y₁ⱼₖ::Array{T,3}; X₂y₁ⱼₖ::Array{T,3}; X₁y₁ⱼₖ::Array{T,3}; Zy₁ⱼₖ::Array{T,3}; XZⱼₖ::Array{T,3}; ZZⱼₖ::Array{T,3}; ZY₂ⱼₖ::Array{T,3}; y₁y₁ⱼₖ::Array{T,3}; XY₂ⱼₖ::Array{T,3}; invXXⱼₖ::Array{T,3}; XXⱼₖ::Array{T,3}; X₁ZR₁ⱼₖ::Array{T,3}; X₂ZR₁ⱼₖ::Array{T,3}; ZZR₁ⱼₖ::Array{T,3}; twoZR₁y₁ⱼₖ::Array{T,3}; ZR₁ZR₁ⱼₖ::Array{T,3}; ZR₁Y₂ⱼₖ::Array{T,3} 
+	X₁ⱼₖ::Matrix{T}; X₂ⱼₖ::Matrix{T}; y₁ⱼₖ::Vector{T}; Y₂ⱼₖ::Matrix{T}; Zⱼₖ::Matrix{T}; ZR₁ⱼₖ::Matrix{T}; Y₂y₁ⱼₖ::Array{T,3}; X₂y₁ⱼₖ::Array{T,3}; X₁y₁ⱼₖ::Array{T,3}; Zy₁ⱼₖ::Array{T,3}; XZⱼₖ::Array{T,3}; ZZⱼₖ::Array{T,3}; ZY₂ⱼₖ::Array{T,3}; y₁y₁ⱼₖ::Array{T,3}; XY₂ⱼₖ::Array{T,3}; invXXⱼₖ::Array{T,3}; XXⱼₖ::Array{T,3}; X₁ZR₁ⱼₖ::Array{T,3}; X₂ZR₁ⱼₖ::Array{T,3}; ZR₁Zⱼₖ::Array{T,3}; twoZR₁y₁ⱼₖ::Array{T,3}; ZR₁ZR₁ⱼₖ::Array{T,3}; ZR₁Y₂ⱼₖ::Array{T,3} 
 	Y₂y₁parⱼₖ::Array{T,3}; Zy₁parⱼₖ::Array{T,3}; y₁pary₁parⱼₖ::Array{T,3};	Xy₁parⱼₖ::Array{T,3}; y₁parⱼₖ::Vector{T}; H_2SLSⱼₖ::Array{T,3}; H_2SLSmZZⱼₖ::Array{T,3}; invHⱼₖ::Array{T,3}
 	β̈ⱼₖ::Array{T,3}; κⱼₖ::Array{T,3}; YPXYⱼₖ::Array{T,3}; YYⱼₖ::Array{T,3}; invXXXy₁parⱼₖ::Array{T,3}; ZXinvXXXy₁parⱼₖ::Array{T,3}
 
@@ -191,7 +191,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   const level::T; const rtol::T
   const madjtype::Symbol; const NH₀::Int16
   const ml::Bool; β̈::Vector{T}; A::Matrix{T}; sc::Matrix{T}
-  const willplot::Bool; gridmin::Vector{T}; gridmax::Vector{T}; gridpoints::Vector{Float32}
+  const willplot::Bool; gridmin::Vector{T}; gridmax::Vector{T}; gridpoints::Vector{Float32}; overwrite::Bool
 
   const q::Int16; const twotailed::Bool; const jk::Bool; scorebs::Bool; const robust::Bool
 
@@ -256,7 +256,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, liml, 
 	               fuller, κ, arubin, B, auxtwtype, rng, maxmatsize, ptype, null, jk, scorebs, bootstrapt, ID, NBootClustVar, NErrClustVar, issorted, robust, small, clusteradj, clustermin,
 								 NFE, FEID, FEdfadj, level, rtol, madjtype, NH₀, ml,
-								 β̈, A, sc, willplot, gridmin, gridmax, gridpoints) where T<:Real =
+								 β̈, A, sc, willplot, gridmin, gridmax, gridpoints, overwrite) where T<:Real =
 		begin
 			kX₂ = ncols(X₂)
 			scorebs = scorebs || iszero(B) || ml
@@ -273,7 +273,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 					level, rtol,
 					madjtype, NH₀,
 					ml, β̈, A, sc,
-					willplot, gridmin, gridmax, gridpoints,
+					willplot, gridmin, gridmax, gridpoints, overwrite,
 					nrows(R), ptype == :symmetric || ptype == :equaltail, jk, scorebs, robust || NErrClustVar>0,
 					false, false, NFE, false, false, false, 0, 0, 0, false,
 					[zero(T)],

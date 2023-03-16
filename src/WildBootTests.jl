@@ -1,5 +1,5 @@
 module WildBootTests
-export BootTestResult, wildboottest, teststat, stattype, p, padj, reps, repsfeas, nbootclust, dof, dof_r, plotpoints, peak, ci, dist, statnumer, statvar, auxweights
+export BootTestResult, wildboottest, wildboottest!, teststat, stattype, p, padj, reps, repsfeas, nbootclust, dof, dof_r, plotpoints, peak, ci, dist, statnumer, statvar, auxweights
 
 using LinearAlgebra, Random, Distributions, SortingAlgorithms, Printf, LoopVectorization
 
@@ -21,7 +21,7 @@ function boottestOLSARubin!(o::StrBootTest{T}) where T
 		return
 	end
 
-	if o.Nw > 1  # if more than one weight group to save memory, make on every call to boottest(), not just once in Init!()
+	if !isone(o.Nw)  # if more than one weight group to save memory, make on every call to boottest(), not just once in Init!()
 		Random.seed!(o.rng,o.seed)
 		MakeWildWeights!(o, last(o.WeightGrp[1])-1, first=true)
 	end
@@ -49,7 +49,7 @@ function boottestWRE!(o::StrBootTest{T}) where T
 		return
 	end
 
-	if o.Nw > 1  # if more than one weight group to save memory, make on every call to boottest(), not just once in Init!()
+	if !isone(o.Nw)  # if more than one weight group to save memory, make on every call to boottest(), not just once in Init!()
 		Random.seed!(o.rng,o.seed)
 		MakeWildWeights!(o, last(o.WeightGrp[1])-1, first=true)
 	end
@@ -95,6 +95,6 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T)
 	nothing
 end
  
-include("precompiler.jl")
+# include("precompiler.jl")
 
 end

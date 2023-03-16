@@ -29,3 +29,4 @@ test/RperpRpar.jl
 test/tests.jl
 wbt.jl
 wbt.so
+Manifest old.toml

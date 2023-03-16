@@ -30,9 +30,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
 	o.subcluster = o.NClustVar - o.NErrClustVar
 
-	overwrite = !(iszero(o.NClustVar) || o.issorted)  # if data will be sorted, optimal to place it in new arrays, which can then be overwritten
-
-	if overwrite
+	if !(iszero(o.NClustVar) || o.issorted)
 		p = _sortperm(view(o.ID, :, [collect(o.subcluster+1:o.NClustVar); collect(1:o.subcluster)]))  # sort by err cluster vars, then remaining boot cluster vars
 		o.ID = ndims(o.ID)==1 ? o.ID[p] : o.ID[p,:]
 		o.X₁ = ndims(o.X₁)==1 ? o.X₁[p] : o.X₁[p,:]
@@ -40,21 +38,24 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.y₁ = o.y₁[p]
 		o.Y₂ = ndims(o.Y₂)==1 ? o.Y₂[p] : o.Y₂[p,:]
 		isdefined(o, :FEID) && nrows(o.FEID)>0 && (o.FEID = o.FEID[p])
-
-		if o.haswt
-			o.wt = o.wt[p]
-			o.sqrtwt = sqrt.(o.wt)
+		o.haswt && (o.wt = o.wt[p])
+		o.overwrite = true  # data matrices are no longer those passed by caller
+	end
+	if o.haswt
+		o.sqrtwt = sqrt.(o.wt)
+		if o.overwrite
 			o.y₁ .*= o.sqrtwt
 			length(o.Y₂)>0 && (o.Y₂ .*= o.sqrtwt)
 			length(o.X₁)>0 && (o.X₁ .*= o.sqrtwt)
 			length(o.X₂)>0 && (o.X₂ .*= o.sqrtwt)
+		else
+			o.sqrtwt = sqrt.(o.wt)
+			o.y₁ = o.y₁ .* o.sqrtwt
+			length(o.Y₂)>0 && (o.Y₂ = o.Y₂ .* o.sqrtwt)
+			length(o.X₁)>0 && (o.X₁ = o.X₁ .* o.sqrtwt)
+			length(o.X₂)>0 && (o.X₂ = o.X₂ .* o.sqrtwt)
+			o.overwrite = true
 		end
-	elseif o.haswt
-		o.sqrtwt = sqrt.(o.wt)
-		o.y₁ = o.y₁ .* o.sqrtwt
-		length(o.Y₂)>0 && (o.Y₂ = o.Y₂ .* o.sqrtwt)
-		length(o.X₁)>0 && (o.X₁ = o.X₁ .* o.sqrtwt)
-		length(o.X₂)>0 && (o.X₂ = o.X₂ .* o.sqrtwt)
 	end
 
   if o.WREnonARubin
@@ -147,7 +148,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.purerobust = o.robust && !o.scorebs && iszero(o.subcluster) && o.N✻==o.Nobs  # do we ever error-cluster *and* bootstrap-cluster by individual?
 		o.granular   = o.WREnonARubin ? 2*o.Nobs*o.B*(2*o.N✻+1) < o.N✻*(o.N✻*o.Nobs+o.N⋂*o.B*(o.N✻+1)) :
 		               !o.jk && o.robust && !o.scorebs && (o.purerobust || (o.N⋂+o.N✻)*o.kZ*o.B + (o.N⋂-o.N✻)*o.B + o.kZ*o.B < o.N⋂*o.kZ^2 + o.Nobs*o.kZ + o.N⋂ * o.N✻ * o.kZ + o.N⋂ * o.N✻)
-
+o.granular = true
 		o.jk && !o.WREnonARubin && 
 			(o.granularjk = o.kZ^3 + o.N✻ * (o.Nobs/o.N✻*o.kZ^2 + (o.Nobs/o.N✻)^2*o.kZ + (o.Nobs/o.N✻)^2 + (o.Nobs/o.N✻)^3) < o.N✻ * (o.kZ^2*o.Nobs/o.N✻ + o.kZ^3 + 2*o.kZ*(o.kZ + o.Nobs/o.N✻)))
 
@@ -165,7 +166,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	  minN = T(nrows(o.info✻))
 	end
 
-	InitFEs(o, overwrite)
+	InitFEs(o, o.overwrite)
 	if o.B>0 && o.robust && o.granular && o.bootstrapt && !o.WREnonARubin
 		if o.purerobust
 			o.ID✻ = Vector{Int64}[]  # panelsum treats 0 length same as max length
@@ -207,7 +208,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			o.R₁ = o.kX₁>0 && nrows(o.R₁)>0 ? hcat(o.R₁[:,1:o.kX₁], zeros(T,nrows(o.R₁),o.kX₂)) : zeros(T,0, o.kX)  # and convert model constraints from referring to X₁, Y₂ to X₁, X₂
 		end
 		o.dof = nrows(o.R)
-
+InitVarsIV! = o.granular ? InitVarsIVGranular! : InitVarsIVCoarse!
 		if !o.WRE && iszero(o.κ)  # regular OLS
 			o.DGP = StrEstimator{T}(true, o.liml, o.fuller, o.κ)
 			o.Repl = StrEstimator{T}(true, false, zero(T), zero(T))  # XXX isDGP=1 for Repl? doesn't matter?
@@ -237,7 +238,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			if o.null
 				setR!(o.DGP, o, [o.R₁ ; o.R], zeros(T,0,o.kZ))  #  DGP constraints: model constraints + imposed null
 			else
-				setR!(o.DGP, o,  o.R₁ , o.R)  # when null not imposed, keep it in the attack surface, though not used there, so Zperp is same in DGP and Repl
+				setR!(o.DGP, o, o.R₁, o.R)  # when null not imposed, keep it in the attack surface, though not used there, so Zperp is same in DGP and Repl
 			end
 			InitVarsIV!(o.DGP, o)
 
@@ -396,7 +397,7 @@ function InitFEs(o::StrBootTest{T}, overwrite::Bool) where T
 			o.infoBootAll = panelsetup(o.ID✻⋂, 1:o.NBootClustVar)  # info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping && error clusters
 		end
 
-		if overwrite
+		if o.overwrite
 			partialFE!(o, o.X₁)
 			partialFE!(o, o.X₂)
 			partialFE!(o, o.y₁)
@@ -407,6 +408,7 @@ function InitFEs(o::StrBootTest{T}, overwrite::Bool) where T
 			o.y₁ = partialFE(o, o.y₁)
 			o.Y₂ = partialFE(o, o.Y₂)
 		end
+		overwrite = o.NFE>0  # safe to further modify data matrices
 	else
 		o.FEdfadj = 0
 	end

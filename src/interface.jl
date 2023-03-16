@@ -130,12 +130,13 @@ function __wildboottest(
 	diststat::Symbol,
 	getci::Bool,
 	getplot::Bool,
-	getauxweights::Bool) where T
+	getauxweights::Bool,
+	overwrite::Bool) where T
 
 	o = StrBootTest{T}(R, r, R1, r1, resp, predexog, predendog, inst, obswt, fweights, liml, fuller, kappa, arubin,
 	                   reps, auxwttype, rng, maxmatsize, ptype, imposenull, jk, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, issorted, hetrobust, small, clusteradj, clustermin,
 	                   nfe, feid, fedfadj, level, rtol, madjtype, nH0, ml, beta, A, scores, getplot,
-	                   gridmin, gridmax, gridpoints)
+	                   gridmin, gridmax, gridpoints, overwrite)
 
 	o.getci = getplot || (level<1 && getci)
 	if o.getci
@@ -210,7 +211,8 @@ function _wildboottest(T::DataType,
 					  diststat::Symbol=:none,
 					  getci::Bool=true,
 					  getplot::Bool=getci,
-					  getauxweights::Bool=false)
+					  getauxweights::Bool=false,
+						overwrite::Bool=false)
 
 	nrows(R)>2 && (getplot = getci = false)
 
@@ -316,7 +318,8 @@ function _wildboottest(T::DataType,
 		diststat,
 		getci,
 		getplot,
-		getauxweights)
+		getauxweights,
+		overwrite)
 end
 
 _wildboottest(T::DataType, R, r::Number; kwargs...) = _wildboottest(T, R, [r]; kwargs...)
@@ -402,3 +405,6 @@ be restricted to the estimation sample.
 """
 wildboottest(   R, r; kwargs...) = _wildboottest(                                                  R, r; Dict(a.first => isa(a.second, AbstractString) ? Meta.parse(a.second) : a.second for a ∈ kwargs)...)  # parse any parameters passed as strings
 wildboottest(T, R, r; kwargs...) = _wildboottest(isa(T, AbstractString) ? eval(Meta.parse(T)) : T, R, r; Dict(a.first => isa(a.second, AbstractString) ? Meta.parse(a.second) : a.second for a ∈ kwargs)...)
+
+wildboottest!(   R, r; kwargs...) = _wildboottest(                                                  R, r; overwrite=true, Dict(a.first => isa(a.second, AbstractString) ? Meta.parse(a.second) : a.second for a ∈ kwargs)...)  # parse any parameters passed as strings
+wildboottest!(T, R, r; kwargs...) = _wildboottest(isa(T, AbstractString) ? eval(Meta.parse(T)) : T, R, r; overwrite=true, Dict(a.first => isa(a.second, AbstractString) ? Meta.parse(a.second) : a.second for a ∈ kwargs)...)

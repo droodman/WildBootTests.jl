@@ -145,7 +145,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 		o.Π̈Rpar = Matrix{T}(undef, o.DGP.kX, o.Repl.kZ)
 
 		if o.willfill || !o.jk
-			o.S✻⋂XX       = o.DGP.S✻⋂XX      - o.DGP.S✻⋂XZperp     * o.DGP.invZperpZperpZperpX    - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂XZperp'   - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpX  )
+			o.S✻⋂XX   = o.DGP.S✻⋂XX      - o.DGP.S✻⋂XZperp     * o.DGP.invZperpZperpZperpX - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂XZperp' - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpX)
 			S✻⋂ZperpX = o.DGP.S✻⋂XZperp' - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpX
 			o.NFE>0 && !o.FEboot &&
 			  (CT✻⋂FEX  = [crosstabFE(o, o.DGP.X₁, o.info✻⋂) crosstabFE(o, o.DGP.X₂, o.info✻⋂)])
@@ -205,11 +205,12 @@ function InitWRE!(o::StrBootTest{T}) where T
 
 			if o.NFE>0 && !o.FEboot && (o.willfill || o.not2SLS)
 				o.CT✻FEX   = @panelsum(CT✻⋂FEX, o.info✻_✻⋂)
-				o.CT✻FEY₂  = crosstabFE(o, o.DGP.Y₂, o.info✻); o.CT✻FEU₂ = similar(o.CT✻FEY₂)
+				o.CT✻FEY₂  = crosstabFE(o, o.DGP.Y₂, o.info✻)
 				o.CT✻FEZ   = crosstabFE(o, o.DGP.Zpar, o.info✻)
 				o.CT✻FEy₁  = crosstabFE(o, o.DGP.y₁, o.info✻)
 				o.DGP.restricted &&
 					(o.CT✻FEZR₁ = crosstabFE(o, o.DGP.ZR₁, o.info✻))  #  XXX just do o.CT✻FEZ * R₁ ?
+				o.CT✻FEU₂ = similar(o.CT✻FEY₂)
 			end
 
 			o.willfill &&
@@ -514,7 +515,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 
 				t✻!(o.S✻UMZperp, view(o.Repl.Zperp,g:g,:), o.S✻UZperpinvZperpZperpv); t✻minus!(o.S✻UMZperp, o.DGP.u⃛₁[g], view(o.v,g:g,:))
 				o.NFE>0 && !o.FEboot &&
-					(o.S✻UMZperp .+= view(o.invFEwtCT✻FEUv, o.FEID[g]:o.FEID[g], :))  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
+					(o.S✻UMZperp .+= view(o.invFEwtCT✻FEUv, o._FEID[g]:o._FEID[g], :))  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
 
 				t✻!(view(dest,g:g,:), o.DGP.ȳ₁[g], o.PXY✻)
 				coldotminus!(dest, g, o.PXY✻, o.S✻UMZperp)
@@ -529,7 +530,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 
 				t✻!(S✻UMZperpg, view(o.Repl.Zperp,S,:), o.S✻UZperpinvZperpZperpv); S✻UMZperpg .-= view(o.DGP.u⃛₁, S) .*  view(o.v, view(o.ID✻, S),:)
 				o.NFE>0 && !o.FEboot &&
-					(S✻UMZperpg .+= view(o.invFEwtCT✻FEUv, view(o.FEID,S), :))  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
+					(S✻UMZperpg .+= view(o.invFEwtCT✻FEUv, view(o._FEID,S), :))  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
 
 				t✻!(view(dest,g,:), PXY✻g', view(o.DGP.ȳ₁, S))
 				coldotminus!(dest, g, PXY✻g, S✻UMZperpg)
@@ -552,7 +553,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 					if o.Repl.Yendog[j+1]
 						t✻!(o.S✻UMZperp, view(o.Repl.Zperp,g:g,:), o.S✻UZperpinvZperpZperpv); t✻minus!(o.S✻UMZperp, o.Ü₂par[g,j], view(o.β̈v,g:g,:))
 						o.NFE>0 && !o.FEboot &&
-							(o.S✻UMZperp .+= view(o.invFEwtCT✻FEUv, o.FEID[g]:o.FEID[g], :))  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
+							(o.S✻UMZperp .+= view(o.invFEwtCT✻FEUv, o._FEID[g]:o._FEID[g], :))  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
 	
 						t✻minus!(view(dest,g:g,:), o.Z̄[g,j], o.PXY✻, _β̈ )
 						coldotplus!(dest, g, o.PXY✻, o.S✻UMZperp)
@@ -572,7 +573,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 						t✻!(S✻UMZperpg, view(o.Repl.Zperp,  S,:), o.S✻UZperpinvZperpZperpv); S✻UMZperpg .-= view(o.Ü₂par, S, j) .* view(o.β̈v,view(o.ID✻, S),:)
 	
 						o.NFE>0 && !o.FEboot &&
-							(S✻UMZperpg .+= view(o.invFEwtCT✻FEUv, view(o.FEID,S), :))  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
+							(S✻UMZperpg .+= view(o.invFEwtCT✻FEUv, view(o._FEID,S), :))  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
 	
 						coldotminus!(dest, g, PXY✻g, view(o.Z̄,S,j) * _β̈ )
 						coldotplus!(dest, g, PXY✻g, S✻UMZperpg)

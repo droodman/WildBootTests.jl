@@ -457,7 +457,7 @@ function panelcross!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, Y::Abstra
 					dest[1,g,1] = dest_jgk
 				end
 			else
-				indicesⱼ =  eachindex(axes(dest,1),axes(X,2))
+				indicesⱼ = eachindex(axes(dest,1),axes(X,2))
 				@inbounds for (g, infog) ∈ enumerate(info)
 					@tturbo warn_check_args=false for j ∈ indicesⱼ
 						dest_jgk = zero(T)
