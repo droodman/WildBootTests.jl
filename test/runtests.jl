@@ -265,6 +265,7 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   println(log, "\nivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours] if grade<., liml cluster(industry) absorb(age)")
   println(log, "boottest tenure")
   test = wildboottest([0 0 1 0], [0]; resp, predexog, predendog, inst, clustid=df.industry, obswt=df.hours, feid=df.age, rng=StableRNG(1231), liml=true)
+  println(log, test)
   println(log, "boottest tenure, jk")
   test = wildboottest([0 0 1 0], [0]; resp, predexog, predendog, inst, clustid=df.industry, obswt=df.hours, feid=df.age, rng=StableRNG(1231), liml=true, jk=true)
   println(log, test)

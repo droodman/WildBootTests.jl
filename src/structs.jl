@@ -168,7 +168,7 @@ mutable struct StrEstimator{T<:AbstractFloat}
 	S✻⋂ZperpZR₁::Array{T,3}
 	S✻Y₂Y₂::Array{T,3}; S✻ZparZpar::Array{T,3}; S✻Y₂y₁::Array{T,3}; S✻⋂Xy₁::Array{T,3}
 	ZparX::Matrix{T}; ZperpX₁::Matrix{T}; ZperpX₂::Matrix{T}; Zperpy₁::Vector{T}; ZperpY₂::Matrix{T}; ZperpZpar::Matrix{T}; ZperpZR₁::Matrix{T};
-	invZperpZperpZperpX₁::Matrix{T}; invZperpZperpZperpX₂::Matrix{T}; invZperpZperpZperpy₁::Vector{T}; invZperpZperpZperpY₂::Matrix{T}; S✻UY₂::Matrix{T}; invZperpZperpZperpZpar::Matrix{T}; invZperpZperpZperpZR₁::Matrix{T}
+	invZperpZperpZperpX₁::Matrix{T}; invZperpZperpZperpX₂::Matrix{T}; invZperpZperpZperpy₁::Vector{T}; invZperpZperpZperpY₂::Matrix{T}; S✻UY₂::Matrix{T}; invZperpZperpZperpZ::Matrix{T}; invZperpZperpZperpZR₁::Matrix{T}
 	Ü₂Ü₂::Matrix{T}; γ̈X::Vector{T}; γ̈Y::Vector{T}; γ⃛::Vector{T}; Xȳ₁::Vector{T}; ȳ₁ȳ₁::T; XÜ₂::Matrix{T}; ȳ₁Ü₂::Matrix{T}; Ȳ₂::Matrix{T}; ȳ₁::Vector{T}
 	Xpar₁toZparX::DesignerMatrix{T}
 

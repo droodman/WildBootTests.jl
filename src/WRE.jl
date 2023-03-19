@@ -187,7 +187,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 			end
 	
 			o.S✻⋂XY₂        = o.DGP.S✻⋂XY₂     - o.DGP.S✻⋂XZperp     * o.DGP.invZperpZperpZperpY₂   - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂ZperpY₂   - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpY₂ )
-			o.S✻⋂XDGPZ      = o.DGP.S✻⋂XZpar   - o.DGP.S✻⋂XZperp     * o.DGP.invZperpZperpZperpZpar - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂ZperpZpar - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpZpar)
+			o.S✻⋂XDGPZ      = o.DGP.S✻⋂XZpar   - o.DGP.S✻⋂XZperp     * o.DGP.invZperpZperpZperpZ - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂ZperpZpar - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpZ)
 			o.S✻⋂Xy₁        = o.DGP.S✻⋂Xy₁     - o.DGP.S✻⋂XZperp     * o.DGP.invZperpZperpZperpy₁   - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂Zperpy₁   - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpy₁ )
 			_S✻ZperpY₂      = @panelsum(o.DGP.S✻⋂ZperpY₂, o.info✻_✻⋂)  # moments of variables _before_ FWL processing
 			_S✻Zperpy₁      = @panelsum(o.DGP.S✻⋂Zperpy₁, o.info✻_✻⋂)
@@ -200,7 +200,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 			o.S✻Xy₁       = @panelsum(o.S✻⋂Xy₁  , o.info✻_✻⋂)
 			o.S✻ZperpX    = @panelsum(S✻⋂ZperpX, o.info✻_✻⋂)
 			o.S✻ZperpY₂   = _S✻ZperpY₂ - S✻ZperpZperp * o.DGP.invZperpZperpZperpY₂
-			o.S✻ZperpDGPZ = _S✻ZperpDGPZpar - S✻ZperpZperp * o.DGP.invZperpZperpZperpZpar
+			o.S✻ZperpDGPZ = _S✻ZperpDGPZpar - S✻ZperpZperp * o.DGP.invZperpZperpZperpZ
 			o.S✻Zperpy₁   = _S✻Zperpy₁ - S✻ZperpZperp * o.DGP.invZperpZperpZperpy₁
 
 			if o.NFE>0 && !o.FEboot && (o.willfill || o.not2SLS)
@@ -217,7 +217,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 				(o.S✻⋂XU₂ = Array{T,3}(undef, o.DGP.kX, o.N✻⋂, o.kY₂))
 
 			if o.DGP.restricted
-				o.S✻⋂X_DGPZR₁ = o.DGP.S✻⋂XZR₁ - o.DGP.S✻⋂XZperp     * o.DGP.invZperpZperpZperpZR₁  - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂ZperpZR₁  - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpZR₁ )
+				o.S✻⋂X_DGPZR₁ = o.DGP.S✻⋂XZR₁ - o.DGP.S✻⋂XZperp * o.DGP.invZperpZperpZperpZR₁ - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂ZperpZR₁  - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpZR₁ )
 				_S✻ZperpDGPZR₁ = @panelsum(o.DGP.S✻⋂ZperpZR₁, o.info✻_✻⋂)
 				o.S✻XZR₁ = @panelsum(o.S✻⋂X_DGPZR₁, o.info✻_✻⋂)
 				o.S✻ZperpDGPZR₁ = @panelsum(o.DGP.S✻⋂ZperpZR₁, o.info✻_✻⋂) - S✻ZperpZperp * o.DGP.invZperpZperpZperpZR₁
@@ -225,9 +225,9 @@ function InitWRE!(o::StrBootTest{T}) where T
 
 			if o.not2SLS  # cluster-wise moments after FWL
 				o.S✻Y₂Y₂     = o.DGP.S✻Y₂Y₂     - _S✻ZperpY₂'      * o.DGP.invZperpZperpZperpY₂   - o.DGP.invZperpZperpZperpY₂'   * o.S✻ZperpY₂
-				o.S✻DGPZDGPZ = o.DGP.S✻ZparZpar - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpZpar - o.DGP.invZperpZperpZperpZpar' * o.S✻ZperpDGPZ
-				o.S✻DGPZY₂   = o.DGP.S✻ZparY₂   - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpY₂   - o.DGP.invZperpZperpZperpZpar' * o.S✻ZperpY₂
-				o.S✻DGPZy₁   = o.DGP.S✻Zpary₁   - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpy₁   - o.DGP.invZperpZperpZperpZpar' * o.S✻Zperpy₁   
+				o.S✻DGPZDGPZ = o.DGP.S✻ZparZpar - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpZ - o.DGP.invZperpZperpZperpZ' * o.S✻ZperpDGPZ
+				o.S✻DGPZY₂   = o.DGP.S✻ZparY₂   - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpY₂   - o.DGP.invZperpZperpZperpZ' * o.S✻ZperpY₂
+				o.S✻DGPZy₁   = o.DGP.S✻Zpary₁   - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpy₁   - o.DGP.invZperpZperpZperpZ' * o.S✻Zperpy₁   
 				o.S✻Y₂y₁     = o.DGP.S✻Y₂y₁     - _S✻ZperpY₂'      * o.DGP.invZperpZperpZperpy₁   - o.DGP.invZperpZperpZperpY₂'   * o.S✻Zperpy₁
 				o.S✻y₁y₁     = o.DGP.S✻y₁y₁     - _S✻Zperpy₁'      * o.DGP.invZperpZperpZperpy₁   - o.S✻Zperpy₁'                  * o.DGP.invZperpZperpZperpy₁
 				o.DGP.restricted && 
@@ -237,7 +237,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 					_S✻⋂XDGPZR₁     = @panelsum(o.DGP.S✻⋂XZR₁, o.info✻_✻⋂)
 					o.S✻DGPZR₁Y₂     = o.DGP.S✻ZR₁Y₂  - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpY₂  - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpY₂
 					o.S✻DGPZR₁DGPZR₁ = o.DGP.S✻ZR₁ZR₁ - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpZR₁  - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpDGPZR₁
-					o.S✻DGPZR₁DGPZ   = o.DGP.S✻ZR₁Z   - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpZpar - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpDGPZ
+					o.S✻DGPZR₁DGPZ   = o.DGP.S✻ZR₁Z   - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpZ - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpDGPZ
 					o.S✻DGPZR₁X      = _S✻⋂XDGPZR₁'   - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpX   - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpX
 				end
 			end
@@ -434,7 +434,7 @@ function HessianFixedkappa!(o::StrBootTest{T}, dest::AbstractMatrix{T}, is::Vect
 		if iszero(j)
 			o.T1R .= o.DGP.γ⃛
 		else
-			o.T1R .= view(o.invXXXZ̄,:,j)
+			fillcols!(o.T1R, o.invXXXZ̄, j)
 		end
 	end
 	if o.Repl.Yendog[j+1] && any(o.Repl.Yendog[is.+1])
@@ -462,7 +462,7 @@ function HessianFixedkappa!(o::StrBootTest{T}, dest::AbstractMatrix{T}, is::Vect
 				coldotminus!(dest, row, o.CT✻FEUv, o.invFEwtCT✻FEUv)
 			end
 		else
-	    o.T1L .= o.XȲ[:,i+1]  # X_∥^' Y_(∥i)
+	    fillcols!(o.T1L, o.XȲ,i+1)  # X_∥^' Y_(∥i)
 	    o.Repl.Yendog[i+1] &&
 				t✻plus!(o.T1L, o.S✻XU[i+1], o.v)
 			coldot!(dest, row, o.T1L, o.T1R)  # multiply in the left-side linear term
@@ -480,7 +480,7 @@ function HessianFixedkappa!(o::StrBootTest{T}, dest::AbstractMatrix{T}, is::Vect
 					coldotminus!(_dest, 1, o.CT✻FEUv, o.invFEwtCT✻FEUv)
 				end
 
-		    view(dest,row:row,:) .*= κ;  view(dest,row:row,:) .+= (1-κ) .* _dest  # "view(dest,row:row,:)" avoids allocations where dest[row:row,:] doesn't
+		    view(dest,row,:) .*= κ;  view(dest,row:row,:) .+= (1-κ) .* _dest  # "view(dest,row:row,:)" avoids allocations where dest[row:row,:] doesn't
 			end
 		end
 
@@ -642,7 +642,15 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 		if o.bootstrapt
 			if o.robust
 				Filling!(o, o.J⋂s1[1], 1, view(o.β̈sAs,1:1,:), _jk)
-				o.J⋂s1[1] ./= view(o.β̈sAs,2:2,:)  # ./= As
+
+				_J = o.J⋂s1[1]
+				@tturbo for j ∈ indices((o.J⋂s1[1],o.β̈sAs),2)  # ./= As
+					t = o.β̈sAs[2,j]
+					for i ∈ indices(o.J⋂s1[1], 1)
+						_J[i,j] /= t
+					end
+				end
+
 				coldot!(o.denom[1,1], o.clust[1].multiplier, o.J⋂s1[1])
 				@inbounds for c ∈ 2:o.NErrClustCombs  # sum sandwich over error clusteringssrc/WRE.jl
 					nrows(o.clust[c].order)>0 && 
@@ -693,7 +701,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 
 		if o.bootstrapt
 			if o.robust
-				@inbounds for i ∈ 1:o.Repl.kZ  # avoid list comprehension construction for compiler-perceived type stability
+				@inbounds for i ∈ 1:o.Repl.kZ
 					Filling!(o, view(o.J⋂s,:,:,i), i, o.β̈s, _jk)
 				end
 			else

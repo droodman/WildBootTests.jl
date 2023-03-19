@@ -241,316 +241,10 @@ function PrepJKIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	return ZperpX₁, ZperpX₂, Zperpy₁, ZperpY₂, ZperpZpar, ZperpZR₁
 end
 
-function InitVarsIVCoarse!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::AbstractMatrix{T}...) where T
-	dojkprep = parent.jk && o.isDGP && parent.WREnonARubin
-
-	!isempty(Rperp) && (o.Rperp = Rperp[1])
-
-	o.kZ = ncols(o.Rpar)
-	o.kZperp = ncols(parent.DGP.RperpX)
-
-	if o.copyfromDGP
-		o.X₁ = parent.DGP.X₁
-		o.Zperp = parent.DGP.Zperp
-		o.invZperpZperp = parent.DGP.invZperpZperp
-	else
-		o.X₁ = parent.X₁ * o.RperpXperp
-		o.kX = (o.kX₁ = ncols(o.X₁)) + parent.kX₂
-		o.Zperp = parent.X₁ * o.RperpX
-	end
-	if parent.WREnonARubin  # faster, doesn't work for score test because only do FWL in DGP, not Repl
-		o.Xpar₁toZparX = DesignerMatrix(parent.DGP.RperpXperp'parent.DGP.RperpXperp \ parent.DGP.RperpXperp'o.RparX)
-		o.Zpar = o.X₁ * o.Xpar₁toZparX
-	else
-		o.Zpar = parent.X₁ * o.RparX
-	end
-	!o.isDGP && !parent.scorebs && parent.jk &&
-		(o.ZparX = copy(o.Zpar))
-
-	o.Zpar .+= parent.Y₂ * o.RparY
-	o.restricted && (o.ZR₁ = parent.X₁ * o.R₁invR₁R₁X; t✻plus!(o.ZR₁, parent.Y₂, o.R₁invR₁R₁Y))
-
-	if !o.copyfromDGP
-		o.X₁X₁ = o.X₁'o.X₁
-		o.X₂X₁ = parent.X₂'o.X₁
-		o.X₂X₂ = parent.X₂'parent.X₂
-		o.X₁Y₂ = o.X₁'parent.Y₂
-		o.X₂Y₂ = parent.X₂'parent.Y₂
-		o.XY₂ = [o.X₁Y₂; o.X₂Y₂]
-		o.Y₂y₁ = parent.Y₂'parent.y₁
-		o.X₂y₁ = parent.X₂'parent.y₁       
-		o.X₁y₁ = o.X₁'parent.y₁
-		o.Zy₁  = o.Zpar'parent.y₁
-		o.X₁Z  = o.X₁'o.Zpar
-		o.X₂Z  = parent.X₂'o.Zpar    
-		o.ZZ   = o.Zpar'o.Zpar       
-		o.ZY₂  = o.Zpar'parent.Y₂    
-		o.y₁y₁ = dot(parent.y₁, parent.y₁)
-	end
-
-	if dojkprep
-		o.ZperpX₁, o.ZperpX₂, o.Zperpy₁, o.ZperpY₂, o.ZperpZpar, o.ZperpZR₁ = PrepJKIV!(o, parent)
-	end
-
-	if o.copyfromDGP
-		o.S✻Y₂Y₂     = parent.DGP.S✻Y₂Y₂
-		o.S✻⋂X₁Y₂    = parent.DGP.S✻⋂X₁Y₂
-		o.S✻⋂X₂Y₂    = parent.DGP.S✻⋂X₂Y₂
-		o.S✻⋂ZperpY₂ = parent.DGP.S✻⋂ZperpY₂
-		o.S✻Y₂y₁     = parent.DGP.S✻Y₂y₁
-	else
-		o.S✻⋂ZperpZperp = panelcross(o.Zperp, o.Zperp, parent.info✻⋂)
-		S✻⋂X₁Zperp = panelcross(o.X₁, o.Zperp, parent.info✻⋂)
-		S✻⋂X₂Zperp = panelcross(parent.X₂, o.Zperp, parent.info✻⋂)
-
-		o.S✻⋂XZperp = [S✻⋂X₁Zperp; S✻⋂X₂Zperp]
-
-		S✻⋂X₁X₁ = panelcross(o.X₁, o.X₁, parent.info✻⋂)
-		S✻⋂X₂X₁ = panelcross(parent.X₂, o.X₁, parent.info✻⋂)
-		S✻⋂X₂X₂ = panelcross(parent.X₂, parent.X₂, parent.info✻⋂)
-		X₁X₁ = sumpanelcross(S✻⋂X₁X₁)
-		X₂X₁ = sumpanelcross(S✻⋂X₂X₁)
-		X₂X₂ = sumpanelcross(S✻⋂X₂X₂)
-		o.S✻⋂XX = [[S✻⋂X₁X₁ S✻⋂X₂X₁'] ; [S✻⋂X₂X₁ S✻⋂X₂X₂]]
-
-		o.S✻⋂ZperpY₂ = panelcross(o.Zperp, parent.Y₂, parent.info✻⋂)
-		o.S✻⋂Zperpy₁ = panelcross(o.Zperp, parent.y₁, parent.info✻⋂)
-	  o.S✻⋂X₁Y₂ = panelcross(o.X₁, parent.Y₂, parent.info✻⋂)
-	  o.S✻⋂X₂Y₂ = panelcross(parent.X₂, parent.Y₂, parent.info✻⋂)
-		o.S✻⋂XY₂ = [o.S✻⋂X₁Y₂; o.S✻⋂X₂Y₂]
-
-		if !(parent.jk && parent.WREnonARubin)
-			ZperpY₂ = sumpanelcross(o.S✻⋂ZperpY₂)
-			Zperpy₁ = vec(sumpanelcross(o.S✻⋂Zperpy₁))
-			ZperpX₁ = sumpanelcross(S✻⋂X₁Zperp)'
-			ZperpX₂ = sumpanelcross(S✻⋂X₂Zperp)'
-			o.invZperpZperp = iszero(o.kZperp) ? Matrix{T}(undef,0,0) : invsym(sumpanelcross(o.S✻⋂ZperpZperp))
-		end
-
-		o.XY₂ = sumpanelcross(o.S✻⋂XY₂)
-		o.S✻Y₂y₁ = panelcross(parent.Y₂, parent.y₁, parent.info✻)
-	  o.Y₂y₁ = vec(sumpanelcross(o.S✻Y₂y₁))
-		o.S✻Y₂Y₂ = panelcross(parent.Y₂, parent.Y₂, parent.info✻)
-		o.Y₂Y₂ = sumpanelcross(o.S✻Y₂Y₂)
-		S✻⋂X₂y₁ = panelcross(parent.X₂, parent.y₁, parent.info✻⋂)
-		o.X₂y₁ = vec(sumpanelcross(S✻⋂X₂y₁))
-		S✻⋂X₁y₁ = panelcross(o.X₁, parent.y₁, parent.info✻⋂)
-		o.S✻⋂Xy₁ = [S✻⋂X₁y₁; S✻⋂X₂y₁]
-		o.X₁y₁ = vec(sumpanelcross(S✻⋂X₁y₁))
-		o.S✻y₁y₁ = panelcross(parent.y₁, parent.y₁, parent.info✻)
-		o.y₁y₁ = sum(o.S✻y₁y₁)
-	end
-
-	S✻⋂X₁Zpar = panelcross(o.X₁, o.Zpar, parent.info✻⋂)
-	S✻⋂X₂Zpar = panelcross(parent.X₂, o.Zpar, parent.info✻⋂)
-	o.S✻⋂XZpar = [S✻⋂X₁Zpar; S✻⋂X₂Zpar]
-	X₁Z = sumpanelcross(S✻⋂X₁Zpar)
-	X₂Z = sumpanelcross(S✻⋂X₂Zpar)
-	o.S✻⋂ZperpZpar = panelcross(o.Zperp, o.Zpar, parent.info✻⋂)
-	o.S✻Zpary₁ = panelcross(o.Zpar, parent.y₁, parent.info✻)
-	o.Zy₁ = vec(sumpanelcross(o.S✻Zpary₁))
-	o.S✻ZparY₂ = panelcross(o.Zpar, parent.Y₂, parent.info✻)
- 	o.S✻ZparZpar = panelcross(o.Zpar, o.Zpar, parent.info✻)
-	o.ZZ = sumpanelcross(o.S✻ZparZpar)
-
-	!(parent.jk && parent.WREnonARubin) &&
-		(ZperpZpar = sumpanelcross(o.S✻⋂ZperpZpar))
-
-	if o.restricted
-		S✻⋂X₁ZR₁ = panelcross(o.X₁, o.ZR₁, parent.info✻⋂)
-		S✻⋂X₂ZR₁ = panelcross(parent.X₂, o.ZR₁, parent.info✻⋂)
-		o.S✻⋂XZR₁ = [S✻⋂X₁ZR₁ ; S✻⋂X₂ZR₁]
-		o.S✻⋂ZperpZR₁ = panelcross(o.Zperp, o.ZR₁, parent.info✻⋂)
-		!(parent.jk && parent.WREnonARubin) &&
-			(o.ZperpZR₁ = sumpanelcross(o.S✻⋂ZperpZR₁))
-	  o.X₁ZR₁    = sumpanelcross(S✻⋂X₁ZR₁)
-	  o.X₂ZR₁    = sumpanelcross(S✻⋂X₂ZR₁)
-		o.S✻ZR₁Z  = panelcross(o.ZR₁, o.Zpar, parent.info✻)
-	  o.ZR₁Z     = sumpanelcross(o.S✻ZR₁Z)
-		o.S✻ZR₁Y₂ = panelcross(o.ZR₁, parent.Y₂, parent.info✻)
-	  o.ZR₁Y₂    = sumpanelcross(o.S✻ZR₁Y₂) 
-		o.S✻ZR₁y₁ = panelcross(o.ZR₁, parent.y₁, parent.info✻)
-	  o.twoZR₁y₁ = 2 * vec(sumpanelcross(o.S✻ZR₁y₁))
-		o.S✻ZR₁ZR₁ = panelcross(o.ZR₁, o.ZR₁, parent.info✻)
-	  o.ZR₁ZR₁   = sumpanelcross(o.S✻ZR₁ZR₁)
-	end
-
-	parent.WREnonARubin && !(o.isDGP && parent.scorebs) && 
-		(o.ZY₂ = sumpanelcross(o.S✻ZparY₂))
-
-	if o.copyfromDGP
-		o.Zperp = parent.DGP.Zperp
-		o.X₁ = parent.DGP.X₁
-		isdefined(parent.DGP, :X₁) && (o.X₁ = parent.DGP.X₁)
-		isdefined(parent.DGP, :X₂) && (o.X₂ = parent.DGP.X₂)
-		isdefined(parent.DGP, :Y₂) && (o.Y₂ = parent.DGP.Y₂)
-		isdefined(parent.DGP, :y₁) && (o.y₁ = parent.DGP.y₁)
-		o.invZperpZperp = parent.DGP.invZperpZperp
-		o.XX = parent.DGP.XX
-		o.invXX = parent.DGP.invXX
-		o.XY₂  = parent.DGP.XY₂
-		o.Y₂Y₂ = parent.DGP.Y₂Y₂
-		o.Y₂y₁ = parent.DGP.Y₂y₁
-		o.X₂y₁ = parent.DGP.X₂y₁
-		o.X₁y₁ = parent.DGP.X₁y₁
-		o.y₁y₁ = parent.DGP.y₁y₁
-	end
-
-	# now that coarse treatment, if any, is done with data matrices, potentially overwrite them with FWL 
-	if dojkprep
-		if !o.copyfromDGP
-			if parent.overwrite
-				o.X₂ = parent.X₂
-				o.y₁ = parent.y₁
-				o.Y₂ = parent.Y₂
-			else
-				o.X₂ = copy(parent.X₂)
-				o.y₁ = copy(parent.y₁)
-				o.Y₂ = copy(parent.Y₂)
-			end
-			o.X₁ = copy(o.X₁)
-			t✻minus!(o.X₁, o.Zperp, o.invZperpZperp * ZperpX₁)
-			t✻minus!(o.X₂, o.Zperp, o.invZperpZperp * ZperpX₂)
-			t✻minus!(o.y₁, o.Zperp, o.invZperpZperp * Zperpy₁)
-			t✻minus!(o.Y₂, o.Zperp, o.invZperpZperp * ZperpY₂)
-		end
-
-		t✻minus!(o.Zpar, o.Zperp, o.invZperpZperp * ZperpZpar)
-		o.restricted && t✻minus!(o.ZR₁, o.Zperp, o.invZperpZperp * ZperpZR₁)
-
-		o.Zy₁ = o.Zpar'o.y₁
-		o.ZY₂ = o.Zpar'o.Y₂
-		o.ZZ  = o.Zpar'o.Zpar
-		o.XZ  = [o.X₁'o.Zpar ; o.X₂'o.Zpar]
-	
-		if o.restricted
-			o.X₂ZR₁    = o.X₂'o.ZR₁
-			o.X₁ZR₁    = o.X₁'o.ZR₁
-			o.ZR₁Z     = o.ZR₁'o.Zpar
-			o.twoZR₁y₁ = o.ZR₁'o.y₁; o.twoZR₁y₁ .*= 2
-			o.ZR₁ZR₁   = o.ZR₁'o.ZR₁
-			o.ZR₁Y₂    = o.ZR₁'o.Y₂
-		end
-
-		if o.isDGP && !parent.scorebs
-			o.u⃛₁ = Vector{T}(undef, parent.Nobs)
-			o.Ü₂ = Matrix{T}(undef, parent.Nobs, parent.kY₂)
-		end
-		o.ȳ₁ = Vector{T}(undef, parent.Nobs)
-		o.Ȳ₂ = Matrix{T}(undef, parent.Nobs, parent.kY₂)
-	end
-
-	if o.copyfromDGP
-		o.invZperpZperpZperpX₁ = parent.DGP.invZperpZperpZperpX₁
-		o.invZperpZperpZperpX₂ = parent.DGP.invZperpZperpZperpX₂
-		o.invZperpZperpZperpy₁ = parent.DGP.invZperpZperpZperpy₁
-		o.invZperpZperpZperpY₂ = parent.DGP.invZperpZperpZperpY₂
-	else
-		o.invZperpZperpZperpX₁ = o.invZperpZperp * ZperpX₁
-		o.invZperpZperpZperpX₂ = o.invZperpZperp * ZperpX₂
-		o.invZperpZperpZperpX = [o.invZperpZperpZperpX₁ o.invZperpZperpZperpX₂]
-		o.invZperpZperpZperpY₂ = o.invZperpZperp * ZperpY₂
-		o.invZperpZperpZperpy₁ = o.invZperpZperp * Zperpy₁
-
-		X₂X₁ .-= ZperpX₂'o.invZperpZperpZperpX₁
-		X₁X₁ .-= ZperpX₁'o.invZperpZperpZperpX₁
-		X₂X₂ .-= ZperpX₂'o.invZperpZperp * ZperpX₂
-
-		o.XY₂  .-= o.invZperpZperpZperpX'ZperpY₂
-	  o.Y₂y₁ .-= ZperpY₂'o.invZperpZperpZperpy₁
-		o.Y₂Y₂ .-= ZperpY₂'o.invZperpZperpZperpY₂
-		o.X₂y₁ .-= ZperpX₂'o.invZperpZperpZperpy₁
-		o.X₁y₁ .-= ZperpX₁'o.invZperpZperpZperpy₁
-		o.y₁y₁  -= Zperpy₁'o.invZperpZperpZperpy₁
-
-		if parent.NFE>0 && !parent.FEboot && (parent.willfill || parent.not2SLS)  # XXX overwrite when possible
-			o.Y₂ = parent.Y₂ - o.Zperp * o.invZperpZperpZperpY₂
-			o.y₁ = parent.y₁ - o.Zperp * o.invZperpZperpZperpy₁
-			o.X₁ = o.X₁ - o.Zperp * o.invZperpZperpZperpX₁
-			o.X₂ = o.Zperp * o.invZperpZperpZperpX₂; o.X₂ .= parent.X₂ .- o.X₂  # FWL-process X₂
-		end
-	end
-
-	o.invZperpZperpZperpZpar = o.invZperpZperp * ZperpZpar
-	o.XZ = [X₁Z - o.invZperpZperpZperpX₁'ZperpZpar ; X₂Z - o.invZperpZperpZperpX₂'ZperpZpar]
-
-  if o.restricted
-		o.invZperpZperpZperpZR₁ = o.invZperpZperp * o.ZperpZR₁
-		(parent.scorebs || (parent.NFE>0 && !parent.FEboot && o.isDGP && o.restricted && (parent.willfill || parent.not2SLS))) &&
-			t✻minus!(o.ZR₁, o.Zperp, o.invZperpZperpZperpZR₁)
-	  t✻minus!(o.X₁ZR₁, o.invZperpZperpZperpX₁', o.ZperpZR₁)
-	  t✻minus!(o.X₂ZR₁, o.invZperpZperpZperpX₂', o.ZperpZR₁)
-	  t✻minus!(o.ZR₁Z, o.invZperpZperpZperpZR₁', ZperpZpar)
-	  t✻minus!(o.ZR₁Y₂, o.ZperpZR₁', o.invZperpZperpZperpY₂)
-		t✻minus!(o.twoZR₁y₁, 2 * o.ZperpZR₁', o.invZperpZperpZperpy₁)
-	  t✻minus!(o.ZR₁ZR₁, o.ZperpZR₁'o.invZperpZperp, o.ZperpZR₁)
-	else
-	  o.Y₂y₁par    = o.Y₂y₁
-	  o.X₂y₁par    = o.X₂y₁
-	  o.X₁y₁par    = o.X₁y₁
-	  o.Zy₁par     = o.Zy₁
-	  o.y₁pary₁par = o.y₁y₁
-	end
-	
-	parent.scorebs &&
-		t✻minus!(o.Zpar, o.Zperp, o.invZperpZperpZperpZpar)
-
-	((parent.jk && !o.isDGP) || parent.scorebs) &&
-		(o.y₁par = copy(o.y₁))
-
-	parent.WREnonARubin && !(o.isDGP && parent.scorebs) && 
-		t✻minus!(o.ZY₂, ZperpZpar', o.invZperpZperpZperpY₂)
-
-	if !o.copyfromDGP
-		o.XX = [X₁X₁ X₂X₁' ; X₂X₁ X₂X₂]
-		o.invXX = invsym(o.XX)
-		o.kX = ncols(o.XX)
-		o.kX₁ = ncols(X₂X₁)
-	end
-
-	o.Y₂y₁par    = copy(o.Y₂y₁)  # RHS objects are === across DGP and Repl, but LHS objects can be modified later; break link
-	o.X₂y₁par    = copy(o.X₂y₁)
-	o.X₁y₁par    = copy(o.X₁y₁)
-	o.Zy₁par     = copy(o.Zy₁)
-	o.y₁pary₁par = copy(o.y₁y₁)
-	o.Xy₁par     = [o.X₁y₁ ; o.X₂y₁]
-
-	o.V = o.invXX * o.XZ  # in 2SLS case, estimator is (V' XZ)^-1 * (V'Xy₁). Also used in k-class and liml robust VCV by Stata convention
-	o.H_2SLS = o.XZ'o.V  # Hessian
-
-	if o.isDGP
-		if parent.jk && parent.WREnonARubin
-			if o.liml
-				o.invHⱼₖ = Array{T,3}(undef, o.kZ, parent.N✻, o.kZ)
-			else
-				o.invHⱼₖ = invsym(isone(o.κ) ? o.H_2SLSⱼₖ : o.ZZⱼₖ + o.κ * o.H_2SLSmZZⱼₖ)
-			end
-		end
-
-		(parent.scorebs || parent.jk) &&
-			(o.ü₁ = [Vector{T}(undef, parent.Nobs) for _ in 0:parent.jk])
-		if o.liml
-			o.H_2SLSmZZ = o.H_2SLS - o.ZZ
-		else
-			MakeH!(o, parent, !isempty(Rperp)) # DGP is liml except possibly when getting confidence peak for A-R plot; but liml=0 when exactly id'd, for then κ=1 always and Hessian doesn't depend on r₁ and can be computed now
-		end
-	else
-		o.Yendog = [true colsum(o.RparY .!= zero(T)).!=0]
-		parent.jk && parent.willfill && (o.PXZ = X₁₂B(o.X₁, o.X₂, o.V))
-		!parent.scorebs && parent.jk &&
-			t✻minus!(o.ZparX, o.Zperp, o.invZperpZperp * (o.Zperp'o.ZparX))
-	end
-
-	if !o.restricted
-		o.t₁ = zeros(T, parent.kZ)
-		parent.jk && (o.t₁Y = o.t₁[parent.kX₁+1:end])
-	end
-
-	nothing
-end
-
-function InitVarsIVGranular!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::AbstractMatrix{T}...) where T
-	dojkprep = parent.jk && o.isDGP && parent.WREnonARubin
+function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::AbstractMatrix{T}...) where T
+	dojkprep   = parent.jk        && o.isDGP && parent.WREnonARubin
+	minimizeON = !parent.granular && o.isDGP && parent.WREnonARubin  # form panel-level cross-products to minimize O(N) operations (MacKinnon 2021)?
+	needZY₂ = parent.WREnonARubin && !(parent.scorebs && o.isDGP)
 
 	!isempty(Rperp) && (o.Rperp = Rperp[1])
 
@@ -578,7 +272,7 @@ function InitVarsIVGranular!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::
 	else
 		o.Zpar = parent.X₁ * o.RparX
 	end
-	!o.isDGP && !parent.scorebs &&
+	!o.isDGP && !parent.scorebs && (parent.granular || parent.jk) &&
 		(o.ZparX = copy(o.Zpar))
 
 	o.Zpar .+= parent.Y₂ * o.RparY
@@ -588,53 +282,52 @@ function InitVarsIVGranular!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::
 		t✻plus!(o.ZR₁, parent.Y₂, o.R₁invR₁R₁Y)
 	end
 
-	o.Zy₁  = o.Zpar'parent.y₁
-	o.X₁Z  = o.X₁'o.Zpar
-	o.X₂Z  = parent.X₂'o.Zpar
-	o.ZZ   = o.Zpar'o.Zpar
-	o.ZY₂  = o.Zpar'parent.Y₂
-	if o.restricted
-		o.X₁ZR₁  = o.X₁'o.ZR₁
-		o.X₂ZR₁  = parent.X₂'o.ZR₁
-		o.ZR₁Z   = o.ZR₁'o.Zpar
-		o.twoZR₁y₁  = o.ZR₁'parent.y₁; lmul!(2, o.twoZR₁y₁)
-		o.ZR₁ZR₁ = o.ZR₁'o.ZR₁    
-		o.ZR₁Y₂  = o.ZR₁'parent.Y₂
-	end
-
-	if !o.copyfromDGP
-		o.X₁X₁ = o.X₁'o.X₁
-		o.X₂X₁ = parent.X₂'o.X₁
-		o.X₂X₂ = parent.X₂'parent.X₂
-		o.X₁Y₂ = o.X₁'parent.Y₂
-		o.X₂Y₂ = parent.X₂'parent.Y₂
-		o.Y₂y₁ = parent.Y₂'parent.y₁
-		o.Y₂Y₂ = parent.Y₂'parent.Y₂
-		o.X₂y₁ = parent.X₂'parent.y₁       
-		o.X₁y₁ = o.X₁'parent.y₁
-		o.y₁y₁ = dot(parent.y₁, parent.y₁)
-	end
-
-	if dojkprep
-		o.ZperpX₁, o.ZperpX₂, o.Zperpy₁, o.ZperpY₂, o.ZperpZpar, o.ZperpZR₁ = PrepJKIV!(o, parent)
+	if minimizeON
+		S✻⋂X₁Zpar = panelcross(o.X₁, o.Zpar, parent.info✻⋂)
+		S✻⋂X₂Zpar = panelcross(parent.X₂, o.Zpar, parent.info✻⋂)
+		o.S✻⋂XZpar = [S✻⋂X₁Zpar; S✻⋂X₂Zpar]
+		o.X₁Z = sumpanelcross(S✻⋂X₁Zpar)
+		o.X₂Z = sumpanelcross(S✻⋂X₂Zpar)
+		o.S✻Zpary₁ = panelcross(o.Zpar, parent.y₁, parent.info✻)
+		o.Zy₁ = vec(sumpanelcross(o.S✻Zpary₁))
+		o.S✻ZparY₂ = panelcross(o.Zpar, parent.Y₂, parent.info✻)
+		o.S✻ZparZpar = panelcross(o.Zpar, o.Zpar, parent.info✻)
+		o.ZZ = sumpanelcross(o.S✻ZparZpar)
+		needZY₂ && 
+			(o.ZY₂ = sumpanelcross(o.S✻ZparY₂))
+	
+		if o.restricted
+			S✻⋂X₁ZR₁ = panelcross(o.X₁, o.ZR₁, parent.info✻⋂)
+			S✻⋂X₂ZR₁ = panelcross(parent.X₂, o.ZR₁, parent.info✻⋂)
+			o.S✻⋂XZR₁ = [S✻⋂X₁ZR₁ ; S✻⋂X₂ZR₁]
+			o.X₁ZR₁    = sumpanelcross(S✻⋂X₁ZR₁)
+			o.X₂ZR₁    = sumpanelcross(S✻⋂X₂ZR₁)
+			o.S✻ZR₁Z  = panelcross(o.ZR₁, o.Zpar, parent.info✻)
+			o.ZR₁Z     = sumpanelcross(o.S✻ZR₁Z)
+			o.S✻ZR₁Y₂ = panelcross(o.ZR₁, parent.Y₂, parent.info✻)
+			o.ZR₁Y₂    = sumpanelcross(o.S✻ZR₁Y₂) 
+			o.S✻ZR₁y₁ = panelcross(o.ZR₁, parent.y₁, parent.info✻)
+			o.twoZR₁y₁ = 2 * vec(sumpanelcross(o.S✻ZR₁y₁))
+			o.S✻ZR₁ZR₁ = panelcross(o.ZR₁, o.ZR₁, parent.info✻)
+			o.ZR₁ZR₁   = sumpanelcross(o.S✻ZR₁ZR₁)
+		end
 	else
-		o.ZperpZpar = o.Zperp'o.Zpar
-		o.restricted && (o.ZperpZR₁ = o.Zperp'o.ZR₁)
-		if o.copyfromDGP
-			o.ZperpX₁ = parent.DGP.ZperpX₁
-			o.ZperpX₂ = parent.DGP.ZperpX₂
-			o.Zperpy₁ = parent.DGP.Zperpy₁
-			o.ZperpY₂ = parent.DGP.ZperpY₂
-		else
-			o.ZperpX₁ = o.Zperp'o.X₁
-			o.ZperpX₂ = o.Zperp'parent.X₂
-			o.Zperpy₁ = o.Zperp'parent.y₁
-			o.ZperpY₂ = o.Zperp'parent.Y₂
-			o.invZperpZperp = invsym(o.Zperp'o.Zperp)
+		o.Zy₁ = o.Zpar'parent.y₁
+		o.X₁Z = o.X₁'o.Zpar
+		o.X₂Z = parent.X₂'o.Zpar
+		o.ZZ  = o.Zpar'o.Zpar
+		needZY₂ && 
+			(o.ZY₂ = o.Zpar'parent.Y₂)
+		if o.restricted
+			o.X₁ZR₁    = o.X₁'o.ZR₁
+			o.X₂ZR₁    = parent.X₂'o.ZR₁
+			o.ZR₁Z     = o.ZR₁'o.Zpar
+			o.twoZR₁y₁ = o.ZR₁'parent.y₁; lmul!(2, o.twoZR₁y₁)
+			o.ZR₁ZR₁   = o.ZR₁'o.ZR₁    
+			o.ZR₁Y₂    = o.ZR₁'parent.Y₂
 		end
 	end
 
-  # in DGP, partial out Zperp
 	if o.copyfromDGP
 		o.XX = parent.DGP.XX
 		o.invXX = parent.DGP.invXX
@@ -644,31 +337,127 @@ function InitVarsIVGranular!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::
 		o.X₂y₁ = parent.DGP.X₂y₁
 		o.X₁y₁ = parent.DGP.X₁y₁
 		o.y₁y₁ = parent.DGP.y₁y₁
+		if !parent.granular
+			o.S✻Y₂Y₂     = parent.DGP.S✻Y₂Y₂
+			o.S✻⋂X₁Y₂    = parent.DGP.S✻⋂X₁Y₂
+			o.S✻⋂X₂Y₂    = parent.DGP.S✻⋂X₂Y₂
+			o.S✻⋂ZperpY₂ = parent.DGP.S✻⋂ZperpY₂
+			o.S✻Y₂y₁     = parent.DGP.S✻Y₂y₁
+		end	
+	else
+		if minimizeON
+			o.S✻⋂X₁Y₂ = panelcross(o.X₁, parent.Y₂, parent.info✻⋂)
+			o.S✻⋂X₂Y₂ = panelcross(parent.X₂, parent.Y₂, parent.info✻⋂)
+			o.S✻⋂XY₂ = [o.S✻⋂X₁Y₂; o.S✻⋂X₂Y₂]
+			S✻⋂X₁X₁ = panelcross(o.X₁, o.X₁, parent.info✻⋂)
+			S✻⋂X₂X₁ = panelcross(parent.X₂, o.X₁, parent.info✻⋂)
+			S✻⋂X₂X₂ = panelcross(parent.X₂, parent.X₂, parent.info✻⋂)
+			o.X₁X₁ = sumpanelcross(S✻⋂X₁X₁)
+			o.X₂X₁ = sumpanelcross(S✻⋂X₂X₁)
+			o.X₂X₂ = sumpanelcross(S✻⋂X₂X₂)
+			o.S✻⋂XX = [[S✻⋂X₁X₁ S✻⋂X₂X₁'] ; [S✻⋂X₂X₁ S✻⋂X₂X₂]]
+			o.X₁Y₂ = sumpanelcross(o.S✻⋂X₁Y₂)
+			o.X₂Y₂ = sumpanelcross(o.S✻⋂X₂Y₂)
+			o.S✻Y₂y₁ = panelcross(parent.Y₂, parent.y₁, parent.info✻)
+			o.Y₂y₁ = vec(sumpanelcross(o.S✻Y₂y₁))
+			o.S✻Y₂Y₂ = panelcross(parent.Y₂, parent.Y₂, parent.info✻)
+			o.Y₂Y₂ = sumpanelcross(o.S✻Y₂Y₂)
+			S✻⋂X₂y₁ = panelcross(parent.X₂, parent.y₁, parent.info✻⋂)
+			o.X₂y₁ = vec(sumpanelcross(S✻⋂X₂y₁))
+			S✻⋂X₁y₁ = panelcross(o.X₁, parent.y₁, parent.info✻⋂)
+			o.S✻⋂Xy₁ = [S✻⋂X₁y₁; S✻⋂X₂y₁]
+			o.X₁y₁ = vec(sumpanelcross(S✻⋂X₁y₁))
+			o.S✻y₁y₁ = panelcross(parent.y₁, parent.y₁, parent.info✻)
+			o.y₁y₁ = sum(o.S✻y₁y₁)
+			o.S✻⋂ZperpZperp = panelcross(o.Zperp, o.Zperp, parent.info✻⋂)
+			S✻⋂X₁Zperp = panelcross(o.X₁, o.Zperp, parent.info✻⋂)
+			S✻⋂X₂Zperp = panelcross(parent.X₂, o.Zperp, parent.info✻⋂)
+			o.S✻⋂XZperp = [S✻⋂X₁Zperp; S✻⋂X₂Zperp]
+			o.S✻⋂ZperpY₂ = panelcross(o.Zperp, parent.Y₂, parent.info✻⋂)
+			o.S✻⋂Zperpy₁ = panelcross(o.Zperp, parent.y₁, parent.info✻⋂)
+		else
+			o.X₁X₁ = o.X₁'o.X₁
+			o.X₂X₁ = parent.X₂'o.X₁
+			o.X₂X₂ = parent.X₂'parent.X₂
+			o.X₁Y₂ = o.X₁'parent.Y₂
+			o.X₂Y₂ = parent.X₂'parent.Y₂
+			o.Y₂y₁ = parent.Y₂'parent.y₁
+			o.Y₂Y₂ = parent.Y₂'parent.Y₂
+			o.X₂y₁ = parent.X₂'parent.y₁       
+			o.X₁y₁ = o.X₁'parent.y₁
+			o.y₁y₁ = dot(parent.y₁, parent.y₁)
+		end
+	end
+
+	if dojkprep
+		o.ZperpX₁, o.ZperpX₂, o.Zperpy₁, o.ZperpY₂, o.ZperpZpar, o.ZperpZR₁ = PrepJKIV!(o, parent)
+	else
+		if minimizeON
+			o.S✻⋂ZperpZpar = panelcross(o.Zperp, o.Zpar, parent.info✻⋂)
+			!(parent.jk && parent.WREnonARubin) &&
+				(o.ZperpZpar = sumpanelcross(o.S✻⋂ZperpZpar))
+			if o.restricted
+				o.S✻⋂ZperpZR₁ = panelcross(o.Zperp, o.ZR₁, parent.info✻⋂)
+				!(parent.jk && parent.WREnonARubin) &&
+					(o.ZperpZR₁ = sumpanelcross(o.S✻⋂ZperpZR₁))
+			end
+		else
+			o.ZperpZpar = o.Zperp'o.Zpar
+			o.restricted && (o.ZperpZR₁ = o.Zperp'o.ZR₁)
+		end
+
+		if o.copyfromDGP
+			o.ZperpX₁ = parent.DGP.ZperpX₁
+			o.ZperpX₂ = parent.DGP.ZperpX₂
+			o.Zperpy₁ = parent.DGP.Zperpy₁
+			o.ZperpY₂ = parent.DGP.ZperpY₂
+		elseif minimizeON
+			o.ZperpY₂ = sumpanelcross(o.S✻⋂ZperpY₂)
+			o.Zperpy₁ = vec(sumpanelcross(o.S✻⋂Zperpy₁))
+			o.ZperpX₁ = sumpanelcross(S✻⋂X₁Zperp)'
+			o.ZperpX₂ = sumpanelcross(S✻⋂X₂Zperp)'
+			o.invZperpZperp = iszero(o.kZperp) ? Matrix{T}(undef,0,0) : invsym(sumpanelcross(o.S✻⋂ZperpZperp))
+		else
+			o.ZperpX₁ = o.Zperp'o.X₁
+			o.ZperpX₂ = o.Zperp'parent.X₂
+			o.Zperpy₁ = o.Zperp'parent.y₁
+			o.ZperpY₂ = o.Zperp'parent.Y₂
+			o.invZperpZperp = invsym(o.Zperp'o.Zperp)
+		end
+	end
+
+  # now that coarse treatment, if any, is done with data matrices, potentially overwrite them with FWL
+	if o.copyfromDGP
 		o.invZperpZperpZperpX₁ = parent.DGP.invZperpZperpZperpX₁
 		o.invZperpZperpZperpX₂ = parent.DGP.invZperpZperpZperpX₂
 		o.invZperpZperpZperpX  = parent.DGP.invZperpZperpZperpX 
 		o.invZperpZperpZperpY₂ = parent.DGP.invZperpZperpZperpY₂
 		o.invZperpZperpZperpy₁ = parent.DGP.invZperpZperpZperpy₁
 	else
-		if !parent.overwrite
-			parent.X₂ = copy(parent.X₂)
-			parent.y₁ = copy(parent.y₁)
-			parent.Y₂ = copy(parent.Y₂)
-		end
-		o.X₂ = parent.X₂
-		o.y₁ = parent.y₁
-		o.Y₂ = parent.Y₂
-
 		o.invZperpZperpZperpX₁ = o.invZperpZperp * o.ZperpX₁
 		o.invZperpZperpZperpX₂ = o.invZperpZperp * o.ZperpX₂
 		o.invZperpZperpZperpX  = [o.invZperpZperpZperpX₁ o.invZperpZperpZperpX₂]
 		o.invZperpZperpZperpY₂ = o.invZperpZperp * o.ZperpY₂
 		o.invZperpZperpZperpy₁ = o.invZperpZperp * o.Zperpy₁
 
-		t✻minus!(o.X₁  , o.Zperp, o.invZperpZperpZperpX₁)  # normally o.X₁, retained exogenous regressors, is a view onto parent.X₁, so this modifies parts of parent.X₁, thus affecting Repl.Zpar, Repl.ZR₁
-		t✻minus!(o.X₂  , o.Zperp, o.invZperpZperpZperpX₂)
-		t✻minus!(o.y₁  , o.Zperp, o.invZperpZperpZperpy₁)
-		t✻minus!(o.Y₂  , o.Zperp, o.invZperpZperpZperpY₂)
+		if !parent.overwrite && parent.granular
+			parent.X₂ = copy(parent.X₂)
+			parent.y₁ = copy(parent.y₁)
+			parent.Y₂ = copy(parent.Y₂)
+			parent.overwrite = true
+		end
+		o.X₂ = parent.X₂
+		o.y₁ = parent.y₁
+		o.Y₂ = parent.Y₂
+
+		if parent.granular || dojkprep || (parent.NFE>0 && !parent.FEboot && (parent.willfill || parent.not2SLS))
+			t✻minus!(o.X₁, o.Zperp, o.invZperpZperpZperpX₁)
+			t✻minus!(o.X₂, o.Zperp, o.invZperpZperpZperpX₂)
+			t✻minus!(o.y₁, o.Zperp, o.invZperpZperpZperpy₁)
+			t✻minus!(o.Y₂, o.Zperp, o.invZperpZperpZperpY₂)
+		elseif parent.scorebs
+			t✻minus!(o.y₁, o.Zperp, o.invZperpZperpZperpy₁)
+		end
 
 		o.X₂X₁ .-= o.ZperpX₂'o.invZperpZperpZperpX₁
 		o.X₁X₁ .-= o.ZperpX₁'o.invZperpZperpZperpX₁
@@ -680,31 +469,32 @@ function InitVarsIVGranular!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::
 		o.X₂y₁ .-= o.ZperpX₂'o.invZperpZperpZperpy₁
 		o.X₁y₁ .-= o.ZperpX₁'o.invZperpZperpZperpy₁
 		o.y₁y₁  -= o.Zperpy₁'o.invZperpZperpZperpy₁
-		o.XY₂ = [o.X₁Y₂; o.X₂Y₂]
 
+		o.XY₂ = [o.X₁Y₂; o.X₂Y₂]
 		o.XX = [o.X₁X₁ o.X₂X₁' ; o.X₂X₁ o.X₂X₂]
 		o.invXX = invsym(o.XX)
 	end
 
-	invZperpZperpZperpZ = o.invZperpZperp * o.ZperpZpar
-	t✻minus!(o.Zpar, o.Zperp, invZperpZperpZperpZ )
+	o.invZperpZperpZperpZ = o.invZperpZperp * o.ZperpZpar
+	t✻minus!(o.Zpar, o.Zperp, o.invZperpZperpZperpZ )
 	o.restricted && t✻minus!(o.ZR₁, o.Zperp, o.invZperpZperp * o.ZperpZR₁)
 
-	o.Zy₁ .-= o.ZperpZpar'o.invZperpZperpZperpy₁
-	o.ZY₂ .-= o.ZperpZpar'o.invZperpZperpZperpY₂
-	o.ZZ  .-= o.ZperpZpar'invZperpZperpZperpZ
-	o.X₁Z .-= o.ZperpX₁'invZperpZperpZperpZ
-	o.X₂Z .-= o.ZperpX₂'invZperpZperpZperpZ
+	t✻minus!(o.Zy₁, o.ZperpZpar', o.invZperpZperpZperpy₁)
+	t✻minus!(o.ZZ , o.ZperpZpar', o.invZperpZperpZperpZ)
+	t✻minus!(o.X₁Z, o.ZperpX₁'  , o.invZperpZperpZperpZ)
+	t✻minus!(o.X₂Z, o.ZperpX₂'  ,o.invZperpZperpZperpZ)
 	o.XZ = [o.X₁Z; o.X₂Z]
+	needZY₂ && 
+		(o.ZY₂ .-= o.ZperpZpar'o.invZperpZperpZperpY₂)
 
 	if o.restricted
-		invZperpZperpZperpZR₁ = o.invZperpZperp * o.ZperpZR₁
-		o.X₂ZR₁    .-= o.ZperpX₂'invZperpZperpZperpZR₁ 
-		o.X₁ZR₁    .-= o.ZperpX₁'invZperpZperpZperpZR₁ 
-		o.ZR₁Z     .-= invZperpZperpZperpZR₁'o.ZperpZpar
-		o.twoZR₁y₁ .-= invZperpZperpZperpZR₁'o.Zperpy₁; o.twoZR₁y₁ .*= 2
-		o.ZR₁ZR₁   .-= invZperpZperpZperpZR₁'o.ZperpZR₁ 
-		o.ZR₁Y₂    .-= invZperpZperpZperpZR₁'o.ZperpY₂
+		o.invZperpZperpZperpZR₁ = o.invZperpZperp * o.ZperpZR₁
+		t✻minus!(o.X₂ZR₁   ,       o.invZperpZperpZperpX₂' , o.ZperpZR₁ )
+		t✻minus!(o.X₁ZR₁   ,       o.invZperpZperpZperpX₁' , o.ZperpZR₁ )
+		t✻minus!(o.ZR₁Z    ,       o.invZperpZperpZperpZR₁', o.ZperpZpar)
+		t✻minus!(o.twoZR₁y₁, T(2), o.invZperpZperpZperpZR₁', o.Zperpy₁  )
+		t✻minus!(o.ZR₁ZR₁  ,       o.invZperpZperpZperpZR₁', o.ZperpZR₁ )
+		t✻minus!(o.ZR₁Y₂   ,       o.invZperpZperpZperpZR₁', o.ZperpY₂  )
 	else
 		o.t₁ = zeros(T, parent.kZ)
 		parent.jk && (o.t₁Y = o.t₁[parent.kX₁+1:end])
@@ -722,12 +512,15 @@ function InitVarsIVGranular!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::
 	o.V = o.invXX * o.XZ  # in 2SLS case, estimator is (V' XZ)^-1 * (V'Xy₁). Also used in k-class and liml robust VCV by Stata convention
 	o.H_2SLS = o.XZ'o.V  # Hessian
 
-	o.ȳ₁ = Vector{T}(undef, parent.Nobs)
-	o.Ȳ₂ = Matrix{T}(undef, parent.Nobs, parent.kY₂)
+	if parent.granular || dojkprep
+		o.ȳ₁ = Vector{T}(undef, parent.Nobs)
+		o.Ȳ₂ = Matrix{T}(undef, parent.Nobs, parent.kY₂)
+	end
 
 	if o.isDGP
-		o.ü₁ = [Vector{T}(undef, parent.Nobs) for _ in 0:parent.jk]
-		if !parent.scorebs
+		(parent.scorebs || parent.jk || parent.granular) &&
+			(o.ü₁ = [Vector{T}(undef, parent.Nobs) for _ in 0:parent.jk])
+		if !parent.scorebs && (dojkprep || parent.granular)
 			o.u⃛₁ = Vector{T}(undef, parent.Nobs)
 			o.Ü₂ = Matrix{T}(undef, parent.Nobs, parent.kY₂)
 		end
@@ -743,7 +536,7 @@ function InitVarsIVGranular!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::
 	else
 		o.Yendog = [true colsum(o.RparY .!= zero(T)).!=0]
 		parent.jk && parent.willfill && (o.PXZ = X₁₂B(o.X₁, o.X₂, o.V))
-		!parent.scorebs && ()
+		!parent.scorebs && (parent.granular || parent.jk) &&
 			t✻minus!(o.ZparX, o.Zperp, o.invZperpZperp * (o.Zperp'o.ZparX))
 	end
 	nothing

@@ -11,8 +11,11 @@ end
 
 # do X .= Y[:,k], hopefully faster
 @inline function fillcols!(X::Matrix{T}, Y::Matrix{T}, k::Int) where T
-	@tturbo warn_check_args=false for j ∈ indices(X,2), i ∈ indices((X,Y),1)
-		X[i,j] = Y[i,k]
+	@tturbo warn_check_args=false for i ∈ indices((X,Y),1)
+		Yᵢₖ = Y[i,k]
+		for j ∈ indices(X,2)
+			X[i,j] = Yᵢₖ
+		end
 	end
 	nothing
 end
@@ -76,8 +79,13 @@ function X₁₂B(X₁::AbstractArray, X₂::AbstractArray, B::AbstractVector)
 end
 
 function coldot!(dest::AbstractMatrix{T}, row::Integer, A::AbstractMatrix{T}, B::AbstractMatrix{T}) where T  # colsum(A .* B)
-  dest[row,:] .= zero(T)
-	coldotplus!(dest, row, A, B)
+  @tturbo warn_check_args=false for i ∈ indices((A,B),2)
+		destᵢ = zero(T)
+		for j ∈ indices((A,B),1)
+	  	destᵢ += A[j,i] * B[j,i]
+		end
+		dest[row,i] = destᵢ
+  end
 	nothing
 end
 function coldot(A::AbstractMatrix{T}, B::AbstractMatrix{T}) where T
@@ -247,7 +255,7 @@ function t✻minus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMat
 	end
 	nothing
 end
-function t✻minus!(A::AbstractMatrix{T}, c::T, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # add B*C to A in place
+function t✻minus!(A::AbstractVecOrMat{T}, c::T, B::AbstractVecOrMat{T}, C::AbstractVecOrMat{T}) where T  # add B*C to A in place
 	if length(B)>0 && length(C)>0
 		@tturbo warn_check_args=false for i ∈ indices((A,B),1), k ∈ indices((A,C),2)
 			Aᵢₖ = zero(T)
@@ -321,6 +329,22 @@ function panelsetupID(X::AbstractArray{S} where S, colinds::UnitRange{T} where T
   info[p] = lo:N
   resize!(info, p)
   info, ID
+end
+
+# Given a sorted vector, generate standardized group numbering vector: 1,...,1,2...
+function ID(X::AbstractVector)
+  N = nrows(X)
+  ID = Vector{Int64}(undef,N)
+	ID[1] = lo = p = 1
+	Xlo = X[1]
+  @inbounds for hi ∈ 2:N
+		if (Xhi = X[hi]) ≠ Xlo
+			lo, Xlo = hi, Xhi
+			p += 1
+  	end
+	  ID[hi] = p
+  end
+  ID
 end
 
 function panelsum!(dest::AbstractVecOrMat, X::AbstractVecOrMat, info::AbstractVector{UnitRange{T}} where T<:Integer)
@@ -623,7 +647,7 @@ function crosstabFE!(o::StrBootTest{T}, dest::Array{T,3}, v::AbstractVecOrMat{T}
 		end
 	else
 		fill!(dest, zero(T))
-		@inbounds Threads.@threads for i ∈ eachindex(axes(info,1))
+		@inbounds #=Threads.@threads=# for i ∈ eachindex(axes(info,1))
 			infoi = info[i]
 			@inbounds @fastmath for infoij ∈ infoi
 				FEIDij = o._FEID[infoij]
@@ -675,7 +699,7 @@ end
 function partialFE!(o::StrBootTest{T}, In::AbstractMatrix{T}) where T
 	if length(In)>0
 		if o.haswt
-			@inbounds #=Threads.@threads=# for j ∈ eachindex(axes(In,2))
+			@inbounds for j ∈ eachindex(axes(In,2))
 				@inbounds @fastmath for f ∈ o.FEs
 					fis = f.is; wt = f.wtvec; sqrtwt = f.sqrtwt
 					s = zero(T)
@@ -688,7 +712,7 @@ function partialFE!(o::StrBootTest{T}, In::AbstractMatrix{T}) where T
 				end
 			end
 		else
-			@inbounds #=Threads.@threads=# for j ∈ eachindex(axes(In,2))
+			@inbounds for j ∈ eachindex(axes(In,2))
 				@inbounds @fastmath for f ∈ o.FEs
 					fis = f.is
 					s = zero(T)
@@ -958,4 +982,13 @@ function partialjk(A::AbstractVecOrMat{T}, Z::AbstractMatrix{T}, ZZZA::AbstractA
 		end
 	end
   dest
+end
+
+function reorder!(dest::AbstractMatrix{T}, source::AbstractMatrix{T}, order::Vector{Int}) where T
+	@inbounds Threads.@threads for i ∈ indices((dest,order),1)
+		oi = order[i]
+		@inbounds for j ∈ indices((dest,source),2)
+			dest[i,j] = source[oi,j]
+		end
+	end
 end

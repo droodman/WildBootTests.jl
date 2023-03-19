@@ -1,4 +1,5 @@
-@inline _sortperm(X::AbstractVecOrMat) = size(X,2)==1 ? sortperm(ndims(X)==1 ? X : vec(X), alg=RadixSort) : sortperm(collect(eachrow(X)); alg=TimSort)  # sort a data matrix
+@inline _sortperm(X::AbstractVecOrMat) = size(X,2)==1 ? sortperm(ndims(X)==1 ? X : vec(X), alg=isone(Threads.nthreads()) ? RadixSort : ThreadsX.MergeSort) : 
+                                                        sortperm(collect(eachrow(X))     , alg=isone(Threads.nthreads()) ? TimSort   : ThreadsX.MergeSort)
 
 function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repeatedly to make CI, do stuff once that doesn't depend on r
 	o.kX = o.kX₁ + o.kX₂
@@ -148,7 +149,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.purerobust = o.robust && !o.scorebs && iszero(o.subcluster) && o.N✻==o.Nobs  # do we ever error-cluster *and* bootstrap-cluster by individual?
 		o.granular   = o.WREnonARubin ? 2*o.Nobs*o.B*(2*o.N✻+1) < o.N✻*(o.N✻*o.Nobs+o.N⋂*o.B*(o.N✻+1)) :
 		               !o.jk && o.robust && !o.scorebs && (o.purerobust || (o.N⋂+o.N✻)*o.kZ*o.B + (o.N⋂-o.N✻)*o.B + o.kZ*o.B < o.N⋂*o.kZ^2 + o.Nobs*o.kZ + o.N⋂ * o.N✻ * o.kZ + o.N⋂ * o.N✻)
-o.granular = true
+
 		o.jk && !o.WREnonARubin && 
 			(o.granularjk = o.kZ^3 + o.N✻ * (o.Nobs/o.N✻*o.kZ^2 + (o.Nobs/o.N✻)^2*o.kZ + (o.Nobs/o.N✻)^2 + (o.Nobs/o.N✻)^3) < o.N✻ * (o.kZ^2*o.Nobs/o.N✻ + o.kZ^3 + 2*o.kZ*(o.kZ + o.Nobs/o.N✻)))
 
@@ -159,14 +160,14 @@ o.granular = true
 				(o.JN⋂N✻ = zeros(T, o.N⋂, o.N✻))
 		end
 
-		if o.WREnonARubin && o.bootstrapt && !o.granular && o.NClustVar > o.NBootClustVar
+		if o.WREnonARubin && o.bootstrapt && !o.granular && o.NClustVar>o.NBootClustVar
 			_, o._ID✻⋂ = panelsetupID(o.ID, 1:o.NClustVar)
 		end
   else
 	  minN = T(nrows(o.info✻))
 	end
 
-	InitFEs(o, o.overwrite)
+	InitFEs!(o)
 	if o.B>0 && o.robust && o.granular && o.bootstrapt && !o.WREnonARubin
 		if o.purerobust
 			o.ID✻ = Vector{Int64}[]  # panelsum treats 0 length same as max length
@@ -208,7 +209,7 @@ o.granular = true
 			o.R₁ = o.kX₁>0 && nrows(o.R₁)>0 ? hcat(o.R₁[:,1:o.kX₁], zeros(T,nrows(o.R₁),o.kX₂)) : zeros(T,0, o.kX)  # and convert model constraints from referring to X₁, Y₂ to X₁, X₂
 		end
 		o.dof = nrows(o.R)
-InitVarsIV! = o.granular ? InitVarsIVGranular! : InitVarsIVCoarse!
+
 		if !o.WRE && iszero(o.κ)  # regular OLS
 			o.DGP = StrEstimator{T}(true, o.liml, o.fuller, o.κ)
 			o.Repl = StrEstimator{T}(true, false, zero(T), zero(T))  # XXX isDGP=1 for Repl? doesn't matter?
@@ -313,7 +314,7 @@ InitVarsIV! = o.granular ? InitVarsIVGranular! : InitVarsIVCoarse!
 		o.interpolable = o.getci && o.bootstrapt && o.null && o.Nw==1 && (iszero(o.κ) || o.arubin)
 		o.interpolate_u = !(o.robust || o.ml)
 		(o.interpolate_u || (o.B>0 && o.robust && o.bootstrapt && (o.granular || o.purerobust) && (o.purerobust && !o.interpolable || o.NFE>0 && !o.FEboot))) &&
-			(o.u✻ = Matrix{T}(undef,o.N✻,o.ncolsv))
+			(o.u✻ = Matrix{T}(undef,o.Nobs,o.ncolsv))
 		if o.interpolable
 			o.∂numer∂r = [Matrix{T}(undef, o.dof, o.ncolsv) for _ ∈ 1:o.q]
 			o.interpolate_u && (o.∂u∂r = Vector{Matrix{T}}(undef, o.q))
@@ -338,7 +339,75 @@ function samerows(X::AbstractMatrix)
 	return true
 end
 
-function InitFEs(o::StrBootTest{T}, overwrite::Bool) where T
+# helper function for InitFEs!()
+function makeFE!(o::StrBootTest{T}, i::Int, j::Int, i_FE::Int, p::Vector{Int}, emptywtvec::Vector{T}, emptywtscalar::T) where T
+	is = @view p[i+1:j]
+	if o.haswt
+		_sqrtwt  = @view o.sqrtwt[is]
+		wtvec = _sqrtwt / (sumFEwt = sum(@view o.wt[is]))
+		o.FEs[i_FE] = StrFE{T}(is, emptywtscalar, wtvec, _sqrtwt)
+	else
+		sumFEwt = T(j - i)
+		wtscalar = one(T)/sumFEwt
+		o.FEs[i_FE] = StrFE{T}(is, wtscalar, emptywtvec, emptywtvec)
+	end
+	o.robust && ((o.B>0 && o.granular < o.NErrClustVar) || (o.WREnonARubin && o.granular && o.bootstrapt)) &&
+		(o.invFEwt[i_FE] = one(T) / sumFEwt)
+
+	o.FEboot && # are all of this FE's obs in same bootstrapping cluster? (But no need to check if B=0 for then CT(W.*E) in 2nd term of (62) orthogonal to v = col of 1's)
+		(o.FEboot = samerows(view(o.ID, is, 1:o.NBootClustVar)))
+end
+
+# function InitFEs!(o::StrBootTest{T}) where T
+# 	if isdefined(o, :FEID) && length(o.FEID)>0
+# 		p = _sortperm(o.FEID)
+# 		sortID = o.FEID[p]
+# 		i_FE, j = 1, o.Nobs
+# 		o.FEboot = o.B>0 && o.NClustVar>0
+# 		o._FEID = Vector{Int64}(undef, o.Nobs); o._FEID[1] = 1
+# 		o.invFEwt = zeros(T, o.NFE>0 ? o.NFE : o.Nobs)
+# 		o.FEs = Vector{StrFE{T}}(undef, o.NFE>0 ? o.NFE : o.Nobs)
+# 		emptywtvec = T[]; emptywtscalar = zero(T)
+# 		@inbounds for i ∈ o.Nobs-1:-1:1
+# 			if sortID[i] ≠ sortID[i+1]
+# 				makeFE!(o, i, j, i_FE, p, emptywtvec, emptywtscalar)
+# 				j = i
+# 				i_FE += 1
+# 			end
+# 			o._FEID[p[i]] = i_FE
+# 		end
+# 		makeFE!(o, 0, j, i_FE, p, emptywtvec, emptywtscalar)
+
+# 		if iszero(o.NFE)
+# 			o.NFE = i_FE
+# 			resize!(o.invFEwt, o.NFE)
+# 			resize!(o.FEs    , o.NFE)
+# 		end
+
+# 		o.FEdfadj==-1 && (o.FEdfadj = o.NFE)
+
+# 		o.robust && o.B>0 && o.bootstrapt && !o.FEboot && o.granular < o.NErrClustVar &&
+# 			(o.infoBootAll = panelsetup(o.ID✻⋂, 1:o.NBootClustVar))  # info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping && error clusters
+
+# 		if o.overwrite
+# 			partialFE!(o, o.X₁)
+# 			partialFE!(o, o.X₂)
+# 			partialFE!(o, o.y₁)
+# 			partialFE!(o, o.Y₂)
+# 		else
+# 			o.X₁ = partialFE(o, o.X₁)
+# 			o.X₂ = partialFE(o, o.X₂)
+# 			o.y₁ = partialFE(o, o.y₁)
+# 			o.Y₂ = partialFE(o, o.Y₂)
+# 		end
+# 		o.overwrite = o.NFE>0  # safe to further modify data matrices
+# 	else
+# 		o.FEdfadj = 0
+# 	end
+# 	nothing
+# end
+
+function InitFEs!(o::StrBootTest{T}) where T
 	if isdefined(o, :FEID) && length(o.FEID)>0
 		p = _sortperm(o.FEID)
 		sortID = o.FEID[p]
@@ -359,9 +428,7 @@ function InitFEs(o::StrBootTest{T}, overwrite::Bool) where T
 				o.FEs[i_FE] = StrFE{T}(is, wtscalar, wtvec, _sqrtwt)
 				o.robust && ((o.B>0 && o.granular < o.NErrClustVar) || (o.WREnonARubin && o.granular && o.bootstrapt)) &&
 					(o.invFEwt[i_FE] = one(T) / sumFEwt)
-
 				j = i
-
 				if o.FEboot  # are all of this FE's obs in same bootstrapping cluster? (But no need to check if B=0 for then CT(W.*E) in 2nd term of (62) orthogonal to v = col of 1's)
 					o.FEboot = samerows(view(o.ID, is, 1:o.NBootClustVar))
 				end
@@ -380,23 +447,18 @@ function InitFEs(o::StrBootTest{T}, overwrite::Bool) where T
 		o.FEs[i_FE] = StrFE{T}(is, wtscalar, wtvec, _sqrtwt)
 		o.robust && ((o.B>0 && o.granular < o.NErrClustVar) || (o.WREnonARubin && o.granular && o.bootstrapt)) &&
 			(o.invFEwt[i_FE] = one(T) / sumFEwt)
-
 		if iszero(o.NFE)
 			o.NFE = i_FE
 			resize!(o.invFEwt, o.NFE)
 			resize!(o.FEs    , o.NFE)
 		end
-
 		if o.FEboot  # are all of this FE's obs in same bootstrapping cluster?
 			o.FEboot = samerows(view(o.ID, is, 1:o.NBootClustVar))
 		end
-
 		o.FEdfadj==-1 && (o.FEdfadj = o.NFE)
-
 		if o.robust && o.B>0 && o.bootstrapt && !o.FEboot && o.granular < o.NErrClustVar
 			o.infoBootAll = panelsetup(o.ID✻⋂, 1:o.NBootClustVar)  # info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping && error clusters
 		end
-
 		if o.overwrite
 			partialFE!(o, o.X₁)
 			partialFE!(o, o.X₂)
@@ -408,7 +470,7 @@ function InitFEs(o::StrBootTest{T}, overwrite::Bool) where T
 			o.y₁ = partialFE(o, o.y₁)
 			o.Y₂ = partialFE(o, o.Y₂)
 		end
-		overwrite = o.NFE>0  # safe to further modify data matrices
+		o.overwrite = o.NFE>0  # safe to further modify data matrices
 	else
 		o.FEdfadj = 0
 	end
@@ -431,7 +493,7 @@ function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) wher
 		elseif o.auxtwtype == :webb
 			rand!(o.rng, o.v, m*T[-√1.5, -1, -√.5, √.5, 1, √1.5])
 		elseif o.auxtwtype == :mammen
-			rand!(o.rng, o.v); o.v .= getindex.(Ref(m*T[1-ϕ; ϕ]), ceil.(Int16, o.v ./ (ϕ/√5)))
+			rand!(o.rng, o.v); o.v .= getindex.(Ref(m * T[1-ϕ; ϕ]), ceil.(Int16, o.v ./ (ϕ/√5)))
 		else
 			rand!(o.rng, o.v, T[m, -m])  # Rademacher 
 		end
