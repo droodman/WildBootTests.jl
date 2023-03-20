@@ -32,7 +32,12 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	o.subcluster = o.NClustVar - o.NErrClustVar
 
 	if !(iszero(o.NClustVar) || o.issorted)
-		p = mysortperm(view(o.ID, :, [collect(o.subcluster+1:o.NClustVar); collect(1:o.subcluster)]))  # sort by err cluster vars, then remaining boot cluster vars
+		if iszero(o.subcluster)  # sort by err cluster vars, then remaining boot cluster vars
+			p = mysortperm(o.ID)
+		else
+			p = mysortperm(view(o.ID, :, [collect(o.subcluster+1:o.NClustVar); collect(1:o.subcluster)]))
+		end
+
 		o.ID = ndims(o.ID)==1 ? o.ID[p] : o.ID[p,:]
 		o.X₁ = ndims(o.X₁)==1 ? o.X₁[p] : o.X₁[p,:]
 		o.X₂ = ndims(o.X₂)==1 ? o.X₂[p] : o.X₂[p,:]
