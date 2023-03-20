@@ -136,7 +136,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 				end
 
 				if o.NFE>0 && !o.FEboot
-					tmp = o.invFEwt .* dropdims(crosstabFE(o, o.DGP.ü₁[1+_jk], o.info✻); dims=3)
+					tmp = o.invsumFEwt .* dropdims(crosstabFE(o, o.DGP.ü₁[1+_jk], o.info✻); dims=3)
 					@inbounds for d ∈ 1:o.dof
 						t✻plus!(K[d], view(o.M.CT_XAR,:,:,d)', tmp)
 					end

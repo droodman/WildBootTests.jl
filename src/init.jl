@@ -1,5 +1,5 @@
-@inline _sortperm(X::AbstractVecOrMat) = size(X,2)==1 ? sortperm(ndims(X)==1 ? X : vec(X), alg=isone(Threads.nthreads()) ? RadixSort : ThreadsX.MergeSort) : 
-                                                        sortperm(collect(eachrow(X))     , alg=isone(Threads.nthreads()) ? TimSort   : ThreadsX.MergeSort)
+@inline mysortperm(X::AbstractVecOrMat) = size(X,2)==1 ? sortperm(ndims(X)==1 ? X : vec(X), alg=isone(Threads.nthreads()) ? RadixSort : ThreadsX.MergeSort) : 
+                                                         sortperm(collect(eachrow(X))     , alg=isone(Threads.nthreads()) ? TimSort   : ThreadsX.MergeSort)
 
 function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repeatedly to make CI, do stuff once that doesn't depend on r
 	o.kX = o.kX₁ + o.kX₂
@@ -32,7 +32,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	o.subcluster = o.NClustVar - o.NErrClustVar
 
 	if !(iszero(o.NClustVar) || o.issorted)
-		p = _sortperm(view(o.ID, :, [collect(o.subcluster+1:o.NClustVar); collect(1:o.subcluster)]))  # sort by err cluster vars, then remaining boot cluster vars
+		p = mysortperm(view(o.ID, :, [collect(o.subcluster+1:o.NClustVar); collect(1:o.subcluster)]))  # sort by err cluster vars, then remaining boot cluster vars
 		o.ID = ndims(o.ID)==1 ? o.ID[p] : o.ID[p,:]
 		o.X₁ = ndims(o.X₁)==1 ? o.X₁[p] : o.X₁[p,:]
 		o.X₂ = ndims(o.X₂)==1 ? o.X₂[p] : o.X₂[p,:]
@@ -116,13 +116,13 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		    	  info  = Vector{UnitRange{Int64}}(undef, 0)  # causes no collapsing of data in panelsum() calls
 						N = o.N✻⋂
 		      else
-		    	  order = _sortperm(@view ID⋂_✻⋂[:,ClustCols])
+		    	  order = mysortperm(@view ID⋂_✻⋂[:,ClustCols])
 		    	  info  = panelsetup(view(ID⋂_✻⋂,order,:), ClustCols)
 						N = nrows(info)
 		      end
 		    else
 		      if any(combs[c, minimum(findall(combs[c,:] .≠ combs[c-1,:])):end])  # if this sort ordering same as last to some point and missing thereafter, no need to re-sort
-		    	  order = _sortperm(@view ID⋂_✻⋂[:,ClustCols])
+		    	  order = mysortperm(@view ID⋂_✻⋂[:,ClustCols])
 		    	  info = panelsetup(view(ID⋂_✻⋂,order,:), ClustCols)
 		      else
 		    	  order = Vector{Int64}(undef,0)
@@ -329,136 +329,53 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	nothing
 end
 
-function samerows(X::AbstractMatrix)
-	@inbounds for j ∈ eachindex(axes(X,2))
-		X₁ⱼ = X[1,j]
-		for i ∈ eachindex(axes(X,1))
-			X₁ⱼ ≠ X[i,j] && return false
-		end
-	end
-	return true
-end
-
-# helper function for InitFEs!()
-function makeFE!(o::StrBootTest{T}, i::Int, j::Int, i_FE::Int, p::Vector{Int}, emptywtvec::Vector{T}, emptywtscalar::T) where T
-	is = @view p[i+1:j]
-	if o.haswt
-		_sqrtwt  = @view o.sqrtwt[is]
-		wtvec = _sqrtwt / (sumFEwt = sum(@view o.wt[is]))
-		o.FEs[i_FE] = StrFE{T}(is, emptywtscalar, wtvec, _sqrtwt)
-	else
-		sumFEwt = T(j - i)
-		wtscalar = one(T)/sumFEwt
-		o.FEs[i_FE] = StrFE{T}(is, wtscalar, emptywtvec, emptywtvec)
-	end
-	o.robust && ((o.B>0 && o.granular < o.NErrClustVar) || (o.WREnonARubin && o.granular && o.bootstrapt)) &&
-		(o.invFEwt[i_FE] = one(T) / sumFEwt)
-
-	o.FEboot && # are all of this FE's obs in same bootstrapping cluster? (But no need to check if B=0 for then CT(W.*E) in 2nd term of (62) orthogonal to v = col of 1's)
-		(o.FEboot = samerows(view(o.ID, is, 1:o.NBootClustVar)))
-end
-
-# function InitFEs!(o::StrBootTest{T}) where T
-# 	if isdefined(o, :FEID) && length(o.FEID)>0
-# 		p = _sortperm(o.FEID)
-# 		sortID = o.FEID[p]
-# 		i_FE, j = 1, o.Nobs
-# 		o.FEboot = o.B>0 && o.NClustVar>0
-# 		o._FEID = Vector{Int64}(undef, o.Nobs); o._FEID[1] = 1
-# 		o.invFEwt = zeros(T, o.NFE>0 ? o.NFE : o.Nobs)
-# 		o.FEs = Vector{StrFE{T}}(undef, o.NFE>0 ? o.NFE : o.Nobs)
-# 		emptywtvec = T[]; emptywtscalar = zero(T)
-# 		@inbounds for i ∈ o.Nobs-1:-1:1
-# 			if sortID[i] ≠ sortID[i+1]
-# 				makeFE!(o, i, j, i_FE, p, emptywtvec, emptywtscalar)
-# 				j = i
-# 				i_FE += 1
-# 			end
-# 			o._FEID[p[i]] = i_FE
-# 		end
-# 		makeFE!(o, 0, j, i_FE, p, emptywtvec, emptywtscalar)
-
-# 		if iszero(o.NFE)
-# 			o.NFE = i_FE
-# 			resize!(o.invFEwt, o.NFE)
-# 			resize!(o.FEs    , o.NFE)
-# 		end
-
-# 		o.FEdfadj==-1 && (o.FEdfadj = o.NFE)
-
-# 		o.robust && o.B>0 && o.bootstrapt && !o.FEboot && o.granular < o.NErrClustVar &&
-# 			(o.infoBootAll = panelsetup(o.ID✻⋂, 1:o.NBootClustVar))  # info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping && error clusters
-
-# 		if o.overwrite
-# 			partialFE!(o, o.X₁)
-# 			partialFE!(o, o.X₂)
-# 			partialFE!(o, o.y₁)
-# 			partialFE!(o, o.Y₂)
-# 		else
-# 			o.X₁ = partialFE(o, o.X₁)
-# 			o.X₂ = partialFE(o, o.X₂)
-# 			o.y₁ = partialFE(o, o.y₁)
-# 			o.Y₂ = partialFE(o, o.Y₂)
-# 		end
-# 		o.overwrite = o.NFE>0  # safe to further modify data matrices
-# 	else
-# 		o.FEdfadj = 0
-# 	end
-# 	nothing
-# end
-
 function InitFEs!(o::StrBootTest{T}) where T
 	if isdefined(o, :FEID) && length(o.FEID)>0
-		p = _sortperm(o.FEID)
-		sortID = o.FEID[p]
-		i_FE = 1; o.FEboot = o.B>0 && o.NClustVar>0; j = o.Nobs; o._FEID = ones(Int64, o.Nobs)
-		o.invFEwt = zeros(T, o.NFE>0 ? o.NFE : o.Nobs)
-		o.FEs = Vector{StrFE{T}}(undef, o.NFE>0 ? o.NFE : o.Nobs)
-		wtvec = _sqrtwt = T[]; wtscalar = zero(T)
-		@inbounds for i ∈ o.Nobs-1:-1:1
-			if sortID[i] ≠ sortID[i+1]
-				is = @view p[i+1:j]
-				if o.haswt
-					_sqrtwt  = @view o.sqrtwt[is]
-					wtvec = _sqrtwt / (sumFEwt = sum(@view o.wt[is]))
-				else
-					sumFEwt = T(j - i)
-					wtscalar = one(T)/sumFEwt
-				end
-				o.FEs[i_FE] = StrFE{T}(is, wtscalar, wtvec, _sqrtwt)
-				o.robust && ((o.B>0 && o.granular < o.NErrClustVar) || (o.WREnonARubin && o.granular && o.bootstrapt)) &&
-					(o.invFEwt[i_FE] = one(T) / sumFEwt)
-				j = i
-				if o.FEboot  # are all of this FE's obs in same bootstrapping cluster? (But no need to check if B=0 for then CT(W.*E) in 2nd term of (62) orthogonal to v = col of 1's)
-					o.FEboot = samerows(view(o.ID, is, 1:o.NBootClustVar))
-				end
-				i_FE += 1
-			end
-			o._FEID[p[i]] = i_FE
-		end
-		is = @view p[1:j]
+		s = BitSet(o.FEID)
+		o.NFE = length(s)
+		o._FEID = getindex.(Ref(Dict(zip(s, 1:o.NFE))), o.FEID)  # standardize FE ID to 1, 2, ...
+
+		sumFEwt = zeros(T, o.NFE)
 		if o.haswt
-			_sqrtwt  = @view o.sqrtwt[is]
-			wtvec = _sqrtwt / (sumFEwt = sum(@view o.wt[is]))
+			@inbounds for i ∈ 1:o.Nobs
+				sumFEwt[o._FEID[i]] += o.wt[i]
+			end
+			o.FEwt = o.sqrtwt ./ sumFEwt[o._FEID]
 		else
-			sumFEwt = T(j)
-			wtscalar = one(T)/sumFEwt
+			@inbounds for i ∈ 1:o.Nobs
+				sumFEwt[o._FEID[i]] += one(T)
+			end
 		end
-		o.FEs[i_FE] = StrFE{T}(is, wtscalar, wtvec, _sqrtwt)
-		o.robust && ((o.B>0 && o.granular < o.NErrClustVar) || (o.WREnonARubin && o.granular && o.bootstrapt)) &&
-			(o.invFEwt[i_FE] = one(T) / sumFEwt)
-		if iszero(o.NFE)
-			o.NFE = i_FE
-			resize!(o.invFEwt, o.NFE)
-			resize!(o.FEs    , o.NFE)
+		o.invsumFEwt = one(T) ./ sumFEwt
+
+		# is every FE group inside same bootstrapping?
+		o.FEboot = o.B>0 && o.NClustVar>0
+		if o.FEboot
+			first = fill(true, o.NFE)
+			clustrows = Matrix{Int64}(undef, o.NFE, o.NBootClustVar)
+			_ID = view(o.ID, :, 1:o.NBootClustVar)
+			js = eachindex(axes(_ID))
+			@inbounds for i ∈ eachindex(axes(o.ID))
+				if first[i]
+					clustrows[i,:] = _ID[i,:]
+					first[i] = false
+				else
+					for j ∈ js
+						if clustrows[i,j] ≠ _ID[i,j]
+							o.FEboot = false
+							@goto afer_loop
+						end
+					end
+				end
+			end
 		end
-		if o.FEboot  # are all of this FE's obs in same bootstrapping cluster?
-			o.FEboot = samerows(view(o.ID, is, 1:o.NBootClustVar))
-		end
+		@label afer_loop
+
 		o.FEdfadj==-1 && (o.FEdfadj = o.NFE)
-		if o.robust && o.B>0 && o.bootstrapt && !o.FEboot && o.granular < o.NErrClustVar
-			o.infoBootAll = panelsetup(o.ID✻⋂, 1:o.NBootClustVar)  # info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping && error clusters
-		end
+
+		o.robust && o.B>0 && o.bootstrapt && !o.FEboot && o.granular < o.NErrClustVar &&
+			(o.infoBootAll = panelsetup(o.ID✻⋂, 1:o.NBootClustVar))  # info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping && error clusters
+
 		if o.overwrite
 			partialFE!(o, o.X₁)
 			partialFE!(o, o.X₂)
@@ -469,12 +386,11 @@ function InitFEs!(o::StrBootTest{T}) where T
 			o.X₂ = partialFE(o, o.X₂)
 			o.y₁ = partialFE(o, o.y₁)
 			o.Y₂ = partialFE(o, o.Y₂)
+			o.overwrite = o.NFE>0  # safe to further modify data matrices
 		end
-		o.overwrite = o.NFE>0  # safe to further modify data matrices
 	else
 		o.FEdfadj = 0
 	end
-	nothing
 end
 
 # draw wild weight matrix of width _B. If first=true, insert column of 1s at front.
@@ -485,7 +401,8 @@ function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) wher
 	
 	if _B>0  # in scoretest or waldtest WRE, still make v a col of 1's
     if o.enumerate
-			o.v[:,2:end] = map(x->iszero(x) ? -m : m, 2 .^ (0:o.N✻-1) .& collect(0:2^o.N✻-1)')
+			o.v[:,2:end] = hcat(digits.(0:2^o.N✻-1, base=2, pad=o.N✻)...)
+			lmul!(2*m, o.v); o.v .-= m
 		elseif o.auxtwtype == :normal
 			randn!(o.rng, o.v); !isone(m) && (o.v .*= m)
 		elseif o.auxtwtype == :gamma 

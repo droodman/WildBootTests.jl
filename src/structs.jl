@@ -6,12 +6,6 @@ struct StrClust{T<:Real}
 	info::Vector{UnitRange{Int64}}
 end
 
-struct StrFE{T<:Real}
-	is::SubArray{Int64, 1, Vector{Int64}, Tuple{UnitRange{Int64}}, true}
-  wtscalar::T; wtvec::Vector{T}
-  sqrtwt::Vector{T}
-end
-
 # DesignerMatrix type to efficiently represent selection matrices
 @enum MatType identity selection regular
 struct DesignerMatrix{T} <: AbstractMatrix{T}
@@ -195,14 +189,14 @@ mutable struct StrBootTest{T<:AbstractFloat}
 
   const q::Int16; const twotailed::Bool; const jk::Bool; scorebs::Bool; const robust::Bool
 
-  WRE::Bool; initialized::Bool; NFE::Int64; FEboot::Bool; granular::Bool; granularjk::Bool; NErrClustCombs::Int16; subcluster::Int8; BFeas::Int64; interpolating::Bool
+  WRE::Bool; initialized::Bool; FEboot::Bool; granular::Bool; granularjk::Bool; NErrClustCombs::Int16; subcluster::Int8; BFeas::Int64; interpolating::Bool
   confpeak::Vector{T}
   ID✻::Vector{Int64}; ID✻_✻⋂::Vector{Int64}
   anchor::Vector{T}; poles::Vector{T}; numer::Matrix{T}
   ci::Matrix{T}
   peak::NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
 
-	const Nobs::Int64; const NClustVar::Int8; const kX₁::Int64; const kX₂::Int64; const kY₂::Int64; const WREnonARubin::Bool; const boottest!::Function
+	NFE::Int64; const Nobs::Int64; const NClustVar::Int8; const kX₁::Int64; const kX₂::Int64; const kY₂::Int64; const WREnonARubin::Bool; const boottest!::Function
 	# end of fields initialized by initializer
 
   sqrt::Bool; _Nobs::T; kZ::Int64; sumwt::T; haswt::Bool; sqrtwt::Vector{T}; multiplier::T; smallsample::T; getci::Bool
@@ -214,7 +208,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	numerw::Matrix{T}; numer_b::Vector{T}; dist::Matrix{T}
 
 	distCDR::Matrix{T}; plotX::Vector{Vector{T}}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
-  numersum::Vector{T}; u✻₀::Matrix{T}; invFEwt::Vector{T}
+  numersum::Vector{T}; u✻₀::Matrix{T}; invsumFEwt::Vector{T}; FEwt::Vector{T}
 	β̈s::Matrix{T}; As::Array{T,3}; β̈sAs::Matrix{T}
 	info✻⋂::Vector{UnitRange{Int64}}; info⋂::Vector{UnitRange{Int64}}; ID✻⋂::Matrix{T}
 	DGP::StrEstimator{T}; Repl::StrEstimator{T}; M::StrEstimator{T}
@@ -227,8 +221,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	CT✻FEu₁::Array{T,3}; CT✻FEU₂par::Array{T,3}; CT✻FEU::Vector{SubArray{T, 2, Array{T,3}, Tuple{Base.Slice{Base.OneTo{Int64}}, Base.Slice{Base.OneTo{Int64}}, Int64}, true}}
 	invFEwtCT✻FEu₁::Array{T,3}; invFEwtCT✻FEU₂par::Array{T,3}; invFEwtCT✻FEU::Vector{SubArray{T, 2, Array{T,3}, Tuple{Base.Slice{Base.OneTo{Int64}}, Base.Slice{Base.OneTo{Int64}}, Int64}, true}}; S✻ȲUfold::Array{T,3}
   ∂denom∂r::Array{Matrix{T},3}; ∂Jcd∂r::Array{Matrix{T},3}; ∂²denom∂r²::Array{Matrix{T},4}
-	FEs::Vector{StrFE{T}}
-  T1L::Matrix{T}; T1R::Matrix{T}; J⋂s::Array{T,3}; J⋂s1::Vector{Matrix{T}}; β̈v::Matrix{T}
+	T1L::Matrix{T}; T1R::Matrix{T}; J⋂s::Array{T,3}; J⋂s1::Vector{Matrix{T}}; β̈v::Matrix{T}
 	crosstab⋂✻ind::Vector{Int64}
   seed::UInt64
 
@@ -255,7 +248,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 
 	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, liml, 
 	               fuller, κ, arubin, B, auxtwtype, rng, maxmatsize, ptype, null, jk, scorebs, bootstrapt, ID, NBootClustVar, NErrClustVar, issorted, robust, small, clusteradj, clustermin,
-								 NFE, FEID, FEdfadj, level, rtol, madjtype, NH₀, ml,
+								 FEID, FEdfadj, level, rtol, madjtype, NH₀, ml,
 								 β̈, A, sc, willplot, gridmin, gridmax, gridpoints, overwrite) where T<:Real =
 		begin
 			kX₂ = ncols(X₂)
@@ -275,13 +268,13 @@ mutable struct StrBootTest{T<:AbstractFloat}
 					ml, β̈, A, sc,
 					willplot, gridmin, gridmax, gridpoints, overwrite,
 					nrows(R), ptype == :symmetric || ptype == :equaltail, jk, scorebs, robust || NErrClustVar>0,
-					false, false, NFE, false, false, false, 0, 0, 0, false,
+					false, false, false, false, false, 0, 0, 0, false,
 					[zero(T)],
 					Vector{Int64}(undef,0), Vector{Int64}(undef,0),
 					Vector{T}(undef,0), Vector{T}(undef,0), Matrix{T}(undef,0,0),
 					Matrix{T}(undef,0,0),
 					(X = Vector{T}(undef,0), p = T(NaN)),
-					nrows(X₁), ncols(ID), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!)
+					0, nrows(X₁), ncols(ID), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!)
 		end
 end
 

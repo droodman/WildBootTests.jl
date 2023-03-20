@@ -95,7 +95,6 @@ function __wildboottest(
 	nerrclustvar::Int64,
 	issorted::Bool,
 	hetrobust::Bool,
-	nfe::Int64,
 	feid::VecOrMat{Int64},
 	fedfadj::Int64,
 	obswt::VecOrMat{T},
@@ -135,7 +134,7 @@ function __wildboottest(
 
 	o = StrBootTest{T}(R, r, R1, r1, resp, predexog, predendog, inst, obswt, fweights, liml, fuller, kappa, arubin,
 	                   reps, auxwttype, rng, maxmatsize, ptype, imposenull, jk, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, issorted, hetrobust, small, clusteradj, clustermin,
-	                   nfe, feid, fedfadj, level, rtol, madjtype, nH0, ml, beta, A, scores, getplot,
+	                   feid, fedfadj, level, rtol, madjtype, nH0, ml, beta, A, scores, getplot,
 	                   gridmin, gridmax, gridpoints, overwrite)
 
 	o.getci = getplot || (level<1 && getci)
@@ -176,7 +175,6 @@ function _wildboottest(T::DataType,
 					  nbootclustvar::Integer=ncols(clustid),
 					  nerrclustvar::Integer=nbootclustvar,
 						issorted::Bool=false,
-						nfe::Integer=0,
 					  feid::AbstractVecOrMat{<:Integer}=Int8[],
 					  fedfadj::Integer=length(feid)>0 ? -1 : 0,
 					  obswt::AbstractVecOrMat{<:Real}=T[],
@@ -283,7 +281,6 @@ function _wildboottest(T::DataType,
 		nerrclustvar=Int64(nerrclustvar),
 		issorted,
 		hetrobust,
-		nfe,
 		feid=vecconvert(Int64,feid),
 		fedfadj,
 		obswt=vecconvert(T,obswt),
@@ -350,7 +347,6 @@ Function to perform wild-bootstrap-based hypothesis test
 * `nerrclustvar::Integer=nbootclustvar`: number of error-clustering variables
 * `issorted:Bool=false`: time-saving flag: data matrices are already sort by column types 2, then 3, then 1 (see notes)
 * `hetrobust::Bool=true`: true unless errors are treated as iid
-* `nfe::Integer=0`: number of fixed-effect groups; if 0 yet `feid` is provided, will be computed, at small speed penalty
 * `feid::AbstractVector{<:Integer}`: data vector for one-way fixed effect group identifier
 * `fedfadj::Integer`: degrees of freedom that fixed effects (if any) consume; defaults to number of FEs
 * `obswt::AbstractVector=[]`: observation weight vector; default is equal weighting

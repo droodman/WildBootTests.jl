@@ -174,7 +174,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 			o.F₁β = similar(o.F₁)
 			o.F₂ = similar(o.F₁)
 	
-			o.NFE>0 && !o.FEboot && (o.CT⋂FEX = o.invFEwt .* @panelsum(CT✻⋂FEX, o.info⋂_✻⋂))
+			o.NFE>0 && !o.FEboot && (o.CT⋂FEX = o.invsumFEwt .* @panelsum(CT✻⋂FEX, o.info⋂_✻⋂))
 			o.S✻⋂Xu₁ = Array{T,3}(undef, o.DGP.kX, o.N✻⋂, 1)
 			o.S✻⋂XÜ₂par = Array{T,3}(undef, o.DGP.kX, o.N✻⋂, o.Repl.kZ)
 		end
@@ -295,8 +295,8 @@ function PrepWRE!(o::StrBootTest{T}) where T
 			if o.NFE>0 && !o.FEboot
 				crosstabFE!(o, o.CT✻FEu₁    , o.DGP.u⃛₁, o.info✻)
 				crosstabFE!(o, o.CT✻FEU₂par, o.Ü₂par     , o.info✻)
-				o.invFEwtCT✻FEu₁ .= o.invFEwt .* o.CT✻FEu₁
-				o.invFEwtCT✻FEU₂par .= o.invFEwt .* o.CT✻FEU₂par
+				o.invFEwtCT✻FEu₁ .= o.invsumFEwt .* o.CT✻FEu₁
+				o.invFEwtCT✻FEU₂par .= o.invsumFEwt .* o.CT✻FEU₂par
 			end
 		end
 
@@ -379,8 +379,8 @@ function PrepWRE!(o::StrBootTest{T}) where T
 					o.CT✻FEU₂par .= o.CT✻FEU₂ * o.Repl.RparY
 					o.DGP.restricted &&
 						t✻minus!(o.CT✻FEu₁, o.CT✻FEZR₁, r₁)
-					o.invFEwtCT✻FEu₁    .= o.invFEwt .* o.CT✻FEu₁
-					o.invFEwtCT✻FEU₂par .= o.invFEwt .* o.CT✻FEU₂par
+					o.invFEwtCT✻FEu₁    .= o.invsumFEwt .* o.CT✻FEu₁
+					o.invFEwtCT✻FEU₂par .= o.invsumFEwt .* o.CT✻FEU₂par
 				end
 			end
 

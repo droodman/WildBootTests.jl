@@ -667,62 +667,28 @@ end
 
 
 # partial any fixed effects out of a data matrix
-function partialFE!(o::StrBootTest{T}, In::AbstractVector{T}) where T
-  if length(In)>0
-		if o.haswt
-			@inbounds @fastmath for f ∈ o.FEs
-				fis = f.is; wt = f.wtvec; sqrtwt = f.sqrtwt
-				s = zero(T)
-				for i ∈ eachindex(fis)
-					s += In[fis[i]] * wt[i]
-				end
-				for i ∈ eachindex(fis)
-					In[fis[i]] -= sqrtwt[i] * s
-				end
-			end
-		else
-			@inbounds @fastmath for f ∈ o.FEs
-				s = zero(T)
-				fis = f.is
-				for i ∈ eachindex(fis)
-					s += In[fis[i]]
-				end
-				s *= f.wtscalar
-				for i ∈ eachindex(fis)
-					In[fis[i]] -= s
-				end
-			end
-		end
-  end
-	nothing
-end
-function partialFE!(o::StrBootTest{T}, In::AbstractMatrix{T}) where T
+function partialFE!(o::StrBootTest{T}, In::AbstractVecOrMat{T}) where T
 	if length(In)>0
+		is = eachindex(axes(In,1))
 		if o.haswt
-			@inbounds for j ∈ eachindex(axes(In,2))
-				@inbounds @fastmath for f ∈ o.FEs
-					fis = f.is; wt = f.wtvec; sqrtwt = f.sqrtwt
-					s = zero(T)
-					for i ∈ eachindex(fis)
-						s += In[fis[i],j] * wt[i]
-					end
-					for i ∈ eachindex(fis)
-						In[fis[i],j] -= sqrtwt[i] * s
-					end
+			@inbounds Threads.@threads for j ∈ eachindex(axes(In,2))
+				S = zeros(T,o.NFE)
+				for i ∈ is
+					S[o._FEID[i]] += In[i,j] * o.FEwt[i]
+				end
+				for i ∈ is
+					In[i,j] -= S[o._FEID[i]] * o.sqrtwt[i]
 				end
 			end
 		else
-			@inbounds for j ∈ eachindex(axes(In,2))
-				@inbounds @fastmath for f ∈ o.FEs
-					fis = f.is
-					s = zero(T)
-					for i ∈ eachindex(fis)
-						s += In[fis[i],j]
-					end
-					s *= f.wtscalar
-					for i ∈ eachindex(fis)
-						In[fis[i],j] -= s
-					end
+			@inbounds Threads.@threads for j ∈ eachindex(axes(In,2))
+				S = zeros(T,o.NFE)
+				for i ∈ is
+					S[o._FEID[i]] += In[i,j]
+				end
+				S .*= o.invsumFEwt
+				for i ∈ is
+					In[i,j] -= S[o._FEID[i]]
 				end
 			end
 		end
@@ -984,11 +950,11 @@ function partialjk(A::AbstractVecOrMat{T}, Z::AbstractMatrix{T}, ZZZA::AbstractA
   dest
 end
 
-function reorder!(dest::AbstractMatrix{T}, source::AbstractMatrix{T}, order::Vector{Int}) where T
-	@inbounds Threads.@threads for i ∈ indices((dest,order),1)
-		oi = order[i]
-		@inbounds for j ∈ indices((dest,source),2)
-			dest[i,j] = source[oi,j]
-		end
-	end
-end
+# function reorder!(dest::AbstractMatrix{T}, source::AbstractMatrix{T}, order::Vector{Int}) where T
+# 	@inbounds Threads.@threads for i ∈ indices((dest,order),1)
+# 		oi = order[i]
+# 		@inbounds for j ∈ indices((dest,source),2)
+# 			dest[i,j] = source[oi,j]
+# 		end
+# 	end
+# end
