@@ -361,7 +361,7 @@ boottest merit, nogr reps(9999) nonull bootcluster(individual)
 boottest merit, nogr reps(9999) nonull bootcluster(individual) matsize(.1)
 t(41) = 6.7127
 p     = 0.4918
-CI    = [-2.816 1.285]
+CI    = [-2.814 1.285]
 
 t(41) = 6.7127
 p     = 0.0000

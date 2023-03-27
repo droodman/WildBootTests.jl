@@ -50,7 +50,7 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   println(log, "boottest (post_self=.05) (post=-.02), reps(9999) weight(webb)")
   test = wildboottest([0 0 0 1; 0 0 1 0], [.05; -.02]; resp, predexog, clustid=Int32.(df.year), reps=9999, auxwttype=:webb, rng=StableRNG(1231))
   println(log, test)
-  
+
   test = wildboottest([0 0 0 1; 0 0 1 0], [.05; -.02]; resp, predexog, clustid=Int32.(df.year), reps=9999, auxwttype=:webb, rng=StableRNG(1231), bootstrapc=true)
   println(log, test)
   
@@ -66,10 +66,10 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   test = wildboottest([0 0 0 1; 0 0 1 0], [.05; -.02]; resp, predexog, hetrobust=false, auxwttype=:webb, rng=StableRNG(1231))
   println(log, test)
   println(log, "scoretest (post_self=.05)")
-  test = wildboottest([0 0 0 1], [.05]; resp, predexog, hetrobust=false, scorebs=true, reps=0)
+  test = scoretest([0 0 0 1], [.05]; resp, predexog, hetrobust=false)
   println(log, test)
   println(log, "scoretest (post_self=.05) (post=-.02)")
-  test = wildboottest([0 0 0 1; 0 0 1 0], [.05; -.02]; resp, predexog, hetrobust=false, scorebs=true, reps=0)
+  test = scoretest([0 0 0 1; 0 0 1 0], [.05; -.02]; resp, predexog, hetrobust=false)
   println(log, test)
   println(log, "boottest (post_self=.08), boottype(score)")
   test = wildboottest([0 0 0 1], [.08]; resp, predexog, hetrobust=false, scorebs=true, rng=StableRNG(1231))
@@ -187,11 +187,11 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   println(log, test)
   
   println(log, "\nscoretest tenure")
-  test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0)
+  test = scoretest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false)
   println(log, test)
   
   println(log, "\nwaldtest tenure, pytpe(upper)")
-  test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, imposenull=false, getplot=false, ptype=:upper)
+  test = waldtest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, getplot=false, ptype=:upper)
   println(log, test)
   
   println(log, "\nivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)")
@@ -261,15 +261,17 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   println(log, "boottest occupation")
   test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, obswt=df.hours, feid=df.industry, fedfadj=1, rng=StableRNG(1231), liml=true)
   println(log, test)
-  
   println(log, "\nivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours] if grade<., liml cluster(industry) absorb(age)")
   println(log, "boottest tenure")
+
   test = wildboottest([0 0 1 0], [0]; resp, predexog, predendog, inst, clustid=df.industry, obswt=df.hours, feid=df.age, rng=StableRNG(1231), liml=true)
+
   println(log, test)
   println(log, "boottest tenure, jk")
   test = wildboottest([0 0 1 0], [0]; resp, predexog, predendog, inst, clustid=df.industry, obswt=df.hours, feid=df.age, rng=StableRNG(1231), liml=true, jk=true)
   println(log, test)
   println(log, "boottest collgrad tenure")
+  
   test = wildboottest([0 0 1 0; 0 1 0 0], [0; 0]; resp, predexog, predendog, inst, clustid=df.industry, obswt=df.hours, feid=df.age, rng=StableRNG(1231), liml=true, reps=99)
   println(log, test)
   println(log, "boottest occupation")
@@ -281,7 +283,7 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   println(log, test)
   test = wildboottest([0 1 0], [0];                         resp, predexog=predexog[:,[1,3]], predendog, inst=[inst predexog[:,2]], clustid=df.industry, obswt=df.hours, feid=df.age, rng=StableRNG(1231), liml=true, gridmin=[-1], gridmax=[1])
   println(log, test)
-  
+
   df = DataFrame(load("abdata.dta"))[:,[:n; :w; :k; :ys; :id; :year; :ind]]
   dropmissing!(df)
   f = @formula(n ~ w + k)  # constant unneeded in FE model
@@ -322,7 +324,7 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   println(log, test)
   test = wildboottest([1 zeros(1,size(predexog,2)-1)], [0]; resp, predexog, clustid=Matrix(df[:, [:pixcode, :ccode]]), nbootclustvar=2, nerrclustvar=2, feid=df.ccode, reps=9999, rng=StableRNG(1231))
   println(log, test)
-  
+
   println(log, "\ninfile coll merit male black asian year state chst using regm.raw, clear")
   println(log, "qui regress coll merit male black asian i.year i.state if !inlist(state,34,57,59,61,64,71,72,85,88), cluster(state)	")
   println(log, "generate individual = _n  // unique ID for each observation")
@@ -341,7 +343,7 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   f = apply_schema(f, schema(f, df))
   resp, predexog = modelcols(f, df)
 
-  test = wildboottest([0 1 zeros(1,size(predexog,2)-2)], [0]; resp, predexog, clustid=levelcode.(df.state), gridpoints=[10], reps=9999, rng=StableRNG(1231))
+  test = wildboottest([0 1 zeros(1,size(predexog,2)-2)], [0]; resp, predexog, clustid=levelcode.(df.state), reps=9999, rng=StableRNG(1231))
   println(log, test)
   test = wildboottest([0 1 zeros(1,size(predexog,2)-2)], [0]; resp, predexog, clustid=levelcode.(df.state), reps=9999, imposenull=false, rng=StableRNG(1231))
   println(log, test)

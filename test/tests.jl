@@ -67,10 +67,10 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   test = wildboottest([0 0 0 1; 0 0 1 0], [.05; -.02]; resp, predexog, hetrobust=false, auxwttype=:webb, rng=StableRNG(1231))
   println(log, test)
   println(log, "scoretest (post_self=.05)")
-  test = wildboottest([0 0 0 1], [.05]; resp, predexog, hetrobust=false, scorebs=true, reps=0)
+  test = scoretest([0 0 0 1], [.05]; resp, predexog, hetrobust=false)
   println(log, test)
   println(log, "scoretest (post_self=.05) (post=-.02)")
-  test = wildboottest([0 0 0 1; 0 0 1 0], [.05; -.02]; resp, predexog, hetrobust=false, scorebs=true, reps=0)
+  test = scoretest([0 0 0 1; 0 0 1 0], [.05; -.02]; resp, predexog, hetrobust=false)
   println(log, test)
   println(log, "boottest (post_self=.08), boottype(score)")
   test = wildboottest([0 0 0 1], [.08]; resp, predexog, hetrobust=false, scorebs=true, rng=StableRNG(1231))
@@ -188,11 +188,11 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   println(log, test)
   
   println(log, "\nscoretest tenure")
-  test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0)
+  test = scoretest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false)
   println(log, test)
   
   println(log, "\nwaldtest tenure, pytpe(upper)")
-  test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=0, imposenull=false, getplot=false, ptype=:upper)
+  test = waldtest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, getplot=false, ptype=:upper)
   println(log, test)
   
   println(log, "\nivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)")

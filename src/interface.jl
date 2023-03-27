@@ -399,8 +399,12 @@ Order the columns of `clustid` this way:
 be restricted to the estimation sample.
 
 """
-wildboottest(   R, r; kwargs...) = _wildboottest(                                                  R, r; Dict(a.first => isa(a.second, AbstractString) ? Meta.parse(a.second) : a.second for a ∈ kwargs)...)  # parse any parameters passed as strings
-wildboottest(T, R, r; kwargs...) = _wildboottest(isa(T, AbstractString) ? eval(Meta.parse(T)) : T, R, r; Dict(a.first => isa(a.second, AbstractString) ? Meta.parse(a.second) : a.second for a ∈ kwargs)...)
+wildboottest(   R, r; kwargs...) = _wildboottest(                                              R, r; Dict(a.first => a.second isa AbstractString ? Symbol(a.second) : a.second for a ∈ kwargs)...)  # convert any string parameters to symbols
+wildboottest(T, R, r; kwargs...) = _wildboottest(isa(T, AbstractString) ? eval(Symbol(T)) : T, R, r; Dict(a.first => a.second isa AbstractString ? Symbol(a.second) : a.second for a ∈ kwargs)...)
 
-wildboottest!(   R, r; kwargs...) = _wildboottest(                                                  R, r; overwrite=true, Dict(a.first => isa(a.second, AbstractString) ? Meta.parse(a.second) : a.second for a ∈ kwargs)...)  # parse any parameters passed as strings
-wildboottest!(T, R, r; kwargs...) = _wildboottest(isa(T, AbstractString) ? eval(Meta.parse(T)) : T, R, r; overwrite=true, Dict(a.first => isa(a.second, AbstractString) ? Meta.parse(a.second) : a.second for a ∈ kwargs)...)
+wildboottest!(   R, r; kwargs...) = _wildboottest(                                              R, r; overwrite=true, Dict(a.first => a.second isa AbstractString ? Symbol(a.second) : a.second for a ∈ kwargs if a.first ≠ :overwrite)...)  # convert any string parameters to symbols
+wildboottest!(T, R, r; kwargs...) = _wildboottest(isa(T, AbstractString) ? eval(Symbol(T)) : T, R, r; overwrite=true, Dict(a.first => a.second isa AbstractString ? Symbol(a.second) : a.second for a ∈ kwargs if a.first ≠ :overwrite)...)
+
+const skipargs = (:imposenull, :reps, :scorebs)
+waldtest(args...; kwargs...) = wildboottest(args...; reps=0, imposenull=false, scorebs=true, Dict(a.first => a.second for a ∈ kwargs if a.first ∉ skipargs)...)
+scoretest(args...; kwargs...) = wildboottest(args...; reps=0, imposenull=true, scorebs=true, Dict(a.first => a.second for a ∈ kwargs if a.first ∉ skipargs)...)

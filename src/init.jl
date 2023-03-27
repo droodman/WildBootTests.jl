@@ -203,7 +203,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.v = Matrix{T}(undef, o.N✻, o.ncolsv)
 		o.Nw = ceil(Int64, (o.B+1) / o.ncolsv)
 		o.WeightGrp = [(i-1)*o.ncolsv+1:i*o.ncolsv for i ∈ 1:o.Nw]
-		o.B = o.Nw * o.ncolsv - 1  # replicaions may be slightly increased so each block of v same size
+		o.B = o.Nw * o.ncolsv - 1  # of replications may be slightly increased so each block of v same size
 	end
 
 	if o.ml
