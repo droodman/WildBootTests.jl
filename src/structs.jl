@@ -274,7 +274,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 					Vector{T}(undef,0), Vector{T}(undef,0), Matrix{T}(undef,0,0),
 					Matrix{T}(undef,0,0),
 					(X = Vector{T}(undef,0), p = T(NaN)),
-					0, nrows(X₁), ncols(ID), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!)
+					0, nrows(y₁), ncols(ID), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!)
 		end
 end
 

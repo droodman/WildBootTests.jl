@@ -145,8 +145,8 @@ function InitWRE!(o::StrBootTest{T}) where T
 		o.Π̈Rpar = Matrix{T}(undef, o.DGP.kX, o.Repl.kZ)
 
 		if o.willfill || !o.jk
-			o.S✻⋂XX   = o.DGP.S✻⋂XX      - o.DGP.S✻⋂XZperp     * o.DGP.invZperpZperpZperpX - o.DGP.invZperpZperpZperpX' * (o.DGP.S✻⋂XZperp' - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpX)
-			S✻⋂ZperpX = o.DGP.S✻⋂XZperp' - o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpX
+			S✻⋂ZperpX = o.DGP.S✻⋂ZperpZperp * o.DGP.invZperpZperpZperpX; S✻⋂ZperpX .= o.DGP.S✻⋂XZperp' .- S✻⋂ZperpX
+			o.S✻⋂XX   = o.DGP.S✻⋂XZperp * o.DGP.invZperpZperpZperpX; o.S✻⋂XX .= o.DGP.S✻⋂XX .- o.S✻⋂XX; t✻minus!(o.S✻⋂XX, o.DGP.invZperpZperpZperpX', S✻⋂ZperpX)
 			o.NFE>0 && !o.FEboot &&
 			  (CT✻⋂FEX  = [crosstabFE(o, o.DGP.X₁, o.info✻⋂) crosstabFE(o, o.DGP.X₂, o.info✻⋂)])
 		end
@@ -199,9 +199,9 @@ function InitWRE!(o::StrBootTest{T}) where T
 			o.S✻XDGPZ     = @panelsum(o.S✻⋂XDGPZ, o.info✻_✻⋂)
 			o.S✻Xy₁       = @panelsum(o.S✻⋂Xy₁  , o.info✻_✻⋂)
 			o.S✻ZperpX    = @panelsum(S✻⋂ZperpX, o.info✻_✻⋂)
-			o.S✻ZperpY₂   = _S✻ZperpY₂ - S✻ZperpZperp * o.DGP.invZperpZperpZperpY₂
-			o.S✻ZperpDGPZ = _S✻ZperpDGPZpar - S✻ZperpZperp * o.DGP.invZperpZperpZperpZ
-			o.S✻Zperpy₁   = _S✻Zperpy₁ - S✻ZperpZperp * o.DGP.invZperpZperpZperpy₁
+			o.S✻ZperpY₂   = S✻ZperpZperp * o.DGP.invZperpZperpZperpY₂; o.S✻ZperpY₂   .= _S✻ZperpY₂      .- o.S✻ZperpY₂
+			o.S✻ZperpDGPZ = S✻ZperpZperp * o.DGP.invZperpZperpZperpZ ; o.S✻ZperpDGPZ .= _S✻ZperpDGPZpar .- o.S✻ZperpDGPZ
+			o.S✻Zperpy₁   = S✻ZperpZperp * o.DGP.invZperpZperpZperpy₁; o.S✻Zperpy₁   .= _S✻Zperpy₁      .- o.S✻Zperpy₁
 
 			if o.NFE>0 && !o.FEboot && (o.willfill || o.not2SLS)
 				o.CT✻FEX   = @panelsum(CT✻⋂FEX, o.info✻_✻⋂)
@@ -221,24 +221,24 @@ function InitWRE!(o::StrBootTest{T}) where T
 				_S✻ZperpDGPZR₁ = @panelsum(o.DGP.S✻⋂ZperpZR₁, o.info✻_✻⋂)
 				o.S✻XZR₁ = @panelsum(o.S✻⋂X_DGPZR₁, o.info✻_✻⋂)
 				o.S✻ZperpDGPZR₁ = @panelsum(o.DGP.S✻⋂ZperpZR₁, o.info✻_✻⋂) - S✻ZperpZperp * o.DGP.invZperpZperpZperpZR₁
+				# o.S✻ZperpDGPZR₁ = @panelsum(o.DGP.S✻⋂ZperpZR₁, o.info✻_✻⋂); t✻minus!(o.S✻ZperpDGPZR₁, S✻ZperpZperp, o.DGP.invZperpZperpZperpZR₁)
 			end
 
 			if o.not2SLS  # cluster-wise moments after FWL
-				o.S✻Y₂Y₂     = o.DGP.S✻Y₂Y₂     - _S✻ZperpY₂'      * o.DGP.invZperpZperpZperpY₂   - o.DGP.invZperpZperpZperpY₂'   * o.S✻ZperpY₂
-				o.S✻DGPZDGPZ = o.DGP.S✻ZparZpar - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpZ - o.DGP.invZperpZperpZperpZ' * o.S✻ZperpDGPZ
-				o.S✻DGPZY₂   = o.DGP.S✻ZparY₂   - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpY₂   - o.DGP.invZperpZperpZperpZ' * o.S✻ZperpY₂
-				o.S✻DGPZy₁   = o.DGP.S✻Zpary₁   - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpy₁   - o.DGP.invZperpZperpZperpZ' * o.S✻Zperpy₁   
-				o.S✻Y₂y₁     = o.DGP.S✻Y₂y₁     - _S✻ZperpY₂'      * o.DGP.invZperpZperpZperpy₁   - o.DGP.invZperpZperpZperpY₂'   * o.S✻Zperpy₁
-				o.S✻y₁y₁     = o.DGP.S✻y₁y₁     - _S✻Zperpy₁'      * o.DGP.invZperpZperpZperpy₁   - o.S✻Zperpy₁'                  * o.DGP.invZperpZperpZperpy₁
+				o.S✻Y₂Y₂     = o.DGP.S✻Y₂Y₂     - _S✻ZperpY₂'      * o.DGP.invZperpZperpZperpY₂ - o.DGP.invZperpZperpZperpY₂' * o.S✻ZperpY₂
+				o.S✻DGPZDGPZ = o.DGP.S✻ZparZpar - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpZ  - o.DGP.invZperpZperpZperpZ'  * o.S✻ZperpDGPZ
+				o.S✻DGPZY₂   = o.DGP.S✻ZparY₂   - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpY₂ - o.DGP.invZperpZperpZperpZ'  * o.S✻ZperpY₂
+				o.S✻DGPZy₁   = o.DGP.S✻Zpary₁   - _S✻ZperpDGPZpar' * o.DGP.invZperpZperpZperpy₁ - o.DGP.invZperpZperpZperpZ'  * o.S✻Zperpy₁   
+				o.S✻Y₂y₁     = o.DGP.S✻Y₂y₁     - _S✻ZperpY₂'      * o.DGP.invZperpZperpZperpy₁ - o.DGP.invZperpZperpZperpY₂' * o.S✻Zperpy₁
+				o.S✻y₁y₁     = o.DGP.S✻y₁y₁     - _S✻Zperpy₁'      * o.DGP.invZperpZperpZperpy₁ - o.S✻Zperpy₁'               * o.DGP.invZperpZperpZperpy₁
 				o.DGP.restricted && 
 					(o.S✻DGPZR₁y₁ = o.DGP.S✻ZR₁y₁ - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpy₁ - o.DGP.invZperpZperpZperpZR₁' * o.S✻Zperpy₁)
 
 				if o.DGP.restricted
-					_S✻⋂XDGPZR₁     = @panelsum(o.DGP.S✻⋂XZR₁, o.info✻_✻⋂)
 					o.S✻DGPZR₁Y₂     = o.DGP.S✻ZR₁Y₂  - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpY₂  - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpY₂
 					o.S✻DGPZR₁DGPZR₁ = o.DGP.S✻ZR₁ZR₁ - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpZR₁  - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpDGPZR₁
 					o.S✻DGPZR₁DGPZ   = o.DGP.S✻ZR₁Z   - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpZ - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpDGPZ
-					o.S✻DGPZR₁X      = _S✻⋂XDGPZR₁'   - _S✻ZperpDGPZR₁' * o.DGP.invZperpZperpZperpX   - o.DGP.invZperpZperpZperpZR₁' * o.S✻ZperpX
+					o.S✻DGPZR₁X      = (@panelsum(o.DGP.S✻⋂XZR₁, o.info✻_✻⋂))'; t✻minus!(o.S✻DGPZR₁X, _S✻ZperpDGPZR₁', o.DGP.invZperpZperpZperpX); t✻minus!(o.S✻DGPZR₁X, o.DGP.invZperpZperpZperpZR₁', o.S✻ZperpX)
 				end
 			end
 

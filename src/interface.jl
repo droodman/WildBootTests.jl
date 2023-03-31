@@ -132,7 +132,8 @@ function __wildboottest(
 	getauxweights::Bool,
 	overwrite::Bool) where T
 
-	o = StrBootTest{T}(R, r, R1, r1, resp, predexog, predendog, inst, obswt, fweights, liml, fuller, kappa, arubin,
+	o = StrBootTest{T}(R, r, R1, r1, resp, iszero(length(predexog)) ? Matrix{T}(undef,nrows(resp),0) : predexog, 
+	                   predendog, inst, obswt, fweights, liml, fuller, kappa, arubin,
 	                   reps, auxwttype, rng, maxmatsize, ptype, imposenull, jk, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, issorted, hetrobust, small, clusteradj, clustermin,
 	                   feid, fedfadj, level, rtol, madjtype, nH0, ml, beta, A, scores, getplot,
 	                   gridmin, gridmax, gridpoints, overwrite)

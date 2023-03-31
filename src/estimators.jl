@@ -274,7 +274,6 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	end
 	!o.isDGP && !parent.scorebs && (parent.granular || parent.jk) &&
 		(o.ZparX = copy(o.Zpar))
-
 	o.Zpar .+= parent.Y₂ * o.RparY
 	if o.restricted
 		o.ZR₁ = parent.X₁ * o.R₁invR₁R₁X
