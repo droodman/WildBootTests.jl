@@ -555,10 +555,9 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 						o.NFE>0 && !o.FEboot &&
 							(o.S✻UMZperp .+= view(o.invFEwtCT✻FEUv, o._FEID[g]:o._FEID[g], :))  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
 	
-						t✻minus!(view(dest,g:g,:), o.Z̄[g,j], o.PXY✻, _β̈ )
-						coldotplus!(dest, g, o.PXY✻, o.S✻UMZperp)
+							dest[g:g,:] .+= o.PXY✻ .* (o.S✻UMZperp .- o.Z̄[g,j] .* _β̈ )
 					else
-						coldotminus!(dest, g, o.PXY✻, o.Z̄[g,j] * _β̈)
+						dest[g:g,:] .-= o.Z̄[g,j] .* o.PXY✻ .* _β̈ 
 					end
 				end
 			else
@@ -575,8 +574,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 						o.NFE>0 && !o.FEboot &&
 							(S✻UMZperpg .+= view(o.invFEwtCT✻FEUv, view(o._FEID,S), :))  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
 	
-						coldotminus!(dest, g, PXY✻g, view(o.Z̄,S,j) * _β̈ )
-						coldotplus!(dest, g, PXY✻g, S✻UMZperpg)
+						coldotplus!(dest, g, PXY✻g, S✻UMZperpg - view(o.Z̄,S,j) * _β̈ )
 					else
 						coldotminus!(dest, g, PXY✻g, view(o.Z̄,S,j) * _β̈)
 					end
