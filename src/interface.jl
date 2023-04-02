@@ -159,8 +159,29 @@ function __wildboottest(
 	                  getauxweights && reps>0 ? getv(o) : nothing #=, o=#)
 end
 
-vecconvert(T::DataType, X) = iszero(length(X)) ? T[] : isa(X, Vector{T}) ? X : eltype(X)==T ? reshape(X,size(X,1)) : Vector{T}(reshape(X, size(X,1)))
-matconvert(T::DataType, X) = isa(X, Matrix{T}) ? X : eltype(X)==T ? reshape(X, size(X,1), size(X,2)) : Matrix{T}(reshape(X, size(X,1), size(X,2)))
+function vecconvert(T::DataType, X)
+	t = X isa SharedArray ? sdata(X) : X
+	if iszero(length(t))
+		T[]
+	elseif isa(t, Vector{T})
+		t
+	elseif eltype(t)==T
+		reshape(t,size(t,1))
+	else
+		Vector{T}(reshape(t, size(t,1)))
+	end
+end
+
+function matconvert(T::DataType, X)
+	t = X isa SharedArray ? sdata(X) : X
+	if isa(t, Matrix{T})
+		t
+	elseif eltype(t)==T
+		reshape(t, size(t,1), size(t,2))
+	else
+		Matrix{T}(reshape(t, size(t,1), size(t,2)))
+	end
+end
 
 function _wildboottest(T::DataType,
 					  R::AbstractVecOrMat,
