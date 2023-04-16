@@ -631,38 +631,55 @@ function panelcoldotminus!(dest::AbstractMatrix{T}, X::AbstractMatrix{T}, Y::Abs
 end
 
 
-# crosstab of a column vector w.r.t. given panel info and fixed-effect var
-# one row per FE, one col per other grouping
-# handling multiple columns in v
-# dimensions: (FEs,entries of info, cols of v)
-# this facilitates reshape() to 2-D array in which results for each col of v are stacked vertically
-function crosstabFE!(o::StrBootTest{T}, dest::Array{T,3}, v::AbstractVecOrMat{T}, info::Vector{UnitRange{Int64}}) where T
-	vw = o.haswt ? v .* o.sqrtwt : v
-	if iszero(nrows(info)) || nrows(info)==o.Nobs  # "robust" case, no clustering
-		@inbounds Threads.@threads for i ∈ eachindex(axes(o._FEID,1),axes(dest,2),axes(vw,1))
-			FEIDi = o._FEID[i]
-			@inbounds for k ∈ eachindex(axes(dest,3),axes(vw,2))
-				dest[FEIDi,i,k] = vw[i,k]
+# crosstab of  the columns of a vector of matrices given panel info and fixed-effect var
+# returns a vector of sparse matrices, one for each col of each matrix
+# each returned sparse metric has one row per FE, one col per other grouping
+function crosstabFE!(o::StrBootTest{T}, dest::AbstractVector{SparseMatrixCSC{T}}, v::Vector{S} where S<:AbstractVecOrMat{T}, ID::Vector{Int64}, NID::Int64) where T
+	i = 1
+	if o.haswt
+		for M ∈ v
+			for Mj ∈ eachcol(M)
+				Mjw .= Mj .* o.sqrtwt
+				dest[i] = sparse(o._FEID, ID, Mjw, o.NFE, NID, +)
+				i += 1
 			end
-		end
+		end	
 	else
-		fill!(dest, zero(T))
-		@inbounds #=Threads.@threads=# for i ∈ eachindex(axes(info,1))
-			infoi = info[i]
-			@inbounds @fastmath for infoij ∈ infoi
-				FEIDij = o._FEID[infoij]
-				for k ∈ eachindex(axes(vw,2))
-					dest[FEIDij,i,k] += vw[infoij,k]
-				end
+		for M ∈ v
+			for Mj ∈ eachcol(M)
+				dest[i] = sparse(o._FEID, ID, Mj, o.NFE, NID, +)
+				i += 1
 			end
-		end
+		end	
 	end
-  nothing
+	# if iszero(nrows(info)) || nrows(info)==o.Nobs  # "robust" case, no clustering
+	# 	@inbounds Threads.@threads for i ∈ eachindex(axes(o._FEID,1),axes(dest,2),axes(vw,1))
+	# 		FEIDi = o._FEID[i]
+	# 		@inbounds for k ∈ eachindex(axes(dest,3),axes(vw,2))
+	# 			dest[FEIDi,i,k] = vw[i,k]
+	# 		end
+	# 	end
+	# else
+	# 	fill!(dest, zero(T))
+	# 	@inbounds #=Threads.@threads=# for i ∈ eachindex(axes(info,1))
+	# 		infoi = info[i]
+	# 		@inbounds @fastmath for infoij ∈ infoi
+	# 			FEIDij = o._FEID[infoij]
+	# 			for k ∈ eachindex(axes(vw,2))
+	# 				dest[FEIDij,i,k] += vw[infoij,k]
+	# 			end
+	# 		end
+	# 	end
+	# end
+  dest
 end
-function crosstabFE(o::StrBootTest{T}, v::AbstractVecOrMat{T}, info::Vector{UnitRange{Int64}}) where T
-  dest = zeros(T, o.NFE, iszero(nrows(info)) ? o.Nobs : nrows(info), ncols(v))
-	crosstabFE!(o, dest, v, info)
-	dest
+function crosstabFE(o::StrBootTest{T}, v::AbstractVecOrMat{T}, ID::Vector{Int64}, NID::Int64) where T
+  dest = Vector{SparseMatrixCSC{T}}(undef, ncols(v))
+	crosstabFE!(o, dest, [v], ID, NID)
+end
+function crosstabFE(o::StrBootTest{T}, v₁::AbstractVecOrMat{T}, v₂::AbstractVecOrMat{T}, ID::Vector{Int64}, NID::Int64) where T
+  dest = Vector{SparseMatrixCSC{T}}(undef, ncols(v₁)+ncols(v₂))
+	crosstabFE!(o, dest, [v₁, v₂], ID, NID)
 end
 
 
@@ -950,11 +967,39 @@ function partialjk(A::AbstractVecOrMat{T}, Z::AbstractMatrix{T}, ZZZA::AbstractA
   dest
 end
 
-# function reorder!(dest::AbstractMatrix{T}, source::AbstractMatrix{T}, order::Vector{Int}) where T
-# 	@inbounds Threads.@threads for i ∈ indices((dest,order),1)
-# 		oi = order[i]
-# 		@inbounds for j ∈ indices((dest,source),2)
-# 			dest[i,j] = source[oi,j]
-# 		end
-# 	end
+# multiply an a-vector of b x c sparse matrices, with shared sparsity pattern, by an a x d matrix, producing a d-vector of b x c matrices, still same sparsity pattern
+function t✻plus!(dest::AbstractVector{SparseMatrixCSC{Tv,Ti}}, A::Vector{SparseMatrixCSC{Tv,Ti}}, B::Matrix{Tv}) where Tv where Ti
+	@inbounds @fastmath for i ∈ eachindex(axes(A,1),axes(B,1)), j ∈ eachindex(axes(dest,1), axes(B,2))
+		dest[j].nzval .+= A[i].nzval .* B[i,j]
+	end
+	dest
+end
+function t✻minus!(dest::AbstractVector{SparseMatrixCSC{Tv,Ti}}, A::Vector{SparseMatrixCSC{Tv,Ti}}, B::Matrix{Tv}) where Tv where Ti
+	@inbounds @fastmath for i ∈ eachindex(axes(A,1),axes(B,1)), j ∈ eachindex(axes(dest,1), axes(B,2))
+		dest[j].nzval .-= A[i].nzval .* B[i,j]
+	end
+	dest
+end
+function t✻!(dest::AbstractVector{SparseMatrixCSC{Tv,Ti}}, A::Vector{SparseMatrixCSC{Tv,Ti}}, B::Matrix{Tv}) where Tv where Ti
+	for desti ∈ dest
+		desti.nzval .= zero(Tv)
+	end
+	t✻plus!(dest, A, B)
+end
+# import Base.*
+# function (*)(A::Vector{SparseMatrixCSC{Tv,Ti}}, B::Matrix{Tv}) where Tv where Ti
+# 	dest = [SparseMatrixCSC{Tv,Ti}(A[1].m, A[1].n, A[1].colptr, A[1].rowval, zeros(Tv,size(A[1].nzval))) for _ ∈ 1:size(B,2)]
+# 	t✻plus!(dest, A, B)
 # end
+
+# do B - A -> A efficiently for sparse matrices with same sparsity pattern
+function lsub!(A::SparseMatrixCSC{Tv,Ti}, B::SparseMatrixCSC{Tv,Ti}) where Tv where Ti
+	A.nzval .= B.nzval .- A.nzval
+	A
+end
+function lsub!(A::AbstractVector{SparseMatrixCSC{Tv,Ti}}, B::Vector{SparseMatrixCSC{Tv,Ti}}) where Tv where Ti
+	for i ∈ eachindex(axes(A,1), axes(B,1))
+		A[i].nzval .= B[i].nzval .- A[i].nzval
+	end
+	A
+end

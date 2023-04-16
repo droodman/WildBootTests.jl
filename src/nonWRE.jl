@@ -136,9 +136,9 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 				end
 
 				if o.NFE>0 && !o.FEboot
-					tmp = o.invsumFEwt .* dropdims(crosstabFE(o, o.DGP.ü₁[1+_jk], o.info✻); dims=3)
+					tmp = o.invsumFEwt .* crosstabFE(o, o.DGP.ü₁[1+_jk], o.ID✻, o.N✻)[1]
 					@inbounds for d ∈ 1:o.dof
-						t✻plus!(K[d], view(o.M.CT_XAR,:,:,d)', tmp)
+						K[d] += o.M.CT_XAR[d]'tmp
 					end
 				end
 				@inbounds for d ∈ 1:o.dof
@@ -254,7 +254,7 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 end
 
 function MakeNonWRELoop1!(o::StrBootTest, tmp::Matrix, w::Integer)
-	@inbounds #= #=Threads.@threads=# =# for k ∈ o.ncolsv:-1:1
+	@inbounds #=Threads.@threads=# for k ∈ o.ncolsv:-1:1
 		@inbounds for i ∈ 1:o.dof
 			for j ∈ 1:i
 				tmp[j,i] = o.denom[i,j][k]  # fill upper triangle, which is all invsym() looks at
