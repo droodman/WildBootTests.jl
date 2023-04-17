@@ -178,7 +178,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 				_, o.ID✻ = panelsetupID(o.clustid, 1:o.NBootClustVar)
 			end
 		else
-			if !isdefined(o, :ID✻_✻⋂)
+			if iszero(length(o.ID✻_✻⋂))
 				_, o.ID✻_✻⋂ = panelsetupID(clustid✻⋂, 1:o.NBootClustVar)
 			end
 		end

@@ -34,7 +34,7 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   println(log, wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, jk=true, rng, clustid=idcoarse, R1=T[0 0 1 0], r1=T[.2]))
   println(log, wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, jk=true, rng, feid))
   println(log, wildboottest(    [0 0 0 0 1], T[.04]; resp, predexog, jk=true, predendog, inst, rng, clustid=idcoarse))
-  println(log, wildboottest(    [0 0 0 0 1], T[.04]; resp, predexog, jk=true, predendog, inst, rng, clustid=idcoarse, arubin=true))
+  println(log, wildboottest(    [0 0 0 0 1], T[.04]; resp, predexog, jk=true, predendog, inst, rng, clustid=idgranular, obswt=resp, arubin=true))
   println(log, wildboottest(    [0 0 0 1 0], T[.04]; resp, predexog, jk=true, predendog, inst, rng, clustid=idgranular, liml=true))
 
   df = DataFrame(load("collapsed.dta"))
