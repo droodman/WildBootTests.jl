@@ -557,19 +557,21 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 				end
 			else
 				for (g,S) ∈ enumerate(o.info⋂)
-					S✻UMZperpg = view(o.S✻UMZperp,1:length(S),:)
 					PXY✻g  = view(o.PXY✻,1:length(S),:)
 					PXY✻g .= view(o.PXZ̄,S,i)
 					o.Repl.Yendog[i+1] &&
 						t✻plus!(PXY✻g, view(o.XinvXX,S,:), o.S✻XUv)
 	
 					if o.Repl.Yendog[j+1]
-						t✻!(S✻UMZperpg, view(o.Repl.Zperp,  S,:), o.S✻UZperpinvZperpZperpv); S✻UMZperpg .-= view(o.Ü₂par, S, j) .* view(o.β̈v,view(o.ID✻, S),:)
+						S✻UMZperpg = view(o.S✻UMZperp,1:length(S),:)
+						t✻!(S✻UMZperpg, view(o.Repl.Zperp,  S,:), o.S✻UZperpinvZperpZperpv)
+						S✻UMZperpg .-= view(o.Ü₂par, S, j) .* view(o.β̈v,view(o.ID✻, S),:)
+						t✻minus!(S✻UMZperpg, view(o.Z̄,S,j), _β̈ )
 	
 						o.NFE>0 && !o.FEboot &&
 							(S✻UMZperpg .+= view(o.invFEwtCT✻FEUv, view(o._FEID,S), :))  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
 	
-						coldotplus!(dest, g, PXY✻g, S✻UMZperpg - view(o.Z̄,S,j) * _β̈ )
+						coldotplus!(dest, g, PXY✻g, S✻UMZperpg)
 					else
 						coldotminus!(dest, g, PXY✻g, view(o.Z̄,S,j) * _β̈)
 					end
