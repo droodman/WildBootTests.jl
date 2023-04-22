@@ -71,7 +71,7 @@ function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstrac
 
 	if parent.jk
 		if parent.purerobust
-			o.invMjkv = rowquadform(o.invH, parent.X₁)
+			o.invMjkv = rowquadform(parent.X₁, o.invH, parent.X₁)
 			o.invMjkv .= 1 ./ (1 .- o.invMjkv)  # standard hc3 multipliers
 		elseif parent.granularjk
 			negR₁AR₁ = -R₁AR₁  # N.B.: likely that R₁AR₁===A, so don't overwrite it
@@ -133,9 +133,10 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 
 	if parent.jk
 		if parent.purerobust
-			o.invMjkv =     rowquadform(parent.X₁, (@view o.A[1:parent.kX₁,     1:parent.kX₁    ]), parent.X₁) +
-			            2 * rowquadform(parent.X₁, (@view o.A[1:parent.kX₁,     parent.kX₁+1:end]), parent.X₂) +
-									    rowquadform(parent.X₂, (@view o.A[parent.kX₁+1:end, parent.kX₁+1:end]), parent.X₂)
+			o.invMjkv = rowquadform(parent.X₁, (@view o.A[1:parent.kX₁,     parent.kX₁+1:end]), parent.X₂)
+			o.invMjkv .*= 2
+			rowquadformplus!(o.invMjkv, parent.X₂, (@view o.A[parent.kX₁+1:end, parent.kX₁+1:end]), parent.X₂)
+			rowquadformplus!(o.invMjkv, parent.X₂, (@view o.A[parent.kX₁+1:end, parent.kX₁+1:end]), parent.X₂)
 			o.invMjkv .= 1 ./ (1 .- o.invMjkv)  # standard hc3 multipliers
 		elseif parent.granularjk
 			o.invMjk = Vector{Matrix{T}}(undef, parent.N✻)
@@ -594,7 +595,7 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁
   if o.restricted
 	  o.t₁ = o.R₁invR₁R₁ * r₁
 
-    o.y₁pary₁par = o.y₁y₁ - (o.twoZR₁y₁'r₁)[1] + r₁'o.ZR₁ZR₁ * r₁
+    o.y₁pary₁par = o.y₁y₁ - (o.twoZR₁y₁'r₁)[] + r₁'o.ZR₁ZR₁ * r₁
 	  o.Y₂y₁par .= o.Y₂y₁  - o.ZR₁Y₂'r₁
 	  o.X₂y₁par .= o.X₂y₁ - o.X₂ZR₁ * r₁
 	  o.X₁y₁par .= o.X₁y₁ - o.X₁ZR₁ * r₁

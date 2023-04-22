@@ -136,7 +136,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 				end
 
 				if o.NFE>0 && !o.FEboot
-					tmp = o.invsumFEwt .* crosstabFE(o, o.DGP.ü₁[1+_jk], o.ID✻, o.N✻)[1]
+					tmp = o.invsumFEwt .* crosstabFE(o, o.DGP.ü₁[1+_jk], o.ID✻, o.N✻)[]
 					@inbounds for d ∈ 1:o.dof
 						K[d] += o.M.CT_XAR[d]'tmp
 					end
@@ -341,7 +341,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 						o.dist[k+first(o.WeightGrp[w])-1] = numerₖ'invdenom*numerₖ / (tmp = u✻ₖ'u✻ₖ)
 					end
 				else
-					o.dist[1] = (o.numerw'invdenom*o.numerw)[1] / (tmp = dot(o.u✻,o.u✻))
+					o.dist[1] = (o.numerw'invdenom*o.numerw)[] / (tmp = dot(o.u✻,o.u✻))
 				end
 				isone(w) && (o.statDenom = denom * tmp)  # original-sample denominator
 			end

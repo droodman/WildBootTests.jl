@@ -170,24 +170,22 @@ function coldotminus!(dest::AbstractVecOrMat{T}, row::Integer, A::AbstractMatrix
 	nothing
 end
 
-# Add Q-norms of rows of A to dest; despite "!", puts result in return value too
+# [A[i,:]'Q*B[i,:] for i] -> dest. Q doesn't have to be square or symmetric
 function rowquadformplus!(dest::AbstractVector{T}, A::AbstractMatrix{T}, Q::AbstractMatrix{T}, B::AbstractMatrix{T}) where T
-  @tturbo warn_check_args=false for i ∈ axes(A,1)
+  @tturbo warn_check_args=false for i ∈ indices((A,B),1)
 		destᵢ = zero(T)
-		for j ∈ axes(A,2), k ∈ axes(A,2)
-    	destᵢ += A[i,j] * Q[k,j] * B[i,k]
+		for j ∈ indices((A,Q),(2,1)), k ∈ indices((Q,B),2)
+    	destᵢ += A[i,j] * Q[j,k] * B[i,k]
 		end
 		dest[i] += destᵢ
   end
   dest
 end
-
 function rowquadform(A::AbstractMatrix{T}, Q::AbstractMatrix{T}, B::AbstractMatrix{T}) where T
-	dest = Vector{T}(undef, size(A,1))
+	dest = zeros(T, size(A,1))
 	rowquadformplus!(dest, A, Q, B)
 	dest
 end
-@inline rowquadform(Q::AbstractMatrix{T}, A::AbstractMatrix{T}) where T = rowquadform(A, Q, A)
 
 # compute norm of each col of A using quadratic form Q; returns one-row matrix
 function colquadform(Q::AbstractMatrix{T}, A::AbstractMatrix{T}) where T

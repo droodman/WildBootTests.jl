@@ -78,7 +78,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 
 	if o.bootstrapt
 		if o.NFE>0 && !o.FEboot && (o.not2SLS || o.willfill)
-			t = crosstabFE(o, o.y₁, o.ID✻, o.N✻)[1]
+			t = crosstabFE(o, o.y₁, o.ID✻, o.N✻)[]
 			o.CT✻FEU₂       = fill(t, o.kY₂      )  # placeholder vectors of sparse matrices; sparsity pattern will never change
 			o.CT✻FEU        = fill(t, o.Repl.kZ+1)
 			o.invFEwtCT✻FEU = fill(t, o.Repl.kZ+1)
@@ -630,7 +630,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			o.numerWRE .= view(o.β̈sAs,1:1,:) .+ (o.Repl.Rt₁ - o.r) / o.Repl.RRpar
 		else
 			o.numerWRE .= view(o.β̈sAs,1:1,:) .- view(o.DGP.β̈ ,:,1)
-			isone(w) && (o.numerWRE[1] = o.β̈sAs[1] + (o.Repl.Rt₁[1] - o.r[1]) / o.Repl.RRpar[1])
+			isone(w) && (o.numerWRE[1] = o.β̈sAs[1] + (o.Repl.Rt₁[] - o.r[]) / o.Repl.RRpar[])
 		end
 
 		@storeWtGrpResults!(o.numer, o.numerWRE)
@@ -659,7 +659,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 								             view(o.β̈sAs,1:1,:).^2 .* HessianFixedkappa(o, [1], 1, zero(T), _jk)) ./ view(o.β̈sAs,2:2,:)  # classical error variance
 			end
 			@storeWtGrpResults!(o.dist, o.sqrt ? o.numerWRE ./ sqrtNaN.(o.denom[1,1]) : o.numerWRE .^ 2 ./ o.denom[1,1])
-			o.denom[1,1] .*= o.Repl.RRpar[1]^2
+			o.denom[1,1] .*= o.Repl.RRpar[]^2
 		end
 		w==1 && o.bootstrapt && (o.statDenom = [o.denom[1,1][1];;])  # original-sample denominator
 

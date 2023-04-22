@@ -3,7 +3,7 @@ using WildBootTests
 using StableRNGs, StatFiles, DataFrames, CategoricalArrays, StatsModels
 try cd("test") catch end
 
-# open("unittests.log", "w") do log  # use Github Desktop to detect changes in output
+open("unittests.log", "w") do log  # use Github Desktop to detect changes in output
   rng=StableRNG(1)
   T=Float64
   predexog = rand(rng, T, 1000, 4)
