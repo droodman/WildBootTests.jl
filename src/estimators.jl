@@ -57,14 +57,14 @@ function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstrac
   o.y₁par = parent.y₁
 	o.ü₁ = [Vector{T}(undef, parent.Nobs) for _ in 0:parent.jk]
 
-	if parent.jk
+	if parent.jk && !(parent.purerobust || parent.granularjk)
 		o.S✻XX = panelcross(parent.X₁, parent.X₁, parent.info✻)
 	  H = sumpanelcross(o.S✻XX)
 	else	
-		H    = parent.X₁'parent.X₁
+		H = parent.X₁'parent.X₁
 	end
 
-	o.invH = (pinv(H))
+	o.invH = invsym(H)
   R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.invH : (o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')  # for DGP regression
 	o.β̈₀ = R₁AR₁ * (parent.X₁'parent.y₁)
 	o.∂β̈∂r = R₁AR₁ * H * o.R₁invR₁R₁ - o.R₁invR₁R₁
@@ -74,19 +74,31 @@ function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstrac
 			o.invMjkv = rowquadform(o.invH, parent.X₁)
 			o.invMjkv .= 1 ./ (1 .- o.invMjkv)  # standard hc3 multipliers
 		elseif parent.granularjk
+			negR₁AR₁ = -R₁AR₁  # N.B.: likely that R₁AR₁===A, so don't overwrite it
 			o.invMjk = Vector{Matrix{T}}(undef, parent.N✻)
-			for g ∈ 1:parent.N✻
-				S = parent.info✻[g]
-				v = view(parent.X₁, S,:)
-				o.invMjk[g] = - v * R₁AR₁ * v'
-				o.invMjk[g][1:length(S)+1:length(S)^2] .+= one(T)  # add I
-				o.invMjk[g] .= invsym(o.invMjk[g])
+			M       = Matrix{T}(undef, parent.maxNg, parent.maxNg)
+			X₁R₁AR₁ = Matrix{T}(undef, parent.maxNg, parent.kX₁  )
+			for (g,S) ∈ enumerate(parent.info✻)
+				# compute X₁_g R₁AR₁ X₁_g' while minimizing allocations
+				Ng = length(S)
+				Mⱼₖ = squaresubview(M, Ng)
+				_XR₁AR₁ = rowsubview(X₁R₁AR₁, Ng)
+				_X₁ = view(parent.X₁, S, :)
+				t✻!(_XR₁AR₁, _X₁, negR₁AR₁)
+				t✻!(Mⱼₖ, _XR₁AR₁, _X₁')
+				view(Mⱼₖ, diagind(Mⱼₖ)) .+= one(T)  # add I
+				o.invMjk[g] = invsym(Mⱼₖ)
+			end
+			if o.restricted  # scratch matrices for MakeResidualsOLS!()
+				o.Xt₁    = Matrix{T}(undef, parent.maxNg, parent.dof)
+				o.Xt₁pu  = Matrix{T}(undef, parent.maxNg, parent.dof)
+				o.MXt₁pu = Matrix{T}(undef, parent.maxNg, parent.dof)
 			end
 		else
-			!isdefined(o, :S✻XX) && (o.S✻XX = panelcross(parent.X₁, parent.X₁, parent.info✻))
+			o.Xu = Vector{T}(undef, parent.kX)
 			_H = reshape(H, (parent.kX, 1, parent.kX)) .- o.S✻XX
 			_invH = iszero(nrows(o.R₁perp)) ? invsym(_H) : o.R₁perp * invsym(o.R₁perp' * _H * o.R₁perp) * o.R₁perp'
-			o.XinvHjk = [view(parent.X₁, parent.info✻[g],:) * view(_invH,:,g,:) for g ∈ 1:parent.N✻]
+			o.XinvHⱼₖ = [view(parent.X₁, parent.info✻[g],:) * view(_invH,:,g,:) for g ∈ 1:parent.N✻]
 		end
 	end
 
@@ -100,25 +112,20 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	o.y₁par = Vector{T}(undef, parent.Nobs)
 	o.ü₁    = [Vector{T}(undef, parent.Nobs) for _ in 0:parent.jk]
 
-	if !parent.jk || !(parent.granularjk || parent.purerobust)
-		X₂X₁ = parent.X₂'parent.X₁
-		X₁X₁ = parent.X₁'parent.X₁
-		X₂X₂ = parent.X₂'parent.X₂
-		if !(parent.granularjk || parent.purerobust)
-			S✻X₁X₁ = panelcross(parent.X₁, parent.X₁, parent.info✻)
-			S✻X₂X₁ = panelcross(parent.X₂, parent.X₁, parent.info✻)
-			S✻X₂X₂ = panelcross(parent.X₂, parent.X₂, parent.info✻)
-		end
-	else
-		S✻X₂X₁ = panelcross(parent.X₂, parent.X₁, parent.info✻)
-		X₂X₁ = sumpanelcross(S✻X₂X₁)
+	if parent.jk && !(parent.granularjk || parent.purerobust)
 		S✻X₁X₁ = panelcross(parent.X₁, parent.X₁, parent.info✻)
-		X₁X₁ = sumpanelcross(S✻X₁X₁)
+		S✻X₂X₁ = panelcross(parent.X₂, parent.X₁, parent.info✻)
 		S✻X₂X₂ = panelcross(parent.X₂, parent.X₂, parent.info✻)
+		X₁X₁ = sumpanelcross(S✻X₁X₁)
+		X₂X₁ = sumpanelcross(S✻X₂X₁)
 		X₂X₂ = sumpanelcross(S✻X₂X₂)
+	else
+		X₁X₁ = parent.X₁'parent.X₁
+		X₂X₁ = parent.X₂'parent.X₁
+		X₂X₂ = parent.X₂'parent.X₂	
 	end
 
-  H = ([X₁X₁ X₂X₁' ; X₂X₁ X₂X₂])
+  H = [X₁X₁ X₂X₁' ; X₂X₁ X₂X₂]
   o.A = invsym(H)
   R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.A : (o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')
 	o.β̈₀   = R₁AR₁ * [parent.X₁'parent.y₁ ; parent.X₂'parent.y₁]
@@ -132,22 +139,33 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 			o.invMjkv .= 1 ./ (1 .- o.invMjkv)  # standard hc3 multipliers
 		elseif parent.granularjk
 			o.invMjk = Vector{Matrix{T}}(undef, parent.N✻)
-			negR₁AR₁ = -R₁AR₁
-			for g ∈ 1:parent.N✻
-				S = parent.info✻[g] 
-				v₁ = view(parent.X₁, S, :); v₂ = view(parent.X₂, S, :)
-				o.invMjk[g] = v₁ * (@view negR₁AR₁[1:parent.kX₁    , 1:parent.kX₁    ]) * v₁' +
-											v₁ * (@view negR₁AR₁[1:parent.kX₁    , parent.kX₁+1:end]) * v₂' +
-											v₂ * (@view negR₁AR₁[parent.kX₁+1:end, 1:parent.kX₁    ]) * v₁' +
-											v₂ * (@view negR₁AR₁[parent.kX₁+1:end, parent.kX₁+1:end]) * v₂'
-				o.invMjk[g][1:length(S)+1:length(S)^2] .+= one(T)  # add I
-				o.invMjk[g] .= invsym(o.invMjk[g])
+			negR₁AR₁ = -R₁AR₁  # N.B.: likely that R₁AR₁===A, so don't overwrite it
+			negR₁AR₁_₁₁ = @view negR₁AR₁[1:parent.kX₁    , 1:parent.kX₁    ]
+			negR₁AR₁_₁₂ = @view negR₁AR₁[1:parent.kX₁    , parent.kX₁+1:end]
+			negR₁AR₁_₂₁ = @view negR₁AR₁[parent.kX₁+1:end, 1:parent.kX₁    ]
+			negR₁AR₁_₂₂ = @view negR₁AR₁[parent.kX₁+1:end, parent.kX₁+1:end]
+			M = Matrix{T}(undef, parent.maxNg, parent.maxNg)
+			X₁R₁AR₁ = Matrix{T}(undef, parent.maxNg, parent.kX₁)
+			X₂R₁AR₁ = Matrix{T}(undef, parent.maxNg, parent.kX₂)
+			for (g,S) ∈ enumerate(parent.info✻)
+				# compute -[X₁ X₂]_g R₁AR₁ [X₁ X₂]_g' while minimizing allocations
+				Ng = length(S)
+				_X₁ = view(parent.X₁, S, :); _XR₁AR₁_₁ = rowsubview(X₁R₁AR₁, Ng)
+				_X₂ = view(parent.X₂, S, :); _XR₁AR₁_₂ = rowsubview(X₂R₁AR₁, Ng)
+				t✻!(_XR₁AR₁_₁, _X₁, negR₁AR₁_₁₁); t✻plus!(_XR₁AR₁_₁, _X₂, negR₁AR₁_₂₁)
+				t✻!(_XR₁AR₁_₂, _X₁, negR₁AR₁_₁₂); t✻plus!(_XR₁AR₁_₂, _X₂, negR₁AR₁_₂₂)
+				Mⱼₖ = squaresubview(M, Ng)
+				t✻!(Mⱼₖ, _XR₁AR₁_₁, _X₁'); t✻plus!(Mⱼₖ, _XR₁AR₁_₂, _X₂')
+
+				view(Mⱼₖ, diagind(Mⱼₖ)) .+= one(T)  # add I
+				o.invMjk[g] = invsym(Mⱼₖ)
 			end
 		else
-			!isdefined(o, :S✻XX) && (o.S✻XX = [[S✻X₁X₁ S✻X₂X₁'] ; [S✻X₂X₁ S✻X₂X₂]])
+			o.Xu = Vector{T}(undef, parent.kX)
+			o.S✻XX = [[S✻X₁X₁ S✻X₂X₁'] ; [S✻X₂X₁ S✻X₂X₂]]
 			_H = reshape(H, (parent.kX, 1, parent.kX)) .- o.S✻XX
 			_invH = iszero(nrows(o.R₁perp)) ? invsym(_H) : o.R₁perp * invsym(o.R₁perp' * _H * o.R₁perp) * o.R₁perp'
-			o.XinvHjk = [(S = parent.info✻[g]; X₁₂B(view(parent.X₁, S,:), view(parent.X₂, S,:), view(_invH,:,g,:))) for g ∈ 1:parent.N✻]
+			o.XinvHⱼₖ = [(S = parent.info✻[g]; X₁₂B(view(parent.X₁, S,:), view(parent.X₂, S,:), view(_invH,:,g,:))) for g ∈ 1:parent.N✻]
 		end
 	end
 
@@ -548,14 +566,14 @@ end
 # For WRE, should only be called once for the replication regressions, since for them r₁ is the unchanging model constraints
 function EstimateOLS!(o::StrEstimator, _jk::Bool, r₁::AbstractVector)
 	o.β̈ = o.β̈₀ - o.∂β̈∂r * r₁
-	_jk && !iszero(nrows(o.R₁perp)) &&
+	_jk && o.restricted &&
 		(o.t₁ = o.R₁invR₁R₁ * r₁)
 	nothing
 end
 
 function EstimateARubin!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁::AbstractVector) where T
 	EstimateOLS!(o, _jk, r₁)
-  o.y₁par .= parent.y₁ .- parent.Y₂ * r₁
+  o.y₁par .= parent.y₁; t✻minus!(o.y₁par, parent.Y₂, r₁)
 	nothing
 end
 
@@ -565,7 +583,7 @@ function MakeH!(o::StrEstimator{T}, parent::StrBootTest{T}, makeXAR::Bool=false)
 
   if makeXAR  # for replication regression in score bootstrap of IV/GMM
 	  o.A = ncols(o.Rperp)>0 ? (o.Rperp * invsym(o.Rperp'H*o.Rperp) * o.Rperp') : o.invH
-	  o.AR = o.A * (o.Rpar'parent.R')
+	  o.AR = o.A * o.Rpar'parent.R'
 	  o.XAR = X₁₂B(o.X₁, o.X₂, o.V * o.AR)
   end
 	nothing
@@ -582,8 +600,10 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁
 	  o.X₁y₁par .= o.X₁y₁ - o.X₁ZR₁ * r₁
 	  o.Zy₁par  .= o.Zy₁ -  o.ZR₁Z'r₁
 	  o.Xy₁par  .= [o.X₁y₁par ; o.X₂y₁par]
-	  (parent.scorebs || parent.granular && o.isDGP || parent.jk && !o.isDGP) && 
-			(o.y₁par .= o.y₁ .- o.ZR₁ * r₁)
+	  if parent.scorebs || parent.granular && o.isDGP || parent.jk && !o.isDGP
+			o.y₁par .= o.y₁;
+			t✻minus!(o.y₁par, o.ZR₁, r₁)
+		end
 
 		if _jk
 			o.t₁Y = o.t₁[parent.kX₁+1:end]
@@ -638,33 +658,40 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁
 end
 
 function MakeResidualsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
-	o.ü₁[1] .= o.y₁par .- X₁₂B(parent.X₁, parent.X₂, view(o.β̈ , :,1))   # ordinary non-jk residuals
+	o.ü₁[1] .= o.y₁par; X₁₂Bminus!(o.ü₁[1], parent.X₁, parent.X₂, view(o.β̈ ,:,1))   # ordinary non-jk residuals
 
 	if parent.jk
 		m = parent.small ? sqrt((parent.N✻ - 1) / T(parent.N✻)) : one(T)
 		if parent.purerobust
-			if iszero(nrows(o.R₁perp))
-				o.ü₁[2] .= m .* o.invMjkv .* o.ü₁[1]
+			if o.restricted
+				X₁₂B!(o.ü₁[2], parent.X₁, parent.X₂, o.t₁)
+				o.ü₁[2] .= m .* (o.invMjkv .* (o.ü₁[1] .+ o.ü₁[2]) .- o.ü₁[2])
 			else
-				Xt₁	= X₁₂B(parent.X₁, parent.X₂, o.t₁)
-				o.ü₁[2] .= m .* (o.invMjkv .* (o.ü₁[1] .+ Xt₁) .- Xt₁)
+				o.ü₁[2] .= m .* o.invMjkv .* o.ü₁[1]
 			end
 		elseif parent.granularjk
-	    for g ∈ 1:parent.N✻
-				S = parent.info✻[g]
-				if nrows(o.R₁perp)>0
-					Xt₁	= X₁₂B(view(parent.X₁,S,:), view(parent.X₂,S,:), o.t₁)
-					o.ü₁[2][S] .= m .* (o.invMjk[g] * (view(o.ü₁[1], S) + Xt₁) .- Xt₁)
+	    for (g,S) ∈ enumerate(parent.info✻)
+				if o.restricted
+					_Xt₁    = rowsubview(o.Xt₁   , length(S))
+					_Xt₁pu  = rowsubview(o.Xt₁pu , length(S))
+					_MXt₁pu = rowsubview(o.MXt₁pu, length(S))
+					X₁₂B!(_Xt₁, view(parent.X₁,S,:), view(parent.X₂,S,:), o.t₁)
+					_Xt₁pu .= view(o.ü₁[1], S) .+ _Xt₁
+					mul!(_MXt₁pu, o.invMjk[g], _Xt₁pu)
+					o.ü₁[2][S] .= m .* (_MXt₁pu .- _Xt₁)
 				else
-					o.ü₁[2][S] .= m .*  o.invMjk[g] *  view(o.ü₁[1], S)
+					t✻!(view(o.ü₁[2],S), m, o.invMjk[g], view(o.ü₁[1], S))
 				end
 			end
 		else
-	    for g ∈ 1:parent.N✻
-				S = parent.info✻[g]
+	    for (g,S) ∈ enumerate(parent.info✻)
 				ü₁g = view(o.ü₁[1],S)
-				tmp = [view(parent.X₁,S,:)'ü₁g ; view(parent.X₂,S,:)'ü₁g]
-				o.ü₁[2][S] .= m .* (ü₁g .+ o.XinvHjk[g] * (iszero(nrows(o.R₁perp)) ? tmp : tmp + view(o.S✻XX,:,g,:) * o.t₁))
+				t✻!(view(o.Xu, 1:parent.kX₁     ), view(parent.X₁,S,:)', ü₁g)
+				t✻!(view(o.Xu, parent.kX₁+1:parent.kX), view(parent.X₂,S,:)', ü₁g)
+				o.restricted && t✻plus!(o.Xu, view(o.S✻XX,:,g,:), o.t₁)
+				ü₂g = view(o.ü₁[2],S)
+				mul!(ü₂g, o.XinvHⱼₖ[g], o.Xu)
+				ü₂g .= m .* (ü₁g .+ ü₂g)
 			end
 		end
 	end
@@ -733,13 +760,7 @@ end
 # since the non-AR OLS code never creates an object for replication regresssions, in that case this is called on the DGP regression object
 # depends on results of Estimate() only when doing OLS-style bootstrap on an overidentified IV/GMM regression--score bootstrap or A-R. Then κ from DGP liml affects Hessian, H.
 function InitTestDenoms!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
-  if parent.bootstrapt && (parent.scorebs || parent.robust)
-	  (parent.granular || parent.purerobust) && (o.WXAR = o.XAR)  # XXX simplify
-
-	  if parent.robust && parent.NFE>0 && !(parent.FEboot || parent.scorebs) && parent.granular < parent.NErrClustCombs  # make first factor of second term of (64) for c=⋂ (c=1)
-	    !isdefined(o, :WXAR) && (o.WXAR = o.XAR)  # XXX simplify
-	    o.CT_XAR = crosstabFE(parent, o.WXAR, parent.ID⋂, parent.N⋂)
-	  end
-  end
+  parent.bootstrapt && parent.robust && parent.NFE>0 && !parent.FEboot && parent.granular < parent.NErrClustCombs &&  # make first factor of second term of (64) for c=⋂ (c=1)
+	  (o.CT_XAR = crosstabFE(parent, o.XAR, parent.ID⋂, parent.N⋂))
 	nothing
 end

@@ -1,9 +1,9 @@
-pushfirst!(LOAD_PATH, ".")
+pushfirst!(LOAD_PATH, pwd())
 using WildBootTests
 using StableRNGs, StatFiles, DataFrames, CategoricalArrays, StatsModels
 try cd("test") catch end
 
-open("unittests.log", "w") do log  # use Github Desktop to detect changes in output
+# open("unittests.log", "w") do log  # use Github Desktop to detect changes in output
   rng=StableRNG(1)
   T=Float64
   predexog = rand(rng, T, 1000, 4)
@@ -14,29 +14,29 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   idgranular =  floor.(Int, collect(0:999)/2)
   feid = mod.(collect(0:999), 100)
   println(wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, rng,  clustid=idcoarse))
-  println(wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, rng, clustid=idgranular))
+  println(wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, rng, clustid=idgranular, reps=100))
   println(wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, rng, small=false))
   println(wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, rng, clustid=idcoarse, R1=T[0 0 1 0], r1=T[.2]))
   println(wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, rng, feid))
   println(wildboottest(T, T[0 0 0 0 1], T[.04]; resp, predexog, predendog, inst, rng, clustid=idcoarse))
   println(wildboottest(T, T[0 0 0 0 1], T[.04]; resp, predexog, predendog, inst, rng, clustid=idcoarse, arubin=true))
-  println(wildboottest(T, T[0 0 0 1 0], T[.04]; resp, predexog, predendog, inst, rng, clustid=idgranular, liml=true))
+  println(wildboottest(T, T[0 0 0 1 0], T[.04]; resp, predexog, predendog, inst, rng, clustid=idgranular, reps=100, liml=true))
   println(wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, rng,  clustid=idcoarse))
-  println(wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, rng, clustid=idgranular))
+  println(wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, rng, clustid=idgranular, reps=100))
   println(wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, rng, small=false))
   println(wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, rng, clustid=idcoarse, R1=T[0 0 1 0], r1=T[.2]))
   println(wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, rng, feid))
   println(wildboottest(    [0 0 0 0 1], T[.04]; resp, predexog, predendog, inst, rng, clustid=idcoarse))
   println(wildboottest(    [0 0 0 0 1], T[.04]; resp, predexog, predendog, inst, rng, clustid=idcoarse, arubin=true))
-  println(wildboottest(    [0 0 0 1 0], T[.04]; resp, predexog, predendog, inst, rng, clustid=idgranular, liml=true))
+  println(wildboottest(    [0 0 0 1 0], T[.04]; resp, predexog, predendog, inst, rng, clustid=idgranular, reps=100, liml=true))
   println(wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, jk=true,      clustid=idcoarse))
-  println(wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, jk=true, rng, clustid=idgranular))
+  println(wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, jk=true, rng, clustid=idgranular, reps=100))
   println(wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, jk=true, rng, small=false))
   println(wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, jk=true, rng, clustid=idcoarse, R1=T[0 0 1 0], r1=T[.2]))
   println(wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, jk=true, rng, feid))
   println(wildboottest(    [0 0 0 0 1], T[.04]; resp, predexog, jk=true, predendog, inst, rng, clustid=idcoarse))
-  println(wildboottest(    [0 0 0 0 1], T[.04]; resp, predexog, jk=true, predendog, inst, rng, clustid=idgranular, obswt=resp, arubin=true))
-  println(wildboottest(    [0 0 0 1 0], T[.04]; resp, predexog, jk=true, predendog, inst, rng, clustid=idgranular, liml=true))
+  println(wildboottest(    [0 0 0 0 1], T[.04]; resp, predexog, jk=true, predendog, inst, rng, clustid=idgranular, reps=100, obswt=resp, arubin=true))
+  println(wildboottest(    [0 0 0 1 0], T[.04]; resp, predexog, jk=true, predendog, inst, rng, clustid=idgranular, reps=100, liml=true))
 
   df = DataFrame(load("collapsed.dta"))
   dropmissing!(df)

@@ -144,9 +144,10 @@ mutable struct StrEstimator{T<:AbstractFloat}
 	invXX::Matrix{T}; Y₂::Matrix{T}; X₂::Matrix{T}; invH::Matrix{T}
 	y₁par::Vector{T}; Xy₁par::Vector{T}
 	A::Matrix{T}; Zpar::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
-	WXAR::Matrix{T}; CT_XAR::Vector{SparseMatrixCSC{T}}
+	CT_XAR::Vector{SparseMatrixCSC{T}}
 	copyfromDGP::Bool
-	S✻XX::Array{T,3}; XinvHjk::Vector{Matrix{T}}; invMjk::Vector{Matrix{T}}; invMjkv::Vector{T}; XXt1jk::Matrix{T}; t₁::Vector{T}
+	S✻XX::Array{T,3}; XinvHⱼₖ::Vector{Matrix{T}}; invMjk::Vector{Matrix{T}}; invMjkv::Vector{T}; XXt1jk::Matrix{T}; t₁::Vector{T}
+	Xt₁::Matrix{T}; Xt₁pu::Matrix{T}; MXt₁pu::Matrix{T}; Xu::Vector{T}
 
   # IV/GMM only
   ZZ::Matrix{T}; XY₂::Matrix{T}; XX::Matrix{T}; H_2SLS::Matrix{T}; V::Matrix{T}; ZY₂::Matrix{T}; ZR₁ZR₁::Matrix{T}; X₂ZR₁::Matrix{T}; ZR₁Y₂::Matrix{T}; X₁ZR₁::Matrix{T}
@@ -201,10 +202,10 @@ mutable struct StrBootTest{T<:AbstractFloat}
 
   sqrt::Bool; _Nobs::T; kZ::Int64; sumwt::T; haswt::Bool; sqrtwt::Vector{T}; multiplier::T; smallsample::T; getci::Bool
 		dof::Int64; dof_r::T; p::T; BootClust::Int8; ncolsv::Int64
-		purerobust::Bool; N✻::Int64; N⋂::Int64; N✻⋂::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX::Int64
+		purerobust::Bool; N✻::Int64; N⋂::Int64; N✻⋂::Int64; maxNg::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX::Int64
   _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; u✻::Matrix{T}
   info✻::Vector{UnitRange{Int64}}; info✻_✻⋂::Vector{UnitRange{Int64}}; infoBootAll::Vector{UnitRange{Int64}}; info⋂_✻⋂::Vector{UnitRange{Int64}}
-  statDenom::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; β̈dev::Matrix{T}
+  statDenom::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; β̈dev::Matrix{T}; β̈devⱼₖ::Vector{T}
 	numerw::Matrix{T}; numer_b::Vector{T}; dist::Matrix{T}
 
 	distCDR::Matrix{T}; plotX::Vector{Vector{T}}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
@@ -264,7 +265,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 					FEID, FEdfadj,
 					level, rtol,
 					madjtype, NH₀,
-					ml, β̈, A, sc,
+					ml, β̈ , A, sc,
 					willplot, gridmin, gridmax, gridpoints, overwrite,
 					nrows(R), ptype == :symmetric || ptype == :equaltail, jk, scorebs, robust || NErrClustVar>0,
 					false, false, false, false, false, 0, 0, 0, false,

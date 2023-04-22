@@ -2,6 +2,13 @@
 @inline ncols(X::AbstractArray) = size(X,2)
 @inline sqrtNaN(x) = x<0 ? typeof(x)(NaN) : sqrt(x)
 
+# given an a x b scratchpad matrix X and r≤a, create an r x b view onto an _adjacent_ subsection of the data
+# avoids allocations by reusing X and speeds memory access by compatifying
+@inline rowsubview(X,r) = reshape(view(vec(X),1:r*ncols(X)),r,:)
+
+# similar but for square sub-blocks
+@inline squaresubview(X,r) = reshape(view(vec(X),1:r*r),r,:)
+
 # Apply .* to a matrix and row of another matrix
 function matbyrow!(dest::Matrix{T}, A::Matrix{T}, B::AbstractMatrix{T}, row::Int) where T
 	@tturbo warn_check_args=false for j ∈ eachindex(axes(dest,2), axes(A,2), axes(B,2)), i ∈ eachindex(axes(dest,1), axes(A,1))
@@ -52,17 +59,27 @@ end
 @inline colsum(X::AbstractArray{Bool}) = iszero(length(X)) ? Array{Int}(undef, 1, size(X)[2:end]...) : sum(X, dims=1)  # type-stable
 @inline rowsum(X::AbstractArray) = vec(sum(X, dims=2))
 
+function X₁₂Bminus!(dest::AbstractVector, X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractVector)
+	t✻minus!(dest, X₁, view(B,1:size(X₁,2)))
+	t✻minus!(dest, X₂, @view B[size(X₁,2)+1:end])
+	nothing
+end
 function X₁₂Bminus!(dest::AbstractVecOrMat, X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractMatrix)
 	t✻minus!(dest, X₁, view(B,1:size(X₁,2),:))
-	t✻minus!(dest, X₂, B[size(X₁,2)+1:end,:])
+	t✻minus!(dest, X₂, @view B[size(X₁,2)+1:end,:])
+	nothing
+end
+function X₁₂Bplus!(dest::AbstractVecOrMat, X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractVector)
+	t✻plus!(dest, X₁, view(B,1:size(X₁,2)))
+	t✻plus!(dest, X₂, @view B[size(X₁,2)+1:end])
 	nothing
 end
 function X₁₂Bplus!(dest::AbstractVecOrMat, X₁::AbstractVecOrMat, X₂::AbstractArray, B::AbstractMatrix)
 	t✻plus!(dest, X₁, view(B,1:size(X₁,2),:))
-	t✻plus!(dest, X₂, B[size(X₁,2)+1:end,:])
+	t✻plus!(dest, X₂, @view B[size(X₁,2)+1:end,:])
 	nothing
 end
-function X₁₂B!(dest::AbstractVecOrMat{T}, X₁::AbstractVecOrMat{T}, X₂::AbstractArray{T}, B::AbstractMatrix{T}) where T
+function X₁₂B!(dest::AbstractVecOrMat{T}, X₁::AbstractVecOrMat{T}, X₂::AbstractArray{T}, B::AbstractVecOrMat{T}) where T
 	fill!(dest, zero(T))
 	X₁₂Bplus!(dest, X₁, X₂, B)
 	nothing
@@ -207,6 +224,23 @@ function t✻(A::AbstractVecOrMat{T}, B::AbstractMatrix{T}) where T
 	mul!(dest, A, B)
 	dest
 end
+function t✻!(A::AbstractMatrix{T}, c::T, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # c*B*C -> A
+	fill!(A, zero(T))
+	t✻plus!(A, c, B, C)
+end
+
+function t✻plus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractVector{T}) where T  # add B*C to A in place
+	if length(B)>0 && length(C)>0
+		@tturbo warn_check_args=false for i ∈ eachindex(axes(A,1),axes(B,1))
+			Aᵢₖ = zero(T)
+			for j ∈ eachindex(axes(B,2),axes(C,1))
+				Aᵢₖ += B[i,j] * C[j]
+			end
+			A[i] += Aᵢₖ
+		end
+	end
+	nothing
+end
 function t✻plus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # add B*C to A in place
 	if length(B)>0 && length(C)>0
 		@tturbo warn_check_args=false for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2))
@@ -219,7 +253,7 @@ function t✻plus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMatr
 	end
 	nothing
 end
-function t✻plus!(A::AbstractMatrix{T}, c::T, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # add B*C to A in place
+function t✻plus!(A::AbstractMatrix{T}, c::T, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # A += c*B*C
 	if length(B)>0 && length(C)>0
 		@tturbo warn_check_args=false for i ∈ eachindex(axes(A,1),axes(B,1)), k ∈ eachindex(axes(A,2), axes(C,2))
 			Aᵢₖ = zero(T)
@@ -231,7 +265,7 @@ function t✻plus!(A::AbstractMatrix{T}, c::T, B::AbstractVecOrMat{T}, C::Abstra
 	end
 	nothing
 end
-function t✻plus!(A::AbstractVector{T}, B::AbstractMatrix{T}, C::AbstractVector{T}) where T  # add B*C to A in place
+function t✻plus!(A::AbstractVector{T}, B::AbstractMatrix{T}, C::AbstractVector{T}) where T  # A += B*C
 	if length(B)>0 && length(C)>0
 		@tturbo warn_check_args=false for i ∈ eachindex(axes(A,1),axes(B,1))
 			Aᵢ = zero(T)
@@ -243,7 +277,19 @@ function t✻plus!(A::AbstractVector{T}, B::AbstractMatrix{T}, C::AbstractVector
 	end
 	nothing
 end
-function t✻minus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # add B*C to A in place
+function t✻plus!(A::AbstractVector{T}, c::T, B::AbstractMatrix{T}, C::AbstractVector{T}) where T  # A += B*C
+	if length(B)>0 && length(C)>0
+		@tturbo warn_check_args=false for i ∈ eachindex(axes(A,1),axes(B,1))
+			Aᵢ = zero(T)
+			for j ∈ eachindex(axes(B,2),C)
+				Aᵢ += B[i,j] * C[j]
+			end
+			A[i] += c * Aᵢ
+		end
+	end
+	nothing
+end
+function t✻minus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}) where T  # A -= B*C
 	if length(B)>0 && length(C)>0
 		@tturbo warn_check_args=false for i ∈ indices((A,B),1), k ∈ indices((A,C),2)
 			Aᵢₖ = zero(T)
@@ -255,7 +301,7 @@ function t✻minus!(A::AbstractMatrix{T}, B::AbstractVecOrMat{T}, C::AbstractMat
 	end
 	nothing
 end
-function t✻minus!(A::AbstractVecOrMat{T}, c::T, B::AbstractVecOrMat{T}, C::AbstractVecOrMat{T}) where T  # add B*C to A in place
+function t✻minus!(A::AbstractVecOrMat{T}, c::T, B::AbstractVecOrMat{T}, C::AbstractVecOrMat{T}) where T  # A -= c*B*C
 	if length(B)>0 && length(C)>0
 		@tturbo warn_check_args=false for i ∈ indices((A,B),1), k ∈ indices((A,C),2)
 			Aᵢₖ = zero(T)
@@ -890,6 +936,7 @@ function t✻minus!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::Abstract
 end
 
 @inline invsym!(Y::AbstractMatrix{T}, X::AbstractMatrix{T}) where T = ldiv!(Y, qr(X), )
+
 # in-place inverse of a set of symmetric matrices
 function invsym!(A::Array{T,3}) where T
 	Iₖ = I(size(A,1))

@@ -517,8 +517,8 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 			end
 		else
 			@inbounds for (g,S) ∈ enumerate(o.info⋂)
-				S✻UMZperpg = view(o.S✻UMZperp, 1:length(S), :)
-				PXY✻g  = view(o.PXY✻,1:length(S),:)
+				S✻UMZperpg = rowsubview(o.S✻UMZperp, length(S))
+				PXY✻g  = rowsubview(o.PXY✻, length(S))
 				PXY✻g .= view(o.PXZ̄,S,i)
 				o.Repl.Yendog[i+1] &&
 					t✻plus!(PXY✻g, view(o.XinvXX,S,:), o.S✻XUv)
@@ -557,13 +557,13 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 				end
 			else
 				for (g,S) ∈ enumerate(o.info⋂)
-					PXY✻g  = view(o.PXY✻,1:length(S),:)
+					PXY✻g  = rowsubview(o.PXY✻, length(S))
 					PXY✻g .= view(o.PXZ̄,S,i)
 					o.Repl.Yendog[i+1] &&
 						t✻plus!(PXY✻g, view(o.XinvXX,S,:), o.S✻XUv)
 	
 					if o.Repl.Yendog[j+1]
-						S✻UMZperpg = view(o.S✻UMZperp,1:length(S),:)
+						S✻UMZperpg = rowsubview(o.S✻UMZperp, length(S))
 						t✻!(S✻UMZperpg, view(o.Repl.Zperp,  S,:), o.S✻UZperpinvZperpZperpv)
 						S✻UMZperpg .-= view(o.Ü₂par, S, j) .* view(o.β̈v,view(o.ID✻, S),:)
 						t✻minus!(S✻UMZperpg, view(o.Z̄,S,j), _β̈ )

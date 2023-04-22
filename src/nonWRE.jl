@@ -132,7 +132,7 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 				if o.scorebs
 					K = [zeros(T, o.N⋂, o.N✻) for _ in 1:o.dof]::Vector{Matrix{T}}  # inefficient, but not optimizing for the score bootstrap
 				else
-					K = [panelsum2(o.X₁, o.X₂, view(o.DGP.XAR,:,d), o.info⋂) * o.SuwtXA for d ∈ 1:o.dof]::Vector{Matrix{T}}
+					K = [panelsum2(o.X₁, o.X₂, view(o.DGP.XAR,:,d), o.info⋂) * o.SuwtXA for d ∈ 1:o.dof]::Vector{Matrix{T}}  # XXX if granular but multi-way clustering, this fails to avoid massive memory allocation
 				end
 
 				if o.NFE>0 && !o.FEboot
@@ -166,22 +166,26 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 				end
 			end
 		end
+
 		MakeNumerAndJ!(o, 1, Bool(_jk), thisr)  # compute J = κ * v; if Nw > 1, then this is for 1st group; if interpolating, it is only group, and may be needed now to prep interpolation
 	end
 	nothing
 end
 
 # compute stuff depending linearly on v, needed to prep for interpolation
-function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVector=Vector{T}(undef,0)) where T  # called to *prepare* interpolation, or when w>1, in which case there is no interpolation
-	if o.jk && !_jk
+# called to *prepare* interpolation, or when w>1, in which case there is no interpolation
+function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVector=Vector{T}(undef,0)) where T
+	if o.jk && !_jk  # if block  same as else block, but will run 2nd in jk and is specialized to first bs col, in which v is all 1's
+		!o.scorebs && (!o.robust || o.granular || o.purerobust) &&
+			(o.β̈devⱼₖ = rowsum(o.SuwtXA))
 		if !o.arubin && o.null
 			o.numer[:,1] = o.scorebs ?
-											   o.B>0 ?
-													 	colsum(o.SuwtXA)' :
-													 	o.SuwtXA          :
-											   !o.robust || o.granular || o.purerobust ?
-												  	o.R * rowsum(o.SuwtXA) :
-												 		rowsum(o.R * o.SuwtXA)
+												iszero(o.B) ?
+														o.SuwtXA          :
+														colsum(o.SuwtXA)' :
+												!o.robust || o.granular || o.purerobust ?
+														o.R * o.β̈devⱼₖ :
+														rowsum(o.R * o.SuwtXA)
 		end
 	else
 		if o.scorebs
@@ -213,34 +217,48 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 		if o.scorebs
 			o.u✻ .-= o.ClustShare * colsum(o.u✻)
 		else
-			o.u✻ .-= o.X₁ * (@view o.β̈dev[1:o.kX₁,:]) .+ o.X₂ * (@view o.β̈dev[o.kX₁+1:end,:])  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline && Santos eq (11))
+			o.u✻ .-= o.X₁ * (@view o.β̈dev[1:o.kX₁,:]) .+ o.X₂ * (@view o.β̈dev[o.kX₁+1:end,:])  # residuals of wild bootstrap regression are the wildized residuals after partialling out X (Kline && Santos eq (11))
 		end
 	end
 
 	if o.B>0 && o.robust && o.bootstrapt
-		if o.jk && !_jk
-			@inbounds	for c ∈ 1:o.NErrClustCombs, d ∈ eachindex(axes(o.Jcd, 2), axes(o.Kcd, 2))
+		if o.jk && !_jk  # if block  same as else block, but will run 2nd in jk and is specialized to first bs col, in which v is all 1's
+			if o.granular || o.purerobust  # optimized treatment when bootstrapping by many/small groups
+				o.NFE>0 && !o.FEboot && partialFE!(o, o.DGP.ü₁[1])
+				if o.purerobust && !o.interpolable
+					o.u✻[:,1] = o.DGP.ü₁[1]
+					X₁₂Bminus!(view(o.u✻,:,1), o.X₁, o.X₂, o.β̈devⱼₖ)
+				else  # clusters small but not all singletons
+					@inbounds for d ∈ 1:o.dof
+						panelsum!(view(o.Jcd[1,d],:,1), o.DGP.ü₁[1], view(o.M.XAR,:,d), o.info⋂)
+						t✻minus!(view(o.Jcd[1,d],:,1), panelsum2(o.X₁, o.X₂, view(o.M.XAR,:,d), o.info⋂), o.β̈devⱼₖ) # XXX panelsum2(o.X₁, o.X₂, view(o.M.XAR,:,d) computed twice for jk?
+					end
+				end
+			end
+			@inbounds	for c ∈ o.granular+1:o.NErrClustCombs, d ∈ eachindex(axes(o.Jcd, 2), axes(o.Kcd, 2))
 				o.Jcd[c,d][:,1] .= rowsum(o.Kcd[c,d])
 			end
 		else
 			if o.granular || o.purerobust  # optimized treatment when bootstrapping by many/small groups
 				if o.purerobust && !o.interpolable
 					o.u✻ .= o.DGP.ü₁[1+_jk] .* o.v
-					o.NFE>0 && partialFE!(o, o.u✻)
-					o.u✻ .-= o.X₁ * (@view o.β̈dev[1:o.kX₁,:]) .+ o.X₂ * (@view o.β̈dev[o.kX₁+1:end,:])
+					o.jk && !_jk && (o.u✻[:,1] .= o.DGP.ü₁[1])
+					o.NFE>0 && !o.FEboot && partialFE!(o, o.u✻)
+					X₁₂Bminus!(o.u✻, o.X₁, o.X₂, o.β̈dev)
 				else  # clusters small but not all singletons
 					if o.NFE>0 && !o.FEboot
 						o.u✻ .= o.DGP.ü₁[1+_jk] .* (o.purerobust ? view(o.v, :, :) : view(o.v, o.ID✻, :))
+						o.jk && !_jk && (o.u✻[:,1] .= o.DGP.ü₁[1])
 						partialFE!(o, o.u✻)
 						@inbounds for d ∈ 1:o.dof
-							panelsum!(o.Jcd[1,d], o.u✻, view(o.M.WXAR,:,d), o.info⋂)
-							t✻minus!(o.Jcd[1,d], panelsum2(o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂), o.β̈dev)
+							panelsum!(o.Jcd[1,d], o.u✻, view(o.M.XAR,:,d), o.info⋂)
+							t✻minus!(o.Jcd[1,d], panelsum2(o.X₁, o.X₂, view(o.M.XAR,:,d), o.info⋂), o.β̈dev)
 						end
 					else
 						_v = o.purerobust ? view(o.v,:,:) : view(o.v,o.ID✻_✻⋂,:)
 						@inbounds for d ∈ 1:o.dof
-							@panelsum!(o.Jcd[1,d], panelsum(o.DGP.ü₁[1+_jk], view(o.M.WXAR,:,d), o.info✻⋂) .* _v, o.info⋂_✻⋂)
-							t✻minus!(o.Jcd[1,d], panelsum2(o.X₁, o.X₂, view(o.M.WXAR,:,d), o.info⋂), o.β̈dev)
+							@panelsum!(o.Jcd[1,d], panelsum(o.DGP.ü₁[1+_jk], view(o.M.XAR,:,d), o.info✻⋂) .* _v, o.info⋂_✻⋂)
+							t✻minus!(o.Jcd[1,d], panelsum2(o.X₁, o.X₂, view(o.M.XAR,:,d), o.info⋂), o.β̈dev)
 						end
 					end
 				end
@@ -275,7 +293,7 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
     	o.purerobust && !o.interpolable && (u✻2 = o.u✻ .^ 2)
     	@inbounds for i ∈ 1:o.dof, j ∈ 1:i
     		if o.purerobust && !o.interpolable
-  	   		o.denom[i,j] .= (view(o.M.WXAR,:,i) .* view(o.M.WXAR,:,j))'u✻2 .* o.clust[1].multiplier
+  	   		o.denom[i,j] .= (view(o.M.XAR,:,i) .* view(o.M.XAR,:,j))'u✻2 .* o.clust[1].multiplier
 				else
 					fill!(o.denom[i,j], zero(T))
 				end
