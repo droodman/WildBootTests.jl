@@ -685,8 +685,8 @@ function crosstabFE!(o::StrBootTest{T}, dest::AbstractVector{SparseMatrixCSC{T}}
 	if o.haswt
 		for M ∈ v
 			for Mj ∈ eachcol(M)
-				Mjw .= Mj .* o.sqrtwt
-				dest[i] = sparse(o._FEID, ID, Mjw, o.NFE, NID, +)
+				o.Mjw .= Mj .* o.sqrtwt
+				dest[i] = sparse(o._FEID, ID, o.Mjw, o.NFE, NID, +)
 				i += 1
 			end
 		end	
