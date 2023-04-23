@@ -31,6 +31,8 @@ function InitWRE!(o::StrBootTest{T}) where T
 			o.ARpars = Array{T,3}(undef, o.Repl.kZ, o.ncolsv, o.q)
 		end
 		o.Jc = [c==1 ?  Array{T,3}(undef,0,0,0) : Array{T,3}(undef, o.clust[c].N, o.ncolsv, o.q) for c ∈ 1:o.NErrClustCombs]
+
+		o.jk && (o.uⱼₖ = Vector{T}(undef,o.Nobs))
 	end
 
 	o.T1L = Matrix{T}(undef, o.DGP.kX, o.ncolsv)
@@ -276,8 +278,8 @@ function PrepWRE!(o::StrBootTest{T}) where T
 			mul!(o.Z̄, o.DGP.Ȳ₂, o.Repl.RparY); o.Z̄ .+= o.Repl.ZparX
 		end
 
-		panelcross!(o.S✻Xu₁, o.DGP.X₁, o.DGP.X₂, o.DGP.u⃛₁, o.info✻)
-		panelcross!(o.S✻XU₂par, o.DGP.X₁, o.DGP.X₂, o.Ü₂par, o.info✻)
+		panelcross21!(o.S✻Xu₁, o.DGP.X₁, o.DGP.X₂, o.DGP.u⃛₁, o.info✻)
+		panelcross21!(o.S✻XU₂par, o.DGP.X₁, o.DGP.X₂, o.Ü₂par, o.info✻)
 		t✻!(o.invXXS✻Xu₁   , o.DGP.invXX, o.S✻Xu₁   )
 		t✻!(o.invXXS✻XU₂par, o.DGP.invXX, o.S✻XU₂par)
 
@@ -384,8 +386,8 @@ function PrepWRE!(o::StrBootTest{T}) where T
 				o.S✻⋂XÜ₂par .= o.S✻⋂XU₂ * o.Repl.RparY
 			end
 		elseif o.willfill  # for coarse, jk, construct this input in granular fashion rather than in for coarse, non-jk above
-			panelcross!(o.S✻⋂Xu₁, o.DGP.X₁, o.DGP.X₂, o.DGP.u⃛₁, o.info✻⋂)
-			panelcross!(o.S✻⋂XÜ₂par, o.DGP.X₁, o.DGP.X₂, o.Ü₂par, o.info✻⋂)
+			panelcross21!(o.S✻⋂Xu₁, o.DGP.X₁, o.DGP.X₂, o.DGP.u⃛₁, o.info✻⋂)
+			panelcross21!(o.S✻⋂XÜ₂par, o.DGP.X₁, o.DGP.X₂, o.Ü₂par, o.info✻⋂)
 		end
 
 		if o.willfill
@@ -595,7 +597,10 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 			end
 		end
 	end
-	_jk && (panelsum!(view(dest,:,1), view(o.Repl.PXZ,:,i), o.Repl.y₁par - o.Repl.Zpar * β̈s[:,1], o.info⋂))
+	if _jk
+		o.uⱼₖ .= o.Repl.y₁par; t✻minus!(o.uⱼₖ, o.Repl.Zpar, β̈s[:,1])
+		panelsum!(view(dest,:,1), view(o.Repl.PXZ,:,i), o.uⱼₖ, o.info⋂)
+	end
   nothing
 end
 

@@ -3,7 +3,7 @@ using WildBootTests
 using StableRNGs, StatFiles, DataFrames, CategoricalArrays, StatsModels
 
 open("unittests.log", "w") do log  # use Github Desktop to detect changes in output
-  rng = StableRNG(1)
+  rng=StableRNG(1)
   T=Float64
   predexog = rand(rng, T, 1000, 4)
   resp = rand(rng, T, 1000)
@@ -12,7 +12,7 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   idcoarse =  floor.(Int, collect(0:999)/100)
   idgranular =  floor.(Int, collect(0:999)/2)
   feid = mod.(collect(0:999), 100)
-  println(log, wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, rng, clustid=idcoarse))
+  println(log, wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, rng,  clustid=idcoarse))
   println(log, wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, rng, clustid=idgranular, reps=100))
   println(log, wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, rng, small=false))
   println(log, wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, rng, clustid=idcoarse, R1=T[0 0 1 0], r1=T[.2]))
@@ -20,7 +20,7 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   println(log, wildboottest(T, T[0 0 0 0 1], T[.04]; resp, predexog, predendog, inst, rng, clustid=idcoarse))
   println(log, wildboottest(T, T[0 0 0 0 1], T[.04]; resp, predexog, predendog, inst, rng, clustid=idcoarse, arubin=true))
   println(log, wildboottest(T, T[0 0 0 1 0], T[.04]; resp, predexog, predendog, inst, rng, clustid=idgranular, reps=100, liml=true))
-  println(log, wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, rng, clustid=idcoarse))
+  println(log, wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, rng,  clustid=idcoarse))
   println(log, wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, rng, clustid=idgranular, reps=100))
   println(log, wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, rng, small=false))
   println(log, wildboottest(    [0 0 0 1]  , [0]   ; resp, predexog, rng, clustid=idcoarse, R1=T[0 0 1 0], r1=T[.2]))

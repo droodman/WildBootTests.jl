@@ -185,61 +185,69 @@ function PrepJKIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 		o.YPXYⱼₖ = Array{T,3}(undef, o.kZ+1, parent.N✻, o.kZ+1)
 	end
 
-	ZperpX₁  , _ZperpX₁   = crossjk(o.Zperp, o.X₁, parent.info✻)  # full-sample and delete-g cross-moments
-	ZperpX₂  , _ZperpX₂   = crossjk(o.Zperp, parent.X₂, parent.info✻)
+	ZperpX  , _ZperpX   = crossjk(o.Zperp, o.X₁, parent.X₂, parent.info✻)  # full-sample and delete-g cross-moments
 	Zperpy₁  , _Zperpy₁   = crossjk(o.Zperp, parent.y₁, parent.info✻)
 	ZperpY₂  , _ZperpY₂   = crossjk(o.Zperp, parent.Y₂, parent.info✻)
 	ZperpZpar, _ZperpZpar = crossjk(o.Zperp, o.Zpar   , parent.info✻)
 
 	ZperpZperp, o.invZperpZperp, _invZperpZperp = invsymcrossjk(o.Zperp, parent.info✻)
 
-	_invZperpZperpZperpX₁  = _invZperpZperp * _ZperpX₁
-	_invZperpZperpZperpX₂  = _invZperpZperp * _ZperpX₂
+	_invZperpZperpZperpX  = _invZperpZperp * _ZperpX
 	_invZperpZperpZperpZ   = _invZperpZperp * _ZperpZpar
 	_invZperpZperpZperpY₂  = _invZperpZperp * _ZperpY₂
 	_invZperpZperpZperpy₁  = _invZperpZperp * _Zperpy₁
 
-	o.X₁ⱼₖ  = partialjk(o.X₁, o.Zperp, _invZperpZperpZperpX₁ , parent.info✻)  # FWL-process
-	o.X₂ⱼₖ  = partialjk(parent.X₂, o.Zperp, _invZperpZperpZperpX₂ , parent.info✻)
+	o.Xⱼₖ  = partialjk(o.X₁, parent.X₂, o.Zperp, _invZperpZperpZperpX , parent.info✻)
 	o.y₁ⱼₖ  = partialjk(parent.y₁, o.Zperp, _invZperpZperpZperpy₁ , parent.info✻)
 	o.Y₂ⱼₖ  = partialjk(parent.Y₂, o.Zperp, _invZperpZperpZperpY₂ , parent.info✻)
 	o.Zⱼₖ   = partialjk(  o.Zpar , o.Zperp, _invZperpZperpZperpZ  , parent.info✻)
 
-	tX₁ = ZperpZperp * _invZperpZperpZperpX₁; tX₁ .= ZperpX₁   - tX₁
-	tX₂ = ZperpZperp * _invZperpZperpZperpX₂; tX₂ .= ZperpX₂   - tX₂
+	tX = ZperpZperp * _invZperpZperpZperpX; tX .= ZperpX   - tX
 	tZ  = ZperpZperp * _invZperpZperpZperpZ ; tZ  .= ZperpZpar - tZ
 	tY₂ = ZperpZperp * _invZperpZperpZperpY₂; tY₂ .= ZperpY₂   - tY₂
 	ty₁ = ZperpZperp * _invZperpZperpZperpy₁; ty₁ .= Zperpy₁  .- ty₁
 
-	_X₁X₁   = panelcross(o.X₁ⱼₖ, o.X₁ⱼₖ, parent.info✻); _X₁X₁    .= o.X₁X₁           - _X₁X₁   ; t✻minus!(_X₁X₁   , ZperpX₁'   , _invZperpZperpZperpX₁); t✻minus!(_X₁X₁    , _invZperpZperpZperpX₁', tX₁)
-	_X₂X₁   = panelcross(o.X₂ⱼₖ, o.X₁ⱼₖ, parent.info✻); _X₂X₁    .= o.X₂X₁           - _X₂X₁   ; t✻minus!(_X₂X₁   , ZperpX₂'   , _invZperpZperpZperpX₁); t✻minus!(_X₂X₁    , _invZperpZperpZperpX₂', tX₁)
-	_X₂X₂   = panelcross(o.X₂ⱼₖ, o.X₂ⱼₖ, parent.info✻); _X₂X₂    .= o.X₂X₂           - _X₂X₂   ; t✻minus!(_X₂X₂   , ZperpX₂'   , _invZperpZperpZperpX₂); t✻minus!(_X₂X₂    , _invZperpZperpZperpX₂', tX₂)
-	_X₁Y₂   = panelcross(o.X₁ⱼₖ, o.Y₂ⱼₖ, parent.info✻); _X₁Y₂    .= o.X₁Y₂           - _X₁Y₂   ; t✻minus!(_X₁Y₂   , ZperpX₁'   , _invZperpZperpZperpY₂); t✻minus!(_X₁Y₂    , _invZperpZperpZperpX₁', tY₂)
-	_X₂Y₂   = panelcross(o.X₂ⱼₖ, o.Y₂ⱼₖ, parent.info✻); _X₂Y₂    .= o.X₂Y₂           - _X₂Y₂   ; t✻minus!(_X₂Y₂   , ZperpX₂'   , _invZperpZperpZperpY₂); t✻minus!(_X₂Y₂    , _invZperpZperpZperpX₂', tY₂)
+	if iszero(ncols(o.X₁))
+		XX = o.X₂X₂
+		XY₂ = o.X₂Y₂
+		XZ = o.X₂Z
+		Xy₁ = o.X₂y₁
+	else
+		XX = [o.X₁X₁ o.X₂X₁' ; o.X₂X₁ o.X₂X₂]
+		XY₂ = [o.X₁Y₂; o.X₂Y₂]
+		XZ = [o.X₁Z; o.X₂Z]
+		Xy₁ = [o.X₁y₁; o.X₂y₁]
+	end
+
+	o.XXⱼₖ   = panelcross(o.Xⱼₖ, o.Xⱼₖ, parent.info✻); o.XXⱼₖ    .= XX           - o.XXⱼₖ   ; t✻minus!(o.XXⱼₖ   , ZperpX'   , _invZperpZperpZperpX); t✻minus!(o.XXⱼₖ    , _invZperpZperpZperpX', tX)
+	o.XY₂ⱼₖ   = panelcross(o.Xⱼₖ, o.Y₂ⱼₖ, parent.info✻); o.XY₂ⱼₖ    .= XY₂           - o.XY₂ⱼₖ   ; t✻minus!(o.XY₂ⱼₖ   , ZperpX'   , _invZperpZperpZperpY₂); t✻minus!(o.XY₂ⱼₖ    , _invZperpZperpZperpX', tY₂)
 	o.Y₂y₁ⱼₖ = panelcross(o.Y₂ⱼₖ, o.y₁ⱼₖ, parent.info✻); o.Y₂y₁ⱼₖ .= view(o.Y₂y₁,:,:) - o.Y₂y₁ⱼₖ; t✻minus!( o.Y₂y₁ⱼₖ, ZperpY₂'   , _invZperpZperpZperpy₁); t✻minus!( o.Y₂y₁ⱼₖ, _invZperpZperpZperpY₂', ty₁)
-	o.X₂y₁ⱼₖ = panelcross(o.X₂ⱼₖ, o.y₁ⱼₖ, parent.info✻); o.X₂y₁ⱼₖ .= view(o.X₂y₁,:,:) - o.X₂y₁ⱼₖ; t✻minus!(o.X₂y₁ⱼₖ , ZperpX₂'   , _invZperpZperpZperpy₁); t✻minus!(o.X₂y₁ⱼₖ , _invZperpZperpZperpX₂', ty₁)
-	o.X₁y₁ⱼₖ = panelcross(o.X₁ⱼₖ, o.y₁ⱼₖ, parent.info✻); o.X₁y₁ⱼₖ .= view(o.X₁y₁,:,:) - o.X₁y₁ⱼₖ; t✻minus!(o.X₁y₁ⱼₖ , ZperpX₁'   , _invZperpZperpZperpy₁); t✻minus!(o.X₁y₁ⱼₖ , _invZperpZperpZperpX₁', ty₁)
+	# o.X₁y₁ⱼₖ = panelcross(o.X₁ⱼₖ, o.y₁ⱼₖ, parent.info✻); o.X₁y₁ⱼₖ .= view(o.X₁y₁,:,:) - o.X₁y₁ⱼₖ; t✻minus!(o.X₁y₁ⱼₖ , ZperpX₁'   , _invZperpZperpZperpy₁); t✻minus!(o.X₁y₁ⱼₖ , _invZperpZperpZperpX₁', ty₁)
+	# o.X₂y₁ⱼₖ = panelcross(o.X₂ⱼₖ, o.y₁ⱼₖ, parent.info✻); o.X₂y₁ⱼₖ .= view(o.X₂y₁,:,:) - o.X₂y₁ⱼₖ; t✻minus!(o.X₂y₁ⱼₖ , ZperpX₂'   , _invZperpZperpZperpy₁); t✻minus!(o.X₂y₁ⱼₖ , _invZperpZperpZperpX₂', ty₁)
+o.Xy₁ⱼₖ = panelcross(o.Xⱼₖ, o.y₁ⱼₖ, parent.info✻); o.Xy₁ⱼₖ .= view(Xy₁,:,:) - o.Xy₁ⱼₖ; t✻minus!(o.Xy₁ⱼₖ , ZperpX'   , _invZperpZperpZperpy₁); t✻minus!(o.Xy₁ⱼₖ , _invZperpZperpZperpX', ty₁)
 	o.Zy₁ⱼₖ  = panelcross(o.Zⱼₖ,  o.y₁ⱼₖ, parent.info✻); o.Zy₁ⱼₖ  .= view( o.Zy₁,:,:) - o.Zy₁ⱼₖ ; t✻minus!(o.Zy₁ⱼₖ  , ZperpZpar' , _invZperpZperpZperpy₁); t✻minus!(o.Zy₁ⱼₖ  , _invZperpZperpZperpZ' , ty₁)
-	X₁Zⱼₖ    = panelcross(o.X₁ⱼₖ, o.Zⱼₖ , parent.info✻); X₁Zⱼₖ    .= o.X₁Z            - X₁Zⱼₖ   ; t✻minus!(X₁Zⱼₖ    , ZperpX₁'   , _invZperpZperpZperpZ ); t✻minus!(X₁Zⱼₖ    , _invZperpZperpZperpX₁', tZ )
-	X₂Zⱼₖ    = panelcross(o.X₂ⱼₖ, o.Zⱼₖ , parent.info✻); X₂Zⱼₖ    .= o.X₂Z            - X₂Zⱼₖ   ; t✻minus!(X₂Zⱼₖ    , ZperpX₂'   , _invZperpZperpZperpZ ); t✻minus!(X₂Zⱼₖ    , _invZperpZperpZperpX₂', tZ )
+	# X₁Zⱼₖ    = panelcross(o.X₁ⱼₖ, o.Zⱼₖ , parent.info✻); X₁Zⱼₖ    .= o.X₁Z            - X₁Zⱼₖ   ; t✻minus!(X₁Zⱼₖ    , ZperpX₁'   , _invZperpZperpZperpZ ); t✻minus!(X₁Zⱼₖ    , _invZperpZperpZperpX₁', tZ )
+	# X₂Zⱼₖ    = panelcross(o.X₂ⱼₖ, o.Zⱼₖ , parent.info✻); X₂Zⱼₖ    .= o.X₂Z            - X₂Zⱼₖ   ; t✻minus!(X₂Zⱼₖ    , ZperpX₂'   , _invZperpZperpZperpZ ); t✻minus!(X₂Zⱼₖ    , _invZperpZperpZperpX₂', tZ )
+o.XZⱼₖ    = panelcross(o.Xⱼₖ, o.Zⱼₖ , parent.info✻); o.XZⱼₖ    .= XZ            - o.XZⱼₖ   ; t✻minus!(o.XZⱼₖ    , ZperpX'   , _invZperpZperpZperpZ ); t✻minus!(o.XZⱼₖ    , _invZperpZperpZperpX', tZ )
 	o.ZZⱼₖ   = panelcross(o.Zⱼₖ,  o.Zⱼₖ , parent.info✻); o.ZZⱼₖ   .= o.ZZ             - o.ZZⱼₖ  ; t✻minus!(o.ZZⱼₖ   , ZperpZpar' , _invZperpZperpZperpZ ); t✻minus!(o.ZZⱼₖ   , _invZperpZperpZperpZ' , tZ )
 	o.ZY₂ⱼₖ  = panelcross(o.Zⱼₖ,  o.Y₂ⱼₖ, parent.info✻); o.ZY₂ⱼₖ  .= o.ZY₂            - o.ZY₂ⱼₖ ; t✻minus!(o.ZY₂ⱼₖ  , ZperpZpar' , _invZperpZperpZperpY₂); t✻minus!(o.ZY₂ⱼₖ  , _invZperpZperpZperpZ' , tY₂)
 	o.y₁y₁ⱼₖ = panelcross(o.y₁ⱼₖ, o.y₁ⱼₖ, parent.info✻); o.y₁y₁ⱼₖ .= [o.y₁y₁;;;]     .- o.y₁y₁ⱼₖ; t✻minus!(o.y₁y₁ⱼₖ, 2 * Zperpy₁', _invZperpZperpZperpy₁); o.y₁y₁ⱼₖ .+= _invZperpZperpZperpy₁'ZperpZperp*_invZperpZperpZperpy₁
-	o.XZⱼₖ   = [X₁Zⱼₖ; X₂Zⱼₖ]
+	# o.XZⱼₖ   = [X₁Zⱼₖ; X₂Zⱼₖ]
 
-	o.XY₂ⱼₖ = [_X₁Y₂ ; _X₂Y₂]
-	o.XXⱼₖ  = [_X₁X₁ ; _X₂X₁ ;;; _X₂X₁' ;  _X₂X₂]
+	# o.XY₂ⱼₖ = [_X₁Y₂ ; _X₂Y₂]
+	# o.XXⱼₖ  = [_X₁X₁ ; _X₂X₁ ;;; _X₂X₁' ;  _X₂X₂]
 	o.invXXⱼₖ = invsym(o.XXⱼₖ)
 	o.H_2SLSⱼₖ = o.XZⱼₖ'o.invXXⱼₖ * o.XZⱼₖ
 	(!isone(o.κ) || o.liml) && (o.H_2SLSmZZⱼₖ = o.H_2SLSⱼₖ - o.ZZⱼₖ)
 
 	if o.restricted
+		XZR₁ = iszero(ncols(o.X₁)) ? o.X₂ZR₁ : [o.X₁ZR₁; o.X₂ZR₁]
+
 		ZperpZR₁, _ZperpZR₁ = crossjk(o.Zperp, o.ZR₁, parent.info✻)
 		_invZperpZperpZperpZR₁ = _invZperpZperp * _ZperpZR₁
 		o.ZR₁ⱼₖ = partialjk(o.ZR₁, o.Zperp, _invZperpZperpZperpZR₁, parent.info✻)
 		tZR₁ = ZperpZperp * _invZperpZperpZperpZR₁; tZR₁ .= ZperpZR₁ - tZR₁
-		o.X₁ZR₁ⱼₖ    = panelcross(o.X₁ⱼₖ,  o.ZR₁ⱼₖ, parent.info✻); o.X₁ZR₁ⱼₖ    .= o.X₁ZR₁ - o.X₁ZR₁ⱼₖ   ; t✻minus!(o.X₁ZR₁ⱼₖ   , ZperpX₁'  , _invZperpZperpZperpZR₁); t✻minus!(o.X₁ZR₁ⱼₖ   , _invZperpZperpZperpX₁' , tZR₁)
-		o.X₂ZR₁ⱼₖ    = panelcross(o.X₂ⱼₖ,  o.ZR₁ⱼₖ, parent.info✻); o.X₂ZR₁ⱼₖ    .= o.X₂ZR₁ - o.X₂ZR₁ⱼₖ   ; t✻minus!(o.X₂ZR₁ⱼₖ   , ZperpX₂'  , _invZperpZperpZperpZR₁); t✻minus!(o.X₂ZR₁ⱼₖ   , _invZperpZperpZperpX₂' , tZR₁)
+		o.XZR₁ⱼₖ    = panelcross(o.Xⱼₖ,  o.ZR₁ⱼₖ, parent.info✻); o.XZR₁ⱼₖ    .= XZR₁ - o.XZR₁ⱼₖ   ; t✻minus!(o.XZR₁ⱼₖ   , ZperpX'  , _invZperpZperpZperpZR₁); t✻minus!(o.XZR₁ⱼₖ   , _invZperpZperpZperpX' , tZR₁)
 		o.ZR₁Zⱼₖ     = panelcross(o.ZR₁ⱼₖ,   o.Zⱼₖ, parent.info✻); o.ZR₁Zⱼₖ     .= o.ZR₁Z  - o.ZR₁Zⱼₖ    ; t✻minus!( o.ZR₁Zⱼₖ   , ZperpZR₁' , _invZperpZperpZperpZ  ); t✻minus!( o.ZR₁Zⱼₖ   , _invZperpZperpZperpZR₁', tZ) 
 		o.twoZR₁y₁ⱼₖ = panelcross(o.ZR₁ⱼₖ,  o.y₁ⱼₖ, parent.info✻); o.twoZR₁y₁ⱼₖ .= reshape(o.ZR₁'parent.y₁,:,1) - o.twoZR₁y₁ⱼₖ; t✻minus!(o.twoZR₁y₁ⱼₖ, ZperpZR₁' , _invZperpZperpZperpy₁ ); t✻minus!(o.twoZR₁y₁ⱼₖ, _invZperpZperpZperpZR₁', ty₁ );  o.twoZR₁y₁ⱼₖ .*= 2
 		o.ZR₁ZR₁ⱼₖ   = panelcross(o.ZR₁ⱼₖ, o.ZR₁ⱼₖ, parent.info✻); o.ZR₁ZR₁ⱼₖ   .= o.ZR₁'o.ZR₁     - o.ZR₁ZR₁ⱼₖ  ; t✻minus!(o.ZR₁ZR₁ⱼₖ  , ZperpZR₁' , _invZperpZperpZperpZR₁); t✻minus!(o.ZR₁ZR₁ⱼₖ  , _invZperpZperpZperpZR₁', tZR₁)
@@ -249,7 +257,7 @@ function PrepJKIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 		o.Y₂y₁parⱼₖ    = o.Y₂y₁ⱼₖ 
 		o.Zy₁parⱼₖ     = o.Zy₁ⱼₖ
 		o.y₁pary₁parⱼₖ = o.y₁y₁ⱼₖ 
-		o.Xy₁parⱼₖ     = [o.X₁y₁ⱼₖ ; o.X₂y₁ⱼₖ]
+		o.Xy₁parⱼₖ     = o.Xy₁ⱼₖ
 		o.y₁parⱼₖ      = o.y₁ⱼₖ
 		ZperpZR₁ = Matrix{T}(undef,0,0)
 	end
@@ -257,7 +265,7 @@ function PrepJKIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	!iszero(o.fuller) &&
 		(o.Nobsⱼₖ = parent._Nobs .- (parent.fweights ? @panelsum(parent.wt, parent.info✻) : T.(length.(parent.info✻))))
 	
-	return ZperpX₁, ZperpX₂, Zperpy₁, ZperpY₂, ZperpZpar, ZperpZR₁
+	return (@view ZperpX[:,1:o.kX₁]), (@view ZperpX[:,o.kX₁+1:end]), Zperpy₁, ZperpY₂, ZperpZpar, ZperpZR₁
 end
 
 function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::AbstractMatrix{T}...) where T
@@ -597,10 +605,10 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁
 
     o.y₁pary₁par = o.y₁y₁ - (o.twoZR₁y₁'r₁)[] + r₁'o.ZR₁ZR₁ * r₁
 	  o.Y₂y₁par .= o.Y₂y₁  - o.ZR₁Y₂'r₁
-	  o.X₂y₁par .= o.X₂y₁ - o.X₂ZR₁ * r₁
 	  o.X₁y₁par .= o.X₁y₁ - o.X₁ZR₁ * r₁
-	  o.Zy₁par  .= o.Zy₁ -  o.ZR₁Z'r₁
+	  o.X₂y₁par .= o.X₂y₁ - o.X₂ZR₁ * r₁
 	  o.Xy₁par  .= [o.X₁y₁par ; o.X₂y₁par]
+	  o.Zy₁par  .= o.Zy₁ -  o.ZR₁Z'r₁
 	  if parent.scorebs || parent.granular && o.isDGP || parent.jk && !o.isDGP
 			o.y₁par .= o.y₁;
 			t✻minus!(o.y₁par, o.ZR₁, r₁)
@@ -612,9 +620,7 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁
 			o.y₁pary₁parⱼₖ = o.y₁y₁ⱼₖ - o.twoZR₁y₁ⱼₖ'r₁ + r₁'o.ZR₁ZR₁ⱼₖ * r₁
 			o.Y₂y₁parⱼₖ    = o.Y₂y₁ⱼₖ - o.ZR₁Y₂ⱼₖ'r₁
 			o.Zy₁parⱼₖ     = o.Zy₁ⱼₖ  - o.ZR₁Zⱼₖ'r₁
-			  X₁y₁parⱼₖ    = o.X₁y₁ⱼₖ - o.X₁ZR₁ⱼₖ * r₁
-			  X₂y₁parⱼₖ    = o.X₂y₁ⱼₖ - o.X₂ZR₁ⱼₖ * r₁
-		  o.Xy₁parⱼₖ     = [X₁y₁parⱼₖ ; X₂y₁parⱼₖ]
+			o.Xy₁parⱼₖ    = o.Xy₁ⱼₖ - o.XZR₁ⱼₖ * r₁
 		end
   end
 
@@ -746,7 +752,7 @@ function MakeResidualsIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 				Xu .= view(o.Xy₁parⱼₖ,:,g,:); t✻minus!(Xu, view(o.XZⱼₖ,:,g,:), view(o.β̈ⱼₖ,:,g,1))  # after DGP regression, compute Y₂ residuals by regressing Y₂ on X while controlling for y₁ residuals, done through FWL
 				negXuinvuu .= Xu ./ -uu
 				Π̈ⱼₖ .= invsym(view(o.XXⱼₖ,:,g,:) + negXuinvuu * Xu') * (negXuinvuu * (view(o.Y₂y₁parⱼₖ,:,g,:) - view(o.ZY₂ⱼₖ,:,g,:)'view(o.β̈ⱼₖ,:,g,1))' + view(o.XY₂ⱼₖ,:,g,:))
-				X₁₂Bminus!(view(o.Ü₂,S,:), view(o.X₁ⱼₖ,S,:), view(o.X₂ⱼₖ,S,:), Π̈ⱼₖ)
+				t✻minus!(view(o.Ü₂,S,:), view(o.Xⱼₖ,S,:), Π̈ⱼₖ)
 				t✻plus!(view(o.u⃛₁,S), view(o.Ü₂,S,:), o.RparY * view(o.β̈ⱼₖ,:,g,1) + _t₁Y)
 			end
 		elseif parent.granular

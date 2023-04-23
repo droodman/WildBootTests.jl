@@ -38,6 +38,7 @@ end
 # X, ipiv, info = LinearAlgebra.LAPACK.sytrf!('U', Matrix(X))
 # iszero(info) && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)
 @inline invsym(X) = try X \ I catch _ pinv(X) end
+@inline invsym!(Y,X) = try ldiv!(Y, X, I) catch _ Y .= pinv(X) end
 
 eigvalsNaN(X) =
 	try
@@ -563,13 +564,36 @@ function panelcross!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, Y::Abstra
 	nothing
 end
 # version for two matrices on left
-function panelcross!(dest::AbstractArray{T,3}, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+function panelcross21!(dest::AbstractArray{T,3}, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
 	panelcross!(view(dest,            1:size(X₁  ,2),:,:), X₁, Y, info)
 	panelcross!(view(dest, size(X₁,2)+1:size(dest,1),:,:), X₂, Y, info)
+end
+# version for two matrices on right
+function panelcross12!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, Y₁::AbstractVecOrMat{T}, Y₂::AbstractVecOrMat{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+	panelcross!((@view dest[:,:,1:size(Y₁,2)    ]), X, Y₁, info)
+	panelcross!((@view dest[:,:,1+size(Y₁,2):end]), X, Y₂, info)
+end
+function panelcross12(X::AbstractVecOrMat{T}, Y₁::AbstractVecOrMat{T}, Y₂::AbstractVecOrMat{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+	dest = Array{T,3}(undef, size(X,2), iszero(length(info)) ? nrows(X) : length(info), size(Y₁,2)+size(Y₂,2))
+	panelcross12!(dest, X, Y₁, Y₂, info)
+	dest
+end
+
+# version for two on left and two on right
+function panelcross22!(dest::AbstractArray{T,3}, X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, Y₁::AbstractVecOrMat{T}, Y₂::AbstractVecOrMat{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+	panelcross!((@view dest[           1:size(X₁,2),:,1:size(Y₁,2)    ]), X₁, Y₁, info)
+	panelcross!((@view dest[size(X₁,2)+1:end       ,:,1:size(Y₁,2)    ]), X₂, Y₁, info)
+	panelcross!((@view dest[           1:size(X₁,2),:,1+size(Y₁,2):end]), X₁, Y₂, info)
+	panelcross!((@view dest[size(X₁,2)+1:end       ,:,1+size(Y₁,2):end]), X₂, Y₂, info)
 end
 function panelcross(X::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::AbstractVector{UnitRange{S}} where S<:Integer) where T
 	dest = Array{T,3}(undef, size(X,2), iszero(length(info)) ? nrows(X) : length(info), size(Y,2))
 	panelcross!(dest, X, Y, info)
+	dest
+end
+function panelcross22(X₁::AbstractVecOrMat{T}, X₂::AbstractVecOrMat{T}, Y₁::AbstractVecOrMat{T}, Y₂::AbstractVecOrMat{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
+	dest = Array{T,3}(undef, size(X₁,2)+size(X₂,2), iszero(length(info)) ? nrows(X) : length(info), size(Y₁,2)+size(Y₂,2))
+	panelcross22!(dest, X₁, X₂, Y₁, Y₂, info)
 	dest
 end
 
@@ -933,7 +957,7 @@ function t✻minus!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::Abstract
 	nothing
 end
 
-@inline invsym!(Y::AbstractMatrix{T}, X::AbstractMatrix{T}) where T = ldiv!(Y, qr(X), )
+# @inline invsym!(Y::AbstractMatrix{T}, X::AbstractMatrix{T}) where T = ldiv!(Y, lu(X), I(size(X,1)))  # slowerthan Y = X \ I
 
 # in-place inverse of a set of symmetric matrices
 function invsym!(A::Array{T,3}) where T
@@ -970,6 +994,13 @@ function crossjk(A::VecOrMat{T}, B::AbstractMatrix{T}, info::Vector{UnitRange{In
 	t .= sumt .- t
 	(dropdims(sumt; dims=2), t)
 end
+# version with two data matrices on right
+function crossjk(A::VecOrMat{T}, B₁::AbstractMatrix{T}, B₂::AbstractMatrix{T}, info::Vector{UnitRange{Int64}}) where T
+	t = panelcross12(A,B₁,B₂,info)
+	sumt = sum(t; dims=2)  # A'[B₁ B₂]
+	t .= sumt .- t
+	(dropdims(sumt; dims=2), t)
+end
 function crossjk(A::VecOrMat{T}, B::Vector{T}, info::Vector{UnitRange{Int64}}) where T
 	(sumt, t) = crossjk(A, view(B,:,:), info)
 	(vec(sumt), t)
@@ -993,23 +1024,30 @@ function invsymcrossjk(X::Matrix{T}, info::Vector{UnitRange{Int64}}) where T
 	(XX, invXX, SXX)
 end
 
-# helper for partialling Zperp from A, jackknifed. A and Z are data matrices/vectors. ZZZA is a 3-array
-# Returns {A_g - Z_g * ZZZA_g} stacked
-function partialjk(A::AbstractVecOrMat{T}, Z::AbstractMatrix{T}, ZZZA::AbstractArray{T}, info::Vector{UnitRange{Int64}}) where T
-	dest = copy(A)
+# Partial Zperp from A, jackknifed. A and Z are data matrices/vectors. ZZZA is a 3-array
+# Returns {A_g - Z_g * ZZZA_g} stacked in A
+function partialjk!(A::AbstractVecOrMat{T}, Z::AbstractMatrix{T}, ZZZA::AbstractArray{T}, info::Vector{UnitRange{Int64}}) where T
 	if length(A)>0
-		indicesᵢ = indices((dest,ZZZA),(2,3))
+		indicesᵢ = indices((A,ZZZA),(2,3))
 		for (g,G) ∈ enumerate(info)
 	    @tturbo warn_check_args=false for i ∈ indicesᵢ, j ∈ G
 				destⱼᵢ = zero(T)
 				for k ∈ indices((Z,ZZZA), (2,1))
 			  	destⱼᵢ += Z[j,k] * ZZZA[k,g,i]
 				end
-				dest[j,i] -= destⱼᵢ
+				A[j,i] -= destⱼᵢ
 	    end
 		end
 	end
-  dest
+  A
+end
+function partialjk(A::AbstractVecOrMat{T}, Z::AbstractMatrix{T}, ZZZA::AbstractArray{T}, info::Vector{UnitRange{Int64}}) where T
+	dest = copy(A)
+	partialjk!(dest,Z,ZZZA,info)
+end
+function partialjk(A₁::AbstractVecOrMat{T}, A₂::AbstractVecOrMat{T}, Z::AbstractMatrix{T}, ZZZA::AbstractArray{T}, info::Vector{UnitRange{Int64}}) where T
+	dest = [A₁ A₂]
+	partialjk!(dest,Z,ZZZA,info)
 end
 
 # multiply an a-vector of b x c sparse matrices, with shared sparsity pattern, by an a x d matrix, producing a d-vector of b x c matrices, still same sparsity pattern
