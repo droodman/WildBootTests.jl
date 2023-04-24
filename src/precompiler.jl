@@ -1,5 +1,5 @@
-using SnoopPrecompile, StableRNGs
-@precompile_setup begin
+using PrecompileTools, StableRNGs
+@setup_workload begin
   rng = StableRNG(2093488)
   for T in (Float32,Float64)
     predexog = rand(rng, T, 1000, 4)
@@ -10,7 +10,7 @@ using SnoopPrecompile, StableRNGs
     idgranular =  floor.(Int, collect(0:999)/2)
     feid = mod.(collect(0:999), 100)
     
-    @precompile_all_calls begin
+    @compile_workload begin
       wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog,      clustid=idcoarse)
       wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, rng, clustid=idgranular, reps=100)
       wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, rng, small=false)
