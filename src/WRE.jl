@@ -543,7 +543,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 			end
 			if o.purerobust
 				@inbounds for g ∈ 1:o.N⋂
-					o.PXY✻ .= view(o.PXZ̄,g:g,i)
+					o.PXY✻ .= o.PXZ̄[g,i]
 					o.Repl.Yendog[i+1] &&
 						t✻plus!(o.PXY✻, view(o.XinvXX,g:g,:), o.S✻XUv)
 	
@@ -552,9 +552,15 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 						o.NFE>0 && !o.FEboot &&
 							(o.S✻UMZperp .+= view(o.invFEwtCT✻FEUv, o._FEID[g]:o._FEID[g], :))  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
 	
-							dest[g:g,:] .+= o.PXY✻ .* (o.S✻UMZperp .- o.Z̄[g,j] .* _β̈ )
+						# dest[g:g,:] .+= o.PXY✻ .* (o.S✻UMZperp .- o.Z̄[g,j] .* _β̈ )
+						@tturbo for c ∈ indices((dest, o.PXY✻, _β̈ , o.S✻UMZperp), 2)
+							dest[g,c] += o.PXY✻[c] * (o.S✻UMZperp[c] - o.Z̄[g,j] * _β̈[c])
+						end
 					else
-						dest[g:g,:] .-= o.Z̄[g,j] .* o.PXY✻ .* _β̈ 
+						# dest[g:g,:] .-= o.Z̄[g,j] .* o.PXY✻ .* _β̈ 
+						@tturbo for c ∈ indices((dest, o.PXY✻, _β̈ ), 2)
+							dest[g,c] -= o.Z̄[g,j] * o.PXY✻[c] * _β̈[c]
+						end
 					end
 				end
 			else
@@ -568,6 +574,11 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 						S✻UMZperpg = rowsubview(o.S✻UMZperp, length(S))
 						t✻!(S✻UMZperpg, view(o.Repl.Zperp,  S,:), o.S✻UZperpinvZperpZperpv)
 						S✻UMZperpg .-= view(o.Ü₂par, S, j) .* view(o.β̈v,view(o.ID✻, S),:)
+						# IDS = view(o.ID✻,S)
+						# @tturbo for c ∈ indices((S✻UMZperpg,o.β̈v),2), r ∈ indices((S✻UMZperpg,S),1)
+						# 	S✻UMZperpg[r,c] -= o.Ü₂par[S[r], j] * o.β̈v[IDS[r],c]
+						# end
+
 						t✻minus!(S✻UMZperpg, view(o.Z̄,S,j), _β̈ )
 	
 						o.NFE>0 && !o.FEboot &&

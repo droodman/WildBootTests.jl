@@ -196,7 +196,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.B = 2^o.N✻
 		o.Nw = 1
 	else
-		o.Nw = iszero(o.maxmatsize) ? one(Int64) : ceil(Int64, (o.B+1) * Float64(max(nrows(o.ID✻), length(o.ID✻_✻⋂), o.N✻) * sizeof(T)) / o.maxmatsize / 1073741824) # 1073741824 = giga(byte)
+		o.Nw = iszero(o.maxmatsize) ? one(Int64) : ceil(Int64, (o.B+1.) * max(nrows(o.ID✻), length(o.ID✻_✻⋂), o.N✻) * sizeof(T) / o.maxmatsize / 1073741824) # 1073741824 = giga(byte)
 	end
 
 	if isone(o.Nw)
