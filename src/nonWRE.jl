@@ -241,7 +241,12 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 		else
 			if o.granular || o.purerobust  # optimized treatment when bootstrapping by many/small groups
 				if o.purerobust && !o.interpolable
-					o.u✻ .= o.DGP.ü₁[1+_jk] .* o.v
+
+					# o.u✻ .= o.DGP.ü₁[1+_jk] .* o.v  <- Not sure why that causes copyto!() call
+					@tturbo for c ∈ indices((o.u✻,o.v),2), r ∈ indices((o.u✻,o.DGP.ü₁[1+_jk],o.v),1)
+						o.u✻[r,c] = o.DGP.ü₁[1+_jk][r] * o.v[r,c]
+					end
+
 					o.jk && !_jk && (o.u✻[:,1] .= o.DGP.ü₁[1])
 					o.NFE>0 && !o.FEboot && partialFE!(o, o.u✻)
 					X₁₂Bminus!(o.u✻, o.X₁, o.X₂, o.β̈dev)
@@ -274,12 +279,13 @@ end
 function MakeNonWRELoop1!(o::StrBootTest, tmp::Matrix, w::Integer)
 	@inbounds #=Threads.@threads=# for k ∈ o.ncolsv:-1:1
 		@inbounds for i ∈ 1:o.dof
-			for j ∈ 1:i
-				tmp[j,i] = o.denom[i,j][k]  # fill upper triangle, which is all invsym() looks at
+			tmp[i,i] = o.denom[i,i][k]
+			for j ∈ 1:i-1
+				tmp[i,j] = tmp[j,i] = o.denom[i,j][k]
 			end
 		end
 		numerₖ = view(o.numerw,:,k)
-		o.dist[k+first(o.WeightGrp[w])-1] = numerₖ'invsym(Symmetric(tmp))*numerₖ  # in degenerate cases, cross() would turn cross(.,.) into 0
+		o.dist[k+first(o.WeightGrp[w])-1] = numerₖ'invsym(tmp)*numerₖ  # in degenerate cases, cross() would turn cross(.,.) into 0
 	end
 	nothing
 end
@@ -290,10 +296,14 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 
 	if o.robust
     if !o.interpolating  # these quadratic computations needed to *prepare* for interpolation but are superseded by interpolation once it is going
-    	o.purerobust && !o.interpolable && (u✻2 = o.u✻ .^ 2)
-    	@inbounds for i ∈ 1:o.dof, j ∈ 1:i
+    	if o.purerobust && !o.interpolable
+				tmp = Vector{T}(undef,o.Nobs)
+				o.u✻ .= o.u✻ .^ 2
+			end
+			@inbounds for i ∈ 1:o.dof, j ∈ 1:i
     		if o.purerobust && !o.interpolable
-  	   		o.denom[i,j] .= (view(o.M.XAR,:,i) .* view(o.M.XAR,:,j))'u✻2 .* o.clust[1].multiplier
+					tmp .= view(o.M.XAR,:,i) .* view(o.M.XAR,:,j) .* o.clust[1].multiplier
+  	   		o.denom[i,j] .= tmp'o.u✻
 				else
 					fill!(o.denom[i,j], zero(T))
 				end
