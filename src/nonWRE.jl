@@ -205,7 +205,7 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 			if o.arubin
 				o.numerw[:,1] = o.DGP.β̈[o.kX₁+1:end,1]  # coefficients on excluded instruments in arubin OLS
 			elseif !o.null  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this.
-				o.numerw[:,1] = o.R * (o.ml ? o.β̈ : iszero(o.κ) ? view(o.M.β̈ ,:,1) : o.M.Rpar * view(o.M.β̈  ,:,1)) - r  # κ≂̸0  score bootstrap of IV ⇒ using FWL and must factor in R∥ 
+				o.numerw[:,1] = o.R * (o.ml ? o.β̈ : iszero(o.κ) ? o.M.β̈  : o.M.Rpar * o.M.β̈ ) - r  # κ≂̸0  score bootstrap of IV ⇒ using FWL and must factor in R∥ 
 			end
 		end
 
