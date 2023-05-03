@@ -511,8 +511,12 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 					t✻plus!(o.PXY✻, view(o.XinvXX,g:g,:), o.S✻XUv)
 
 				t✻!(o.S✻UMZperp, view(o.Repl.Zperp,g:g,:), o.S✻UZperpinvZperpZperpv); t✻minus!(o.S✻UMZperp, o.DGP.u⃛₁[g], view(o.v,g:g,:))
-				o.NFE>0 && !o.FEboot &&
-					(o.S✻UMZperp .+= view(o.invFEwtCT✻FEUv, o._FEID[g]:o._FEID[g], :))  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
+				if o.NFE>0 && !o.FEboot
+					_r = o._FEID[g]
+					@tturbo for c ∈ indices((o.S✻UMZperp, o.invFEwtCT✻FEUv),2)  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
+						o.S✻UMZperp[1,c] += o.invFEwtCT✻FEUv[_r,c]
+					end
+				end
 
 				t✻!(view(dest,g:g,:), o.DGP.ȳ₁[g], o.PXY✻)
 				coldotminus!(dest, g, o.PXY✻, o.S✻UMZperp)
@@ -526,9 +530,15 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 					t✻plus!(PXY✻g, view(o.XinvXX,S,:), o.S✻XUv)
 
 				t✻!(S✻UMZperpg, view(o.Repl.Zperp,S,:), o.S✻UZperpinvZperpZperpv); S✻UMZperpg .-= view(o.DGP.u⃛₁, S) .*  view(o.v, view(o.ID✻, S),:)
-				o.NFE>0 && !o.FEboot &&
-					(S✻UMZperpg .+= view(o.invFEwtCT✻FEUv, view(o._FEID,S), :))  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
-
+				if o.NFE>0 && !o.FEboot # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
+					@tturbo for r ∈ S  # S✻UMZperpg .+= view(o.invFEwtCT✻FEUv, view(o._FEID,S), :)
+						_r = o._FEID[S[r]]
+						for c ∈ indices((o.S✻UMZperp, o.invFEwtCT✻FEUv),2)
+							o.S✻UMZperp[r,c] += o.invFEwtCT✻FEUv[_r,c]
+						end
+					end
+				end
+	
 				t✻!(view(dest,g,:), PXY✻g', view(o.DGP.ȳ₁, S))
 				coldotminus!(dest, g, PXY✻g, S✻UMZperpg)
 			end
