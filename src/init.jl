@@ -151,27 +151,22 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
       (o.scorebs || !o.WREnonARubin) &&
     		(o.ClustShare = o.haswt ? o.wt/o.sumwt : [one(T)/o.Nobs])
     end
-
-		o.purerobust = o.robust && !o.scorebs && iszero(o.subcluster) && o.N✻==o.Nobs  # do we ever error-cluster *and* bootstrap-cluster by individual?
-		o.granular   = o.WREnonARubin ? 4. *o.Nobs/1*o.B < o.N✻/1*(o.Nobs+o.N⋂/1*o.B) :  #  "/1" to convert to Float and avoid overflow
-		                                o.robust && !o.scorebs && (o.purerobust || (o.N⋂/1+o.N✻)*o.kZ/1*o.B + (o.N⋂/1-o.N✻)*o.B + o.kZ/1*o.B < o.N⋂*o.kZ^2. + o.Nobs/1*o.kZ + o.N⋂/1 * o.N✻/1 * o.kZ + o.N⋂/1 * o.N✻)
-
-		if o.jk
-			if o.WREnonARubin
-				!o.purerobust && (o.maxNg = mapreduce(length, max, o.info✻))
-			else
-				o.granularjk = o.kZ^3. + o.N✻ * (o.Nobs/o.N✻*o.kZ^2. + (o.Nobs/o.N✻)^2*o.kZ + (o.Nobs/o.N✻)^2 + (o.Nobs/o.N✻)^3) < o.N✻ * (o.kZ^2. *o.Nobs/o.N✻ + o.kZ^3. + 2o.kZ*(o.kZ + o.Nobs/o.N✻))
-				o.granularjk && !o.purerobust && (o.maxNg = mapreduce(length, max, o.info✻))
-			end
-		end
-		
-		if o.robust
-			(o.WREnonARubin && o.willfill && !o.granular || (o.subcluster>0 || o.granular || o.purerobust) && !o.WREnonARubin) && 
-				(o.info⋂_✻⋂ = panelsetup(clustid✻⋂, o.subcluster+1:o.NClustVar))  # info for error clusters wrt data collapsed to intersections of all bootstrapping && error clusters; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusterings
-		end
   else
 	  minN = T(nrows(o.info✻))
 	end
+
+	o.purerobust = o.robust && !o.scorebs && iszero(o.subcluster) && o.N✻==o.Nobs  # do we ever error-cluster *and* bootstrap-cluster by individual?
+	o.granular   = o.WREnonARubin ? 4. *o.Nobs/1*o.B < o.N✻/1*(o.Nobs+o.N⋂/1*o.B) :  #  "/1" to convert to Float and avoid overflow
+																	o.robust && !o.scorebs && (o.purerobust || (o.N⋂/1+o.N✻)*o.kZ/1*o.B + (o.N⋂/1-o.N✻)*o.B + o.kZ/1*o.B < o.N⋂*o.kZ^2. + o.Nobs/1*o.kZ + o.N⋂/1 * o.N✻/1 * o.kZ + o.N⋂/1 * o.N✻)
+	if o.jk
+		if !o.WREnonARubin
+			o.granularjk = o.kZ^3. + o.N✻ * (o.Nobs/o.N✻*o.kZ^2. + (o.Nobs/o.N✻)^2*o.kZ + (o.Nobs/o.N✻)^2 + (o.Nobs/o.N✻)^3) < o.N✻ * (o.kZ^2. *o.Nobs/o.N✻ + o.kZ^3. + 2o.kZ*(o.kZ + o.Nobs/o.N✻))
+		end
+		(o.WREnonARubin || o.granularjk) && !o.purerobust && (o.maxNg = mapreduce(length, max, o.info✻))
+	end
+	
+	(o.WREnonARubin && o.willfill && !o.granular || (o.subcluster>0 || o.granular || o.purerobust) && !o.WREnonARubin) && 
+		(o.info⋂_✻⋂ = panelsetup(clustid✻⋂, o.subcluster+1:o.NClustVar))  # info for error clusters wrt data collapsed to intersections of all bootstrapping && error clusters; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusterings
 
 	InitFEs!(o)
 	if o.B>0 && o.robust && o.granular && o.bootstrapt && !o.WREnonARubin
