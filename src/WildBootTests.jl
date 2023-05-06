@@ -85,8 +85,8 @@ end
 # compute bootstrap-c denominator from all bootstrap numerators
 function UpdateBootstrapcDenom!(o::StrBootTest{T} where T)
 	numer1 = o.numer[:,1]
-	o.numersum = rowsum(o.numer) - numer1
-	o.statDenom = (o.numer * o.numer' - numer1 * numer1' - o.numersum * o.numersum' / o.B) / o.B
+	numersum = rowsum(o.numer) - numer1
+	o.statDenom = (o.numer * o.numer' - numer1 * numer1' - numersum * numersum' / o.B) / o.B
 	if o.sqrt
 		o.dist = o.numer ./ sqrtNaN.(o.statDenom)
 	else

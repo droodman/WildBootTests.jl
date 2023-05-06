@@ -47,6 +47,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.haswt && (o.wt = o.wt[p])
 		o.overwrite = true  # data matrices are no longer those passed by caller
 	end
+
 	if o.haswt
 		o.sqrtwt = sqrt.(o.wt)
 		if o.overwrite
@@ -55,7 +56,6 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			length(o.X₁)>0 && (o.X₁ .*= o.sqrtwt)
 			length(o.X₂)>0 && (o.X₂ .*= o.sqrtwt)
 		else
-			o.sqrtwt = sqrt.(o.wt)
 			o.y₁ = o.y₁ .* o.sqrtwt
 			length(o.Y₂)>0 && (o.Y₂ = o.Y₂ .* o.sqrtwt)
 			length(o.X₁)>0 && (o.X₁ = o.X₁ .* o.sqrtwt)
@@ -400,15 +400,15 @@ function InitFEs!(o::StrBootTest{T}) where T
 	else
 		o.FEdfadj = 0
 	end
+	nothing
 end
 
 # draw wild weight matrix of width _B. If first=true, insert column of 1s at front.
 const ϕ = (1 + √5)/2
 
 function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) where T
-	m = o.WREnonARubin && o.jk && o.small ? T(sqrt(1 - 1 / o.N✻)) : one(T)  # finite-sample adjuster for jk regressions
-	
-	if _B>0  # in scoretest or waldtest WRE, still make v a col of 1's
+	if _B>0
+		m = o.WREnonARubin && o.jk && o.small ? T(sqrt(1 - 1 / o.N✻)) : one(T)  # finite-sample adjuster for jk regressions
     if o.enumerate
 			o.v[:,2:end] = hcat(digits.(0:2^o.N✻-1, base=2, pad=o.N✻)...)
 			lmul!(2*m, o.v); o.v .-= m

@@ -209,7 +209,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	numerw::Matrix{T}; numer_b::Vector{T}; dist::Matrix{T}
 
 	distCDR::Matrix{T}; plotX::Vector{Vector{T}}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
-  numersum::Vector{T}; u✻₀::Matrix{T}; invsumFEwt::Vector{T}; FEwt::Vector{T}
+  u✻₀::Matrix{T}; invsumFEwt::Vector{T}; FEwt::Vector{T}
 	β̈s::Matrix{T}; As::Array{T,3}; β̈sAs::Matrix{T}
 	info✻⋂::Vector{UnitRange{Int64}}; info⋂::Vector{UnitRange{Int64}}
 	DGP::StrEstimator{T}; Repl::StrEstimator{T}; M::StrEstimator{T}
@@ -294,21 +294,21 @@ function getdist(o::StrBootTest, diststat::Symbol=:none)
   o.distCDR
 end
 
-function sumgreater(x, v)
+function countgreater(x, v)
   dest = zero(Int64)
   @inbounds @simd for i in v
 	  x > i && (dest += 1)
   end
   dest
 end
-function sumless(x, v)
+function countless(x, v)
   dest = zero(Int64)
   @inbounds @simd for i in v
 	  x < i && (dest += 1)
   end
   dest
 end
-function sumlessabs(x, v)
+function countlessabs(x, v)
   dest = zero(Int64)
   @inbounds @simd for i in v
 	  x < abs(i) && (dest += 1)
@@ -323,14 +323,14 @@ function getp(o::StrBootTest{T}) where T
   if o.B>0
   	if o.sqrt && o.ptype ≠ :upper
   	  if o.ptype == :symmetric
-  	    n = sumlessabs(abs(tmp), o.dist)   # symmetric p value; do so as not to count missing entries in *dist
+  	    n = countlessabs(abs(tmp), o.dist)   # symmetric p value; do so as not to count missing entries in *dist
   	  elseif o.ptype == :equaltail
-  	    n = 2min(sumgreater(tmp, o.dist) , sumless(tmp, o.dist))
+  	    n = 2min(countgreater(tmp, o.dist) , countless(tmp, o.dist))
   	  else
-  		  n = sumgreater(tmp,  o.dist)  # lower-tailed p value
+  		  n = countgreater(tmp,  o.dist)  # lower-tailed p value
       end
   	else
-  	  n = sumless(tmp, o.dist)  # upper-tailed p value or p value based on squared stats
+  	  n = countless(tmp, o.dist)  # upper-tailed p value or p value based on squared stats
     end
     o.p = n / o.BFeas |> T
   else
