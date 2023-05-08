@@ -208,7 +208,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   statDenom::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; β̈dev::Matrix{T}; β̈devⱼₖ::Vector{T}; uⱼₖ::Vector{T}
 	numerw::Matrix{T}; numer_b::Vector{T}; dist::Matrix{T}
 
-	distCDR::Matrix{T}; plotX::Vector{Vector{T}}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
+	plotX::Vector{Vector{T}}; plotY::Vector{T}; ClustShare::Vector{T}; WeightGrp::Vector{UnitRange{Int64}}
   u✻₀::Matrix{T}; invsumFEwt::Vector{T}; FEwt::Vector{T}
 	β̈s::Matrix{T}; As::Array{T,3}; β̈sAs::Matrix{T}
 	info✻⋂::Vector{UnitRange{Int64}}; info⋂::Vector{UnitRange{Int64}}
@@ -278,21 +278,8 @@ mutable struct StrBootTest{T<:AbstractFloat}
 		end
 end
 
-function getdist(o::StrBootTest, diststat::Symbol=:none)
-  if diststat == :numer
-	  _numer = o.numer
-	  o.distCDR = (@view _numer[:,2:end]) .+ o.r
-	  # sort!(o.distCDR, dims=1)
-  elseif nrows(o.distCDR)==0  # return test stats
-    if length(o.dist) > 1
-	    o.distCDR = (@view o.dist[1,2:end])' * o.multiplier
-	    # sort!(o.distCDR, dims=1)
-	  else
-	    o.distCDR = zeros(0,1)
-	  end
-  end
-  o.distCDR
-end
+# return tuple of bootstrapped numerators and test stats
+getdists(o::StrBootTest, getdist::Bool=false) = getdist && length(o.dist) > 1 ? (o.numer[:,2:end], (@view o.dist[1:1,2:end]) * o.multiplier) : (Matrix{T}(undef, o.dof, 0), Matrix{T}(undef, 1, 0)) 
 
 function countgreater(x, v)
   dest = zero(Int64)

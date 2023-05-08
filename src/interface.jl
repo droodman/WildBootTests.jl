@@ -10,6 +10,7 @@ struct BootTestResult{T}
   plot::Union{Nothing, NamedTuple{(:X, :p), Tuple{Tuple{Vararg{Vector{T}, N} where N},Vector{T}}}}
   peak::Union{Nothing, NamedTuple{(:X, :p), Tuple{Vector{T}, T}}}
   ci::Union{Nothing, Matrix{T}}
+  numerdist::Matrix{T}
   dist::Matrix{T}
   b::Vector{T}
   V::Matrix{T}
@@ -29,7 +30,10 @@ statvar(o::BootTestResult) = o.V
 """Return type of test statistic: "t", "z", "F", or "χ²" """
 stattype(o::BootTestResult) = o.stattype
 
-"Return bootstrap distribution of statistic or statistic numerator in bootstrap test"
+"Return bootstrap distribution of numerator of statistic in bootstrap test"
+numerdist(o::BootTestResult) = o.numerdist
+
+"Return bootstrap distribution of statistic in bootstrap test"
 dist(o::BootTestResult) = o.dist
 
 "Return p value"
@@ -126,7 +130,7 @@ function __wildboottest(
 	gridmin::VecOrMat{T},
 	gridmax::VecOrMat{T},
 	gridpoints::VecOrMat{T},
-	diststat::Symbol,
+	getdist::Bool,
 	getci::Bool,
 	getplot::Bool,
 	getauxweights::Bool,
@@ -154,7 +158,7 @@ function __wildboottest(
 	BootTestResult{T}(getstat(o),
 	                  isone(nrows(R)) ? (small ? "t" : "z") : (small ? "F" : "χ²"),
 	                  o.p, padj, o.B, o.BFeas, o.N✻, o.dof, o.dof_r, plot, peak, ci,
-	                  getdist(o, diststat),
+	                  getdists(o, getdist)...,
 	                  getb(o), getV(o),
 	                  getauxweights && reps>0 ? getv(o) : nothing #=, o=#)
 end
@@ -228,7 +232,7 @@ function _wildboottest(T::DataType,
 					  gridmin::Union{VecOrMat{S},VecOrMat{Union{S,Missing}}} where S<:Number = T[],
 					  gridmax::Union{VecOrMat{S},VecOrMat{Union{S,Missing}}} where S<:Number = T[],
 					  gridpoints::Union{VecOrMat{S},VecOrMat{Union{S,Missing}}} where S<:Number = Int64[],
-					  diststat::Symbol=:none,
+					  getdist::Bool=true,
 					  getci::Bool=true,
 					  getplot::Bool=getci,
 					  getauxweights::Bool=false,
@@ -239,7 +243,6 @@ function _wildboottest(T::DataType,
 	@assert any(auxwttype .== (:rademacher, :mammen, :webb, :gamma, :normal)) "auxwttype shoud be :rademacher, :mammen, :webb, :gamma, or :normal"
 	@assert any(ptype .==(:symmetric, :equaltail, :lower, :upper)) "ptype should be :symmetric, :equaltail, :lower, or :upper"
 	@assert any(madjtype .== (:none, :bonferroni, :sidak)) "madjtype should be :none, :bonferroni, or :sidak"
-	@assert any(diststat .== (:none, :t, :numer))
 	@assert ml || ncols(resp)==1 "resp should have one column"
   @assert (length(predexog)==0 || nrows(predexog)==nrows(resp)) && 
 	        (length(predendog)==0 || nrows(predendog)==nrows(resp)) &&
@@ -334,7 +337,7 @@ function _wildboottest(T::DataType,
 		gridmin=_gridmin,
 		gridmax=_gridmax,
 		gridpoints=_gridpoints,
-		diststat,
+		getdist,
 		getci,
 		getplot,
 		getauxweights,
@@ -400,13 +403,13 @@ Function to perform wild-bootstrap-based hypothesis test
 * `gridmin`: vector of graph lower bounds; max length 2, `missing`/`NaN` entries ask wildboottest() to choose
 * `gridmax`: vector of graph upper bounds; `missing`/`NaN` entries ask wildboottest() to choose
 * `gridpoints`: vector of number of sampling points; `missing`/`NaN` entries ask wildboottest() to choose
-* `diststat::Symbole=:none`: `:t` to save bootstrap distribution of t/z/F/χ² statistics; `:numer` to save numerators thereof
+* `getdist::Bool=:false`: whether to return bootstrapped distribution for t/z/F/χ² statistics; and their numerators
 * `getci::Bool=true`: whether to return confidence interval
 * `getplot::Bool=getci`: whether to generate plot data
 * `getauxweights::Bool=false`: whether to save auxilliary weight matrix (v)
 
 # Notes
-`T`, `ptype`, `auxwttype`, `madjtype`, and `diststat` may also be strings. Examples: `"Float32"` and `"webb"`.
+`T`, `ptype`, `auxwttype`, and `madjtype` may also be strings. Examples: `"Float32"` and `"webb"`.
 
 The columns of `R` in the statement of the null should correspond to those of the matrix [`predexog` `predendog`],
 where `predendog` is non-empty only in regressions with instruments. 

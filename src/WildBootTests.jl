@@ -1,5 +1,5 @@
 module WildBootTests
-export BootTestResult, wildboottest, wildboottest!, waldtest, scoretest, teststat, stattype, p, padj, reps, repsfeas, nbootclust, dof, dof_r, plotpoints, peak, ci, dist, statnumer, statvar, auxweights
+export BootTestResult, wildboottest, wildboottest!, waldtest, scoretest, teststat, stattype, numerdist, dist, p, padj, reps, repsfeas, nbootclust, dof, dof_r, plotpoints, peak, ci, dist, statnumer, statvar, auxweights
 
 using LinearAlgebra, Random, Distributions, SortingAlgorithms, Printf, LoopVectorization, ThreadsX, SharedArrays, SparseArrays
 
@@ -36,7 +36,6 @@ function boottestOLSARubin!(o::StrBootTest{T}) where T
 	!o.bootstrapt && UpdateBootstrapcDenom!(o)
 
 	o.BFeas = isnan(o.dist[1]) ? 0 : sum(.!(isnan.(o.dist) .| isinf.(o.dist))) - 1
-	o.distCDR = zeros(T,0,0)
 	nothing
 end
 
@@ -64,7 +63,6 @@ function boottestWRE!(o::StrBootTest{T}) where T
 	!o.bootstrapt && UpdateBootstrapcDenom!(o)
 
 	o.BFeas = isnan(o.dist[1]) ? 0 : sum(.!(isnan.(o.dist) .| isinf.(o.dist))) - 1
-	o.distCDR = zeros(T,0,0)
 	nothing
 end
 
