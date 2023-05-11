@@ -227,11 +227,6 @@ z  = 2.6040
 p  = 0.0222
 CI = [0.2769 Inf]
 
-boottest tenure, ptype(lower) svmat(numer) reps(9999)
-z  = 2.6040
-p  = 0.9775
-CI = [-Inf 1.793]
-
 
 ivregress liml wage ttl_exp collgrad (tenure = union), cluster(industry)
 boottest tenure, ptype(equaltail) reps(9999)

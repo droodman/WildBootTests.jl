@@ -279,7 +279,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 end
 
 # return tuple of bootstrapped numerators and test stats
-getdists(o::StrBootTest, getdist::Bool=false) = getdist && length(o.dist) > 1 ? (o.numer[:,2:end], (@view o.dist[1:1,2:end]) * o.multiplier) : (Matrix{T}(undef, o.dof, 0), Matrix{T}(undef, 1, 0)) 
+getdists(o::StrBootTest{T}, getdist::Bool=false) where T = getdist && length(o.dist) > 1 ? (o.numer[:,2:end], (@view o.dist[1:1,2:end]) * o.multiplier) : (Matrix{T}(undef, o.dof, 0), Matrix{T}(undef, 1, 0)) 
 
 function countgreater(x, v)
   dest = zero(Int64)

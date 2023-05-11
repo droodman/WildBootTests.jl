@@ -241,7 +241,6 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 		else
 			if o.granular || o.purerobust  # optimized treatment when bootstrapping by many/small groups
 				if o.purerobust && !o.interpolable
-
 					# o.u✻ .= o.DGP.ü₁[1+_jk] .* o.v  <- Not sure why that causes copyto!() call
 					@tturbo for c ∈ indices((o.u✻,o.v),2), r ∈ indices((o.u✻,o.DGP.ü₁[1+_jk],o.v),1)
 						o.u✻[r,c] = o.DGP.ü₁[1+_jk][r] * o.v[r,c]

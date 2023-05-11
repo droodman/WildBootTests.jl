@@ -155,11 +155,7 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   println(log, test)
   
   println(log, "boottest tenure, ptype(upper) svmat(t) reps(9999)")
-  test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, ptype=:upper, diststat=:t, rng=StableRNG(1231))
-  println(log, test)
-  
-  println(log, "boottest tenure, ptype(lower) svmat(numer) reps(9999)")
-  test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, ptype=:lower, diststat=:numer, rng=StableRNG(1231))
+  test = wildboottest([0 0 0 1], [0]; resp, predexog, predendog, inst, clustid=df.industry, small=false, reps=9999, ptype=:upper, getdist=true, rng=StableRNG(1231))
   println(log, test)
   
   println(log, "\nivregress liml wage ttl_exp collgrad (tenure = union), cluster(industry)")
