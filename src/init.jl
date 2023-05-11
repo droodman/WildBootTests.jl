@@ -279,22 +279,6 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	o.bootstrapt &&
 		(o.denom = [Matrix{T}(undef,1,o.ncolsv) for _ in 1:o.dof, _ in 1:o.dof])
 
-  if !o.WREnonARubin && o.bootstrapt
-		if o.robust
-			o.Kcd =                        Matrix{Matrix{T}}(undef, o.NErrClustCombs, o.dof)
-			o.Jcd = iszero(o.B) ? o.Kcd : [Matrix{T}(undef, o.clust[c].N, o.ncolsv) for c ∈ 1:o.NErrClustCombs, _ ∈ 1:o.dof]  # if B = 0, Kcd will be multiplied by v, which is all 1's, and will constitute Jcd
-		end
-
-		if o.robust && o.granular<o.NErrClustCombs && o.B>0
-			inds = o.subcluster>0 ?
-				        [CartesianIndex(j, i) for (j,v) ∈ enumerate(o.info⋂_✻⋂) for i ∈ v] :  # crosstab ∩,* is wide
-								o.NClustVar == o.NBootClustVar ?
-										[CartesianIndex(i, i) for i ∈ 1:o.N✻⋂] :  # crosstab ∩,* is square
-										[CartesianIndex(i, j) for (j,v) ∈ enumerate(o.clust[o.BootClust].info) for i ∈ v]  # crosstab ∩,* is tall
-			o.crosstab⋂✻ind = LinearIndices((1:o.N⋂, 1:o.N✻))[inds]
-		end
-	end
-
   o.sqrt = isone(o.dof)  # work with t/z stats instead of F/chi2?
 
   if o.small
@@ -332,6 +316,23 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			end
 		end
   end
+
+  if !o.WREnonARubin && o.bootstrapt
+		if o.robust
+			o.Kcd = Matrix{Matrix{T}}(undef, o.NErrClustCombs, o.dof)
+			o.Jcd = iszero(o.B) ? o.Kcd : [Matrix{T}(undef, o.clust[c].N, o.purerobust && !o.interpolable && c==1 ? 0 : o.ncolsv) for c ∈ 1:o.NErrClustCombs, _ ∈ 1:o.dof]  # if B = 0, Kcd will be multiplied by v, which is all 1's, and will constitute Jcd
+		end
+
+		if o.robust && o.granular<o.NErrClustCombs && o.B>0
+			inds = o.subcluster>0 ?
+				        [CartesianIndex(j, i) for (j,v) ∈ enumerate(o.info⋂_✻⋂) for i ∈ v] :  # crosstab ∩,* is wide
+								o.NClustVar == o.NBootClustVar ?
+										[CartesianIndex(i, i) for i ∈ 1:o.N✻⋂] :  # crosstab ∩,* is square
+										[CartesianIndex(i, j) for (j,v) ∈ enumerate(o.clust[o.BootClust].info) for i ∈ v]  # crosstab ∩,* is tall
+			o.crosstab⋂✻ind = LinearIndices((1:o.N⋂, 1:o.N✻))[inds]
+		end
+	end
+
 	o.initialized = true
 	nothing
 end
