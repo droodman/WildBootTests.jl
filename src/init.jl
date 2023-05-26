@@ -50,17 +50,19 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 
 	if o.haswt
 		o.sqrtwt = sqrt.(o.wt)
-		if o.overwrite
-			o.y₁ .*= o.sqrtwt
-			length(o.Y₂)>0 && (o.Y₂ .*= o.sqrtwt)
-			length(o.X₁)>0 && (o.X₁ .*= o.sqrtwt)
-			length(o.X₂)>0 && (o.X₂ .*= o.sqrtwt)
-		else
-			o.y₁ = o.y₁ .* o.sqrtwt
-			length(o.Y₂)>0 && (o.Y₂ = o.Y₂ .* o.sqrtwt)
-			length(o.X₁)>0 && (o.X₁ = o.X₁ .* o.sqrtwt)
-			length(o.X₂)>0 && (o.X₂ = o.X₂ .* o.sqrtwt)
-			o.overwrite = true
+		if !o.issqrtwted  # undocumented option to indicate data already multiplied by √wt, to avoid allocation if o.overwrite==false
+			if o.overwrite
+				o.y₁ .*= o.sqrtwt
+				length(o.Y₂)>0 && (o.Y₂ .*= o.sqrtwt)
+				length(o.X₁)>0 && (o.X₁ .*= o.sqrtwt)
+				length(o.X₂)>0 && (o.X₂ .*= o.sqrtwt)
+			else
+				o.y₁ = o.y₁ .* o.sqrtwt
+				length(o.Y₂)>0 && (o.Y₂ = o.Y₂ .* o.sqrtwt)
+				length(o.X₁)>0 && (o.X₁ = o.X₁ .* o.sqrtwt)
+				length(o.X₂)>0 && (o.X₂ = o.X₂ .* o.sqrtwt)
+				o.overwrite = true
+			end
 		end
 	end
 

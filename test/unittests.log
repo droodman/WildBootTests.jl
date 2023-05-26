@@ -124,13 +124,13 @@ p    = 0.0723
 
 boottest post_self=.04, weight(mammen) reps(9999) noci
 t(7) = 2.0194
-p    = 0.1788
+p    = 0.1040
 
 
 boottest post_self=.04, weight(mammen) reps(9999) boottype(score)
 t(7) = 1.8479
 p    = 0.0903
-CI   = [0.0335 0.08018]
+CI   = [0.03008 0.03173; 0.0335 0.08018]
 
 
 boottest post_self=.04, reps(9999) jk
@@ -201,9 +201,9 @@ t(1216) = 3.3434
 p       = 0.0007
 CI      = [0.02699 0.1033]
 
-t(1216) = 0.7518
-p       = 0.4648
-CI      = [-0.02848 0.06391]
+t(1216) = 0.6889
+p       = 0.4640
+CI      = [-0.02826 0.06425]
 
 
 ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
@@ -336,7 +336,7 @@ p  = 0.0080
 
 boottest tenure, nograph bootcluster(collgrad) cluster(collgrad industry) weight(webb) reps(9999)
 z  = 3.9420
-p  = 0.2033
+p  = 0.2153
 CI = [-Inf Inf]
 
 
