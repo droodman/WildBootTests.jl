@@ -31,4 +31,3 @@ wbt.jl
 wbt.so
 Manifest old.toml
 test/dataset_2p.csv
-test/debug-DAVID-XPS-17-i9.jl

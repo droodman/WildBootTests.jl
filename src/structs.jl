@@ -181,7 +181,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
   liml::Bool; const fuller::T; κ::T; const arubin::Bool
   B::Int64; const auxtwtype::Symbol; const rng::AbstractRNG; maxmatsize::Float16
   const ptype::Symbol; const null::Bool; const bootstrapt::Bool
-	clustid::Matrix{Int64}; const NBootClustVar::Int8; const NErrClustVar::Int8; const issorted::Bool; const issqrtwted::Bool; const small::Bool; const clusteradj::Bool; const clustermin::Bool
+	clustid::Matrix{Int64}; const NBootClustVar::Int8; const NErrClustVar::Int8; const issorted::Bool; const small::Bool; const clusteradj::Bool; const clustermin::Bool
   FEID::Vector{Int64}; FEdfadj::Int64
   const level::T; const rtol::T
   const madjtype::Symbol; const NH₀::Int16
@@ -247,7 +247,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	Π̈Rpar::Matrix{T}; Ü₂par::Matrix{T}; Z̄::Matrix{T}; S⋂ȳ₁X::Array{T,3}; S⋂ReplZ̄X::Array{T,3}
 
 	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, liml, 
-	               fuller, κ, arubin, B, auxtwtype, rng, maxmatsize, ptype, null, jk, scorebs, bootstrapt, clustid, NBootClustVar, NErrClustVar, issorted, issqrtwted, robust, small, clusteradj, clustermin,
+	               fuller, κ, arubin, B, auxtwtype, rng, maxmatsize, ptype, null, jk, scorebs, bootstrapt, clustid, NBootClustVar, NErrClustVar, issorted, robust, small, clusteradj, clustermin,
 								 FEID, FEdfadj, level, rtol, madjtype, NH₀, ml,
 								 β̈, A, sc, willplot, gridmin, gridmax, gridpoints, overwrite) where T<:Real =
 		begin
@@ -261,7 +261,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 					liml || !iszero(fuller), fuller, κ, arubin, 
 					B, auxtwtype, rng, maxmatsize, 
 					ptype, null, bootstrapt, 
-					clustid, NBootClustVar, NErrClustVar, issorted, issqrtwted, small, clusteradj, clustermin, 
+					clustid, NBootClustVar, NErrClustVar, issorted, small, clusteradj, clustermin, 
 					FEID, FEdfadj,
 					level, rtol,
 					madjtype, NH₀,

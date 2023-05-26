@@ -93,6 +93,6 @@ function UpdateBootstrapcDenom!(o::StrBootTest{T} where T)
 	nothing
 end
  
-# include("precompiler.jl")
+include("precompiler.jl")
 
 end
