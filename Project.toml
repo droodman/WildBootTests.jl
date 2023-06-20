@@ -17,8 +17,10 @@ StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
 ThreadsX = "ac1d9e8a-700a-412c-b207-f0111f4b6c0d"
 
 [compat]
-LoopVectorization = "0.12.141"
-PrecompileTools = "1.0.1"
-SortingAlgorithms = "1.0"
+Distributions = "0.25.96"
+StableRNGs = "1.0.0"
+LoopVectorization = "0.12.159"
+PrecompileTools = "1.1.2"
+SortingAlgorithms = "1.1.1"
 ThreadsX = "0.1.11"
 julia = "1.8"
