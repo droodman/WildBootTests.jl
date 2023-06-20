@@ -201,7 +201,7 @@ function InitWRE!(o::StrBootTest{T}) where T
 			o.S✻Zperpy₁   = S✻ZperpZperp * o.DGP.invZperpZperpZperpy₁; o.S✻Zperpy₁   .= _S✻Zperpy₁      .- o.S✻Zperpy₁
 
 			if o.NFE>0 && !o.FEboot && (o.willfill || o.not2SLS)
-				o.CT✻FEX   = crosstabFE(o, o.X₁, o.X₂, o.ID✻, o.N✻)
+				o.CT✻FEX   = crosstabFE(o, o.DGP.X₁, o.DGP.X₂, o.ID✻, o.N✻)
 				o.CT✻FEY₂  = crosstabFE(o, o.DGP.Y₂, o.ID✻, o.N✻)
 				o.CT✻FEZ   = crosstabFE(o, o.DGP.Zpar, o.ID✻, o.N✻)
 				o.CT✻FEy₁  = crosstabFE(o, o.DGP.y₁, o.ID✻, o.N✻)

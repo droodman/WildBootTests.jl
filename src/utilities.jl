@@ -1051,21 +1051,21 @@ function partialjk(A₁::AbstractVecOrMat{T}, A₂::AbstractVecOrMat{T}, Z::Abst
 end
 
 # multiply an a-vector of b x c sparse matrices, with shared sparsity pattern, by an a x d matrix, producing a d-vector of b x c matrices, still same sparsity pattern
-function t✻plus!(dest::AbstractVector{SparseMatrixCSC{Tv,Ti}}, A::Vector{SparseMatrixCSC{Tv,Ti}}, B::Matrix{Tv}) where Tv where Ti
+function t✻plus!(dest::AbstractVector{S}, A::AbstractVector{S}, B::AbstractVecOrMat{T}) where S<:SparseMatrixCSC{T} where T
 	@inbounds @fastmath for i ∈ eachindex(axes(A,1),axes(B,1)), j ∈ eachindex(axes(dest,1), axes(B,2))
 		dest[j].nzval .+= A[i].nzval .* B[i,j]
 	end
 	dest
 end
-function t✻minus!(dest::AbstractVector{SparseMatrixCSC{Tv,Ti}}, A::Vector{SparseMatrixCSC{Tv,Ti}}, B::Matrix{Tv}) where Tv where Ti
+function t✻minus!(dest::AbstractVector{S}, A::AbstractVector{S}, B::AbstractVecOrMat{T}) where S<:SparseMatrixCSC{T} where T
 	@inbounds @fastmath for i ∈ eachindex(axes(A,1),axes(B,1)), j ∈ eachindex(axes(dest,1), axes(B,2))
 		dest[j].nzval .-= A[i].nzval .* B[i,j]
 	end
 	dest
 end
-function t✻!(dest::AbstractVector{SparseMatrixCSC{Tv,Ti}}, A::Vector{SparseMatrixCSC{Tv,Ti}}, B::Matrix{Tv}) where Tv where Ti
+function t✻!(dest::AbstractVector{S}, A::AbstractVector{S}, B::AbstractVecOrMat{T}) where S<:SparseMatrixCSC{T} where T
 	for desti ∈ dest
-		desti.nzval .= zero(Tv)
+		fill!(desti.nzval, zero(T))
 	end
 	t✻plus!(dest, A, B)
 end
@@ -1080,9 +1080,10 @@ function lsub!(A::SparseMatrixCSC{Tv,Ti}, B::SparseMatrixCSC{Tv,Ti}) where Tv wh
 	A.nzval .= B.nzval .- A.nzval
 	A
 end
-function lsub!(A::AbstractVector{SparseMatrixCSC{Tv,Ti}}, B::Vector{SparseMatrixCSC{Tv,Ti}}) where Tv where Ti
+function lsub!(A::AbstractVector{S}, B::Vector{S}) where S<:SparseMatrixCSC
 	for i ∈ eachindex(axes(A,1), axes(B,1))
 		A[i].nzval .= B[i].nzval .- A[i].nzval
 	end
 	A
 end
+

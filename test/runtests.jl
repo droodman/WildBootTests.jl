@@ -1,6 +1,7 @@
 pushfirst!(LOAD_PATH, ".")
 using WildBootTests
 using StableRNGs, StatFiles, DataFrames, CategoricalArrays, StatsModels
+try cd("test") catch end
 
 open("unittests.log", "w") do log  # use Github Desktop to detect changes in output
   rng=StableRNG(1)

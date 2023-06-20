@@ -202,8 +202,8 @@ p       = 0.0007
 CI      = [0.02699 0.1033]
 
 t(1216) = 0.7518
-p       = 0.4648
-CI      = [-0.02848 0.06391]
+p       = 0.4657
+CI      = [-0.02853 0.06396]
 
 
 ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
@@ -343,8 +343,8 @@ CI = [-Inf Inf]
 areg wage ttl_exp collgrad tenure [aw=hours] if occupation<. & grade<., cluster(age) absorb(industry)
 boottest tenure, cluster(age occupation) bootcluster(occupation)
 t(12) = 1.4294
-p     = 0.1602
-CI    = [-0.01892 0.1152]
+p     = 0.1261
+CI    = [-0.01093 0.123]
 
 
 areg wage ttl_exp collgrad tenure if occupation<. & grade<., robust absorb(industry)
@@ -375,32 +375,32 @@ CI    = [-0.4649 2.001]
 
 ivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours] if grade<., liml cluster(industry) absorb(age)
 boottest tenure
-t(11) = 0.6068
-p     = 0.4885
-CI    = [-0.03655 0.0599]
+t(11) = 2.0244
+p     = 0.2452
+CI    = [-2.499 -0.9603; -0.1759 2.585]
 
 boottest tenure, jk
 t(11) = 0.6068
-p     = 0.5085
-CI    = [-0.03556 0.04481]
+p     = 0.5455
+CI    = [-0.01692 0.04278]
 
 boottest collgrad tenure
-F(2, 11) = 3.5295
-p        = 0.2121
+F(2, 11) = 7.0624
+p        = 0.2828
 
 boottest occupation
-t(11) = 1.1091
-p     = 0.1892
-CI    = [-0.5135 Inf]
+t(11) = 1.6582
+p     = 0.7277
+CI    = [-0.4551 0.8325]
 
 boottest tenure | _b[collgrad] = 0
-t(11) = -2.0551
-p     = 0.1141
-CI    = [-0.1658 0.0572; 0.6856 Inf]
+t(11) = -2.0001
+p     = 0.3544
+CI    = [-0.5463 -0.0707; -0.05762 Inf]
 
-t(11) = -2.0551
-p     = 0.1141
-CI    = [-0.1658 0.0572; 0.6856 Inf]
+t(11) = -2.0001
+p     = 0.3544
+CI    = [-0.5463 Inf]
 
 
 areg n w k, absorb(ind)
@@ -408,7 +408,7 @@ areg n w k, absorb(ind)
 boottest k, cluster(id year)
 t(8) = 28.5012
 p    = 0.0000
-CI   = [0.7874 0.9378]
+CI   = [0.783 0.9413]
 
 
 areg n w k [aw=ys], absorb(ind)
@@ -416,7 +416,7 @@ areg n w k [aw=ys], absorb(ind)
 boottest k, cluster(id year)
 t(8) = 28.4248
 p    = 0.0000
-CI   = [0.7885 0.9367]
+CI   = [0.7823 0.9405]
 
 
 global pix lnkm pixpetro pixdia pixwaterd pixcapdist pixmal pixsead pixsuit pixelev pixbdist
@@ -432,12 +432,12 @@ p     = 0.0021
 CI    = [0.05592 0.2509]
 
 t(48) = 3.5211
-p     = 0.0024
-CI    = [0.04643 0.2611]
+p     = 0.0026
+CI    = [0.04534 0.2612]
 
 t(48) = 3.5211
-p     = 0.0127
-CI    = [0.04572 0.249]
+p     = 0.0033
+CI    = [0.05449 0.2479]
 
 
 infile coll merit male black asian year state chst using regm.raw, clear

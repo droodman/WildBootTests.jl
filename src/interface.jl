@@ -167,8 +167,10 @@ function vecconvert(T::DataType, X)
 	t = X isa SharedArray ? sdata(X) : X
 	if iszero(length(t))
 		T[]
-	elseif isa(t, Vector{T})
+	elseif t isa Vector{T}
 		t
+	elseif t isa AbstractVector{T}
+		Vector{T}(t)
 	elseif eltype(t)==T
 		reshape(t,size(t,1))
 	else
@@ -178,8 +180,10 @@ end
 
 function matconvert(T::DataType, X)
 	t = X isa SharedArray ? sdata(X) : X
-	if isa(t, Matrix{T})
+	if t isa Matrix{T}
 		t
+	elseif t isa AbstractMatrix{T}
+		Matrix{T}(t)
 	elseif eltype(t)==T
 		reshape(t, size(t,1), size(t,2))
 	else

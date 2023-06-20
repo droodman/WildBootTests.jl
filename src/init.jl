@@ -169,6 +169,11 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		(o.info⋂_✻⋂ = panelsetup(clustid✻⋂, o.subcluster+1:o.NClustVar))  # info for error clusters wrt data collapsed to intersections of all bootstrapping && error clusters; used to speed crosstab UXAR wrt bootstrapping cluster && intersection of all error clusterings
 
 	InitFEs!(o)
+
+	o.NFE>0 && o.robust && o.B>0 && o.bootstrapt && !o.FEboot && o.granular < o.NErrClustVar &&
+		(o.infoBootAll = panelsetup(clustid✻⋂, 1:o.NBootClustVar))  # info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping && error clusters
+
+
 	if o.B>0 && o.robust && o.granular && o.bootstrapt && !o.WREnonARubin
 		if o.purerobust
 			if !isdefined(o, :ID✻)
@@ -362,14 +367,14 @@ function InitFEs!(o::StrBootTest{T}) where T
 			first = fill(true, o.NFE)
 			clustrows = Matrix{Int64}(undef, o.NFE, o.NBootClustVar)
 			_ID = view(o.clustid, :, 1:o.NBootClustVar)
-			js = eachindex(axes(_ID))
-			@inbounds for i ∈ eachindex(axes(o.clustid))
-				if first[i]
-					clustrows[i,:] = _ID[i,:]
-					first[i] = false
+			js = eachindex(axes(_ID,2))
+			@inbounds for i ∈ eachindex(axes(o.clustid,1))
+				if first[o._FEID[i]]
+					clustrows[o._FEID[i],:] = _ID[i,:]
+					first[o._FEID[i]] = false
 				else
 					for j ∈ js
-						if clustrows[i,j] ≠ _ID[i,j]
+						if clustrows[o._FEID[i],j] ≠ _ID[i,j]
 							o.FEboot = false
 							@goto afer_loop
 						end
@@ -380,9 +385,6 @@ function InitFEs!(o::StrBootTest{T}) where T
 		@label afer_loop
 
 		o.FEdfadj==-1 && (o.FEdfadj = o.NFE)
-
-		o.robust && o.B>0 && o.bootstrapt && !o.FEboot && o.granular < o.NErrClustVar &&
-			(o.infoBootAll = panelsetup(clustid✻⋂, 1:o.NBootClustVar))  # info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping && error clusters
 
 		!o.FEboot && o.haswt && (o.Mjw = Vector{T}(undef,o.Nobs))
 
