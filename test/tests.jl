@@ -115,7 +115,6 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   
   df = DataFrame(load("nlsw88.dta"))[:,[:wage; :tenure; :ttl_exp; :collgrad; :industry]]
   dropmissing!(df)
-  desc = describe(df, :eltype)
   f = @formula(wage ~ 1 + tenure + ttl_exp + collgrad)
   f = apply_schema(f, schema(f, df))
   resp, predexog = modelcols(f, df)
@@ -129,7 +128,7 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   test = wildboottest([0 1 0 0], [0]; R1=[0 0 1 0], r1=[.2], resp, predexog, clustid=[collect(1:1000); collect(1:1217)], reps=9999, rng=StableRNG(1231))  # granular but not pure robust
   println(log, test)
   
-  test = wildboottest([0 1 0 0], [0]; resp, predexog, clustid=[collect(1:1000); collect(1:1217)], feid=df.industry, reps=9999, rng=StableRNG(1231))
+  test = wildboottest([1 0 0], [0]; resp, predexog=predexog[:,2:end], clustid=[collect(1:1000); collect(1:1217)], feid=df.industry, reps=9999, rng=StableRNG(1231))
   println(log, test)
   
   df = DataFrame(load("nlsw88.dta"))

@@ -531,8 +531,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 
 				t✻!(S✻UMZperpg, view(o.Repl.Zperp,S,:), o.S✻UZperpinvZperpZperpv); S✻UMZperpg .-= view(o.DGP.u⃛₁, S) .*  view(o.v, view(o.ID✻, S),:)
 				if o.NFE>0 && !o.FEboot  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
-					@tturbo for r ∈ S  # S✻UMZperpg .+= view(o.invFEwtCT✻FEUv, view(o._FEID,S), :)
-						_r = o._FEID[S[r]]
+					@tturbo for (r,_r) ∈ enumerate(o._FEID[S])  # S✻UMZperpg .+= view(o.invFEwtCT✻FEUv, view(o._FEID,S), :)
 						for c ∈ indices((S✻UMZperpg, o.invFEwtCT✻FEUv),2)
 							S✻UMZperpg[r,c] += o.invFEwtCT✻FEUv[_r,c]
 						end
@@ -566,13 +565,11 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 							end
 						end
 	
-						# dest[g:g,:] .+= o.PXY✻ .* (o.S✻UMZperp .- o.Z̄[g,j] .* _β̈ )
-						@tturbo for c ∈ indices((dest, o.PXY✻, _β̈ , o.S✻UMZperp), 2)
+						@tturbo for c ∈ indices((dest, o.PXY✻, _β̈ , o.S✻UMZperp), 2)  # dest[g:g,:] .+= o.PXY✻ .* (o.S✻UMZperp .- o.Z̄[g,j] .* _β̈ )
 							dest[g,c] += o.PXY✻[c] * (o.S✻UMZperp[c] - o.Z̄[g,j] * _β̈[c])
 						end
 					else
-						# dest[g:g,:] .-= o.Z̄[g,j] .* o.PXY✻ .* _β̈ 
-						@tturbo for c ∈ indices((dest, o.PXY✻, _β̈ ), 2)
+						@tturbo for c ∈ indices((dest, o.PXY✻, _β̈ ), 2)  # dest[g:g,:] .-= o.Z̄[g,j] .* o.PXY✻ .* _β̈ 
 							dest[g,c] -= o.Z̄[g,j] * o.PXY✻[c] * _β̈[c]
 						end
 					end
@@ -596,8 +593,7 @@ function Filling!(o::StrBootTest{T}, dest::AbstractMatrix{T}, i::Int64, β̈s::A
 						t✻minus!(S✻UMZperpg, view(o.Z̄,S,j), _β̈ )
 	
 						if o.NFE>0 && !o.FEboot  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
-							@tturbo for r ∈ S  # S✻UMZperpg .+= view(o.invFEwtCT✻FEUv, view(o._FEID,S), :)
-								_r = o._FEID[S[r]]
+							@tturbo for (r,_r) ∈ enumerate(o._FEID[S])  # S✻UMZperpg .+= view(o.invFEwtCT✻FEUv, view(o._FEID,S), :)
 								for c ∈ indices((S✻UMZperpg, o.invFEwtCT✻FEUv),2)
 									S✻UMZperpg[r,c] += o.invFEwtCT✻FEUv[_r,c]
 								end
