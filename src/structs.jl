@@ -90,7 +90,7 @@ function *(Y::AdjointDesignerMatrix{T}, X::AbstractMatrix{T}) where T
 	if Y.parent.type==regular
 		view(Base.:*(Y.parent.M', X),collect(1:size(Y.parent.M,2)),:)  # collect() makes the column slicer Vector{Int64}, for type consistency
 	elseif Y.parent.type==identity
-		view(X,collect(1:size(X,2)),:)
+		view(X,collect(1:size(X,1)),:)
 	elseif length(Y.parent.p)==Y.parent.size[2]
 		 view(X,Y.parent.p[Y.parent.q],:)
 	else
@@ -110,7 +110,7 @@ function *(Y::AdjointDesignerMatrix{T}, X::AbstractArray{T,3}) where T
 	if Y.parent.type==regular
 		view(Base.:*(Y.parent.M', X),collect(1:size(Y.parent.M,2)),:,:)  # collect() makes the column slicer Vector{Int64}, for type consistency
 	elseif Y.parent.type==identity
-		view(X,collect(1:size(X,3)),:,:)
+		view(X,collect(1:size(X,1)),:,:)
 	elseif length(Y.parent.q)==Y.parent.size[2]
 		 view(X,Y.parent.p[Y.parent.q],:,:)
 	else
@@ -278,7 +278,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 		end
 end
 
-# return tuple of bootstrapped numerators and test stats
+# return tuple of bootstrapped numerators and test stats; makes copies so o can be gc'd
 getdists(o::StrBootTest{T}, getdist::Bool=false) where T = getdist && length(o.dist) > 1 ? (o.numer[:,2:end], (@view o.dist[1:1,2:end]) * o.multiplier) : (Matrix{T}(undef, o.dof, 0), Matrix{T}(undef, 1, 0)) 
 
 function countgreater(x, v)
