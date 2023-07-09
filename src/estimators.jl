@@ -551,6 +551,11 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			o.Ü₂ = Matrix{T}(undef, parent.Nobs, parent.kY₂)
 		end
 
+		if parent.small && false  # proper implementation of Davidson & MacKinnon small-sample factors requires keeping to sets of residuals, as in jk
+			o.m₁ = 1  # √(parent._Nobs / (parent._Nobs - (parent.kZ + ncols(o.R₁invR₁R₁))))  # Davidson & MacKinnon (2010, after eq. 14)
+			o.m₂ = 1  # √(parent._Nobs / (parent._Nobs -  parent.kX                      ))
+		end
+
 		parent.jk && parent.WREnonARubin &&
 			(o.invHⱼₖ = o.liml ? Array{T,3}(undef, o.kZ, parent.N✻, o.kZ) : invsym(isone(o.κ) ? o.H_2SLSⱼₖ : o.ZZⱼₖ + o.κ * o.H_2SLSmZZⱼₖ))
 
@@ -711,8 +716,10 @@ function MakeResidualsIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 		for (g,S) ∈ enumerate(parent.info✻)
 			t✻minus!(view(o.ü₁[1],S), view(o.Zⱼₖ,S,:), view(o.β̈ⱼₖ,:,g,1))
 		end
+		false && parent.small && (o.ü₁[1] .*= o.m₁)
 	elseif parent.granular || parent.scorebs
 		o.ü₁[1] .= o.y₁par .- o.Zpar * o.β̈  
+		false && parent.small && (o.ü₁[1] .*= o.m₁)
 	end
 
   if !parent.scorebs
@@ -759,6 +766,7 @@ function MakeResidualsIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 			o.Ü₂ .= o.Y₂; X₁₂Bminus!(o.Ü₂, o.X₁, o.X₂, o.Π̈ )
 			o.u⃛₁ .= o.ü₁[1]; t✻plus!(o.u⃛₁, o.Ü₂, o.γ̈Y)
 		end
+		isdefined(o, :Ü₂) && false && parent.small && (o.Ü₂ .*= o.m₂)
   end
 	nothing
 end

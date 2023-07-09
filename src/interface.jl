@@ -134,13 +134,14 @@ function __wildboottest(
 	getci::Bool,
 	getplot::Bool,
 	getauxweights::Bool,
-	overwrite::Bool) where T
+	overwrite::Bool,
+	v::Matrix{T}) where T
 
 	o = StrBootTest{T}(R, r, R1, r1, resp, iszero(length(predexog)) ? Matrix{T}(undef,nrows(resp),0) : predexog, 
 	                   predendog, inst, obswt, fweights, liml, fuller, kappa, arubin,
 	                   reps, auxwttype, rng, maxmatsize, ptype, imposenull, jk, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, issorted, hetrobust, small, clusteradj, clustermin,
 	                   feid, fedfadj, level, rtol, madjtype, nH0, ml, beta, A, scores, getplot,
-	                   gridmin, gridmax, gridpoints, overwrite)
+	                   gridmin, gridmax, gridpoints, overwrite, v)
 
 	o.getci = getplot || (level<1 && getci)
 	if o.getci
@@ -240,7 +241,8 @@ function _wildboottest(T::DataType,
 					  getci::Bool=true,
 					  getplot::Bool=getci,
 					  getauxweights::Bool=false,
-						overwrite::Bool=false)
+						overwrite::Bool=false,
+						v::AbstractVecOrMat=T[;;])
 
 	nrows(R)>2 && (getplot = getci = false)
 
@@ -345,7 +347,8 @@ function _wildboottest(T::DataType,
 		getci,
 		getplot,
 		getauxweights,
-		overwrite)
+		overwrite,
+		v=matconvert(T,v))
 end
 
 _wildboottest(T::DataType, R, r::Number; kwargs...) = _wildboottest(T, R, [r]; kwargs...)
@@ -398,7 +401,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `rng::AbstractRNG=MersenneTwister()`: randon number generator
 * `level::Number=.95`: significance level (0-1)
 * `rtol::Number=1e-3`: tolerance for confidence set bound determination
-* `madjtype::Symbol=:none`: multiple hypothesis adjustment (`none`, `:bonferroni`, `:sidak`)
+* `madjtype::Symbol=:none`: multiple hypothesis adjustment (`:none`, `:bonferroni`, `:sidak`)
 * `nH0::Integer=1`: number of hypotheses tested, including one being tested now
 * `ml::Bool=false`: true for (nonlinear) ML estimation
 * `scores::AbstractVecOrMat`: for ML, pre-computed scores

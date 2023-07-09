@@ -980,7 +980,7 @@ function invsym!(A::Array{T,3}) where T
 	Iₖ = I(size(A,1))
 	@inbounds for g ∈ eachindex(axes(A,2))
 		v = view(A,:,g,:)
-		ldiv!(v, qr(v), Iₖ)
+		try ldiv!(v, qr(v), Iₖ) catch _ fill!(v, T(NaN)) end 
 	end
 	nothing
 end
@@ -1103,3 +1103,8 @@ function lsub!(A::AbstractVector{S}, B::Vector{S}) where S<:SparseMatrixCSC
 	A
 end
 
+# multiply a sparse matrix by a scalar in place without changing sparsity pattern even if some results are 0
+function rmul!(A::SparseMatrixCSC, b::Real)
+	A.nzval .*= b
+	A
+end

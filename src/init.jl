@@ -200,14 +200,14 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	end
 
 	if isone(o.Nw)
-		o.v = Matrix{T}(undef, o.N✻, o.B+1)
+		iszero(length(o.v)) && (o.v = Matrix{T}(undef, o.N✻, o.B+1))
 		MakeWildWeights!(o, o.B, first=true)  # make all wild weights, once
 		o.ncolsv = o.B + 1
 		o.WeightGrp = [1:o.ncolsv]
 	else
     o.seed = rand(o.rng, UInt64)
 		o.ncolsv = ceil(Int64, (o.B+1) / o.Nw)
-		o.v = Matrix{T}(undef, o.N✻, o.ncolsv)
+		iszero(length(o.v)) && (o.v = Matrix{T}(undef, o.N✻, o.ncolsv))
 		o.Nw = ceil(Int64, (o.B+1) / o.ncolsv)
 		o.WeightGrp = [(i-1)*o.ncolsv+1:i*o.ncolsv for i ∈ 1:o.Nw]
 		o.B = o.Nw * o.ncolsv - 1  # of replications may be slightly increased so each block of v same size

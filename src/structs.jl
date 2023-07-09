@@ -156,7 +156,7 @@ mutable struct StrEstimator{T<:AbstractFloat}
   Y₂y₁::Vector{T}; twoZR₁y₁::Vector{T}; y₁y₁::T; y₁pary₁par::T; Y₂Y₂::Matrix{T}; X₁X₁::Matrix{T}; X₂X₁::Matrix{T}; X₂X₂::Matrix{T}; X₂Y₂::Matrix{T}; X₁Z::Matrix{T}; X₂Z::Matrix{T}
   X₂y₁par::Vector{T}; X₁y₁par::Vector{T}; Zy₁par::Vector{T}; Y₂y₁par::Vector{T}; X₁Y₂::Matrix{T}
   Rperp::Matrix{T}; ZR₁::Matrix{T}
-  kX::Int64; kX₁::Int64; kZperp::Int64
+  kX::Int64; kX₁::Int64; kZperp::Int64; m₁::T; m₂::T
 	Π̈ ::Matrix{T}; t₁Y::Vector{T}; PXZ::Matrix{T}
 	S✻⋂ZperpZpar::Array{T,3}; S✻⋂ZperpY₂::Array{T,3}; S⋂y₁X₁::Array{T,3}; S⋂y₁X₂::Array{T,3}; S✻⋂ZperpZperp::Array{T,3}; S✻⋂Zperpy₁::Array{T,3}; S✻⋂XZR₁::Array{T,3}; S✻⋂XY₂::Array{T,3}; S✻⋂XZperp::Array{T,3}; S✻⋂XX::Array{T,3}; S✻⋂XZpar::Array{T,3}
 	S✻⋂X₁Y₂::Array{T,3}; S✻⋂X₂Y₂::Array{T,3}; S✻ZparY₂::Array{T,3}; S✻y₁y₁::Array{T,3}; S✻Zpary₁::Array{T,3}; S✻ZR₁y₁::Array{T,3}; S✻ZR₁Y₂::Array{T,3}; S✻ZR₁ZR₁::Array{T,3}; S✻ZR₁Z::Array{T,3}
@@ -197,13 +197,13 @@ mutable struct StrBootTest{T<:AbstractFloat}
   ci::Matrix{T}
   peak::NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
 
-	NFE::Int64; const Nobs::Int64; const NClustVar::Int8; const kX₁::Int64; const kX₂::Int64; const kY₂::Int64; const WREnonARubin::Bool; const boottest!::Function
+	NFE::Int64; const Nobs::Int64; const NClustVar::Int8; const kX₁::Int64; const kX₂::Int64; const kY₂::Int64; const WREnonARubin::Bool; const boottest!::Function; v::Matrix{T}
 	# end of fields initialized by initializer
 
   sqrt::Bool; _Nobs::T; kZ::Int64; sumwt::T; haswt::Bool; sqrtwt::Vector{T}; multiplier::T; smallsample::T; getci::Bool
 		dof::Int64; dof_r::T; p::T; BootClust::Int8; ncolsv::Int64
 		purerobust::Bool; N✻::Int64; N⋂::Int64; N✻⋂::Int64; maxNg::Int64; Nw::Int64; enumerate::Bool; interpolable::Bool; interpolate_u::Bool; kX::Int64
-  _FEID::Vector{Int64}; AR::Matrix{T}; v::Matrix{T}; u✻::Matrix{T}
+  _FEID::Vector{Int64}; AR::Matrix{T}; u✻::Matrix{T}
   info✻::Vector{UnitRange{Int64}}; info✻_✻⋂::Vector{UnitRange{Int64}}; infoBootAll::Vector{UnitRange{Int64}}; info⋂_✻⋂::Vector{UnitRange{Int64}}
   statDenom::Matrix{T}; SuwtXA::Matrix{T}; numer₀::Matrix{T}; β̈dev::Matrix{T}; β̈devⱼₖ::Vector{T}; uⱼₖ::Vector{T}
 	numerw::Matrix{T}; numer_b::Vector{T}; dist::Matrix{T}
@@ -225,7 +225,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	T1L::Matrix{T}; T1R::Matrix{T}; J⋂s::Array{T,3}; J⋂s1::Vector{Matrix{T}}; β̈v::Matrix{T}
 	crosstab⋂✻ind::Vector{Int64}
   seed::UInt64
-ⱼ
+
 	S✻XY₂::Array{T,3}; S✻XX::Array{T,3}; S✻XDGPZ::Array{T,3}; S✻Xy₁::Array{T,3}; S✻XZR₁::Array{T,3}
 	invXXS✻XDGPZ::Array{T,3}; invXXS✻Xy₁::Array{T,3}; invXXS✻XDGPZR₁::Array{T,3}
 	S✻⋂XY₂::Array{T,3}; S✻⋂XX::Array{T,3}; S✻⋂XDGPZ::Array{T,3}; S✻⋂Xy₁::Array{T,3}; S✻⋂X_DGPZR₁::Array{T,3}
@@ -249,7 +249,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	StrBootTest{T}(R, r, R₁, r₁, y₁, X₁, Y₂, X₂, wt, fweights, liml, 
 	               fuller, κ, arubin, B, auxtwtype, rng, maxmatsize, ptype, null, jk, scorebs, bootstrapt, clustid, NBootClustVar, NErrClustVar, issorted, robust, small, clusteradj, clustermin,
 								 FEID, FEdfadj, level, rtol, madjtype, NH₀, ml,
-								 β̈, A, sc, willplot, gridmin, gridmax, gridpoints, overwrite) where T<:Real =
+								 β̈, A, sc, willplot, gridmin, gridmax, gridpoints, overwrite, v=T[]) where T<:Real =
 		begin
 			kX₂ = ncols(X₂)
 			scorebs = scorebs || iszero(B) || ml
@@ -274,7 +274,8 @@ mutable struct StrBootTest{T<:AbstractFloat}
 					Vector{T}(undef,0), Vector{T}(undef,0), Matrix{T}(undef,0,0),
 					Matrix{T}(undef,0,0),
 					(X = Vector{T}(undef,0), p = T(NaN)),
-					0, nrows(y₁), ncols(clustid), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!)
+					0, nrows(y₁), ncols(clustid), ncols(X₁), kX₂, ncols(Y₂), WREnonARubin, WREnonARubin ? boottestWRE! : boottestOLSARubin!,
+					v)
 		end
 end
 

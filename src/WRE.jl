@@ -81,9 +81,9 @@ function InitWRE!(o::StrBootTest{T}) where T
 	if o.bootstrapt
 		if o.NFE>0 && !o.FEboot && (o.not2SLS || o.willfill)
 			t = crosstabFE(o, o.y₁, o.ID✻, o.N✻)[]
-			o.CT✻FEU₂       = fill(t, o.kY₂      )  # placeholder vectors of sparse matrices; sparsity pattern will never change
-			o.CT✻FEU        = fill(t, o.Repl.kZ+1)
-			o.invFEwtCT✻FEU = fill(t, o.Repl.kZ+1)
+			o.CT✻FEU₂       = [similar(t) for _ in 1:o.kY₂]  # placeholder vectors of sparse matrices; sparsity pattern will never change
+			o.CT✻FEU        = [copy(t) for _ in 0:o.Repl.kZ]
+			o.invFEwtCT✻FEU = deepcopy(o.CT✻FEU)
 		end
 
 		o.willfill &&
@@ -169,10 +169,10 @@ function InitWRE!(o::StrBootTest{T}) where T
 			o.F₂ = similar(o.F₁)
 	
 			if o.NFE>0 && !o.FEboot
-				o.CT⋂FEX = crosstabFE(o, o.X₁, o.X₂, o.ID⋂, o.N⋂)
+				o.CT⋂FEX = crosstabFE(o, o.DGP.X₁, o.DGP.X₂, o.ID⋂, o.N⋂)
 				broadcast!(.*, o.CT⋂FEX, Ref(o.invsumFEwt), o.CT⋂FEX)
 			end
-			o.S✻⋂Xu₁ = Array{T,3}(undef, o.DGP.kX, o.N✻⋂, 1)
+			o.S✻⋂Xu₁    = Array{T,3}(undef, o.DGP.kX, o.N✻⋂, 1)
 			o.S✻⋂XÜ₂par = Array{T,3}(undef, o.DGP.kX, o.N✻⋂, o.Repl.kZ)
 		end
 
@@ -269,7 +269,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
   o.invXXXZ̄ .= o.Repl.invXX * o.invXXXZ̄
   o.ZÜ₂par .= (o.Repl.ZY₂	 - o.Repl.XZ'o.DGP.Π̈ ) * o.Repl.RparY
   _ȲȲ = o.DGP.γ⃛'o.Repl.XZ - o.DGP.ȳ₁Ü₂ * o.Repl.RparY 
-  o.ȲȲ .= [o.DGP.ȳ₁ȳ₁ _ȲȲ
+  o.ȲȲ .= [o.DGP.ȳ₁ȳ₁   _ȲȲ
            _ȲȲ'       o.Repl.ZZ - o.ZÜ₂par' - o.ZÜ₂par + o.Repl.RparY'o.DGP.Ü₂Ü₂*o.Repl.RparY]
 
 	if o.granular || o.jk
@@ -310,7 +310,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 	o.granular && o.willfill &&
 		X₁₂B!(o.PXZ̄, o.Repl.X₁, o.Repl.X₂, o.invXXXZ̄)
 
-	if !o.granular
+	if !o.granular 
 		if o.willfill || o.not2SLS
 			t✻!(o.Π̈Rpar, o.DGP.Π̈ , o.Repl.RparY)
 			!iszero(o.DGP.kX₁) && (o.Π̈Rpar[1:o.DGP.kX₁,:] += o.Repl.Xpar₁toZparX)
@@ -319,13 +319,17 @@ function PrepWRE!(o::StrBootTest{T}) where T
 		if !o.jk  # in coarse case, if not jackknifing, construct things while avoiding O(N) operations
 			Π⃛y = [o.DGP.RperpXperp'o.DGP.γ̈X ; zeros(T, o.kX₂, 1)] + o.DGP.Π̈ * o.DGP.γ̈Y
 
-			t✻!(o.S✻XU₂, o.S✻XX, o.DGP.Π̈); o.S✻XU₂ .= o.S✻XY₂ .- o.S✻XU₂
+			t✻!(o.S✻XU₂, o.S✻XX, o.DGP.Π̈); o.S✻XU₂ .= o.S✻XY₂ .- o.S✻XU₂; false && o.small && (o.S✻XU₂ .*= o.DGP.m₂)
 			o.S✻XU₂par .= o.S✻XU₂ * o.Repl.RparY  # use this syntax for 3-array x DesignerMatrix
 			t✻!(o.invXXS✻XU₂, o.DGP.invXX, o.S✻XU₂)
 			o.invXXS✻XU₂par .= o.invXXS✻XU₂ * o.Repl.RparY  # use this syntax for 3-array x DesignerMatrix
 			if o.willfill || o.not2SLS
 				t✻!(o.S✻ZperpU₂, o.S✻ZperpX, o.DGP.Π̈); o.S✻ZperpU₂ .= o.S✻ZperpY₂ .- o.S✻ZperpU₂
 				o.invZperpZperpS✻ZperpU₂ .= o.invZperpZperpS✻ZperpY₂; t✻minus!(o.invZperpZperpS✻ZperpU₂, o.invZperpZperpS✻ZperpX, o.DGP.Π̈)
+				if false && o.small
+					             o.S✻ZperpU₂ .*= o.DGP.m₂
+					o.invZperpZperpS✻ZperpU₂ .*= o.DGP.m₂
+				end
 				o.S✻ZperpU₂par .= o.S✻ZperpU₂ * o.Repl.RparY  # use this syntax for 3-array x DesignerMatrix
 				o.invZperpZperpS✻ZperpU₂par .= o.invZperpZperpS✻ZperpU₂ * o.Repl.RparY
 			end
@@ -337,6 +341,11 @@ function PrepWRE!(o::StrBootTest{T}) where T
 			o.invXXS✻Xu₁ .= o.invXXS✻Xy₁; t✻minus!(o.invXXS✻Xu₁, o.invXXS✻XDGPZ, o.DGP.β̈ ); t✻plus!(o.invXXS✻Xu₁, o.invXXS✻XU₂, o.DGP.γ̈Y )
 			o.DGP.restricted &&
 				t✻minus!(o.invXXS✻Xu₁, o.invXXS✻XDGPZR₁, r₁)
+
+			if false && o.small
+				     o.S✻Xu₁ .*= o.DGP.m₁
+				o.invXXS✻Xu₁ .*= o.DGP.m₁
+			end
 
 			if o.not2SLS
 				Π̂S✻XÜ₂γ̈Y = (o.DGP.Π̈ )' * o.S✻XU₂ * o.DGP.γ̈Y
@@ -354,6 +363,12 @@ function PrepWRE!(o::StrBootTest{T}) where T
 					o.S✻U₂paru₁ .-= o.Repl.RparY' * (o.S✻DGPZR₁Y₂ - o.S✻DGPZR₁X * o.DGP.Π̈)' * r₁
 				end
 
+				if false && o.small
+					o.S✻u₁u₁ .*= o.DGP.m₁^2
+					o.S✻U₂paru₁ .*= o.DGP.m₁ * o.DGP.m₂
+					o.S✻U₂parU₂par .*= o.DGP.m₂^2
+				end
+
 				o.S✻ȳ₁u₁ .= Π⃛y'o.S✻Xu₁
 				o.S✻ȳ₁Ü₂par .= Π⃛y'o.S✻XU₂par
 				o.S✻Z̄u₁ .= o.Π̈Rpar'o.S✻Xu₁
@@ -368,12 +383,21 @@ function PrepWRE!(o::StrBootTest{T}) where T
 					t✻minus!(o.invZperpZperpS✻Zperpu₁, o.invZperpZperpS✻ZperpDGPZR₁, r₁)
 				end
 
+				if false && o.small
+					             o.S✻Zperpu₁ .*= o.DGP.m₁
+					o.invZperpZperpS✻Zperpu₁ .*= o.DGP.m₁
+				end
+
 				if o.NFE>0 && !o.FEboot
 					t✻!(o.CT✻FEU₂, o.CT✻FEX, o.DGP.Π̈ ); lsub!(o.CT✻FEU₂, o.CT✻FEY₂)
 					t✻!((@view o.CT✻FEU[1:1]), o.CT✻FEZ, o.DGP.β̈ ); lsub!((@view o.CT✻FEU[1:1]), o.CT✻FEy₁); t✻plus!((@view o.CT✻FEU[1:1]), o.CT✻FEU₂, o.DGP.γ̈Y)
 					t✻!((@view o.CT✻FEU[2:end]), o.CT✻FEU₂, o.Repl.RparY)
 					o.DGP.restricted &&
 						t✻minus!((@view o.CT✻FEU[1:1]), o.CT✻FEZR₁, r₁)
+					if false && o.small
+						o.CT✻FEU[1] .*= o.DGP.m₁
+						rmul!.((@view o.CT✻FEU[2:end]), o.DGP.m₂)
+					end
 					broadcast!(.*, o.invFEwtCT✻FEU, Ref(o.invsumFEwt), o.CT✻FEU)  # optimize by summing invsumFEwt to conform to zvars
 				end
 			end
@@ -383,6 +407,10 @@ function PrepWRE!(o::StrBootTest{T}) where T
 				o.S✻⋂Xu₁ .= o.S✻⋂Xy₁; t✻minus!(o.S✻⋂Xu₁, o.S✻⋂XDGPZ, o.DGP.β̈ ); t✻plus!(o.S✻⋂Xu₁, o.S✻⋂XU₂, o.DGP.γ̈Y )
 				o.DGP.restricted &&
 					t✻minus!(o.S✻⋂Xu₁, o.S✻⋂X_DGPZR₁, r₁)
+				if false && o.small
+					o.S✻⋂XU₂ .*= o.DGP.m₂
+					o.S✻⋂Xu₁ .*= o.DGP.m₁
+				end
 				o.S✻⋂XÜ₂par .= o.S✻⋂XU₂ * o.Repl.RparY
 			end
 		elseif o.willfill  # for coarse, jk, construct this input in granular fashion rather than in for coarse, non-jk above
@@ -400,7 +428,7 @@ function PrepWRE!(o::StrBootTest{T}) where T
 					o.negS✻UMZperpX[j+1][o.crosstab⋂✻ind] .-= vec(j>0 ? view(o.S✻⋂XÜ₂par,:,:,j) : view(o.S✻⋂Xu₁,:,:,1))
 					if o.NFE>0 && !o.FEboot
 						for i ∈ 1:o.DGP.kX
-							t✻!(view(o.negS✻UMZperpX[j+1],i,:,:), o.CT⋂FEX[i]', o.CT✻FEU[j+1])  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
+							t✻plus!(view(o.negS✻UMZperpX[j+1],i,:,:), o.CT⋂FEX[i]', o.CT✻FEU[j+1])  # CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
 						end
 					end
 				end

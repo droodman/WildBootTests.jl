@@ -124,13 +124,13 @@ p    = 0.0723
 
 boottest post_self=.04, weight(mammen) reps(9999) noci
 t(7) = 2.0194
-p    = 0.1788
+p    = 0.1040
 
 
 boottest post_self=.04, weight(mammen) reps(9999) boottype(score)
 t(7) = 1.8479
 p    = 0.0903
-CI   = [0.0335 0.08018]
+CI   = [0.03008 0.03173; 0.0335 0.08018]
 
 
 boottest post_self=.04, reps(9999) jk
@@ -336,7 +336,7 @@ p  = 0.0080
 
 boottest tenure, nograph bootcluster(collgrad) cluster(collgrad industry) weight(webb) reps(9999)
 z  = 3.9420
-p  = 0.2033
+p  = 0.2153
 CI = [-Inf Inf]
 
 
@@ -375,32 +375,32 @@ CI    = [-0.4649 2.001]
 
 ivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours] if grade<., liml cluster(industry) absorb(age)
 boottest tenure
-t(11) = 2.0244
-p     = 0.2452
-CI    = [-2.499 -0.9603; -0.1759 2.585]
+t(11) = 0.6068
+p     = 0.4935
+CI    = [-0.03753 0.05658]
 
 boottest tenure, jk
 t(11) = 0.6068
-p     = 0.5455
-CI    = [-0.01692 0.04278]
+p     = 0.5145
+CI    = [-0.04454 0.04321]
 
 boottest collgrad tenure
-F(2, 11) = 7.0624
-p        = 0.2828
+F(2, 11) = 3.5295
+p        = 0.2121
 
 boottest occupation
-t(11) = 1.6582
-p     = 0.7277
-CI    = [-0.4551 0.8325]
+t(11) = 1.1091
+p     = 0.2162
+CI    = [-0.5631 Inf]
 
 boottest tenure | _b[collgrad] = 0
-t(11) = -2.0001
-p     = 0.3544
-CI    = [-0.5463 -0.0707; -0.05762 Inf]
+t(11) = -2.0551
+p     = 0.1081
+CI    = [-0.1933 0.06403; 0.6103 Inf]
 
-t(11) = -2.0001
-p     = 0.3544
-CI    = [-0.5463 Inf]
+t(11) = -2.0551
+p     = 0.1071
+CI    = [-0.1935 0.06437; 0.6089 Inf]
 
 
 areg n w k, absorb(ind)

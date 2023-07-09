@@ -113,7 +113,7 @@ open("unittests.log", "w") do log  # use Github Desktop to detect changes in out
   test = wildboottest([0 0 0 1; 0 0 1 0], [.05; -.02]; resp, predexog, hetrobust=false, scorebs=true, rng=StableRNG(1231))
   println(log, test)
   
-  df = DataFrame(load("nlsw88.dta"))[:,[:wage; :tenure; :ttl_exp; :collgrad; :industry]]
+  df = DataFrame(load("nlsw88.dta"))[!,[:wage; :tenure; :ttl_exp; :collgrad; :industry]]
   dropmissing!(df)
   f = @formula(wage ~ 1 + tenure + ttl_exp + collgrad)
   f = apply_schema(f, schema(f, df))
