@@ -411,7 +411,7 @@ const ϕ = (1 + √5)/2
 
 function MakeWildWeights!(o::StrBootTest{T}, _B::Integer; first::Bool=true) where T
 	if _B>0
-		m = o.WREnonARubin && o.jk && o.small ? T(sqrt(1 - 1 / o.N✻)) : one(T)  # finite-sample adjuster for jk regressions
+		m = o.WREnonARubin && o.jk && o.small ? T(sqrtNaN(1 - 1 / o.N✻)) : one(T)  # finite-sample adjuster for jk regressions
     if o.enumerate
 			o.v[:,2:end] = hcat(digits.(0:2^o.N✻-1, base=2, pad=o.N✻)...)
 			lmul!(2*m, o.v); o.v .-= m

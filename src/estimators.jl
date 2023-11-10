@@ -1,5 +1,5 @@
 # Logically, wild bootstrap tests perform estimation at two stages, once as part of the bootstrap DGP, once in each bootstrap replication
-# The StrEstimator "class" and its three "children" hold the estimation logic for the OLS, Anderson-Rubin, and IV/GMM cases
+# The StrEstimator object holds the estimation logic for the OLS, Anderson-Rubin, and IV/GMM cases. Its methods are here.
 
 @inline denegate(X) = X .* [any(map(<(0), x)) ? -1 : 1 for x ∈ eachcol(X)]'  # try to turn -1's into 1's for proper selection matrix
 @inline identify(X::AbstractMatrix{T}) where T = size(X,1)==size(X,2) && DesignerMatrix(X).type==selection ? Matrix{T}(I(size(X,1))) : X  # try to turn square selection matrix into idnentity: same projection space
@@ -552,7 +552,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		end
 
 		if parent.small && false  # proper implementation of Davidson & MacKinnon small-sample factors requires keeping to sets of residuals, as in jk
-			o.m₁ = 1  # √(parent._Nobs / (parent._Nobs - (parent.kZ + ncols(o.R₁invR₁R₁))))  # Davidson & MacKinnon (2010, after eq. 14)
+			o.m₁ = 1  # √(parent._Nobs / (parent._Nobs - (parent.kZ + ncols(o.R₁invR₁R₁))))  # Davidson & MacKinnon (2010) "optional" rescaling, p. 130
 			o.m₂ = 1  # √(parent._Nobs / (parent._Nobs -  parent.kX                      ))
 		end
 
@@ -673,7 +673,7 @@ function MakeResidualsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	o.ü₁[1] .= o.y₁par; X₁₂Bminus!(o.ü₁[1], parent.X₁, parent.X₂, view(o.β̈ ,:,1))   # ordinary non-jk residuals
 
 	if parent.jk
-		m = parent.small ? sqrt((parent.N✻ - 1) / T(parent.N✻)) : one(T)
+		m = parent.small ? sqrtNaN((parent.N✻ - 1) / T(parent.N✻)) : one(T)
 		if parent.purerobust
 			if o.restricted
 				X₁₂B!(o.ü₁[2], parent.X₁, parent.X₂, o.t₁)

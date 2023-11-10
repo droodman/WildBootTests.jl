@@ -52,7 +52,7 @@ function plot!(o::StrBootTest{T}) where T
   if o.arubin
 		# p = o.dist[1] * o.multiplier
 		# p = ccdf(Chisq{T}(T(o.dof)), o.sqrt ? p^2 : p)
-		halfwidth = abs.(o.confpeak * sqrt((o.dist[1] * o.multiplier) / o.dof) / Phi)  # abs.(o.confpeak) * quantile(Normal{T}(zero(T),one(T)), p/2) / Phi
+		halfwidth = abs.(o.confpeak * sqrtNaN((o.dist[1] * o.multiplier) / o.dof) / Phi)  # abs.(o.confpeak) * quantile(Normal{T}(zero(T),one(T)), p/2) / Phi
   else
 		halfwidth = T(-1.5) * Phi .* sqrtNaN.(diag(getV(o)))
 		any(isnan.(halfwidth)) && return

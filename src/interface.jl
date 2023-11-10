@@ -192,6 +192,8 @@ function matconvert(T::DataType, X)
 	end
 end
 
+@nospecialize
+
 function _wildboottest(T::DataType,
 					  R::AbstractVecOrMat,
 						r::AbstractVecOrMat;
