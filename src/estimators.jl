@@ -442,13 +442,13 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			o.Zperpy₁ = vec(sumpanelcross(o.S✻⋂Zperpy₁))
 			o.ZperpX₁ = sumpanelcross(S✻⋂X₁Zperp)'
 			o.ZperpX₂ = sumpanelcross(S✻⋂X₂Zperp)'
-			o.invZperpZperp = iszero(o.kZperp) ? Matrix{T}(undef,0,0) : invsym(sumpanelcross(o.S✻⋂ZperpZperp))
+			o.invZperpZperp = iszero(o.kZperp) ? Matrix{T}(undef,0,0) : pinv(sumpanelcross(o.S✻⋂ZperpZperp))
 		else
 			o.ZperpX₁ = o.Zperp'o.X₁
 			o.ZperpX₂ = o.Zperp'parent.X₂
 			o.Zperpy₁ = o.Zperp'parent.y₁
 			o.ZperpY₂ = o.Zperp'parent.Y₂
-			o.invZperpZperp = invsym(o.Zperp'o.Zperp)
+			o.invZperpZperp = pinv(o.Zperp'o.Zperp)
 		end
 	end
 
@@ -508,8 +508,9 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	t✻minus!(o.Zy₁, o.ZperpZpar', o.invZperpZperpZperpy₁)
 	t✻minus!(o.ZZ , o.ZperpZpar', o.invZperpZperpZperpZ)
 	t✻minus!(o.X₁Z, o.ZperpX₁'  , o.invZperpZperpZperpZ)
-	t✻minus!(o.X₂Z, o.ZperpX₂'  ,o.invZperpZperpZperpZ)
+	t✻minus!(o.X₂Z, o.ZperpX₂'  , o.invZperpZperpZperpZ)
 	o.XZ = [o.X₁Z; o.X₂Z]
+
 	needZY₂ && 
 		(o.ZY₂ .-= o.ZperpZpar'o.invZperpZperpZperpY₂)
 
