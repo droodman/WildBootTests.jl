@@ -284,7 +284,7 @@ function MakeNonWRELoop1!(o::StrBootTest, tmp::Matrix, w::Integer)
 			end
 		end
 		numerₖ = view(o.numerw,:,k)
-		o.dist[k+first(o.WeightGrp[w])-1] = numerₖ'invsym(tmp)*numerₖ  # in degenerate cases, cross() would turn cross(.,.) into 0
+		o.dist[k+first(o.WeightGrp[w])-1] = numerₖ'cholldiv(_cholesky(tmp),numerₖ)
 	end
 	nothing
 end
@@ -336,21 +336,22 @@ function MakeNonWREStats!(o::StrBootTest{T}, w::Integer) where T
 			isone(w) && (o.statDenom = denom)  # original-sample denominator
 		else
 			if o.ml
+				choldenom = _cholesky(denom)
 				for k ∈ 1:o.ncolsv
 					numerₖ = view(o.numerw,:,k)
-					o.dist[k+first(o.WeightGrp[w])-1] = numerₖ'invsym(denom)*numerₖ
+					o.dist[k+first(o.WeightGrp[w])-1] = numerₖ'cholldiv(choldenom,numerₖ)
 				end
 				isone(w) && (o.statDenom = denom)  # original-sample denominator
 			else
-				invdenom = invsym(denom)
+				choldenom = _cholesky(denom)
 				if o.B>0
 					for k ∈ 1:o.ncolsv
 						numerₖ = view(o.numerw,:,k)
 						u✻ₖ   = view(o.u✻,:,k)
-						o.dist[k+first(o.WeightGrp[w])-1] = numerₖ'invdenom*numerₖ / (tmp = u✻ₖ'u✻ₖ)
+						o.dist[k+first(o.WeightGrp[w])-1] = numerₖ'cholldiv(choldenom, numerₖ) / (tmp = u✻ₖ'u✻ₖ)
 					end
 				else
-					o.dist[1] = (o.numerw'invdenom*o.numerw)[] / (tmp = dot(o.u✻,o.u✻))
+					o.dist[1] = (o.numerw'cholldiv(choldenom, o.numerw))[] / (tmp = dot(o.u✻,o.u✻))
 				end
 				isone(w) && (o.statDenom = denom * tmp)  # original-sample denominator
 			end

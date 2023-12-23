@@ -37,24 +37,10 @@ end
 # iszero(nrows(X)) && (return Symmetric(X))
 # X, ipiv, info = LinearAlgebra.LAPACK.sytrf!('U', Matrix(X))
 # iszero(info) && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)
-@inline invsym(X) = try X \ I catch _ pinv(X) end
-@inline invsym!(Y,X) = try ldiv!(Y, X, I) catch _ Y .= pinv(X) end
+@inline invsym(X) = inv(_cholesky(X))
+@inline invsym!(X) = inv(_cholesky!(X))
 
-eigvalsNaN(X) =
-	try
-		eigvals(X)
-	catch _
-		fill(eltype(X)(NaN), size(X))
-	end
-
-function invsymsingcheck(X)  # inverse of symmetric matrix, checking for singularity
-	iszero(nrows(X)) && (return (false, (X)))
-	X, ipiv, info = LinearAlgebra.LAPACK.sytrf!('U', Matrix(X))
-	singular = info>0
-	!singular && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)
-	singular, (X)
-end
-
+eigvalsNaN(X) =	try eigvals(X) catch _ fill(eltype(X)(NaN), size(X)) end
 
 @inline colsum(X::AbstractArray) = iszero(length(X)) ? similar(X, 1, size(X)[2:end]...) : sum(X, dims=1)
 @inline colsum(X::AbstractArray{Bool}) = iszero(length(X)) ? Array{Int}(undef, 1, size(X)[2:end]...) : sum(X, dims=1)  # type-stable
@@ -349,6 +335,65 @@ function t✻minus!(A::AbstractVecOrMat{T}, B::T, C::AbstractVecOrMat{T}) where 
 	nothing
 end
 
+_cholesky!(X) = cholesky!(Symmetric(X), RowMaximum(), check=false)
+_cholesky(X)  = cholesky( Symmetric(X), RowMaximum(), check=false)
+
+_cholesky(X::Array{T,3}) where T = [_cholesky(view(X,:,g,:)) for g ∈ eachindex(axes(X,2))]
+_cholesky!(X::Array{T,3}) where T = [_cholesky!(view(X,:,g,:)) for g ∈ eachindex(axes(X,2))]
+
+
+# ch \ Y => Y
+function cholldiv!(ch::CholeskyPivoted{T}, Y::AbstractVecOrMat{T}) where T  # adapted from GLM, https://github.com/JuliaStats/GLM.jl/blob/afbb5130ab2773c4b72a3efb4737cf6c6f0c1b09/src/linpred.jl#L134C1-L134C30
+  if !iszero(length(Y))
+		rnk = rank(ch)
+	  len = size(Y,1)
+	  if rnk == len
+	    ldiv!(ch, Y)
+	  else
+	    for v ∈ eachcol(Y)
+	      permute!(v, ch.piv)
+	      v[rnk+1:len] .= zero(T)
+	      LAPACK.potrs!(ch.uplo, view(ch.factors, 1:rnk, 1:rnk), view(v, 1:rnk, :))
+	      invpermute!(v, ch.piv)
+	    end
+	  end
+	end
+  Y
+end
+cholldiv!(ch::CholeskyPivoted{T}, Y::Array{T,3}) where T = cholldiv!(ch, reshape(Y,size(Y,1),:))
+
+# ch \ Y => A
+cholldiv!(A, ch::CholeskyPivoted{T}, Y) where T = cholldiv!(ch, (A .= Y))
+function cholldiv!(A::AbstractArray{T,3}, vch::Vector{S} where S<:CholeskyPivoted{T}, Y::AbstractMatrix{T}) where T
+	@inbounds for g ∈ eachindex(axes(A,2))
+		A[:,g,:] .= Y
+		cholldiv!(vch[g], view(A,:,g,:))
+	end
+	A
+end
+# ch \ Y => Y
+function cholldiv!(vch::Vector{S} where S<:CholeskyPivoted{T}, Y::AbstractArray{T,3}) where T
+	@inbounds for g ∈ eachindex(axes(Y,2))
+		cholldiv!(vch[g], view(Y,:,g,:))
+	end
+	Y
+end
+
+
+# ch \ Y => copy(Y)
+cholldiv(ch::CholeskyPivoted{T}, Y::AbstractVecOrMat{T}) where T = cholldiv!(ch, copy(Y))
+cholldiv(ch::CholeskyPivoted{T}, Y::AbstractArray{T,3} ) where T = reshape(cholldiv(ch, reshape(Y,size(Y,1),:)), size(Y))
+function cholldiv(vch::Vector{S} where S<:CholeskyPivoted{T}, Y::AbstractArray{T,3}) where T
+	dest = copy(Y)
+	cholldiv!(vch, dest)
+end
+function cholldiv(vch::Vector{S} where S<:CholeskyPivoted{T}, Y::AbstractVecOrMat{T}) where T
+	dest = Array{T,3}(undef, size(Y,1), length(vch), size(Y,2))
+	cholldiv!(dest, vch, Y)
+end
+
+cholldiv!!(X::AbstractMatrix{T}, Y::AbstractVecOrMat{T}) where T = cholldiv!(_cholesky!(X),Y)  # overwrites both args
+
 
 # like Mata panelsetup() but can group on multiple columns, like sort(). But doesn't take minobs, maxobs arguments.
 function panelsetup(X::AbstractArray{S} where S, colinds::AbstractVector{T} where T<:Integer)
@@ -390,22 +435,6 @@ function panelsetupID(X::AbstractArray{S} where S, colinds::UnitRange{T} where T
   info[p] = lo:N
   resize!(info, p)
   info, ID
-end
-
-# Given a sorted vector, generate standardized group numbering vector: 1,...,1,2...
-function ID(X::AbstractVector)
-  N = nrows(X)
-  ID = Vector{Int64}(undef,N)
-	ID[1] = lo = p = 1
-	Xlo = X[1]
-  @inbounds for hi ∈ 2:N
-		if (Xhi = X[hi]) ≠ Xlo
-			lo, Xlo = hi, Xhi
-			p += 1
-  	end
-	  ID[hi] = p
-  end
-  ID
 end
 
 function panelsum!(dest::AbstractVecOrMat, X::AbstractVecOrMat, info::AbstractVector{UnitRange{T}} where T<:Integer)
@@ -846,7 +875,7 @@ macro clustAccum!(X, c, Y)  # efficiently add a cluster combination-specific ter
   end
 end
 
-import Base.*, Base.adjoint, Base.hcat, Base.vcat, Base.-, Base.size #, LinearAlgebra.pinv
+import Base.*, Base.adjoint, Base.hcat, Base.vcat, Base.-, Base.size
 
 # use 3-arrays to hold single-indexed sets of matrices. Index in _middle_ dimension.
 @inline each(A::Array{T,3}) where T = [view(A,:,i,:) for i ∈ 1:size(A,2)]  #	eachslice(A; dims=2) more elegant but type-unstable
@@ -973,17 +1002,7 @@ function t✻minus!(dest::AbstractArray{T,3}, A::AbstractArray{T,3}, B::Abstract
 	nothing
 end
 
-# @inline invsym!(Y::AbstractMatrix{T}, X::AbstractMatrix{T}) where T = ldiv!(Y, lu(X), I(size(X,1)))  # slowerthan Y = X \ I
-
 # in-place inverse of a set of symmetric matrices
-function invsym!(A::Array{T,3}) where T
-	Iₖ = I(size(A,1))
-	@inbounds for g ∈ eachindex(axes(A,2))
-		v = view(A,:,g,:)
-		try ldiv!(v, qr(v), Iₖ) catch _ fill!(v, T(NaN)) end 
-	end
-	nothing
-end
 function invsym(A::Array{T,3}) where T
 	dest = similar(A)
 	@inbounds for g ∈ eachindex(axes(A,2))
@@ -991,17 +1010,9 @@ function invsym(A::Array{T,3}) where T
 	end
 	dest
 end
-# function invsym(A::Array{T,3}) where T
-# 	dest = similar(A)
-# 	Iₖ = I(size(A,1))
-# 	@inbounds for g ∈ eachindex(axes(A,2))
-# 		ldiv!(view(dest,:,g,:), qr(view(A,:,g,:)), Iₖ)
-# 	end
-# 	dest
-# end
 
 @inline (-)(A::AbstractMatrix{T}, B::Array{T,3}) where T = reshape(A, (size(A,1),1,size(A,2))) .- B  # would be better to overload .-, but more complicated
-@inline (-)(B::Array{T,3}, A::AbstractMatrix{T}) where T = B .- reshape(A, (size(A,1),1,size(A,2)))  # would be better to overload .-, but more complicated
+@inline (-)(B::Array{T,3}, A::AbstractMatrix{T}) where T = B .- reshape(A, (size(A,1),1,size(A,2)))
 
 # delete-g inner products of two vector/matrices; returns full inner product too 
 function crossjk(A::VecOrMat{T}, B::AbstractMatrix{T}, info::Vector{UnitRange{Int64}}) where T
@@ -1022,22 +1033,23 @@ function crossjk(A::VecOrMat{T}, B::Vector{T}, info::Vector{UnitRange{Int64}}) w
 	(vec(sumt), t)
 end
 
-# given data matrix X and cluster-defining info vector, compute X'X, invsym(X'X), and delete-g invsym(X'X)'s efficiently
+# given data matrix X and cluster-defining info vector, compute X'X, cholesky(X'X), and delete-g invsym(X'X)'s efficiently
 function invsymcrossjk(X::Matrix{T}, info::Vector{UnitRange{Int64}}) where T
 	SXX =  panelcross(X,X,info)
 	XX = sumpanelcross(SXX)
-	invXX = invsym(XX)
+	cholXX = _cholesky(XX)
+	invXX = inv(cholXX)
 	for (g,S) ∈ enumerate(info)
 		Xg = view(X,S,:)
 		if size(Xg,1) > size(Xg,2)
 			SXX[:,g,:] = invsym(XX - Xg'Xg)
 		else
-			XginvXX = Xg * invXX
-			tmp = XginvXX * Xg'; tmp -= I
-			SXX[:,g,:] = invXX; t✻minus!(view(SXX,:,g,:), XginvXX'invsym(tmp), XginvXX)
+			invXXXg = cholldiv(cholXX, Xg')
+			tmp = Xg * invXXXg; tmp -= I
+			SXX[:,g,:] = invXX; t✻minus!(view(SXX,:,g,:), invXXXg, cholldiv(_cholesky!(tmp), invXXXg'))
 		end
 	end
-	(XX, invXX, SXX)
+	(XX, cholXX, SXX)
 end
 
 # Partial Zperp from A, jackknifed. A and Z are data matrices/vectors. ZZZA is a 3-array

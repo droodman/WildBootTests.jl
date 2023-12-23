@@ -251,19 +251,9 @@ function _wildboottest(T::DataType,
 	@assert any(auxwttype .== (:rademacher, :mammen, :webb, :gamma, :normal)) "auxwttype shoud be :rademacher, :mammen, :webb, :gamma, or :normal"
 	@assert any(ptype .==(:symmetric, :equaltail, :lower, :upper)) "ptype should be :symmetric, :equaltail, :lower, or :upper"
 	@assert any(madjtype .== (:none, :bonferroni, :sidak)) "madjtype should be :none, :bonferroni, or :sidak"
-	@assert ml || ncols(resp)==1 "resp should have one column"
-  @assert (length(predexog)==0 || nrows(predexog)==nrows(resp)) && 
-	        (length(predendog)==0 || nrows(predendog)==nrows(resp)) &&
-					(length(inst)==0 || nrows(inst)==nrows(resp)) "All data vectors/matrices must have same height"
-	@assert ncols(inst) >= ncols(predendog) "Model has fewer instruments than instrumented variables"
-  @assert length(feid)==0 || nrows(feid)==nrows(resp) "feid vector must have same height as data matrices"
-	@assert ncols(feid)≤1 "feid should have one column"
-  @assert length(clustid)==0 || nrows(clustid)==nrows(resp) "clustid must have same height as data matrices"
-  @assert nrows(obswt)==0 || nrows(obswt)==nrows(resp) "obswt must have same height as data matrices"
 	@assert ncols(obswt)≤1 "obswt must have one column"
   @assert nrows(R)==nrows(r) "R and r must have same height"
   @assert (ncols(R) == (ml ? nrows(beta) : ncols(predexog)+ncols(predendog)) && isone(ncols(r))) "Wrong number of columns in null specification"
-  @assert nrows(R1)==nrows(r1) "R₁ and r₁ must have same height"
   @assert length(R1)==0 || ncols(R1)==ncols(predexog)+ncols(predendog) "Wrong number of columns in model constraint specification"
 	@assert ncols(r)==1 "r should have one column"
 	@assert length(R1)==0 || ncols(r1)==1 "r1 should have one column"
@@ -275,9 +265,22 @@ function _wildboottest(T::DataType,
   @assert nH0 > 0 "nH0 ≤ 0"
 	@assert !liml || (ncols(predendog)>0 && ncols(inst)>0) "For liml, non-empty predendog and inst arguments are needed"
 	@assert fuller==0 || (ncols(predendog)>0 && ncols(inst)>0) "For Fuller liml, non-empty predendog and inst arguments are needed"
-	@assert iszero(ncols(predendog)) || ncols(inst)>0 "predendog provided without inst"
-	@assert !arubin || ncols(predendog)>0 "Anderson-Rubin test requested but predendog not provided"
 	
+	if !ml 
+		@assert ncols(resp)==1 "resp should have one column"
+	  @assert (length(predexog)==0 || nrows(predexog)==nrows(resp)) && 
+		        (length(predendog)==0 || nrows(predendog)==nrows(resp)) &&
+						(length(inst)==0 || nrows(inst)==nrows(resp)) "All data vectors/matrices must have same height"
+						@assert ncols(inst) >= ncols(predendog) "Model has fewer instruments than instrumented variables"
+						@assert length(feid)==0 || nrows(feid)==nrows(resp) "feid vector must have same height as data matrices"
+						@assert ncols(feid)≤1 "feid should have one column"
+						@assert length(clustid)==0 || nrows(clustid)==nrows(resp) "clustid must have same height as data matrices"
+						@assert nrows(obswt)==0 || nrows(obswt)==nrows(resp) "obswt must have same height as data matrices"
+						@assert nrows(R1)==nrows(r1) "R₁ and r₁ must have same height"
+						@assert iszero(ncols(predendog)) || ncols(inst)>0 "predendog provided without inst"
+						@assert !arubin || ncols(predendog)>0 "Anderson-Rubin test requested but predendog not provided"
+	end
+
 	if getplot || getci
 		@assert iszero(length(gridmin   )) || length(gridmin   )==nrows(R) "Length of gridmin doesn't match number of hypotheses being jointly tested"
 		@assert iszero(length(gridmax   )) || length(gridmax   )==nrows(R) "Length of gridmax doesn't match number of hypotheses being jointly tested"

@@ -76,7 +76,8 @@ function NoNullUpdate!(o::StrBootTest{T} where T)
 	else
 		o.numer[:,1] = o.R * (o.ml ? o.β̈  : iszero(o.κ) ? view(o.M.β̈  ,:,1) : o.M.Rpar * view(o.M.β̈  ,:,1)) - o.r  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this
 	end
-	o.dist[1] = isone(o.dof) ? o.numer[1] / sqrtNaN(o.statDenom[1]) : o.numer[:,1]'invsym(o.statDenom)*o.numer[:,1]
+	numer₁ = o.numer[:,1]
+	o.dist[1] = isone(o.dof) ? o.numer[1] / sqrtNaN(o.statDenom[1]) : numer₁'cholldiv!(_cholesky(o.statDenom), numer₁)
 	nothing
 end
 

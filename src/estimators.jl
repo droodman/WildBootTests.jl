@@ -5,7 +5,7 @@
 @inline identify(X::AbstractMatrix{T}) where T = size(X,1)==size(X,2) && DesignerMatrix(X).type==selection ? Matrix{T}(I(size(X,1))) : X  # try to turn square selection matrix into idnentity: same projection space
 
 function par(X::AbstractMatrix{T}) where T
-	F = eigen(Symmetric(X'pinv(X * X')*X))
+	F = eigen(Symmetric(X'cholldiv(_cholesky!(X * X'), X)))
 	return identify(denegate(F.vectors[:, abs.(F.values) .> 1000*eps(T)]))
 end
 @inline perp(X) = identify(denegate(nullspace(X')))
@@ -18,9 +18,9 @@ function setR!(o::StrEstimator{T}, parent::StrBootTest{T}, R₁::AbstractMatrix{
   o.restricted = nrows(R₁) > 0
 
 	if o.restricted
-		singular, invR₁R₁ = invsymsingcheck(R₁ * R₁')
-		singular && throw(ErrorException("Null hypothesis or model constraints are inconsistent or redundant."))
-	  o.R₁invR₁R₁ = R₁'invR₁R₁
+		cholR₁R₁ = _cholesky!(R₁ * R₁')
+		rank(cholR₁R₁)<size(R₁,1) && throw(ErrorException("Null hypothesis or model constraints are inconsistent or redundant."))
+	  o.R₁invR₁R₁ = cholldiv(cholR₁R₁, R₁)'
 	  o.R₁perp = perp(o.R₁invR₁R₁ * R₁)  # eigenvectors orthogonal to span of R₁; foundation for parameterizing subspace compatible with constraints
   else
 	  o.R₁invR₁R₁ = Matrix{T}(undef, parent.kZ, 0)  # and R₁perp = I
@@ -65,7 +65,7 @@ function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstrac
 	end
 
 	o.invH = invsym(H)
-  R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.invH : (o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')  # for DGP regression
+  R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.invH : (o.R₁perp * cholldiv(_cholesky!(o.R₁perp'H*o.R₁perp), o.R₁perp'))  # for DGP regression
 	o.β̈₀ = R₁AR₁ * (parent.X₁'parent.y₁)
 	o.∂β̈∂r = R₁AR₁ * H * o.R₁invR₁R₁ - o.R₁invR₁R₁
 
@@ -74,8 +74,8 @@ function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstrac
 			o.invMjkv = rowquadform(parent.X₁, o.invH, parent.X₁)
 			o.invMjkv .= 1 ./ (1 .- o.invMjkv)  # standard hc3 multipliers
 		elseif parent.granularjk
-			negR₁AR₁ = -R₁AR₁  # N.B.: likely that R₁AR₁===A, so don't overwrite it
-			o.invMjk = Vector{Matrix{T}}(undef, parent.N✻)
+			negR₁AR₁ = -R₁AR₁  # likely that R₁AR₁===A, so don't overwrite it
+			o.cholMjk = Vector{CholeskyPivoted{T, Matrix{T}, Vector{Int64}}}(undef, parent.N✻)
 			M       = Matrix{T}(undef, parent.maxNg, parent.maxNg)
 			X₁R₁AR₁ = Matrix{T}(undef, parent.maxNg, parent.kX₁  )
 			for (g,S) ∈ enumerate(parent.info✻)
@@ -87,7 +87,7 @@ function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstrac
 				t✻!(_XR₁AR₁, _X₁, negR₁AR₁)
 				t✻!(Mⱼₖ, _XR₁AR₁, _X₁')
 				view(Mⱼₖ, diagind(Mⱼₖ)) .+= one(T)  # add I
-				o.invMjk[g] = invsym(Mⱼₖ)
+				o.cholMjk[g] = _cholesky(Mⱼₖ)
 			end
 			if o.restricted  # scratch matrices for MakeResidualsOLS!()
 				o.Xt₁    = Matrix{T}(undef, parent.maxNg, parent.dof)
@@ -97,12 +97,12 @@ function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstrac
 		else
 			o.Xu = Vector{T}(undef, parent.kX)
 			_H = reshape(H, (parent.kX, 1, parent.kX)) .- o.S✻XX
-			_invH = iszero(nrows(o.R₁perp)) ? invsym(_H) : o.R₁perp * invsym(o.R₁perp' * _H * o.R₁perp) * o.R₁perp'
+			_invH = iszero(nrows(o.R₁perp)) ? invsym(_H) : o.R₁perp * cholldiv(_cholesky!(o.R₁perp' * _H * o.R₁perp), o.R₁perp')
 			o.XinvHⱼₖ = [view(parent.X₁, parent.info✻[g],:) * view(_invH,:,g,:) for g ∈ 1:parent.N✻]
 		end
 	end
 
-  o.A = iszero(nrows(Rperp)) ? o.invH : (Rperp * invsym(Rperp'H*Rperp) * Rperp')  # for replication regression
+  o.A = iszero(nrows(Rperp)) ? o.invH : Rperp * cholldiv(_cholesky!(Rperp'H*Rperp), Rperp')  # for replication regression
   o.AR = o.A * parent.R'
   (parent.scorebs || parent.robust) && (o.XAR = parent.X₁ * o.AR)
 	nothing
@@ -127,7 +127,7 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 
   H = [X₁X₁ X₂X₁' ; X₂X₁ X₂X₂]
   o.A = invsym(H)
-  R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.A : (o.R₁perp * invsym(o.R₁perp'H*o.R₁perp) * o.R₁perp')
+  R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.A : o.R₁perp * cholldiv(_cholesky!(o.R₁perp'H*o.R₁perp), o.R₁perp')
 	o.β̈₀   = R₁AR₁ * [parent.X₁'parent.y₁ ; parent.X₂'parent.y₁]
 	o.∂β̈∂r = R₁AR₁ * [parent.X₁'parent.Y₂ ; parent.X₂'parent.Y₂]
 
@@ -139,7 +139,7 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 			rowquadformplus!(o.invMjkv, parent.X₂, (@view o.A[parent.kX₁+1:end, parent.kX₁+1:end]), parent.X₂)
 			o.invMjkv .= 1 ./ (1 .- o.invMjkv)  # standard hc3 multipliers
 		elseif parent.granularjk
-			o.invMjk = Vector{Matrix{T}}(undef, parent.N✻)
+			o.cholMjk = Vector{CholeskyPivoted{T, Matrix{T}, Vector{Int64}}}(undef, parent.N✻)
 			negR₁AR₁ = -R₁AR₁  # N.B.: likely that R₁AR₁===A, so don't overwrite it
 			negR₁AR₁_₁₁ = @view negR₁AR₁[1:parent.kX₁    , 1:parent.kX₁    ]
 			negR₁AR₁_₁₂ = @view negR₁AR₁[1:parent.kX₁    , parent.kX₁+1:end]
@@ -159,13 +159,13 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 				t✻!(Mⱼₖ, _XR₁AR₁_₁, _X₁'); t✻plus!(Mⱼₖ, _XR₁AR₁_₂, _X₂')
 
 				view(Mⱼₖ, diagind(Mⱼₖ)) .+= one(T)  # add I
-				o.invMjk[g] = invsym(Mⱼₖ)
+				o.cholMjk[g] = _cholesky(Mⱼₖ)
 			end
 		else
 			o.Xu = Vector{T}(undef, parent.kX)
 			o.S✻XX = [[S✻X₁X₁ S✻X₂X₁'] ; [S✻X₂X₁ S✻X₂X₂]]
 			_H = reshape(H, (parent.kX, 1, parent.kX)) .- o.S✻XX
-			_invH = iszero(nrows(o.R₁perp)) ? invsym(_H) : o.R₁perp * invsym(o.R₁perp' * _H * o.R₁perp) * o.R₁perp'
+			_invH = iszero(nrows(o.R₁perp)) ? invsym(_H) : o.R₁perp * cholldiv(_cholesky!(o.R₁perp' * _H * o.R₁perp), o.R₁perp')
 			o.XinvHⱼₖ = [(S = parent.info✻[g]; X₁₂B(view(parent.X₁, S,:), view(parent.X₂, S,:), view(_invH,:,g,:))) for g ∈ 1:parent.N✻]
 		end
 	end
@@ -190,7 +190,7 @@ function PrepJKIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	ZperpY₂  , _ZperpY₂   = crossjk(o.Zperp, parent.Y₂, parent.info✻)
 	ZperpZpar, _ZperpZpar = crossjk(o.Zperp, o.Zpar   , parent.info✻)
 
-	ZperpZperp, o.invZperpZperp, _invZperpZperp = invsymcrossjk(o.Zperp, parent.info✻)
+	ZperpZperp, o.cholZperpZperp, _invZperpZperp = invsymcrossjk(o.Zperp, parent.info✻)
 
 	_invZperpZperpZperpX  = _invZperpZperp * _ZperpX
 	_invZperpZperpZperpZ   = _invZperpZperp * _ZperpZpar
@@ -224,11 +224,11 @@ function PrepJKIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	o.Y₂y₁ⱼₖ = panelcross(o.Y₂ⱼₖ, o.y₁ⱼₖ, parent.info✻); o.Y₂y₁ⱼₖ .= view(o.Y₂y₁,:,:) - o.Y₂y₁ⱼₖ; t✻minus!( o.Y₂y₁ⱼₖ, ZperpY₂'   , _invZperpZperpZperpy₁); t✻minus!( o.Y₂y₁ⱼₖ, _invZperpZperpZperpY₂', ty₁)
 	# o.X₁y₁ⱼₖ = panelcross(o.X₁ⱼₖ, o.y₁ⱼₖ, parent.info✻); o.X₁y₁ⱼₖ .= view(o.X₁y₁,:,:) - o.X₁y₁ⱼₖ; t✻minus!(o.X₁y₁ⱼₖ , ZperpX₁'   , _invZperpZperpZperpy₁); t✻minus!(o.X₁y₁ⱼₖ , _invZperpZperpZperpX₁', ty₁)
 	# o.X₂y₁ⱼₖ = panelcross(o.X₂ⱼₖ, o.y₁ⱼₖ, parent.info✻); o.X₂y₁ⱼₖ .= view(o.X₂y₁,:,:) - o.X₂y₁ⱼₖ; t✻minus!(o.X₂y₁ⱼₖ , ZperpX₂'   , _invZperpZperpZperpy₁); t✻minus!(o.X₂y₁ⱼₖ , _invZperpZperpZperpX₂', ty₁)
-o.Xy₁ⱼₖ = panelcross(o.Xⱼₖ, o.y₁ⱼₖ, parent.info✻); o.Xy₁ⱼₖ .= view(Xy₁,:,:) - o.Xy₁ⱼₖ; t✻minus!(o.Xy₁ⱼₖ , ZperpX'   , _invZperpZperpZperpy₁); t✻minus!(o.Xy₁ⱼₖ , _invZperpZperpZperpX', ty₁)
+  o.Xy₁ⱼₖ = panelcross(o.Xⱼₖ, o.y₁ⱼₖ, parent.info✻); o.Xy₁ⱼₖ .= view(Xy₁,:,:) - o.Xy₁ⱼₖ; t✻minus!(o.Xy₁ⱼₖ , ZperpX'   , _invZperpZperpZperpy₁); t✻minus!(o.Xy₁ⱼₖ , _invZperpZperpZperpX', ty₁)
 	o.Zy₁ⱼₖ  = panelcross(o.Zⱼₖ,  o.y₁ⱼₖ, parent.info✻); o.Zy₁ⱼₖ  .= view( o.Zy₁,:,:) - o.Zy₁ⱼₖ ; t✻minus!(o.Zy₁ⱼₖ  , ZperpZpar' , _invZperpZperpZperpy₁); t✻minus!(o.Zy₁ⱼₖ  , _invZperpZperpZperpZ' , ty₁)
 	# X₁Zⱼₖ    = panelcross(o.X₁ⱼₖ, o.Zⱼₖ , parent.info✻); X₁Zⱼₖ    .= o.X₁Z            - X₁Zⱼₖ   ; t✻minus!(X₁Zⱼₖ    , ZperpX₁'   , _invZperpZperpZperpZ ); t✻minus!(X₁Zⱼₖ    , _invZperpZperpZperpX₁', tZ )
 	# X₂Zⱼₖ    = panelcross(o.X₂ⱼₖ, o.Zⱼₖ , parent.info✻); X₂Zⱼₖ    .= o.X₂Z            - X₂Zⱼₖ   ; t✻minus!(X₂Zⱼₖ    , ZperpX₂'   , _invZperpZperpZperpZ ); t✻minus!(X₂Zⱼₖ    , _invZperpZperpZperpX₂', tZ )
-o.XZⱼₖ    = panelcross(o.Xⱼₖ, o.Zⱼₖ , parent.info✻); o.XZⱼₖ    .= XZ            - o.XZⱼₖ   ; t✻minus!(o.XZⱼₖ    , ZperpX'   , _invZperpZperpZperpZ ); t✻minus!(o.XZⱼₖ    , _invZperpZperpZperpX', tZ )
+  o.XZⱼₖ    = panelcross(o.Xⱼₖ, o.Zⱼₖ , parent.info✻); o.XZⱼₖ    .= XZ            - o.XZⱼₖ   ; t✻minus!(o.XZⱼₖ    , ZperpX'   , _invZperpZperpZperpZ ); t✻minus!(o.XZⱼₖ    , _invZperpZperpZperpX', tZ )
 	o.ZZⱼₖ   = panelcross(o.Zⱼₖ,  o.Zⱼₖ , parent.info✻); o.ZZⱼₖ   .= o.ZZ             - o.ZZⱼₖ  ; t✻minus!(o.ZZⱼₖ   , ZperpZpar' , _invZperpZperpZperpZ ); t✻minus!(o.ZZⱼₖ   , _invZperpZperpZperpZ' , tZ )
 	o.ZY₂ⱼₖ  = panelcross(o.Zⱼₖ,  o.Y₂ⱼₖ, parent.info✻); o.ZY₂ⱼₖ  .= o.ZY₂            - o.ZY₂ⱼₖ ; t✻minus!(o.ZY₂ⱼₖ  , ZperpZpar' , _invZperpZperpZperpY₂); t✻minus!(o.ZY₂ⱼₖ  , _invZperpZperpZperpZ' , tY₂)
 	o.y₁y₁ⱼₖ = panelcross(o.y₁ⱼₖ, o.y₁ⱼₖ, parent.info✻); o.y₁y₁ⱼₖ .= [o.y₁y₁;;;]     .- o.y₁y₁ⱼₖ; t✻minus!(o.y₁y₁ⱼₖ, 2 * Zperpy₁', _invZperpZperpZperpy₁); o.y₁y₁ⱼₖ .+= _invZperpZperpZperpy₁'ZperpZperp*_invZperpZperpZperpy₁
@@ -236,8 +236,9 @@ o.XZⱼₖ    = panelcross(o.Xⱼₖ, o.Zⱼₖ , parent.info✻); o.XZⱼₖ   
 
 	# o.XY₂ⱼₖ = [_X₁Y₂ ; _X₂Y₂]
 	# o.XXⱼₖ  = [_X₁X₁ ; _X₂X₁ ;;; _X₂X₁' ;  _X₂X₂]
-	o.invXXⱼₖ = invsym(o.XXⱼₖ)
-	o.H_2SLSⱼₖ = o.XZⱼₖ'o.invXXⱼₖ * o.XZⱼₖ
+	o.cholXXⱼₖ = _cholesky(o.XXⱼₖ)
+
+	o.H_2SLSⱼₖ = o.XZⱼₖ' * (cholldiv(o.cholXXⱼₖ, o.XZⱼₖ))
 	(!isone(o.κ) || o.liml) && (o.H_2SLSmZZⱼₖ = o.H_2SLSⱼₖ - o.ZZⱼₖ)
 
 	if o.restricted
@@ -285,7 +286,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.Y₂ = parent.DGP.Y₂
 		o.y₁ = parent.DGP.y₁
 		o.Zperp = parent.DGP.Zperp
-		o.invZperpZperp = parent.DGP.invZperpZperp
+		o.cholZperpZperp = parent.DGP.cholZperpZperp
 	else
 		o.X₁ = parent.X₁ * o.RperpXperp
 		o.Zperp = parent.X₁ * o.RperpX
@@ -295,7 +296,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	if parent.WREnonARubin  # faster, doesn't work for score test because only do FWL in DGP, not Repl
 		o.Xpar₁toZparX = DesignerMatrix(parent.DGP.RperpXperp'parent.DGP.RperpXperp \ parent.DGP.RperpXperp'o.RparX)
 		o.Zpar = o.X₁ * o.Xpar₁toZparX
-		!o.isDGP && t✻minus!(o.Zpar, o.Zperp, parent.DGP.invZperpZperp * (parent.DGP.Zperp'o.Zpar))   # parent.X₁ has not been FWL'd
+		!o.isDGP && t✻minus!(o.Zpar, o.Zperp, cholldiv!(parent.DGP.cholZperpZperp, parent.DGP.Zperp'o.Zpar))   # parent.X₁ has not been FWL'd
 	else
 		o.Zpar = parent.X₁ * o.RparX
 	end
@@ -304,7 +305,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 	o.Zpar .+= parent.Y₂ * o.RparY
 	if o.restricted
 		o.ZR₁ = parent.X₁ * o.R₁invR₁R₁X
-		!o.isDGP && t✻minus!(o.ZR₁, o.Zperp, parent.DGP.invZperpZperp * (parent.DGP.Zperp'o.ZR₁))   # if Repl restricted (rare) parent.X₁ has not been FWL'd but parent.Y₁ has
+		!o.isDGP && t✻minus!(o.ZR₁, o.Zperp, cholldiv!(parent.DGP.cholZperpZperp, parent.DGP.Zperp'o.ZR₁))   # if Repl restricted (rare) parent.X₁ has not been FWL'd but parent.Y₁ has
 		t✻plus!(o.ZR₁, parent.Y₂, o.R₁invR₁R₁Y)
 	end
 
@@ -356,7 +357,8 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 
 	if o.copyfromDGP
 		o.XX = parent.DGP.XX
-		o.invXX = parent.DGP.invXX
+		parent.willfill && parent.granular && (o.invXX = parent.DGP.invXX)
+		o.cholXX = parent.DGP.cholXX
 		o.XY₂  = parent.DGP.XY₂
 		o.Y₂Y₂ = parent.DGP.Y₂Y₂
 		o.Y₂y₁ = parent.DGP.Y₂y₁
@@ -442,13 +444,13 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			o.Zperpy₁ = vec(sumpanelcross(o.S✻⋂Zperpy₁))
 			o.ZperpX₁ = sumpanelcross(S✻⋂X₁Zperp)'
 			o.ZperpX₂ = sumpanelcross(S✻⋂X₂Zperp)'
-			o.invZperpZperp = iszero(o.kZperp) ? Matrix{T}(undef,0,0) : pinv(sumpanelcross(o.S✻⋂ZperpZperp))
+			o.cholZperpZperp = iszero(o.kZperp) ? cholesky(I(0)) : _cholesky!(sumpanelcross(o.S✻⋂ZperpZperp))
 		else
 			o.ZperpX₁ = o.Zperp'o.X₁
 			o.ZperpX₂ = o.Zperp'parent.X₂
 			o.Zperpy₁ = o.Zperp'parent.y₁
 			o.ZperpY₂ = o.Zperp'parent.Y₂
-			o.invZperpZperp = pinv(o.Zperp'o.Zperp)
+			o.cholZperpZperp = _cholesky!(o.Zperp'o.Zperp)
 		end
 	end
 
@@ -460,11 +462,11 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.invZperpZperpZperpY₂ = parent.DGP.invZperpZperpZperpY₂
 		o.invZperpZperpZperpy₁ = parent.DGP.invZperpZperpZperpy₁
 	else
-		o.invZperpZperpZperpX₁ = o.invZperpZperp * o.ZperpX₁
-		o.invZperpZperpZperpX₂ = o.invZperpZperp * o.ZperpX₂
+		o.invZperpZperpZperpX₁ = cholldiv(o.cholZperpZperp, o.ZperpX₁)
+		o.invZperpZperpZperpX₂ = cholldiv(o.cholZperpZperp, o.ZperpX₂)
 		o.invZperpZperpZperpX  = [o.invZperpZperpZperpX₁ o.invZperpZperpZperpX₂]
-		o.invZperpZperpZperpY₂ = o.invZperpZperp * o.ZperpY₂
-		o.invZperpZperpZperpy₁ = o.invZperpZperp * o.Zperpy₁
+		o.invZperpZperpZperpY₂ = cholldiv(o.cholZperpZperp, o.ZperpY₂)
+		o.invZperpZperpZperpy₁ = cholldiv(o.cholZperpZperp, o.Zperpy₁)
 
 		if !parent.overwrite && parent.granular
 			parent.X₂ = copy(parent.X₂)
@@ -498,12 +500,13 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 
 		o.XY₂ = [o.X₁Y₂; o.X₂Y₂]
 		o.XX = [o.X₁X₁ o.X₂X₁' ; o.X₂X₁ o.X₂X₂]
-		o.invXX = invsym(o.XX)
+		o.cholXX = _cholesky(o.XX)
+		parent.willfill && parent.granular && (o.invXX = inv(o.cholXX))
 	end
 
-	o.invZperpZperpZperpZ = o.invZperpZperp * o.ZperpZpar
+	o.invZperpZperpZperpZ = cholldiv(o.cholZperpZperp, o.ZperpZpar)
 	t✻minus!(o.Zpar, o.Zperp, o.invZperpZperpZperpZ )
-	o.restricted && t✻minus!(o.ZR₁, o.Zperp, o.invZperpZperp * o.ZperpZR₁)
+	o.restricted && t✻minus!(o.ZR₁, o.Zperp, cholldiv(o.cholZperpZperp, o.ZperpZR₁))
 
 	t✻minus!(o.Zy₁, o.ZperpZpar', o.invZperpZperpZperpy₁)
 	t✻minus!(o.ZZ , o.ZperpZpar', o.invZperpZperpZperpZ)
@@ -515,7 +518,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		(o.ZY₂ .-= o.ZperpZpar'o.invZperpZperpZperpY₂)
 
 	if o.restricted
-		o.invZperpZperpZperpZR₁ = o.invZperpZperp * o.ZperpZR₁
+		o.invZperpZperpZperpZR₁ = cholldiv(o.cholZperpZperp, o.ZperpZR₁)
 		t✻minus!(o.X₂ZR₁   ,       o.invZperpZperpZperpX₂' , o.ZperpZR₁ )
 		t✻minus!(o.X₁ZR₁   ,       o.invZperpZperpZperpX₁' , o.ZperpZR₁ )
 		t✻minus!(o.ZR₁Z    ,       o.invZperpZperpZperpZR₁', o.ZperpZpar)
@@ -536,7 +539,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 
 	o.y₁par = copy(o.y₁)
 
-	o.V = o.invXX * o.XZ  # in 2SLS case, estimator is (V' XZ)^-1 * (V'Xy₁). Also used in k-class and liml robust VCV by Stata convention
+	o.V = cholldiv(o.cholXX, o.XZ)  # in 2SLS case, estimator is (V' XZ)^-1 * (V'Xy₁). Also used in k-class and liml robust VCV by Stata convention
 	o.H_2SLS = o.XZ'o.V  # Hessian
 
 	if parent.granular || dojkprep
@@ -557,8 +560,13 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			o.m₂ = 1  # √(parent._Nobs / (parent._Nobs -  parent.kX                      ))
 		end
 
-		parent.jk && parent.WREnonARubin &&
-			(o.invHⱼₖ = o.liml ? Array{T,3}(undef, o.kZ, parent.N✻, o.kZ) : invsym(isone(o.κ) ? o.H_2SLSⱼₖ : o.ZZⱼₖ + o.κ * o.H_2SLSmZZⱼₖ))
+		if parent.jk && parent.WREnonARubin
+			if o.liml
+				o.Hⱼₖ = Array{T,3}(undef, o.kZ, parent.N✻, o.kZ)
+			else
+				o.cholHⱼₖ = isone(o.κ) : _cholesky(o.H_2SLSⱼₖ) : _cholesky!(o.ZZⱼₖ + o.κ * o.H_2SLSmZZⱼₖ)
+			end
+		end
 
 		if o.liml
 			o.H_2SLSmZZ = o.H_2SLS - o.ZZ
@@ -569,7 +577,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.Yendog = [true colsum(o.RparY .!= zero(T)).!=0]
 		parent.jk && parent.willfill && (o.PXZ = X₁₂B(o.X₁, o.X₂, o.V))
 		!parent.scorebs && (parent.granular || parent.jk) &&
-			t✻minus!(o.ZparX, o.Zperp, o.invZperpZperp * (o.Zperp'o.ZparX))
+			t✻minus!(o.ZparX, o.Zperp, cholldiv(o.cholZperpZperp, o.Zperp'o.ZparX))
 	end
 	nothing
 end
@@ -597,7 +605,7 @@ function MakeH!(o::StrEstimator{T}, parent::StrBootTest{T}, makeXAR::Bool=false)
   o.invH = invsym(H)
 
   if makeXAR  # for replication regression in score bootstrap of IV/GMM
-	  o.A = ncols(o.Rperp)>0 ? (o.Rperp * invsym(o.Rperp'H*o.Rperp) * o.Rperp') : o.invH
+	  o.A = ncols(o.Rperp)>0 ? o.Rperp * cholldiv(_cholesky!(o.Rperp'H*o.Rperp), o.Rperp') : o.invH
 	  o.AR = o.A * o.Rpar'parent.R'
 	  o.XAR = X₁₂B(o.X₁, o.X₂, o.V * o.AR)
   end
@@ -610,7 +618,7 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁
 	  o.t₁ = o.R₁invR₁R₁ * r₁
 
     o.y₁pary₁par = o.y₁y₁ - (o.twoZR₁y₁'r₁)[] + r₁'o.ZR₁ZR₁ * r₁
-	  o.Y₂y₁par .= o.Y₂y₁  - o.ZR₁Y₂'r₁
+	  o.Y₂y₁par .= o.Y₂y₁ - o.ZR₁Y₂'r₁
 	  o.X₁y₁par .= o.X₁y₁ - o.X₁ZR₁ * r₁
 	  o.X₂y₁par .= o.X₂y₁ - o.X₂ZR₁ * r₁
 	  o.Xy₁par  .= [o.X₁y₁par ; o.X₂y₁par]
@@ -630,7 +638,7 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁
 		end
   end
 
-  o.invXXXy₁par = o.invXX * o.Xy₁par
+  o.invXXXy₁par = cholldiv(o.cholXX, o.Xy₁par)
   o.YY = ([[o.y₁pary₁par] o.Zy₁par'; o.Zy₁par o.ZZ])
 
   if o.isDGP
@@ -638,22 +646,23 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁
 
 		if o.liml
 			o.YPXY = ([[o.invXXXy₁par'o.Xy₁par] o.ZXinvXXXy₁par' ; o.ZXinvXXXy₁par  o.H_2SLS])
-	    o.κ = 1/(1 - real(eigvalsNaN(invsym(o.YY) * o.YPXY)[1]))  # like Fast & Wild (81), but more stable, at least in Mata
+	    o.κ = 1/(1 - real(eigvalsNaN(cholldiv!(_cholesky(o.YY), o.YPXY))[1]))  # like Fast & Wild (81), but more stable, at least in Mata
 	    !iszero(o.fuller) && (o.κ -= o.fuller / (parent._Nobs - parent.kX))
 	    MakeH!(o, parent)
 		end
 		o.β̈ = o.invH * (isone(o.κ) ? o.ZXinvXXXy₁par : o.κ * (o.ZXinvXXXy₁par - o.Zy₁par) + o.Zy₁par)
 
 		if _jk
-			o.invXXXy₁parⱼₖ .= o.invXXⱼₖ * o.Xy₁parⱼₖ
+			o.invXXXy₁parⱼₖ = copy(o.Xy₁parⱼₖ); cholldiv!(o.cholXXⱼₖ, o.invXXXy₁parⱼₖ,)
 			o.ZXinvXXXy₁parⱼₖ .= o.XZⱼₖ'o.invXXXy₁parⱼₖ
 			o.YYⱼₖ .= [o.y₁pary₁parⱼₖ; o.Zy₁parⱼₖ ;;; o.Zy₁parⱼₖ'; o.ZZⱼₖ]
 
 			if o.liml
 				o.YPXYⱼₖ .= [o.invXXXy₁parⱼₖ'o.Xy₁parⱼₖ ; o.ZXinvXXXy₁parⱼₖ ;;; o.ZXinvXXXy₁parⱼₖ' ; o.H_2SLSⱼₖ]
-				o.κⱼₖ .= reshape(one(T) ./ (one(T) .- getindex.(real.(eigvalsNaN.(each(invsym(o.YYⱼₖ) * o.YPXYⱼₖ))), 1)), (1,:,1))
+				o.κⱼₖ .= reshape(one(T) ./ (one(T) .- getindex.(real.(eigvalsNaN.(each(cholldiv!(_cholesky(o.YYⱼₖ), o.YPXYⱼₖ)))), 1)), (1,:,1))
 				!iszero(o.fuller) && (o.κⱼₖ .-= reshape(o.fuller ./ (o.Nobsⱼₖ .- parent.kX)), (1,:,1))
-				o.invHⱼₖ .= o.ZZⱼₖ .+ o.κⱼₖ .* o.H_2SLSmZZⱼₖ; invsym!(o.invHⱼₖ)
+				o.Hⱼₖ .= o.ZZⱼₖ .+ o.κⱼₖ .* o.H_2SLSmZZⱼₖ
+				o.cholHⱼₖ = _cholesky!(o.Hⱼₖ)
 				o.β̈ⱼₖ .= o.κⱼₖ .* (o.ZXinvXXXy₁parⱼₖ .- o.Zy₁parⱼₖ) .+ o.Zy₁parⱼₖ
 			else
 				if isone(o.κ)
@@ -662,7 +671,7 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁
 					o.β̈ⱼₖ .= o.κ .* (o.ZXinvXXXy₁parⱼₖ .- o.Zy₁parⱼₖ) .+ o.Zy₁parⱼₖ
 				end
 			end
-			o.β̈ⱼₖ .= o.invHⱼₖ * o.β̈ⱼₖ
+			cholldiv!(o.cholHⱼₖ, o.β̈ⱼₖ)
 		end
   elseif parent.WREnonARubin  # if not score bootstrap of IV/GMM...
 		o.Rt₁ = o.RR₁invR₁R₁ * r₁
@@ -690,10 +699,11 @@ function MakeResidualsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 					_MXt₁pu = rowsubview(o.MXt₁pu, length(S))
 					X₁₂B!(_Xt₁, view(parent.X₁,S,:), view(parent.X₂,S,:), o.t₁)
 					_Xt₁pu .= view(o.ü₁[1], S) .+ _Xt₁
-					mul!(_MXt₁pu, o.invMjk[g], _Xt₁pu)
+					cholldiv!(_MXt₁pu, o.cholMjk[g], _Xt₁pu)
 					o.ü₁[2][S] .= m .* (_MXt₁pu .- _Xt₁)
 				else
-					t✻!(view(o.ü₁[2],S), m, o.invMjk[g], view(o.ü₁[1], S))
+					cholldiv!(view(o.ü₁[2],S), o.cholMjk[g], view(o.ü₁[1], S))
+					o.ü₁[2][S] .*= m
 				end
 			end
 		else
@@ -729,7 +739,7 @@ function MakeResidualsIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 
 	  Xu = o.Xy₁par - o.XZ * o.β̈  # after DGP regression, compute Y₂ residuals by regressing Y₂ on X while controlling for y₁ residuals, done through FWL
 	  negXuinvuu = Xu / -uu
-	  o.Π̈ = invsym(o.XX + negXuinvuu * Xu') * (negXuinvuu * (o.Y₂y₁par - o.ZY₂'o.β̈ )' + o.XY₂)
+	  o.Π̈ = cholldiv!!(o.XX + negXuinvuu * Xu', negXuinvuu * (o.Y₂y₁par - o.ZY₂'o.β̈ )' + o.XY₂)
 		o.γ̈ = o.Rpar * o.β̈  + o.t₁ - parent.Repl.t₁
     o.Ü₂Ü₂ = o.Y₂Y₂ - (o.Π̈)'o.XY₂ - o.XY₂'o.Π̈ + (o.Π̈)'o.XX*o.Π̈
 
@@ -759,7 +769,7 @@ function MakeResidualsIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 		
 				Xu .= view(o.Xy₁parⱼₖ,:,g,:); t✻minus!(Xu, view(o.XZⱼₖ,:,g,:), view(o.β̈ⱼₖ,:,g,1))  # after DGP regression, compute Y₂ residuals by regressing Y₂ on X while controlling for y₁ residuals, done through FWL
 				negXuinvuu .= Xu ./ -uu
-				Π̈ⱼₖ .= invsym(view(o.XXⱼₖ,:,g,:) + negXuinvuu * Xu') * (negXuinvuu * (view(o.Y₂y₁parⱼₖ,:,g,:) - view(o.ZY₂ⱼₖ,:,g,:)'view(o.β̈ⱼₖ,:,g,1))' + view(o.XY₂ⱼₖ,:,g,:))
+				cholldiv!(Π̈ⱼₖ, _cholesky!(view(o.XXⱼₖ,:,g,:) + negXuinvuu * Xu'), negXuinvuu * (view(o.Y₂y₁parⱼₖ,:,g,:) - view(o.ZY₂ⱼₖ,:,g,:)'view(o.β̈ⱼₖ,:,g,1))' + view(o.XY₂ⱼₖ,:,g,:))
 				t✻minus!(view(o.Ü₂,S,:), view(o.Xⱼₖ,S,:), Π̈ⱼₖ)
 				t✻plus!(view(o.u⃛₁,S), view(o.Ü₂,S,:), o.RparY * view(o.β̈ⱼₖ,:,g,1) + _t₁Y)
 			end

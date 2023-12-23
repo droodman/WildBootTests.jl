@@ -10,7 +10,7 @@ using PrecompileTools, StableRNGs
     idgranular =  floor.(Int, collect(0:999)/2)
     feid = mod.(collect(0:999), 100)
     
-    # @compile_workload begin
+    @compile_workload begin
       wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog,      clustid=idcoarse)
       wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, rng, clustid=idgranular, reps=100)
       wildboottest(T, T[0 0 0 1]  , T[.04]; resp, predexog, rng, small=false)
@@ -35,6 +35,6 @@ using PrecompileTools, StableRNGs
       wildboottest(    [0 0 0 0 1], T[.04]; resp, predexog, jk=true, predendog, inst, rng, clustid=idcoarse)
       wildboottest(    [0 0 0 0 1], T[.04]; resp, predexog, jk=true, predendog, inst, rng, clustid=idcoarse, arubin=true)
       wildboottest(    [0 0 0 1 0], T[.04]; resp, predexog, jk=true, predendog, inst, rng, clustid=idgranular, reps=100, liml=true)
-    # end
+    end
   end
 end
