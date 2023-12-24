@@ -341,6 +341,13 @@ _cholesky(X)  = cholesky( Symmetric(X), RowMaximum(), check=false)
 _cholesky(X::Array{T,3}) where T = [_cholesky(view(X,:,g,:)) for g ∈ eachindex(axes(X,2))]
 _cholesky!(X::Array{T,3}) where T = [_cholesky!(view(X,:,g,:)) for g ∈ eachindex(axes(X,2))]
 
+# fast dest .= source[p,:]
+function permrows!(dest::AbstractVecOrMat{T}, source::AbstractVecOrMat{T}, p::Vector{Int}) where T
+  @inbounds for c ∈ eachindex(axes(source,2)), r ∈ eachindex(p)
+    dest[p[r],c] = source[r,c]
+  end
+  dest
+end
 
 # ch \ Y => Y
 function cholldiv!(ch::CholeskyPivoted{T}, Y::AbstractVecOrMat{T}) where T  # adapted from GLM, https://github.com/JuliaStats/GLM.jl/blob/afbb5130ab2773c4b72a3efb4737cf6c6f0c1b09/src/linpred.jl#L134C1-L134C30
@@ -350,13 +357,10 @@ function cholldiv!(ch::CholeskyPivoted{T}, Y::AbstractVecOrMat{T}) where T  # ad
 	  if rnk == len
 	    ldiv!(ch, Y)
 	  else
-			invpiv = invperm(ch.piv)
-	    for v ∈ eachcol(Y)
-	      permute!(v, ch.piv)
-	      v[rnk+1:len] .= zero(T)
-	      LAPACK.potrs!(ch.uplo, view(ch.factors, 1:rnk, 1:rnk), view(v, 1:rnk, :))
-	      permute!(v, invpiv)
-	    end
+			_Y = zeros(T, size(Y))
+			permrows!(_Y, Y, ch.piv)
+			LAPACK.potrs!(ch.uplo, view(ch.factors, 1:rnk, 1:rnk), view(_Y, 1:rnk,:))
+			permrows!(Y, _Y, invperm(ch.piv))
 	  end
 	end
   Y
