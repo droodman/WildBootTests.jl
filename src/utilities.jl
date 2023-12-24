@@ -350,11 +350,12 @@ function cholldiv!(ch::CholeskyPivoted{T}, Y::AbstractVecOrMat{T}) where T  # ad
 	  if rnk == len
 	    ldiv!(ch, Y)
 	  else
+			invpiv = invperm(ch.piv)
 	    for v ∈ eachcol(Y)
 	      permute!(v, ch.piv)
 	      v[rnk+1:len] .= zero(T)
 	      LAPACK.potrs!(ch.uplo, view(ch.factors, 1:rnk, 1:rnk), view(v, 1:rnk, :))
-	      invpermute!(v, ch.piv)
+	      permute!(v, invpiv)
 	    end
 	  end
 	end
