@@ -365,7 +365,7 @@ function cholldiv!(ch::CholeskyPivoted{T}, Y::AbstractVecOrMat{T}) where T  # ad
 	end
   Y
 end
-cholldiv!(ch::CholeskyPivoted{T}, Y::Array{T,3}) where T = cholldiv!(ch, reshape(Y,size(Y,1),:))
+cholldiv!(ch::CholeskyPivoted{T}, Y::Array{T,3}) where T = iszero(length(Y)) ? Y : cholldiv!(ch, reshape(Y,size(Y,1),:))
 
 # ch \ Y => A
 cholldiv!(A, ch::CholeskyPivoted{T}, Y) where T = cholldiv!(ch, (A .= Y))
