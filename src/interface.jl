@@ -382,7 +382,7 @@ Function to perform wild-bootstrap-based hypothesis test
 * `clustid::AbstractVecOrMat{<:Integer}`: data vector/matrix of error and bootstrapping cluster identifiers; see notes 
 * `nbootclustvar::Integer=size(clustid,2)`: number of bootstrap-clustering variables
 * `nerrclustvar::Integer=nbootclustvar`: number of error-clustering variables
-* `issorted:Bool=false`: time-saving flag: data matrices are already sorted by column types 2, then 3, then 1 (see notes)
+* `issorted:Bool=false`: time-saving flag: data matrices	 are already sorted by column types 2, then 3, then 1 (see notes)
 * `hetrobust::Bool=true`: true unless errors are treated as iid
 * `feid::AbstractVector{<:Integer}`: data vector for one-way fixed effect group identifier
 * `fedfadj::Integer`: degrees of freedom that fixed effects (if any) consume; defaults to number of FEs
@@ -436,10 +436,10 @@ Order the columns of `clustid` this way:
 be restricted to the estimation sample.
 
 """
-wildboottest(   R, r; kwargs...) = _wildboottest(                                              R, r; Dict(a.first => a.second isa AbstractString ? Symbol(a.second) : a.second for a ∈ kwargs)...)  # convert any string parameters to symbols
+wildboottest(   R, r; kwargs...) = _wildboottest(                                              R, r; Dict(a.first => a.second isa AbstractString ? Symbol(a.second) : a.second for a ∈ kwargs)...)  # convert any string parameter to symbols
 wildboottest(T, R, r; kwargs...) = _wildboottest(isa(T, AbstractString) ? eval(Symbol(T)) : T, R, r; Dict(a.first => a.second isa AbstractString ? Symbol(a.second) : a.second for a ∈ kwargs)...)
 
-wildboottest!(   R, r; kwargs...) = _wildboottest(                                              R, r; overwrite=true, Dict(a.first => a.second isa AbstractString ? Symbol(a.second) : a.second for a ∈ kwargs if a.first ≠ :overwrite)...)  # convert any string parameters to symbols
+wildboottest!(   R, r; kwargs...) = _wildboottest(                                              R, r; overwrite=true, Dict(a.first => a.second isa AbstractString ? Symbol(a.second) : a.second for a ∈ kwargs if a.first ≠ :overwrite)...)  # convert any string parameter to symbols
 wildboottest!(T, R, r; kwargs...) = _wildboottest(isa(T, AbstractString) ? eval(Symbol(T)) : T, R, r; overwrite=true, Dict(a.first => a.second isa AbstractString ? Symbol(a.second) : a.second for a ∈ kwargs if a.first ≠ :overwrite)...)
 
 const skipargs = (:imposenull, :reps, :scorebs)

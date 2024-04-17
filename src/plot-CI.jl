@@ -48,13 +48,13 @@ function plot!(o::StrBootTest{T}) where T
   o.boottest!(o)
   _r = copy(o.r); _numer = copy(o.numer); _statDenom = o.statDenom; _dist = copy(o.dist)
 
-	Phi = quantile(Normal{T}(zero(T),one(T)), α/2)
+  Φ = quantile(Normal{T}(zero(T),one(T)), α/2)
   if o.arubin
 		# p = o.dist[1] * o.multiplier
 		# p = ccdf(Chisq{T}(T(o.dof)), o.sqrt ? p^2 : p)
-		halfwidth = abs.(o.confpeak * sqrtNaN((abs(o.dist[1]) * o.multiplier) / o.dof) / Phi)  # abs.(o.confpeak) * quantile(Normal{T}(zero(T),one(T)), p/2) / Phi
+		halfwidth = abs.(o.confpeak * sqrtNaN((abs(o.dist[1]) * o.multiplier) / o.dof) / Φ)  # abs.(o.confpeak) * quantile(Normal{T}(zero(T),one(T)), p/2) / Φ
   else
-		halfwidth = T(-1.5) * Phi .* sqrtNaN.(diag(getV(o)))
+		halfwidth = T(-1.5) * Φ .* sqrtNaN.(diag(getV(o)))
 		any(isnan.(halfwidth)) && return
 		o.confpeak = getb(o) + o.r
   end
