@@ -10,7 +10,7 @@ function par(X::AbstractMatrix{T}) where T
 end
 @inline perp(X) = identify(denegate(nullspace(X')))
 
-# R₁ is constraints. R is attack surface for null; only needed when using FWL for WRE 
+# R₁ is constraints. R is attack surface for null; only needed when using FWL for WRE
 # for DGP regression, R₁ is maintained constraints + null if imposed while R should have 0 nrows
 # for replication regressions R₁ is maintained constraints, R is null
 function setR!(o::StrEstimator{T}, parent::StrBootTest{T}, R₁::AbstractMatrix{T}, R::Union{UniformScaling{Bool},AbstractMatrix{T}}=Matrix{T}(undef,0,0)) where T
