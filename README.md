@@ -74,7 +74,7 @@ plt.plot(plotpoints.X[0], plotpoints.p)
 ```
 import delimited https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv
 regress y x, cluster(firm)
-boottest x, reps(999) julia
+boottest x, reps(99999) julia
 ```
 
 ### From Stata via Python and PyJulia
