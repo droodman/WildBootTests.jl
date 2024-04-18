@@ -1,5 +1,6 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+WildBootTests = "65c2e505-86ba-4c19-93f1-95506c1443d5"
 
 [compat]
 Documenter = "0.27"
