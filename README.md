@@ -10,7 +10,7 @@ In all cases, to install, start Julia and type `using Pkg; Pkg.add("WildBootTest
 
 ### From Julia
 
-```
+```julia
 using WildBootTests, CSV, DataFrames, StatsModels, Plots
 d = download("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv");
 df = CSV.read(d, DataFrame);
@@ -25,7 +25,7 @@ plot(plotpoints(test)...)                           # plot confidence curve
 ```
 
 ### From R via fwildclusterboot
-```
+```R
 library(fwildclusterboot)
 df <- read.csv("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv")
 lm_fit <- lm(y ~ x, data = df)
@@ -35,7 +35,7 @@ plot(boot_lm)
 ```
 
 ### From via JuliaConnectoR
-```
+```julia
 library(JuliaConnectoR)
 startJuliaServer()
 WildBootTests <- juliaImport("WildBootTests")
@@ -51,7 +51,7 @@ plot(plotpoints$X[[1]], plotpoints$p, type="l")
 ```
 
 ### From Python via PyJulia
-```
+```python
 from julia import WildBootTests as wbt
 import pandas as pd
 import numpy as np
