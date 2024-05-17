@@ -76,22 +76,3 @@ import delimited https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/
 regress y x, cluster(firm)
 boottest x, reps(99999) julia
 ```
-
-### From Stata via Python and PyJulia
-```
-import delimited https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv
-python
-from julia import WildBootTests as wbt
-import numpy as np
-from sfi import Data
-
-R = np.array([[0, 1]]); r = np.array([1])
-resp = np.asarray(Data.get('y'))
-predexog = np.c_[np.ones(resp.size), np.asarray(Data.get('x'))]
-clustid = np.asarray(Data.get('firm'))
-test = wbt.wildboottest(R, r, resp=resp, predexog=predexog, clustid=clustid)
-wbt.p(test)
-wbt.teststat(test)
-wbt.ci(test)
-end
-```
