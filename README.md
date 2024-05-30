@@ -10,7 +10,7 @@ In all cases, to install, start Julia and type `using Pkg; Pkg.add("WildBootTest
 
 ### From Julia
 
-```
+```julia
 using WildBootTests, CSV, DataFrames, StatsModels, Plots
 d = download("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv");
 df = CSV.read(d, DataFrame);
@@ -25,7 +25,7 @@ plot(plotpoints(test)...)                           # plot confidence curve
 ```
 
 ### From R via fwildclusterboot
-```
+```R
 library(fwildclusterboot)
 df <- read.csv("https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv")
 lm_fit <- lm(y ~ x, data = df)
@@ -35,7 +35,7 @@ plot(boot_lm)
 ```
 
 ### From via JuliaConnectoR
-```
+```julia
 library(JuliaConnectoR)
 startJuliaServer()
 WildBootTests <- juliaImport("WildBootTests")
@@ -51,7 +51,7 @@ plot(plotpoints$X[[1]], plotpoints$p, type="l")
 ```
 
 ### From Python via PyJulia
-```
+```python
 from julia import WildBootTests as wbt
 import pandas as pd
 import numpy as np
@@ -75,23 +75,4 @@ plt.plot(plotpoints.X[0], plotpoints.p)
 import delimited https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv
 regress y x, cluster(firm)
 boottest x, reps(99999) julia
-```
-
-### From Stata via Python and PyJulia
-```
-import delimited https://raw.github.com/vincentarelbundock/Rdatasets/master/csv/sandwich/PetersenCL.csv
-python
-from julia import WildBootTests as wbt
-import numpy as np
-from sfi import Data
-
-R = np.array([[0, 1]]); r = np.array([1])
-resp = np.asarray(Data.get('y'))
-predexog = np.c_[np.ones(resp.size), np.asarray(Data.get('x'))]
-clustid = np.asarray(Data.get('firm'))
-test = wbt.wildboottest(R, r, resp=resp, predexog=predexog, clustid=clustid)
-wbt.p(test)
-wbt.teststat(test)
-wbt.ci(test)
-end
 ```
