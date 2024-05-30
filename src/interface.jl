@@ -19,79 +19,79 @@ struct BootTestResult{T}
 end
 
 """
-teststat(::WildBootTests.BootTestResult{T}) -> T
+`teststat(::WildBootTests.BootTestResult{T}) -> T`
 Given a wildboottest() return object, extract test statistic
 """
 teststat(o::BootTestResult) = o.stat
 
 """
-stattype(::WildBootTests.BootTestResult{T}) -> String
+`stattype(::WildBootTests.BootTestResult{T}) -> String`
 Given a wildboottest() return object, extract type of test statistic: "t", "z", "F", or "χ²"
 """
 stattype(o::BootTestResult) = o.stattype
 
 """
-statnumer(::WildBootTests.BootTestResult{T}) -> T
+`statnumer(::WildBootTests.BootTestResult{T}) -> T`
 Given a wildboottest() return object, extract numerator of test statistic
 """
 statnumer(o::BootTestResult) = o.b
 
 """
-statvar(::WildBootTests.BootTestResult{T}) -> T
+`statvar(::WildBootTests.BootTestResult{T}) -> T`
 Given a wildboottest() return object, extract squared denominator of test statistic
 """
 statvar(o::BootTestResult) = o.V
 
 """
-numerdist(::WildBootTests.BootTestResult{T}) -> Matrix{T}
+`numerdist(::WildBootTests.BootTestResult{T}) -> Matrix{T}`
 Given a wildboottest() return object, extract bootstrap distribution of numerator of statistic
 """
 numerdist(o::BootTestResult) = o.numerdist
 
 """
-dist(::WildBootTests.BootTestResult{T}) -> Matrix{T}
+`dist(::WildBootTests.BootTestResult{T}) -> Matrix{T}`
 Given a wildboottest() return object, extract bootstrap distribution of statistic
 """
 dist(o::BootTestResult) = o.dist
 
 """
-p(::WildBootTests.BootTestResult{T}) -> T
+`p(::WildBootTests.BootTestResult{T}) -> T`
 Given a wildboottest() return object, extract p value
 """
 p(o::BootTestResult) = o.p
 
 """
-padj(::WildBootTests.BootTestResult{T}) -> T
+`padj(::WildBootTests.BootTestResult{T}) -> T`
 Given a wildboottest() return object, extract p value after multiple-hypothesis adjustment, if any
 """
 padj(o::BootTestResult) = o.padj
 
 """
-reps(::WildBootTests.BootTestResult{T}) -> Int64
+`reps(::WildBootTests.BootTestResult{T}) -> Int64`
 Given a wildboottest() return object, extract number of replications
 """
 reps(o::BootTestResult) = o.reps
 
 """
-repsfeas(::WildBootTests.BootTestResult{T}) -> Int64
+`repsfeas(::WildBootTests.BootTestResult{T}) -> Int64`
 Given a wildboottest() return object, extract actual number of replications, subject to enumeration of Rademacher draws
 """
 repsfeas(o::BootTestResult) = o.repsfeas
 
 """
-nbootclust(::WildBootTests.BootTestResult{T}) -> Int64
+`nbootclust(::WildBootTests.BootTestResult{T}) -> Int64`
 Given a wildboottest() return object, extract number of bootstrapping clusters in test
 """
 nbootclust(o::BootTestResult) = o.nbootclust
 
 """
-dof(::WildBootTests.BootTestResult{T}) -> Int64
+`dof(::WildBootTests.BootTestResult{T}) -> Int64`
 Given a wildboottest() return object, extract degrees of freedom of test
 """
 dof(o::BootTestResult) = o.dof
 
 """
-dof_r(::WildBootTests.BootTestResult{T}) -> Int64
+`dof_r(::WildBootTests.BootTestResult{T}) -> Int64`
 Given a wildboottest() return object, extract residual degrees of freedom of test
 """
 dof_r(o::BootTestResult) = o.dof_r
@@ -108,20 +108,23 @@ dimension of the tested hypothesis.
 plotpoints(o::BootTestResult) = o.plot
 
 """
-peak(::WildBootTests.BootTestResult{T}) -> NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
+`peak(::WildBootTests.BootTestResult{T}) -> NamedTuple{(:X, :p), Tuple{Vector{T}, T}}`
 Given a wildboottest() return object for a one-dimensional test, return the parameter value with peak p value in test
 Return value is a 2-tuple with named entries `X` and `p` holding the parameter value and p value.
 """
 peak(o::BootTestResult) = o.peak
 
 """
-ci(::WildBootTests.BootTestResult{T}) -> Matrix{T}
+`ci(::WildBootTests.BootTestResult{T}) -> Matrix{T}`
 Given a wildboottest() return object for a one-dimensional test, extract the confidence interval(s)
 for test, one row per disjoint piece
 """
 ci(o::BootTestResult) = o.ci
 
-"Return auxilliary weight matrix for wild bootstrap"
+"""
+`auxweights(::WildBootTests.BootTestResult{T}) -> Matrix{T}`
+Given a wildboottest() return object for a one-dimensional test, extract auxilliary weight matrix
+"""
 auxweights(o::BootTestResult) = o.auxweights
 
 strint(x) = iszero(mod(x,1)) ? "$(Int64(x))" : "$x"
@@ -411,8 +414,8 @@ _wildboottest(R::Union{UniformScaling{Bool},AbstractVecOrMat}, r::Union{Number,A
 
 
 """
-wildboottest([T::DataType=Float64,] R::AbstractMatrix, r::AbstractVector; 
-             resp, <optional keyword arguments>) -> WildBootTests.BootTestResult
+`wildboottest([T::DataType=Float64,] R::AbstractMatrix, r::AbstractVector; 
+             resp, <optional keyword arguments>) -> WildBootTests.BootTestResult`
 
 Function to perform wild-bootstrap-based hypothesis test
 
