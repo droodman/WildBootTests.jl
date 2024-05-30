@@ -130,7 +130,7 @@ p    = 0.1040
 boottest post_self=.04, weight(mammen) reps(9999) boottype(score)
 t(7) = 1.8479
 p    = 0.0903
-CI   = [-0.1533 -0.1334; -0.03434 0.1137; 0.1242 0.1515; 0.2035 0.2524; 0.263 0.2878]
+CI   = [0.02513 0.08459]
 
 
 boottest post_self=.04, reps(9999) jk
@@ -336,7 +336,7 @@ p  = 0.0080
 
 boottest tenure, nograph bootcluster(collgrad) cluster(collgrad industry) weight(webb) reps(9999)
 z  = 3.9420
-p  = 0.2033
+p  = 0.2153
 CI = [-Inf Inf]
 
 

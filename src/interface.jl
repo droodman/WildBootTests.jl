@@ -19,51 +19,86 @@ struct BootTestResult{T}
 end
 
 """
-teststat(WildBootTests.BootTestResult{T}) -> T
-Given a wilboottest() return object, extract test statistic
+teststat(::WildBootTests.BootTestResult{T}) -> T
+Given a wildboottest() return object, extract test statistic
 """
 teststat(o::BootTestResult) = o.stat
 
 """
-stattype(WildBootTests.BootTestResult{T}) -> String
-Given a wilboottest() return object, extract type of test statistic: "t", "z", "F", or "χ²" """
+stattype(::WildBootTests.BootTestResult{T}) -> String
+Given a wildboottest() return object, extract type of test statistic: "t", "z", "F", or "χ²"
 """
 stattype(o::BootTestResult) = o.stattype
 
-"Return numerator of test statistic"
+"""
+statnumer(::WildBootTests.BootTestResult{T}) -> T
+Given a wildboottest() return object, extract numerator of test statistic
+"""
 statnumer(o::BootTestResult) = o.b
 
-"Return denominator of test statistic"
+"""
+statvar(::WildBootTests.BootTestResult{T}) -> T
+Given a wildboottest() return object, extract squared denominator of test statistic
+"""
 statvar(o::BootTestResult) = o.V
 
-"Return bootstrap distribution of numerator of statistic in bootstrap test"
+"""
+numerdist(::WildBootTests.BootTestResult{T}) -> Matrix{T}
+Given a wildboottest() return object, extract bootstrap distribution of numerator of statistic
+"""
 numerdist(o::BootTestResult) = o.numerdist
 
-"Return bootstrap distribution of statistic in bootstrap test"
+"""
+dist(::WildBootTests.BootTestResult{T}) -> Matrix{T}
+Given a wildboottest() return object, extract bootstrap distribution of statistic
+"""
 dist(o::BootTestResult) = o.dist
 
-"Return p value"
+"""
+p(::WildBootTests.BootTestResult{T}) -> T
+Given a wildboottest() return object, extract p value
+"""
 p(o::BootTestResult) = o.p
 
-"Return p value after multiple-hypothesis adjustment, if any"
+"""
+padj(::WildBootTests.BootTestResult{T}) -> T
+Given a wildboottest() return object, extract p value after multiple-hypothesis adjustment, if any
+"""
 padj(o::BootTestResult) = o.padj
 
-"Return requested number of replications"
+"""
+reps(::WildBootTests.BootTestResult{T}) -> Int64
+Given a wildboottest() return object, extract number of replications
+"""
 reps(o::BootTestResult) = o.reps
 
-"Return actual number of replications, subject to enumeration of Rademacher draws"
+"""
+repsfeas(::WildBootTests.BootTestResult{T}) -> Int64
+Given a wildboottest() return object, extract actual number of replications, subject to enumeration of Rademacher draws
+"""
 repsfeas(o::BootTestResult) = o.repsfeas
 
-"Return number of bootstrapping clusters in test"
+"""
+nbootclust(::WildBootTests.BootTestResult{T}) -> Int64
+Given a wildboottest() return object, extract number of bootstrapping clusters in test
+"""
 nbootclust(o::BootTestResult) = o.nbootclust
 
-"Return degrees of freedom of test"
+"""
+dof(::WildBootTests.BootTestResult{T}) -> Int64
+Given a wildboottest() return object, extract degrees of freedom of test
+"""
 dof(o::BootTestResult) = o.dof
 
-"Return residual degrees of freedom of test"
+"""
+dof_r(::WildBootTests.BootTestResult{T}) -> Int64
+Given a wildboottest() return object, extract residual degrees of freedom of test
+"""
 dof_r(o::BootTestResult) = o.dof_r
 
 """
+`plotpoints(::WildBootTests.BootTestResult{T}) -> NamedTuple{(:X, :p), Tuple{Tuple{Vararg{Vector{T}, N} where N},Vector{T}}}`
+
 Return data for confidence plot of test.
 Return value is a 2-tuple with named entries `X` and `p` holding
 the confidence sampling locations and p values respectively. `X` is in turn
@@ -72,10 +107,18 @@ dimension of the tested hypothesis.
 """
 plotpoints(o::BootTestResult) = o.plot
 
-"Return parameter value with peak p value in test"
+"""
+peak(::WildBootTests.BootTestResult{T}) -> NamedTuple{(:X, :p), Tuple{Vector{T}, T}}
+Given a wildboottest() return object for a one-dimensional test, return the parameter value with peak p value in test
+Return value is a 2-tuple with named entries `X` and `p` holding the parameter value and p value.
+"""
 peak(o::BootTestResult) = o.peak
 
-"Return confidence interval matrix from test, one row per disjoint piece"
+"""
+ci(::WildBootTests.BootTestResult{T}) -> Matrix{T}
+Given a wildboottest() return object for a one-dimensional test, extract the confidence interval(s)
+for test, one row per disjoint piece
+"""
 ci(o::BootTestResult) = o.ci
 
 "Return auxilliary weight matrix for wild bootstrap"
