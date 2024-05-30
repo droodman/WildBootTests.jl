@@ -18,17 +18,23 @@ struct BootTestResult{T}
   # o::StrBootTest
 end
 
-"Return test statistic"
+"""
+teststat(WildBootTests.BootTestResult{T}) -> T
+Given a wilboottest() return object, extract test statistic
+"""
 teststat(o::BootTestResult) = o.stat
+
+"""
+stattype(WildBootTests.BootTestResult{T}) -> String
+Given a wilboottest() return object, extract type of test statistic: "t", "z", "F", or "χ²" """
+"""
+stattype(o::BootTestResult) = o.stattype
 
 "Return numerator of test statistic"
 statnumer(o::BootTestResult) = o.b
 
 "Return denominator of test statistic"
 statvar(o::BootTestResult) = o.V
-
-"""Return type of test statistic: "t", "z", "F", or "χ²" """
-stattype(o::BootTestResult) = o.stattype
 
 "Return bootstrap distribution of numerator of statistic in bootstrap test"
 numerdist(o::BootTestResult) = o.numerdist

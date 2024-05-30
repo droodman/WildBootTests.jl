@@ -1,4 +1,4 @@
-```
+```julia
 using WildBootTests, CSV, DataFrames, StatsModels, GLM, Plots
 
 # specify exactly identified model: regress wage on on tenure, instrumented by union,
