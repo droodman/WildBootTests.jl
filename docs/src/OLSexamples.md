@@ -1,4 +1,3 @@
-## Basic OLS example
 ```julia
 julia> using WildBootTests, CSV, DataFrames, StatsModels, GLM, Plots
 
