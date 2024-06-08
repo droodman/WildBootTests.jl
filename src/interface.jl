@@ -316,46 +316,46 @@ function _wildboottest(T::DataType,
 
 	nrows(R)>2 && (getplot = getci = false)
 
-	@assert any(auxwttype .== (:rademacher, :mammen, :webb, :gamma, :normal)) "auxwttype shoud be :rademacher, :mammen, :webb, :gamma, or :normal"
-	@assert any(ptype .==(:symmetric, :equaltail, :lower, :upper)) "ptype should be :symmetric, :equaltail, :lower, or :upper"
-	@assert any(madjtype .== (:none, :bonferroni, :sidak)) "madjtype should be :none, :bonferroni, or :sidak"
-	@assert ncols(obswt)≤1 "obswt must have one column"
-  @assert nrows(R)==nrows(r) "R and r must have same height"
-  @assert (ncols(R) == (ml ? nrows(beta) : ncols(predexog)+ncols(predendog)) && isone(ncols(r))) "Wrong number of columns in null specification"
-  @assert length(R1)==0 || ncols(R1)==ncols(predexog)+ncols(predendog) "Wrong number of columns in model constraint specification"
-	@assert ncols(r)==1 "r should have one column"
-	@assert length(R1)==0 || ncols(r1)==1 "r1 should have one column"
-  @assert nbootclustvar ≤ ncols(clustid) "nbootclustvar > width of clustid"
-  @assert nerrclustvar ≤ ncols(clustid) "nerrclustvar > width of clustid"
-  @assert reps ≥ 0 "reps < 0"
-  @assert level ≥ 0. && level≤1. "level must be in the range [0,1]"
-  @assert rtol > 0. "rtol ≤ 0"
-  @assert nH0 > 0 "nH0 ≤ 0"
-	@assert !liml || (ncols(predendog)>0 && ncols(inst)>0) "For liml, non-empty predendog and inst arguments are needed"
-	@assert fuller==0 || (ncols(predendog)>0 && ncols(inst)>0) "For Fuller liml, non-empty predendog and inst arguments are needed"
+	any(auxwttype .== (:rademacher, :mammen, :webb, :gamma, :normal)) || throw(ArgumentError("auxwttype shoud be :rademacher, :mammen, :webb, :gamma, or :normal"))
+	any(ptype .==(:symmetric, :equaltail, :lower, :upper)) || throw(ArgumentError("ptype should be :symmetric, :equaltail, :lower, or :upper"))
+	any(madjtype .== (:none, :bonferroni, :sidak)) || throw(ArgumentError("madjtype should be :none, :bonferroni, or :sidak"))
+	ncols(obswt)≤1 || throw(ArgumentError("obswt must have one column"))
+  nrows(R)==nrows(r) || throw(ArgumentError("R and r must have same height"))
+  (ncols(R) == (ml ? nrows(beta) : ncols(predexog)+ncols(predendog)) && isone(ncols(r))) || throw(ArgumentError("Wrong number of columns in null specification"))
+  length(R1)==0 || ncols(R1)==ncols(predexog)+ncols(predendog) || throw(ArgumentError("Wrong number of columns in model constraint specification"))
+	ncols(r)==1 || throw(ArgumentError("r should have one column"))
+	length(R1)==0 || ncols(r1)==1 || throw(ArgumentError("r1 should have one column"))
+  nbootclustvar ≤ ncols(clustid) || throw(ArgumentError("nbootclustvar > width of clustid"))
+  nerrclustvar ≤ ncols(clustid) || throw(ArgumentError("nerrclustvar > width of clustid"))
+  reps ≥ 0 || throw(ArgumentError("reps < 0"))
+  level ≥ 0. && level≤1. || throw(ArgumentError("level must be in the range [0,1]"))
+  rtol > 0. || throw(ArgumentError("rtol ≤ 0"))
+  nH0 > 0 || throw(ArgumentError("nH0 ≤ 0"))
+	!liml || (ncols(predendog)>0 && ncols(inst)>0) || throw(ArgumentError("For liml, non-empty predendog and inst arguments are needed"))
+	fuller==0 || (ncols(predendog)>0 && ncols(inst)>0) || throw(ArgumentError("For Fuller liml, non-empty predendog and inst arguments are needed"))
 	
 	if !ml 
-		@assert ncols(resp)==1 "resp should have one column"
-	  @assert (length(predexog)==0 || nrows(predexog)==nrows(resp)) && 
+		ncols(resp)==1 || throw(ArgumentError("resp should have one column"))
+	  ((length(predexog)==0 || nrows(predexog)==nrows(resp)) && 
 		        (length(predendog)==0 || nrows(predendog)==nrows(resp)) &&
-						(length(inst)==0 || nrows(inst)==nrows(resp)) "All data vectors/matrices must have same height"
-						@assert ncols(inst) >= ncols(predendog) "Model has fewer instruments than instrumented variables"
-						@assert length(feid)==0 || nrows(feid)==nrows(resp) "feid vector must have same height as data matrices"
-						@assert ncols(feid)≤1 "feid should have one column"
-						@assert length(clustid)==0 || nrows(clustid)==nrows(resp) "clustid must have same height as data matrices"
-						@assert nrows(obswt)==0 || nrows(obswt)==nrows(resp) "obswt must have same height as data matrices"
-						@assert nrows(R1)==nrows(r1) "R₁ and r₁ must have same height"
-						@assert iszero(ncols(predendog)) || ncols(inst)>0 "predendog provided without inst"
-						@assert !arubin || ncols(predendog)>0 "Anderson-Rubin test requested but predendog not provided"
+						(length(inst)==0 || nrows(inst)==nrows(resp))) || throw(ArgumentError("All data vectors/matrices must have same height"))
+		ncols(inst) >= ncols(predendog) || throw(ArgumentError("Model has fewer instruments than instrumented variables"))
+		length(feid)==0 || nrows(feid)==nrows(resp) || throw(ArgumentError("feid vector must have same height as data matrices"))
+		ncols(feid)≤1 || throw(ArgumentError("feid should have one column"))
+		length(clustid)==0 || nrows(clustid)==nrows(resp) || throw(ArgumentError("clustid must have same height as data matrices"))
+		nrows(obswt)==0 || nrows(obswt)==nrows(resp) || throw(ArgumentError("obswt must have same height as data matrices"))
+		nrows(R1)==nrows(r1) || throw(ArgumentError("R₁ and r₁ must have same height"))
+		iszero(ncols(predendog)) || ncols(inst)>0 || throw(ArgumentError("predendog provided without inst"))
+		!arubin || ncols(predendog)>0 || throw(ArgumentError("Anderson-Rubin test requested but predendog not provided"))
 	end
 
 	if getplot || getci
-		@assert iszero(length(gridmin   )) || length(gridmin   )==nrows(R) "Length of gridmin doesn't match number of hypotheses being jointly tested"
-		@assert iszero(length(gridmax   )) || length(gridmax   )==nrows(R) "Length of gridmax doesn't match number of hypotheses being jointly tested"
-		@assert iszero(length(gridpoints)) || length(gridpoints)==nrows(R) "Length of gridpoints doesn't match number of hypotheses being jointly tested"
-		@assert iszero(length(gridmin   )) || ncols(gridmin)   ==1 "gridmin should have one column"
-		@assert iszero(length(gridmax   )) || ncols(gridmax)   ==1 "gridmax should have one column"
-		@assert iszero(length(gridpoints)) || ncols(gridpoints)==1 "gridpoints should have one column"
+		iszero(length(gridmin   )) || length(gridmin   )==nrows(R) || throw(ArgumentError("Length of gridmin doesn't match number of hypotheses being jointly tested"))
+		iszero(length(gridmax   )) || length(gridmax   )==nrows(R) || throw(ArgumentError("Length of gridmax doesn't match number of hypotheses being jointly tested"))
+		iszero(length(gridpoints)) || length(gridpoints)==nrows(R) || throw(ArgumentError("Length of gridpoints doesn't match number of hypotheses being jointly tested"))
+		iszero(length(gridmin   )) || ncols(gridmin)   ==1 || throw(ArgumentError("gridmin should have one column"))
+		iszero(length(gridmax   )) || ncols(gridmax)   ==1 || throw(ArgumentError("gridmax should have one column"))
+		iszero(length(gridpoints)) || ncols(gridpoints)==1 || throw(ArgumentError("gridpoints should have one column"))
 	end
 
 	_gridmin = Vector{T}(undef, length(gridmin))
