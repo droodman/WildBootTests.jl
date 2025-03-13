@@ -34,7 +34,7 @@ summary(boot_lm)
 plot(boot_lm)
 ```
 
-### From via JuliaConnectoR
+### From R via JuliaConnectoR
 ```julia
 library(JuliaConnectoR)
 startJuliaServer()
