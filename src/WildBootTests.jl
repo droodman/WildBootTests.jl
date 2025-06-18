@@ -1,7 +1,7 @@
 module WildBootTests
 export wildboottest, wildboottest!, waldtest, scoretest, teststat, stattype, numerdist, dist, p, padj, reps, repsfeas, nbootclust, dof, dof_r, plotpoints, peak, ci, dist, statnumer, statvar, auxweights
 
-using LinearAlgebra, Random, Distributions, SortingAlgorithms, Printf, LoopVectorization, ThreadsX, SharedArrays, SparseArrays
+using LinearAlgebra, Random, Distributions, SortingAlgorithms, Printf, LoopVectorization, ThreadsX, SharedArrays, SparseArrays, OrderedCollections
 
 include("structs.jl")
 include("utilities.jl")

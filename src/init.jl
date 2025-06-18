@@ -344,7 +344,7 @@ end
 
 function InitFEs!(o::StrBootTest{T}) where T
 	if isdefined(o, :FEID) && length(o.FEID)>0
-		s = BitSet(o.FEID)
+		s = OrderedSet(o.FEID)
 		o.NFE = length(s)
 		o._FEID = getindex.(Ref(Dict(zip(s, 1:o.NFE))), o.FEID)  # standardize FE clustid to 1, 2, ...
 

@@ -114,7 +114,7 @@ p    = 0.0757
 
 boottest post_self=.04, weight(normal) reps(9999) noci
 t(7) = 2.0194
-p    = 0.0597
+p    = 0.0614
 
 
 boottest post_self=.04, weight(gamma) reps(9999) noci svv
@@ -130,7 +130,7 @@ p    = 0.1040
 boottest post_self=.04, weight(mammen) reps(9999) boottype(score)
 t(7) = 1.8479
 p    = 0.0903
-CI   = [0.02513 0.08459]
+CI   = [0.0335 0.07605]
 
 
 boottest post_self=.04, reps(9999) jk
@@ -336,7 +336,7 @@ p  = 0.0080
 
 boottest tenure, nograph bootcluster(collgrad) cluster(collgrad industry) weight(webb) reps(9999)
 z  = 3.9420
-p  = 0.2153
+p  = 0.2033
 CI = [-Inf Inf]
 
 

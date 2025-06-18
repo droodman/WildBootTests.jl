@@ -34,3 +34,5 @@ test/dataset_2p.csv
 docs/build
 docs/src/assets/icon.png
 docs/src/assets/logo old.png
+.DS_Store
+.github/workflows/documentation.yml
