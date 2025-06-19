@@ -36,3 +36,4 @@ docs/src/assets/icon.png
 docs/src/assets/logo old.png
 .DS_Store
 .github/workflows/documentation.yml
+bootstrap julia crash.do
