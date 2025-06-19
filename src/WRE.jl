@@ -10,7 +10,8 @@ function InitWRE!(o::StrBootTest{T}) where T
 		MakeResidualsIV!(o.DGP, o)
 		if o.granular || o.jk
 			o.Ü₂par = view(o.DGP.Ü₂ * o.Repl.RparY,:,:)
-			o.Z̄ .= t✻(o.DGP.Ȳ₂, o.Repl.RparY); o.Z̄ .+= o.Repl.ZparX
+			o.Z̄ = t✻(o.DGP.Ȳ₂, o.Repl.RparY)
+			o.Z̄ .+= o.Repl.ZparX
 		end
 	end
 
@@ -791,7 +792,7 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			end
 			if w==1
 				o.statDenom = o.denomWRE[:,1,:]
-				o.numer = o.numerWRE[:,1,1:1]  # just save full-sample numerator
+				o.numer = o.numerWRE
 			end
 			if o.sqrt
 				@storeWtGrpResults!(o.dist, o.numerWRE ./ sqrtNaN.(dropdims(o.denomWRE; dims=3)))

@@ -1,7 +1,7 @@
 name = "WildBootTests"
 uuid = "65c2e505-86ba-4c19-93f1-95506c1443d5"
 authors = ["droodman <david@davidroodman.com>"]
-version = "0.9.12"
+version = "0.9.13"
 
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
