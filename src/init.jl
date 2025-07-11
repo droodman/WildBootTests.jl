@@ -361,20 +361,18 @@ function InitFEs!(o::StrBootTest{T}) where T
 		end
 		o.invsumFEwt = one(T) ./ sumFEwt
 
-		# is every FE group inside same bootstrapping?
+		# is every FE group inside same bootstrapping cluster?
 		o.FEboot = o.B>0 && o.NClustVar>0
 		if o.FEboot
-			first = fill(true, o.NFE)
-			clustrows = Matrix{Int64}(undef, o.NFE, o.NBootClustVar)
-			_ID = view(o.clustid, :, 1:o.NBootClustVar)
-			js = eachindex(axes(_ID,2))
+			clustrows = zeros(Int64, o.NFE)
 			@inbounds for i ∈ eachindex(axes(o.clustid,1))
-				if first[o._FEID[i]]
-					clustrows[o._FEID[i],:] = _ID[i,:]
-					first[o._FEID[i]] = false
+				_FEIDᵢ = o._FEID[i]
+				r = clustrows[_FEIDᵢ]
+				if iszero(r)
+					clustrows[_FEIDᵢ] = i
 				else
-					for j ∈ js
-						if clustrows[o._FEID[i],j] ≠ _ID[i,j]
+					for j ∈ 1:o.NBootClustVar
+						if o.clustid[r,j] ≠ o.clustid[i,j]
 							o.FEboot = false
 							@goto afer_loop
 						end

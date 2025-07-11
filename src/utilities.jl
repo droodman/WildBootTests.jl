@@ -543,7 +543,7 @@ function panelsum!(dest::AbstractArray, X::AbstractArray{T,3} where T, info::Vec
   end
 end
 
-# groupwise inner product of two two data matrices
+# groupwise inner product of two data matrices
 # 1st dimension of result corresponds to columns of X, second to rows of info, third to columns of Y
 function panelcross!(dest::AbstractArray{T,3}, X::AbstractVecOrMat{T}, Y::AbstractVecOrMat{T}, info::Vector{UnitRange{S}} where S<:Integer) where T
 	iszero(length(dest)) && return
