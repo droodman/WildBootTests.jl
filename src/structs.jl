@@ -142,12 +142,12 @@ mutable struct StrEstimator{T<:AbstractFloat}
 	restricted::Bool; RperpX::DesignerMatrix{T}; RperpXperp::DesignerMatrix{T}; RRpar::Matrix{T}; RparX::Matrix{T}; RparY::DesignerMatrix{T}; RR₁invR₁R₁::Matrix{T}
 	∂β̈∂r::Matrix{T}; YY::Matrix{T}; AR::Matrix{T}; XAR::Matrix{T}; Ü₂::Matrix{T}; Rt₁::Vector{T}
 	invXX::Matrix{T}; Y₂::Matrix{T}; X₂::Matrix{T}; invH::Matrix{T}
-	cholZperpZperp::CholeskyPivoted{T, Matrix{T}, Vector{Int64}}; cholXX::CholeskyPivoted{T, Matrix{T}, Vector{Int64}}
+	cholZperpZperp::CholeskyPivoted{T}; cholXX::CholeskyPivoted{T}
 	y₁par::Vector{T}; Xy₁par::Vector{T}
 	A::Matrix{T}; Zpar::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
 	CT_XAR::Vector{SparseMatrixCSC{T}}
 	copyfromDGP::Bool
-	S✻XX::Array{T,3}; XinvHⱼₖ::Vector{Matrix{T}}; cholMjk::Vector{CholeskyPivoted{T, Matrix{T}, Vector{Int64}}}; invMjkv::Vector{T}; XXt1jk::Matrix{T}; t₁::Vector{T}
+	S✻XX::Array{T,3}; XinvHⱼₖ::Vector{Matrix{T}}; cholMjk::Vector{CholeskyPivoted{T}}; invMjkv::Vector{T}; XXt1jk::Matrix{T}; t₁::Vector{T}
 	Xt₁::Matrix{T}; Xt₁pu::Matrix{T}; MXt₁pu::Matrix{T}; Xu::Vector{T}
 
   # IV/GMM only
@@ -170,9 +170,9 @@ mutable struct StrEstimator{T<:AbstractFloat}
 
 	Xⱼₖ::Matrix{T}; y₁ⱼₖ::Vector{T}; Y₂ⱼₖ::Matrix{T}; Zⱼₖ::Matrix{T}; ZR₁ⱼₖ::Matrix{T}; Y₂y₁ⱼₖ::Array{T,3}; Xy₁ⱼₖ::Array{T,3}; Zy₁ⱼₖ::Array{T,3}; XZⱼₖ::Array{T,3}; ZZⱼₖ::Array{T,3}; ZY₂ⱼₖ::Array{T,3}; y₁y₁ⱼₖ::Array{T,3}; XY₂ⱼₖ::Array{T,3}
 	XXⱼₖ::Array{T,3}; XZR₁ⱼₖ::Array{T,3}; ZR₁Zⱼₖ::Array{T,3}; twoZR₁y₁ⱼₖ::Array{T,3}; ZR₁ZR₁ⱼₖ::Array{T,3}; ZR₁Y₂ⱼₖ::Array{T,3} 
-	cholXXⱼₖ::Vector{CholeskyPivoted{T, Matrix{T}, Vector{Int64}}}
+	cholXXⱼₖ::Vector{CholeskyPivoted{T}}
 	Y₂y₁parⱼₖ::Array{T,3}; Zy₁parⱼₖ::Array{T,3}; y₁pary₁parⱼₖ::Array{T,3};	Xy₁parⱼₖ::Array{T,3}; y₁parⱼₖ::Vector{T}; H_2SLSⱼₖ::Array{T,3}; H_2SLSmZZⱼₖ::Array{T,3}
-	Hⱼₖ::Array{T,3}; cholHⱼₖ::Vector{CholeskyPivoted{T, SubArray{T, 2, Array{T, 3}, Tuple{Base.Slice{Base.OneTo{Int64}}, Int64, Base.Slice{Base.OneTo{Int64}}}, false}, Vector{Int64}}}
+	Hⱼₖ::Array{T,3}; cholHⱼₖ::Vector{CholeskyPivoted{T}}
 	β̈ⱼₖ::Array{T,3}; κⱼₖ::Array{T,3}; YPXYⱼₖ::Array{T,3}; YYⱼₖ::Array{T,3}; invXXXy₁parⱼₖ::Array{T,3}; ZXinvXXXy₁parⱼₖ::Array{T,3}
 
   StrEstimator{T}(isDGP, liml, fuller, κ) where T<:AbstractFloat = new(isDGP, liml, fuller, κ, Matrix{T}(undef,0,0))

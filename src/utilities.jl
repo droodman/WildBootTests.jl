@@ -335,8 +335,8 @@ function t✻minus!(A::AbstractVecOrMat{T}, B::T, C::AbstractVecOrMat{T}) where 
 	nothing
 end
 
-_cholesky!(X) = cholesky!(Symmetric(X), RowMaximum(), check=false)
-_cholesky(X)  = cholesky( Symmetric(X), RowMaximum(), check=false)
+_cholesky!(X::AbstractMatrix{T}) where {T} = cholesky!(iszero(length(X)) ? T[;;] : Symmetric(X), RowMaximum(), check=false)
+_cholesky( X::AbstractMatrix{T}) where {T} = cholesky( iszero(length(X)) ? T[;;] : Symmetric(X), RowMaximum(), check=false)
 
 _cholesky(X::Array{T,3}) where T = [_cholesky(view(X,:,g,:)) for g ∈ eachindex(axes(X,2))]
 _cholesky!(X::Array{T,3}) where T = [_cholesky!(view(X,:,g,:)) for g ∈ eachindex(axes(X,2))]
@@ -387,7 +387,7 @@ end
 
 # ch \ Y => copy(Y)
 cholldiv(ch::CholeskyPivoted{T}, Y::AbstractVecOrMat{T}) where T = cholldiv!(ch, copy(Y))
-cholldiv(ch::CholeskyPivoted{T}, Y::AbstractArray{T,3} ) where T = reshape(cholldiv(ch, reshape(Y,size(Y,1),:)), size(Y))
+cholldiv(ch::CholeskyPivoted{T}, Y::AbstractArray{T,3} ) where T = iszero(size(ch,1)) ? Y : reshape(cholldiv(ch, reshape(Y,size(Y,1),:)), size(Y))
 function cholldiv(vch::Vector{S} where S<:CholeskyPivoted{T}, Y::AbstractArray{T,3}) where T
 	dest = copy(Y)
 	cholldiv!(vch, dest)
