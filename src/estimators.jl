@@ -444,7 +444,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			o.Zperpy₁ = vec(sumpanelcross(o.S✻⋂Zperpy₁))
 			o.ZperpX₁ = sumpanelcross(S✻⋂X₁Zperp)'
 			o.ZperpX₂ = sumpanelcross(S✻⋂X₂Zperp)'
-			o.cholZperpZperp = iszero(o.kZperp) ? cholesky(Float64[;;], RowMaximum(), check=false) : _cholesky!(sumpanelcross(o.S✻⋂ZperpZperp))
+			o.cholZperpZperp = _cholesky!(sumpanelcross(o.S✻⋂ZperpZperp))
 		else
 			o.ZperpX₁ = o.Zperp'o.X₁
 			o.ZperpX₂ = o.Zperp'parent.X₂
