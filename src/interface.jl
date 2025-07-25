@@ -184,6 +184,7 @@ function __wildboottest(
 	jk::Bool,
 	scorebs::Bool,
 	reps::Int64,
+	granular::Union{Missing,Bool},
 	imposenull::Bool,
 	auxwttype::Symbol,
 	rng::AbstractRNG,
@@ -207,7 +208,7 @@ function __wildboottest(
 
 	o = StrBootTest{T}(R, r, R1, r1, resp, iszero(length(predexog)) ? Matrix{T}(undef,nrows(resp),0) : predexog, 
 	                   predendog, inst, obswt, fweights, liml, fuller, kappa, arubin,
-	                   reps, auxwttype, rng, maxmatsize, ptype, imposenull, jk, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, issorted, hetrobust, small, clusteradj, clustermin,
+	                   reps, granular, auxwttype, rng, maxmatsize, ptype, imposenull, jk, scorebs, !bootstrapc, clustid, nbootclustvar, nerrclustvar, issorted, hetrobust, small, clusteradj, clustermin,
 	                   feid, fedfadj, level, rtol, madjtype, nH0, ml, beta, A, scores, getplot,
 	                   gridmin, gridmax, gridpoints, overwrite, v)
 
@@ -293,6 +294,7 @@ function _wildboottest(T::DataType,
 					  jk::Bool=false,
 					  scorebs::Bool=false,
 					  reps::Integer=999,
+						granular::Union{Missing,Bool}=missing,  # true for coarse-clustering implementation, missing to make algorithm choose 
 					  imposenull::Bool=true,
 					  auxwttype::Symbol=:rademacher,
 					  rng::AbstractRNG=Xoshiro(),
@@ -402,6 +404,7 @@ function _wildboottest(T::DataType,
 		jk,
 		scorebs,
 		reps=Int64(reps),
+		granular,
 		imposenull,
 		auxwttype,
 		rng,
