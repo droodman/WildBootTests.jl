@@ -324,7 +324,7 @@ function _wildboottest(T::DataType,
 	ncols(obswt)≤1 || throw(ArgumentError("obswt must have one column"))
   nrows(R)==nrows(r) || throw(ArgumentError("R and r must have same height"))
   (ncols(R) == (ml ? nrows(beta) : ncols(predexog)+ncols(predendog)) && isone(ncols(r))) || throw(ArgumentError("Wrong number of columns in null specification"))
-  length(R1)==0 || ncols(R1)==ncols(predexog)+ncols(predendog) || throw(ArgumentError("Wrong number of columns in model constraint specification"))
+  ml || length(R1)==0 || ncols(R1)==ncols(predexog)+ncols(predendog) || throw(ArgumentError("Wrong number of columns in model constraint specification"))
 	ncols(r)==1 || throw(ArgumentError("r should have one column"))
 	length(R1)==0 || ncols(r1)==1 || throw(ArgumentError("r1 should have one column"))
   nbootclustvar ≤ ncols(clustid) || throw(ArgumentError("nbootclustvar > width of clustid"))

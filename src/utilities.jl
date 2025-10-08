@@ -1016,7 +1016,7 @@ function invsym(A::Array{T,3}) where T
 	dest
 end
 
-@inline (-)(A::AbstractMatrix{T}, B::Array{T,3}) where T = reshape(A, (size(A,1),1,size(A,2))) .- B  # would be better to overload .-, but more complicated
+@inline (-)(A::AbstractMatrix{T}, B::Array{T,3}) where T =      reshape(A, (size(A,1),1,size(A,2))) .- B  # would be better to overload .-, but more complicated
 @inline (-)(B::Array{T,3}, A::AbstractMatrix{T}) where T = B .- reshape(A, (size(A,1),1,size(A,2)))
 
 # delete-g inner products of two vector/matrices; returns full inner product too 
