@@ -39,11 +39,15 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		end
 
 		o.clustid = ndims(o.clustid)==1 ? o.clustid[p] : o.clustid[p,:]
-		o.X₁ = isone(ndims(o.X₁)) ? o.X₁[p] : o.X₁[p,:]
-		o.X₂ = isone(ndims(o.X₂)) ? o.X₂[p] : o.X₂[p,:]
-		o.y₁ = o.y₁[p]
-		o.Y₂ = isone(ndims(o.Y₂)) ? o.Y₂[p] : o.Y₂[p,:]
-		isdefined(o, :FEID) && nrows(o.FEID)>0 && (o.FEID = o.FEID[p])
+		if o.ml
+			o.sc = o.sc[p,:]
+		else
+			o.X₁ = isone(ndims(o.X₁)) ? o.X₁[p] : o.X₁[p,:]
+			o.X₂ = isone(ndims(o.X₂)) ? o.X₂[p] : o.X₂[p,:]
+			o.y₁ = o.y₁[p]
+			o.Y₂ = isone(ndims(o.Y₂)) ? o.Y₂[p] : o.Y₂[p,:]
+			isdefined(o, :FEID) && nrows(o.FEID)>0 && (o.FEID = o.FEID[p])
+		end
 		o.haswt && (o.wt = o.wt[p])
 		o.overwrite = true  # data matrices are no longer those passed by caller
 	end

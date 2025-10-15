@@ -130,7 +130,7 @@ p    = 0.1040
 boottest post_self=.04, weight(mammen) reps(9999) boottype(score)
 t(7) = 1.8479
 p    = 0.0903
-CI   = [0.0335 0.07605]
+CI   = [0.0335 0.07626]
 
 
 boottest post_self=.04, reps(9999) jk
