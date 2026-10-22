@@ -2,8 +2,8 @@
 @inline ncols(X::AbstractArray) = size(X,2)
 @inline sqrtNaN(x) = x<0 ? typeof(x)(NaN) : sqrt(x)
 
-# given an a x b scratchpad matrix X and r≤a, create an r x b view onto an _adjacent_ subsection of the data
-# avoids allocations by reusing X and speeds memory access by compatifying
+# given an a x b scratchpad matrix X and r≤a, create an r x b view onto a _contiguous_ subsection of the data
+# avoids allocations by reusing X and speeds memory access by compactifying
 @inline rowsubview(X,r) = reshape(view(vec(X),1:r*ncols(X)),r,:)
 
 # similar but for square sub-blocks

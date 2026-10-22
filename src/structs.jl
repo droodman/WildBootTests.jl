@@ -148,7 +148,7 @@ mutable struct StrEstimator{T<:AbstractFloat}
 	CT_XAR::Vector{SparseMatrixCSC{T}}
 	copyfromDGP::Bool
 	S✻XX::Array{T,3}; XinvHⱼₖ::Vector{Matrix{T}}; cholMjk::Vector{CholeskyPivoted{T}}; invMjkv::Vector{T}; XXt1jk::Matrix{T}; t₁::Vector{T}
-	Xt₁::Matrix{T}; Xt₁pu::Matrix{T}; MXt₁pu::Matrix{T}; Xu::Vector{T}
+	Xu::Vector{T}
 
   # IV/GMM only
   ZZ::Matrix{T}; XY₂::Matrix{T}; XX::Matrix{T}; H_2SLS::Matrix{T}; V::Matrix{T}; ZY₂::Matrix{T}; ZR₁ZR₁::Matrix{T}; X₂ZR₁::Matrix{T}; ZR₁Y₂::Matrix{T}; X₁ZR₁::Matrix{T}

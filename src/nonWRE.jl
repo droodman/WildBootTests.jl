@@ -101,10 +101,10 @@ function _MakeInterpolables!(o::StrBootTest{T}, thisr::AbstractVector) where T
 		uXAR = o.sc * (o.AR = o.A * o.R')
 	else
 		if o.arubin
-			EstimateARubin!(o.DGP, o, o.jk, thisr)
+			EstimateARubin!(o.DGP, o, thisr)
 			MakeResidualsOLS!(o.DGP, o)
 		elseif iszero(o.κ)  # regular OLS
-			EstimateOLS!(o.DGP, o.jk, o.null ? [o.r₁ ; thisr] : o.r₁)
+			EstimateOLS!(o.DGP, o.null ? [o.r₁ ; thisr] : o.r₁)
 			MakeResidualsOLS!(o.DGP, o)
 		elseif o.null  # in score bootstrap for IV/GMM, if imposing null, then DGP constraints, κ, Hessian, etc. do vary with r and must be set now
 			EstimateIV!(o.DGP, o, o.jk, [o.r₁ ; thisr])
@@ -178,7 +178,7 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 	if o.jk && !_jk  # if block  same as else block, but will run 2nd in jk and is specialized to first bs col, in which v is all 1's
 		!o.scorebs && (!o.robust || o.granular || o.purerobust) &&
 			(o.β̈devⱼₖ = rowsum(o.SuwtXA))
-		if !o.arubin && o.null
+		if o.null
 			o.numer[:,1] = o.scorebs ?
 												iszero(o.B) ?
 														o.SuwtXA          :
@@ -201,7 +201,7 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 			mul!(o.numerw, o.R * o.SuwtXA, o.v)
 		end
 
-		if isone(w)
+		if isone(w) && !o.null  # if w>1, then numerw is only for that group, and may be needed now to prep interpolation
 			if o.arubin
 				o.numerw[:,1] = o.DGP.β̈[o.kX₁+1:end,1]  # coefficients on excluded instruments in arubin OLS
 			elseif !o.null  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this.

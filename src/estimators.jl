@@ -89,11 +89,6 @@ function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstrac
 				view(Mⱼₖ, diagind(Mⱼₖ)) .+= one(T)  # add I
 				o.cholMjk[g] = _cholesky(Mⱼₖ)
 			end
-			if o.restricted  # scratch matrices for MakeResidualsOLS!()
-				o.Xt₁    = Matrix{T}(undef, parent.maxNg, parent.dof)
-				o.Xt₁pu  = Matrix{T}(undef, parent.maxNg, parent.dof)
-				o.MXt₁pu = Matrix{T}(undef, parent.maxNg, parent.dof)
-			end
 		else
 			o.Xu = Vector{T}(undef, parent.kX)
 			_H = reshape(H, (parent.kX, 1, parent.kX)) .- o.S✻XX
@@ -587,15 +582,13 @@ end
 # inconsistency: for replication regression of Anderson-Rubin, r₁ refers to the *null*, not the maintained constraints, because that's what affects the endogenous variables
 # For OLS, compute β̈₀ (β̈ when r=0) and ∂β̈∂r without knowing r₁, for efficiency
 # For WRE, should only be called once for the replication regressions, since for them r₁ is the unchanging model constraints
-function EstimateOLS!(o::StrEstimator, _jk::Bool, r₁::AbstractVector)
+function EstimateOLS!(o::StrEstimator, r₁::AbstractVector)
 	o.β̈ = o.β̈₀ - o.∂β̈∂r * r₁
-	_jk && o.restricted &&
-		(o.t₁ = o.R₁invR₁R₁ * r₁)
 	nothing
 end
 
-function EstimateARubin!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁::AbstractVector) where T
-	EstimateOLS!(o, _jk, r₁)
+function EstimateARubin!(o::StrEstimator{T}, parent::StrBootTest{T}, r₁::AbstractVector) where T
+	EstimateOLS!(o, r₁)
   o.y₁par .= parent.y₁; t✻minus!(o.y₁par, parent.Y₂, r₁)
 	nothing
 end
@@ -685,33 +678,17 @@ function MakeResidualsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	if parent.jk
 		m = parent.small ? sqrtNaN((parent.N✻ - 1) / T(parent.N✻)) : one(T)
 		if parent.purerobust
-			if o.restricted
-				X₁₂B!(o.ü₁[2], parent.X₁, parent.X₂, o.t₁)
-				o.ü₁[2] .= m .* (o.invMjkv .* (o.ü₁[1] .+ o.ü₁[2]) .- o.ü₁[2])
-			else
-				o.ü₁[2] .= m .* o.invMjkv .* o.ü₁[1]
-			end
+			o.ü₁[2] .= m .* o.invMjkv .* o.ü₁[1]
 		elseif parent.granularjk
 	    for (g,S) ∈ enumerate(parent.info✻)
-				if o.restricted
-					_Xt₁    = rowsubview(o.Xt₁   , length(S))
-					_Xt₁pu  = rowsubview(o.Xt₁pu , length(S))
-					_MXt₁pu = rowsubview(o.MXt₁pu, length(S))
-					X₁₂B!(_Xt₁, view(parent.X₁,S,:), view(parent.X₂,S,:), o.t₁)
-					_Xt₁pu .= view(o.ü₁[1], S) .+ _Xt₁
-					cholldiv!(_MXt₁pu, o.cholMjk[g], _Xt₁pu)
-					o.ü₁[2][S] .= m .* (_MXt₁pu .- _Xt₁)
-				else
-					cholldiv!(view(o.ü₁[2],S), o.cholMjk[g], view(o.ü₁[1], S))
-					o.ü₁[2][S] .*= m
-				end
+				cholldiv!(view(o.ü₁[2],S), o.cholMjk[g], view(o.ü₁[1], S))
+				o.ü₁[2][S] .*= m
 			end
 		else
 	    for (g,S) ∈ enumerate(parent.info✻)
 				ü₁g = view(o.ü₁[1],S)
 				t✻!(view(o.Xu, 1:parent.kX₁     ), view(parent.X₁,S,:)', ü₁g)
 				t✻!(view(o.Xu, parent.kX₁+1:parent.kX), view(parent.X₂,S,:)', ü₁g)
-				o.restricted && t✻plus!(o.Xu, view(o.S✻XX,:,g,:), o.t₁)
 				ü₂g = view(o.ü₁[2],S)
 				mul!(ü₂g, o.XinvHⱼₖ[g], o.Xu)
 				ü₂g .= m .* (ü₁g .+ ü₂g)

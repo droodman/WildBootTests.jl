@@ -246,7 +246,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 			end
 
 			o.DGP = StrEstimator{T}(true, false, zero(T), zero(T))
-			setR!(o.DGP, o, o.R₁)
+			setR!(o.DGP, o, o.null ? [o.R₁ ; o.R] : o.R₁)
 			InitVarsARubin!(o.DGP, o)
 			InitTestDenoms!(o.DGP, o)
 			o.M = o.DGP  # StrEstimator object from which to get A, AR, XAR
