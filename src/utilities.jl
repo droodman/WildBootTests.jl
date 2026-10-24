@@ -41,10 +41,10 @@ function invsym(C::CholeskyPivoted{T}) where T
 	@inbounds if r == k
 		inv(C)
 	else
-		L_k = LowerTriangular(@view C.L[1:r, 1:r])
+		L_k_inv = inv(LowerTriangular(@view C.L[1:r, 1:r]))
 		invX = Matrix{T}(undef, size(C))
-		L_k_inv = inv(L_k)
 		invX[C.p[1:r], C.p[1:r]] .= L_k_inv'L_k_inv
+		fill!(view(invX, :, C.p[r+1:end]), zero(T))
 		fill!(view(invX, C.p[r+1:end], :), zero(T))
 		invX
 	end
