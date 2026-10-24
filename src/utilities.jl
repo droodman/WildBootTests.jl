@@ -33,12 +33,24 @@ end
 	nothing
 end
 
-
-# iszero(nrows(X)) && (return Symmetric(X))
-# X, ipiv, info = LinearAlgebra.LAPACK.sytrf!('U', Matrix(X))
-# iszero(info) && LinearAlgebra.LAPACK.sytri!('U', X, ipiv)
-@inline invsym(X) = inv(_cholesky(X))
-@inline invsym!(X) = inv(_cholesky!(X))
+# generalized inverse of symmetric positive-semidefinite matrix, using pivoted Cholesky decomposition
+function invsym(C::CholeskyPivoted{T}) where T
+	k = size(C,1)
+	iszero(k) && (return T[;;])
+	r	= rank(C)
+	@inbounds if r == k
+		inv(C)
+	else
+		L_k = LowerTriangular(@view C.L[1:r, 1:r])
+		invX = Matrix{T}(undef, size(C))
+		L_k_inv = inv(L_k)
+		invX[C.p[1:r], C.p[1:r]] .= L_k_inv'L_k_inv
+		fill!(view(invX, C.p[r+1:end], :), zero(T))
+		invX
+	end
+end
+invsym( X::AbstractMatrix) = invsym(cholesky( Symmetric(X), RowMaximum(), check=false))
+invsym!(X::AbstractMatrix) = invsym(cholesky!(Symmetric(X), RowMaximum(), check=false))
 
 eigvalsNaN(X) =	try eigvals(X) catch _ fill(eltype(X)(NaN), size(X)) end
 
@@ -338,13 +350,13 @@ end
 _cholesky!(X::AbstractMatrix{T}) where {T} = cholesky!(iszero(length(X)) ? T[;;] : Symmetric(X), RowMaximum(), check=false)
 _cholesky( X::AbstractMatrix{T}) where {T} = cholesky( iszero(length(X)) ? T[;;] : Symmetric(X), RowMaximum(), check=false)
 
-_cholesky(X::Array{T,3}) where T = [_cholesky(view(X,:,g,:)) for g ∈ eachindex(axes(X,2))]
+_cholesky( X::Array{T,3}) where T = [_cholesky( view(X,:,g,:)) for g ∈ eachindex(axes(X,2))]
 _cholesky!(X::Array{T,3}) where T = [_cholesky!(view(X,:,g,:)) for g ∈ eachindex(axes(X,2))]
 
 # fast dest .= source[p,:]
 function permrows!(dest::AbstractVecOrMat{T}, source::AbstractVecOrMat{T}, p::Vector{Int}) where T
   @inbounds for c ∈ eachindex(axes(source,2)), r ∈ eachindex(p)
-    dest[p[r],c] = source[r,c]
+    dest[r,c] = source[p[r],c]
   end
   dest
 end
@@ -1043,7 +1055,7 @@ function invsymcrossjk(X::Matrix{T}, info::Vector{UnitRange{Int64}}) where T
 	SXX =  panelcross(X,X,info)
 	XX = sumpanelcross(SXX)
 	cholXX = _cholesky(XX)
-	invXX = inv(cholXX)
+	invXX = invsym(cholXX)
 	for (g,S) ∈ enumerate(info)
 		Xg = view(X,S,:)
 		if size(Xg,1) > size(Xg,2)

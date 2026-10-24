@@ -2,7 +2,7 @@
 # The StrEstimator object holds the estimation logic for the OLS, Anderson-Rubin, and IV/GMM cases. Its methods are here.
 
 @inline denegate(X) = X .* [any(map(<(0), x)) ? -1 : 1 for x ∈ eachcol(X)]'  # try to turn -1's into 1's for proper selection matrix
-@inline identify(X::AbstractMatrix{T}) where T = size(X,1)==size(X,2) && DesignerMatrix(X).type==selection ? Matrix{T}(I(size(X,1))) : X  # try to turn square selection matrix into idnentity: same projection space
+@inline identify(X::AbstractMatrix{T}) where T = size(X,1)==size(X,2) && DesignerMatrix(X).type==selection ? Matrix{T}(I(size(X,1))) : X  # try to turn square selection matrix into identity: same projection space
 
 function par(X::AbstractMatrix{T}) where T
 	F = eigen(Symmetric(X'cholldiv(_cholesky!(X * X'), X)))
@@ -65,7 +65,7 @@ function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstrac
 	end
 
 	o.invH = invsym(H)
-  R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.invH : (o.R₁perp * cholldiv(_cholesky!(o.R₁perp'H*o.R₁perp), o.R₁perp'))  # for DGP regression
+  R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.invH : o.R₁perp * cholldiv(_cholesky!(o.R₁perp'H*o.R₁perp), o.R₁perp')  # for DGP regression
 	o.β̈₀ = R₁AR₁ * (parent.X₁'parent.y₁)
 	o.∂β̈∂r = R₁AR₁ * H * o.R₁invR₁R₁ - o.R₁invR₁R₁
 
@@ -117,18 +117,18 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	else
 		X₁X₁ = parent.X₁'parent.X₁
 		X₂X₁ = parent.X₂'parent.X₁
-		X₂X₂ = parent.X₂'parent.X₂	
+		X₂X₂ = parent.X₂'parent.X₂
 	end
 
   H = [X₁X₁ X₂X₁' ; X₂X₁ X₂X₂]
-  o.A = invsym(H)
+	o.A = invsym(H)
   R₁AR₁ = iszero(nrows(o.R₁perp)) ? o.A : o.R₁perp * cholldiv(_cholesky!(o.R₁perp'H*o.R₁perp), o.R₁perp')
 	o.β̈₀   = R₁AR₁ * [parent.X₁'parent.y₁ ; parent.X₂'parent.y₁]
 	o.∂β̈∂r = R₁AR₁ * [parent.X₁'parent.Y₂ ; parent.X₂'parent.Y₂]
 
 	if parent.jk
 		if parent.purerobust
-			o.invMjkv = rowquadform(parent.X₁, (@view o.A[1:parent.kX₁,     parent.kX₁+1:end]), parent.X₂)
+			o.invMjkv = rowquadform(parent.X₁, (@view o.A[1:parent.kX₁, parent.kX₁+1:end]), parent.X₂)
 			o.invMjkv .*= 2
 			rowquadformplus!(o.invMjkv, parent.X₂, (@view o.A[parent.kX₁+1:end, parent.kX₁+1:end]), parent.X₂)
 			rowquadformplus!(o.invMjkv, parent.X₂, (@view o.A[parent.kX₁+1:end, parent.kX₁+1:end]), parent.X₂)
@@ -192,7 +192,7 @@ function PrepJKIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	_invZperpZperpZperpY₂  = _invZperpZperp * _ZperpY₂
 	_invZperpZperpZperpy₁  = _invZperpZperp * _Zperpy₁
 
-	o.Xⱼₖ  = partialjk(o.X₁, parent.X₂, o.Zperp, _invZperpZperpZperpX , parent.info✻)
+	o.Xⱼₖ   = partialjk(o.X₁, parent.X₂, o.Zperp, _invZperpZperpZperpX , parent.info✻)
 	o.y₁ⱼₖ  = partialjk(parent.y₁, o.Zperp, _invZperpZperpZperpy₁ , parent.info✻)
 	o.Y₂ⱼₖ  = partialjk(parent.Y₂, o.Zperp, _invZperpZperpZperpY₂ , parent.info✻)
 	o.Zⱼₖ   = partialjk(  o.Zpar , o.Zperp, _invZperpZperpZperpZ  , parent.info✻)
@@ -217,20 +217,13 @@ function PrepJKIV!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 	o.XXⱼₖ   = panelcross(o.Xⱼₖ, o.Xⱼₖ, parent.info✻); o.XXⱼₖ    .= XX           - o.XXⱼₖ   ; t✻minus!(o.XXⱼₖ   , ZperpX'   , _invZperpZperpZperpX); t✻minus!(o.XXⱼₖ    , _invZperpZperpZperpX', tX)
 	o.XY₂ⱼₖ   = panelcross(o.Xⱼₖ, o.Y₂ⱼₖ, parent.info✻); o.XY₂ⱼₖ    .= XY₂           - o.XY₂ⱼₖ   ; t✻minus!(o.XY₂ⱼₖ   , ZperpX'   , _invZperpZperpZperpY₂); t✻minus!(o.XY₂ⱼₖ    , _invZperpZperpZperpX', tY₂)
 	o.Y₂y₁ⱼₖ = panelcross(o.Y₂ⱼₖ, o.y₁ⱼₖ, parent.info✻); o.Y₂y₁ⱼₖ .= view(o.Y₂y₁,:,:) - o.Y₂y₁ⱼₖ; t✻minus!( o.Y₂y₁ⱼₖ, ZperpY₂'   , _invZperpZperpZperpy₁); t✻minus!( o.Y₂y₁ⱼₖ, _invZperpZperpZperpY₂', ty₁)
-	# o.X₁y₁ⱼₖ = panelcross(o.X₁ⱼₖ, o.y₁ⱼₖ, parent.info✻); o.X₁y₁ⱼₖ .= view(o.X₁y₁,:,:) - o.X₁y₁ⱼₖ; t✻minus!(o.X₁y₁ⱼₖ , ZperpX₁'   , _invZperpZperpZperpy₁); t✻minus!(o.X₁y₁ⱼₖ , _invZperpZperpZperpX₁', ty₁)
-	# o.X₂y₁ⱼₖ = panelcross(o.X₂ⱼₖ, o.y₁ⱼₖ, parent.info✻); o.X₂y₁ⱼₖ .= view(o.X₂y₁,:,:) - o.X₂y₁ⱼₖ; t✻minus!(o.X₂y₁ⱼₖ , ZperpX₂'   , _invZperpZperpZperpy₁); t✻minus!(o.X₂y₁ⱼₖ , _invZperpZperpZperpX₂', ty₁)
   o.Xy₁ⱼₖ = panelcross(o.Xⱼₖ, o.y₁ⱼₖ, parent.info✻); o.Xy₁ⱼₖ .= view(Xy₁,:,:) - o.Xy₁ⱼₖ; t✻minus!(o.Xy₁ⱼₖ , ZperpX'   , _invZperpZperpZperpy₁); t✻minus!(o.Xy₁ⱼₖ , _invZperpZperpZperpX', ty₁)
 	o.Zy₁ⱼₖ  = panelcross(o.Zⱼₖ,  o.y₁ⱼₖ, parent.info✻); o.Zy₁ⱼₖ  .= view( o.Zy₁,:,:) - o.Zy₁ⱼₖ ; t✻minus!(o.Zy₁ⱼₖ  , ZperpZpar' , _invZperpZperpZperpy₁); t✻minus!(o.Zy₁ⱼₖ  , _invZperpZperpZperpZ' , ty₁)
-	# X₁Zⱼₖ    = panelcross(o.X₁ⱼₖ, o.Zⱼₖ , parent.info✻); X₁Zⱼₖ    .= o.X₁Z            - X₁Zⱼₖ   ; t✻minus!(X₁Zⱼₖ    , ZperpX₁'   , _invZperpZperpZperpZ ); t✻minus!(X₁Zⱼₖ    , _invZperpZperpZperpX₁', tZ )
-	# X₂Zⱼₖ    = panelcross(o.X₂ⱼₖ, o.Zⱼₖ , parent.info✻); X₂Zⱼₖ    .= o.X₂Z            - X₂Zⱼₖ   ; t✻minus!(X₂Zⱼₖ    , ZperpX₂'   , _invZperpZperpZperpZ ); t✻minus!(X₂Zⱼₖ    , _invZperpZperpZperpX₂', tZ )
   o.XZⱼₖ    = panelcross(o.Xⱼₖ, o.Zⱼₖ , parent.info✻); o.XZⱼₖ    .= XZ            - o.XZⱼₖ   ; t✻minus!(o.XZⱼₖ    , ZperpX'   , _invZperpZperpZperpZ ); t✻minus!(o.XZⱼₖ    , _invZperpZperpZperpX', tZ )
 	o.ZZⱼₖ   = panelcross(o.Zⱼₖ,  o.Zⱼₖ , parent.info✻); o.ZZⱼₖ   .= o.ZZ             - o.ZZⱼₖ  ; t✻minus!(o.ZZⱼₖ   , ZperpZpar' , _invZperpZperpZperpZ ); t✻minus!(o.ZZⱼₖ   , _invZperpZperpZperpZ' , tZ )
 	o.ZY₂ⱼₖ  = panelcross(o.Zⱼₖ,  o.Y₂ⱼₖ, parent.info✻); o.ZY₂ⱼₖ  .= o.ZY₂            - o.ZY₂ⱼₖ ; t✻minus!(o.ZY₂ⱼₖ  , ZperpZpar' , _invZperpZperpZperpY₂); t✻minus!(o.ZY₂ⱼₖ  , _invZperpZperpZperpZ' , tY₂)
 	o.y₁y₁ⱼₖ = panelcross(o.y₁ⱼₖ, o.y₁ⱼₖ, parent.info✻); o.y₁y₁ⱼₖ .= [o.y₁y₁;;;]     .- o.y₁y₁ⱼₖ; t✻minus!(o.y₁y₁ⱼₖ, 2 * Zperpy₁', _invZperpZperpZperpy₁); o.y₁y₁ⱼₖ .+= _invZperpZperpZperpy₁'ZperpZperp*_invZperpZperpZperpy₁
-	# o.XZⱼₖ   = [X₁Zⱼₖ; X₂Zⱼₖ]
 
-	# o.XY₂ⱼₖ = [_X₁Y₂ ; _X₂Y₂]
-	# o.XXⱼₖ  = [_X₁X₁ ; _X₂X₁ ;;; _X₂X₁' ;  _X₂X₂]
 	o.cholXXⱼₖ = _cholesky(o.XXⱼₖ)
 
 	o.H_2SLSⱼₖ = o.XZⱼₖ' * (cholldiv(o.cholXXⱼₖ, o.XZⱼₖ))
@@ -496,7 +489,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 		o.XY₂ = [o.X₁Y₂; o.X₂Y₂]
 		o.XX = [o.X₁X₁ o.X₂X₁' ; o.X₂X₁ o.X₂X₂]
 		o.cholXX = _cholesky(o.XX)
-		parent.willfill && parent.granular && (o.invXX = inv(o.cholXX))
+		parent.willfill && parent.granular && (o.invXX = invsym(o.cholXX))
 	end
 
 	o.invZperpZperpZperpZ = cholldiv(o.cholZperpZperp, o.ZperpZpar)
@@ -632,13 +625,13 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁
   end
 
   o.invXXXy₁par = cholldiv(o.cholXX, o.Xy₁par)
-  o.YY = ([[o.y₁pary₁par] o.Zy₁par'; o.Zy₁par o.ZZ])
+  o.YY = [[o.y₁pary₁par] o.Zy₁par'; o.Zy₁par o.ZZ]
 
   if o.isDGP
 		o.ZXinvXXXy₁par = o.XZ'o.invXXXy₁par
 
 		if o.liml
-			o.YPXY = ([[o.invXXXy₁par'o.Xy₁par] o.ZXinvXXXy₁par' ; o.ZXinvXXXy₁par  o.H_2SLS])
+			o.YPXY = [[o.invXXXy₁par'o.Xy₁par] o.ZXinvXXXy₁par' ; o.ZXinvXXXy₁par  o.H_2SLS]
 	    o.κ = 1/(1 - real(eigvalsNaN(cholldiv!(_cholesky(o.YY), o.YPXY))[1]))  # like Fast & Wild (81), but more stable, at least in Mata
 	    !iszero(o.fuller) && (o.κ -= o.fuller / (parent._Nobs - parent.kX))
 	    MakeH!(o, parent)
