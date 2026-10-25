@@ -75,7 +75,7 @@ function InitVarsOLS!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstrac
 			o.invMjkv .= 1 ./ (1 .- o.invMjkv)  # standard hc3 multipliers
 		elseif parent.granularjk
 			negR₁AR₁ = -R₁AR₁  # likely that R₁AR₁===A, so don't overwrite it
-			o.cholMjk = Vector{CholeskyPivoted{T, Matrix{T}, Vector{Int64}}}(undef, parent.N✻)
+			o.cholMjk = Vector{CholPiv{T}}(undef, parent.N✻)
 			M       = Matrix{T}(undef, parent.maxNg, parent.maxNg)
 			X₁R₁AR₁ = Matrix{T}(undef, parent.maxNg, parent.kX₁  )
 			for (g,S) ∈ enumerate(parent.info✻)
@@ -134,7 +134,7 @@ function InitVarsARubin!(o::StrEstimator{T}, parent::StrBootTest{T}) where T
 			rowquadformplus!(o.invMjkv, parent.X₂, (@view o.A[parent.kX₁+1:end, parent.kX₁+1:end]), parent.X₂)
 			o.invMjkv .= 1 ./ (1 .- o.invMjkv)  # standard hc3 multipliers
 		elseif parent.granularjk
-			o.cholMjk = Vector{CholeskyPivoted{T, Matrix{T}, Vector{Int64}}}(undef, parent.N✻)
+			o.cholMjk = Vector{CholPiv{T}}(undef, parent.N✻)
 			negR₁AR₁ = -R₁AR₁  # N.B.: likely that R₁AR₁===A, so don't overwrite it
 			negR₁AR₁_₁₁ = @view negR₁AR₁[1:parent.kX₁    , 1:parent.kX₁    ]
 			negR₁AR₁_₁₂ = @view negR₁AR₁[1:parent.kX₁    , parent.kX₁+1:end]
@@ -552,7 +552,7 @@ function InitVarsIV!(o::StrEstimator{T}, parent::StrBootTest{T}, Rperp::Abstract
 			if o.liml
 				o.Hⱼₖ = Array{T,3}(undef, o.kZ, parent.N✻, o.kZ)
 			else
-				o.cholHⱼₖ = isone(o.κ) : _cholesky(o.H_2SLSⱼₖ) : _cholesky!(o.ZZⱼₖ + o.κ * o.H_2SLSmZZⱼₖ)
+				o.cholHⱼₖ = isone(o.κ) ? _cholesky(o.H_2SLSⱼₖ) : _cholesky(o.ZZⱼₖ + o.κ * o.H_2SLSmZZⱼₖ)
 			end
 		end
 
@@ -632,7 +632,7 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁
 
 		if o.liml
 			o.YPXY = [[o.invXXXy₁par'o.Xy₁par] o.ZXinvXXXy₁par' ; o.ZXinvXXXy₁par  o.H_2SLS]
-	    o.κ = 1/(1 - real(eigvalsNaN(cholldiv!(_cholesky(o.YY), o.YPXY))[1]))  # like Fast & Wild (81), but more stable, at least in Mata
+	    o.κ = 1/(1 - eigval1NaN(cholldiv!(_cholesky(o.YY), o.YPXY)))  # like Fast & Wild (81), but more stable, at least in Mata
 	    !iszero(o.fuller) && (o.κ -= o.fuller / (parent._Nobs - parent.kX))
 	    MakeH!(o, parent)
 		end
@@ -645,10 +645,10 @@ function EstimateIV!(o::StrEstimator{T}, parent::StrBootTest{T}, _jk::Bool, r₁
 
 			if o.liml
 				o.YPXYⱼₖ .= [o.invXXXy₁parⱼₖ'o.Xy₁parⱼₖ ; o.ZXinvXXXy₁parⱼₖ ;;; o.ZXinvXXXy₁parⱼₖ' ; o.H_2SLSⱼₖ]
-				o.κⱼₖ .= reshape(one(T) ./ (one(T) .- getindex.(real.(eigvalsNaN.(each(cholldiv!(_cholesky(o.YYⱼₖ), o.YPXYⱼₖ)))), 1)), (1,:,1))
+				o.κⱼₖ .= reshape(one(T) ./ (one(T) .- eigval1NaN.(each(cholldiv!(_cholesky(o.YYⱼₖ), o.YPXYⱼₖ)))), (1,:,1))
 				!iszero(o.fuller) && (o.κⱼₖ .-= reshape(o.fuller ./ (o.Nobsⱼₖ .- parent.kX)), (1,:,1))
 				o.Hⱼₖ .= o.ZZⱼₖ .+ o.κⱼₖ .* o.H_2SLSmZZⱼₖ
-				o.cholHⱼₖ = _cholesky!(o.Hⱼₖ)
+				o.cholHⱼₖ = _cholesky(o.Hⱼₖ)  # not _cholesky!(), which would return CholeskyPivoted{T, SubArray...}
 				o.β̈ⱼₖ .= o.κⱼₖ .* (o.ZXinvXXXy₁parⱼₖ .- o.Zy₁parⱼₖ) .+ o.Zy₁parⱼₖ
 			else
 				if isone(o.κ)

@@ -516,3 +516,5 @@ wildboottest!(T, R, r; kwargs...) = _wildboottest(isa(T, AbstractString) ? eval(
 const skipargs = (:imposenull, :reps, :scorebs)
 waldtest(args...; kwargs...) = wildboottest(args...; reps=0, imposenull=false, scorebs=true, Dict(a.first => a.second for a ∈ kwargs if a.first ∉ skipargs)...)
 scoretest(args...; kwargs...) = wildboottest(args...; reps=0, imposenull=true, scorebs=true, Dict(a.first => a.second for a ∈ kwargs if a.first ∉ skipargs)...)
+
+@specialize  # end @nospecialize region, so it does not leak into code after include("interface.jl")

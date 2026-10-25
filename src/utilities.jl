@@ -52,7 +52,8 @@ end
 invsym( X::AbstractMatrix) = invsym(cholesky( Symmetric(X), RowMaximum(), check=false))
 invsym!(X::AbstractMatrix) = invsym(cholesky!(Symmetric(X), RowMaximum(), check=false))
 
-eigvalsNaN(X) =	try eigvals(X) catch _ fill(eltype(X)(NaN), size(X)) end
+# real part of first eigenvalue, or NaN if eigvals() fails; type-stable, unlike eigvals(), to avoid invalidation-prone dynamic dispatch
+eigval1NaN(X::AbstractMatrix{T}) where T = try T(real(eigvals(X)[1])) catch _ T(NaN) end
 
 @inline colsum(X::AbstractArray) = iszero(length(X)) ? similar(X, 1, size(X)[2:end]...) : sum(X, dims=1)
 @inline colsum(X::AbstractArray{Bool}) = iszero(length(X)) ? Array{Int}(undef, 1, size(X)[2:end]...) : sum(X, dims=1)  # type-stable
@@ -351,7 +352,7 @@ _cholesky!(X::AbstractMatrix{T}) where {T} = cholesky!(iszero(length(X)) ? T[;;]
 _cholesky( X::AbstractMatrix{T}) where {T} = cholesky( iszero(length(X)) ? T[;;] : Symmetric(X), RowMaximum(), check=false)
 
 _cholesky( X::Array{T,3}) where T = [_cholesky( view(X,:,g,:)) for g ∈ eachindex(axes(X,2))]
-_cholesky!(X::Array{T,3}) where T = [_cholesky!(view(X,:,g,:)) for g ∈ eachindex(axes(X,2))]
+_cholesky!(X::Array{T,3}) where T = [_cholesky( view(X,:,g,:)) for g ∈ eachindex(axes(X,2))]  # not _cholesky!(view()), which makes CholeskyPivoted{T, SubArray...} or, if empty, CholeskyPivoted{T, Matrix...}: type-unstable
 
 # fast dest .= source[p,:]
 function permrows!(dest::AbstractVecOrMat{T}, source::AbstractVecOrMat{T}, p::Vector{Int}) where T
@@ -764,7 +765,7 @@ end
 # crosstab of  the columns of a vector of matrices given panel info and fixed-effect var
 # returns a vector of sparse matrices, one for each col of each matrix
 # each returned sparse metric has one row per FE, one col per other grouping
-function crosstabFE!(o::StrBootTest{T}, dest::AbstractVector{SparseMatrixCSC{T}}, v::Vector{S} where S<:AbstractVecOrMat{T}, ID::Vector{Int64}, NID::Int64) where T
+function crosstabFE!(o::StrBootTest{T}, dest::AbstractVector{SparseMatrixCSC{T,Int}}, v::Vector{S} where S<:AbstractVecOrMat{T}, ID::Vector{Int64}, NID::Int64) where T
 	i = 1
 	if o.haswt
 		for M ∈ v
@@ -804,11 +805,11 @@ function crosstabFE!(o::StrBootTest{T}, dest::AbstractVector{SparseMatrixCSC{T}}
   dest
 end
 function crosstabFE(o::StrBootTest{T}, v::AbstractVecOrMat{T}, ID::Vector{Int64}, NID::Int64) where T
-  dest = Vector{SparseMatrixCSC{T}}(undef, ncols(v))
+  dest = Vector{SparseMatrixCSC{T,Int}}(undef, ncols(v))
 	crosstabFE!(o, dest, [v], ID, NID)
 end
 function crosstabFE(o::StrBootTest{T}, v₁::AbstractVecOrMat{T}, v₂::AbstractVecOrMat{T}, ID::Vector{Int64}, NID::Int64) where T
-  dest = Vector{SparseMatrixCSC{T}}(undef, ncols(v₁)+ncols(v₂))
+  dest = Vector{SparseMatrixCSC{T,Int}}(undef, ncols(v₁)+ncols(v₂))
 	crosstabFE!(o, dest, [v₁, v₂], ID, NID)
 end
 

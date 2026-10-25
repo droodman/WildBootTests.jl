@@ -737,9 +737,9 @@ function MakeWREStats!(o::StrBootTest{T}, w::Integer) where T
 			M = Matrix{T}(undef, o.Repl.kZ+1, o.Repl.kZ+1)
 			@inbounds for b ∈ eachindex(axes(o.κWRE,2))
 				ldiv!(M, _cholesky(view(o.YY✻,:,b,:)), view(o.YPXY✻,:,b,:))
-				o.κWRE[b] = one(T)/(one(T) - real(eigvalsNaN(M)[1]))
+				o.κWRE[b] = one(T)/(one(T) - eigval1NaN(M))
 			end
-			# view(o.κWRE,1,:,1) .= one(T) ./ (one(T) .- getindex.(real.(eigvalsNaN.(each(invsym(o.YY✻) * o.YPXY✻))), 1))
+			# view(o.κWRE,1,:,1) .= one(T) ./ (one(T) .- eigval1NaN.(each(invsym(o.YY✻) * o.YPXY✻)))
 			!iszero(o.fuller) && (o.κWRE .-= o.fuller / (o._Nobs - o.kX))
 
 			o.As          .= o.κWRE .* view(o.YPXY✻, 2:o.Repl.kZ+1, :, 2:o.Repl.kZ+1) .+ (1 .- o.κWRE) .* view(o.YY✻, 2:o.Repl.kZ+1, :, 2:o.Repl.kZ+1)

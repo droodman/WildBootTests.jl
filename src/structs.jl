@@ -1,5 +1,7 @@
 # Definition of StrBootTest "class" for holding intermediate results, with associated utilities and get functions
 
+const CholPiv{T} = CholeskyPivoted{T, Matrix{T}, Vector{Int64}}  # concrete type, for type stability
+
 struct StrClust{T<:Real}
 	N::Int; multiplier::T; even::Bool
 	order::Vector{Int64}
@@ -142,12 +144,12 @@ mutable struct StrEstimator{T<:AbstractFloat}
 	restricted::Bool; RperpX::DesignerMatrix{T}; RperpXperp::DesignerMatrix{T}; RRpar::Matrix{T}; RparX::Matrix{T}; RparY::DesignerMatrix{T}; RR₁invR₁R₁::Matrix{T}
 	∂β̈∂r::Matrix{T}; YY::Matrix{T}; AR::Matrix{T}; XAR::Matrix{T}; Ü₂::Matrix{T}; Rt₁::Vector{T}
 	invXX::Matrix{T}; Y₂::Matrix{T}; X₂::Matrix{T}; invH::Matrix{T}
-	cholZperpZperp::CholeskyPivoted{T}; cholXX::CholeskyPivoted{T}
+	cholZperpZperp::CholPiv{T}; cholXX::CholPiv{T}
 	y₁par::Vector{T}; Xy₁par::Vector{T}
 	A::Matrix{T}; Zpar::Matrix{T}; Zperp::Matrix{T}; X₁::Matrix{T}
-	CT_XAR::Vector{SparseMatrixCSC{T}}
+	CT_XAR::Vector{SparseMatrixCSC{T,Int}}
 	copyfromDGP::Bool
-	S✻XX::Array{T,3}; XinvHⱼₖ::Vector{Matrix{T}}; cholMjk::Vector{CholeskyPivoted{T}}; invMjkv::Vector{T}; XXt1jk::Matrix{T}; t₁::Vector{T}
+	S✻XX::Array{T,3}; XinvHⱼₖ::Vector{Matrix{T}}; cholMjk::Vector{CholPiv{T}}; invMjkv::Vector{T}; XXt1jk::Matrix{T}; t₁::Vector{T}
 	Xu::Vector{T}
 
   # IV/GMM only
@@ -170,9 +172,9 @@ mutable struct StrEstimator{T<:AbstractFloat}
 
 	Xⱼₖ::Matrix{T}; y₁ⱼₖ::Vector{T}; Y₂ⱼₖ::Matrix{T}; Zⱼₖ::Matrix{T}; ZR₁ⱼₖ::Matrix{T}; Y₂y₁ⱼₖ::Array{T,3}; Xy₁ⱼₖ::Array{T,3}; Zy₁ⱼₖ::Array{T,3}; XZⱼₖ::Array{T,3}; ZZⱼₖ::Array{T,3}; ZY₂ⱼₖ::Array{T,3}; y₁y₁ⱼₖ::Array{T,3}; XY₂ⱼₖ::Array{T,3}
 	XXⱼₖ::Array{T,3}; XZR₁ⱼₖ::Array{T,3}; ZR₁Zⱼₖ::Array{T,3}; twoZR₁y₁ⱼₖ::Array{T,3}; ZR₁ZR₁ⱼₖ::Array{T,3}; ZR₁Y₂ⱼₖ::Array{T,3} 
-	cholXXⱼₖ::Vector{CholeskyPivoted{T}}
+	cholXXⱼₖ::Vector{CholPiv{T}}
 	Y₂y₁parⱼₖ::Array{T,3}; Zy₁parⱼₖ::Array{T,3}; y₁pary₁parⱼₖ::Array{T,3};	Xy₁parⱼₖ::Array{T,3}; y₁parⱼₖ::Vector{T}; H_2SLSⱼₖ::Array{T,3}; H_2SLSmZZⱼₖ::Array{T,3}
-	Hⱼₖ::Array{T,3}; cholHⱼₖ::Vector{CholeskyPivoted{T}}
+	Hⱼₖ::Array{T,3}; cholHⱼₖ::Vector{CholPiv{T}}
 	β̈ⱼₖ::Array{T,3}; κⱼₖ::Array{T,3}; YPXYⱼₖ::Array{T,3}; YYⱼₖ::Array{T,3}; invXXXy₁parⱼₖ::Array{T,3}; ZXinvXXXy₁parⱼₖ::Array{T,3}
 
   StrEstimator{T}(isDGP, liml, fuller, κ) where T<:AbstractFloat = new(isDGP, liml, fuller, κ, Matrix{T}(undef,0,0))
@@ -223,7 +225,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	∂u∂r::Vector{Matrix{T}}; ∂numer∂r::Vector{Matrix{T}}; S✻Xu₁::Array{T,3}; S✻XU₂par::Array{T,3}; S✻XU::Vector{SubArray{T, 2, Array{T, 3}, Tuple{Base.Slice{Base.OneTo{Int64}}, Base.Slice{Base.OneTo{Int64}}, Int64}, true}}; invXXS✻Xu₁::Array{T,3}; invXXS✻XU₂par::Array{T,3}; invXXS✻XU::Vector{SubArray{T, 2, Array{T, 3}, Tuple{Base.Slice{Base.OneTo{Int64}}, Base.Slice{Base.OneTo{Int64}}, Int64}, true}}
 	invZperpZperpS✻ZperpU₂par::Array{T,3}; invZperpZperpS✻Zperpu₁::Array{T,3}; invZperpZperpS✻ZperpU::Vector{SubArray{T, 2, Array{T, 3}, Tuple{Base.Slice{Base.OneTo{Int64}}, Base.Slice{Base.OneTo{Int64}}, Int64}, true}} 
 	S✻Zperpu₁::Array{T,3}; S✻ZperpU₂par::Array{T,3}; S✻ZperpU::Vector{SubArray{T, 2, Array{T, 3}, Tuple{Base.Slice{Base.OneTo{Int64}}, Base.Slice{Base.OneTo{Int64}}, Int64}, true}}
-	Mjw::Vector{T}; CT✻FEU₂::Vector{SparseMatrixCSC{T}}; CT✻FEU::Vector{SparseMatrixCSC{T}}; invFEwtCT✻FEU::Vector{SparseMatrixCSC{T}}
+	Mjw::Vector{T}; CT✻FEU₂::Vector{SparseMatrixCSC{T,Int}}; CT✻FEU::Vector{SparseMatrixCSC{T,Int}}; invFEwtCT✻FEU::Vector{SparseMatrixCSC{T,Int}}
 	S✻ȲUfold::Array{T,3}
   ∂denom∂r::Array{Matrix{T},3}; ∂Jcd∂r::Array{Matrix{T},3}; ∂²denom∂r²::Array{Matrix{T},4}
 	T1L::Matrix{T}; T1R::Matrix{T}; J⋂s::Array{T,3}; J⋂s1::Vector{Matrix{T}}; β̈v::Matrix{T}
@@ -236,7 +238,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 	S✻ZperpY₂::Array{T,3}; S✻ZperpX::Array{T,3}; S✻ZperpDGPZ::Array{T,3}; S✻Zperpy₁::Array{T,3}; S✻ZperpDGPZR₁::Array{T,3}
 	invZperpZperpS✻ZperpY₂::Array{T,3}; invZperpZperpS✻ZperpX::Array{T,3}; invZperpZperpS✻ZperpDGPZ::Array{T,3}; invZperpZperpS✻Zperpy₁::Array{T,3}; invZperpZperpS✻ZperpDGPZR₁::Array{T,3}
 	S✻Y₂y₁::Array{T,3}; S✻DGPZy₁::Array{T,3}; S✻y₁y₁::Array{T,3}; S✻DGPZR₁y₁::Array{T,3}
-	negS✻UMZperpX::Vector{Array{T,3}}; S⋂XZperpinvZperpZperp::Array{T,3}; CT✻FEX::Vector{SparseMatrixCSC{T}}; CT⋂FEX::Vector{SparseMatrixCSC{T}}; CT✻FEY₂::Vector{SparseMatrixCSC{T}}; CT✻FEZ::Vector{SparseMatrixCSC{T}}; CT✻FEy₁::Vector{SparseMatrixCSC{T}}; CT✻FEZR₁::Vector{SparseMatrixCSC{T}}
+	negS✻UMZperpX::Vector{Array{T,3}}; S⋂XZperpinvZperpZperp::Array{T,3}; CT✻FEX::Vector{SparseMatrixCSC{T,Int}}; CT⋂FEX::Vector{SparseMatrixCSC{T,Int}}; CT✻FEY₂::Vector{SparseMatrixCSC{T,Int}}; CT✻FEZ::Vector{SparseMatrixCSC{T,Int}}; CT✻FEy₁::Vector{SparseMatrixCSC{T,Int}}; CT✻FEZR₁::Vector{SparseMatrixCSC{T,Int}}
 	S✻Y₂Y₂::Array{T,3}; S✻ZparY₂Z_DGPZ::Array{T,3}; S✻DGPZY₂::Array{T,3}; S✻DGPZR₁Y₂::Array{T,3}; S✻DGPZDGPZ::Array{T,3};  S✻DGPZR₁DGPZR₁::Array{T,3}; S✻DGPZR₁DGPZ::Array{T,3}; S✻DGPZR₁X::Array{T,3}
 	XinvXX::Matrix{T}; S⋂XX::Array{T,3}
 	S✻⋂XU₂::Array{T,3}; S✻⋂XÜ₂par::Array{T,3}; S✻⋂Xu₁::Array{T,3}; S✻XU₂::Array{T,3}; S✻ZperpU₂::Array{T,3}; invZperpZperpS✻ZperpU₂::Array{T,3}; invXXS✻XU₂::Array{T,3}
