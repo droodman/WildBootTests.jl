@@ -17,8 +17,6 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
   isnan(o.κ) && (o.κ = o.kX₂>0 ? one(T) : zero(T))  # if κ in κ-class estimation not specified, it's 0 or 1 for OLS or 2SLS
   o.WRE = !(iszero(o.κ) || o.scorebs) || o.arubin
 
-  iszero(o.B) && (o.scorebs = true)
-
   o.haswt = !iszero(length(o.wt))
 	if o.haswt
 		o.sumwt = sum(o.wt)
@@ -201,7 +199,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 		o.maxmatsize = 0
 		o.B = 2^o.N✻
 		o.Nw = 1
-	else
+	else  # number of weight groups to save memory; if maxmatsize=0 then make all weights at once, else split into groups of weights so each group fits in memory
 		o.Nw = iszero(o.maxmatsize) ? one(Int64) : ceil(Int64, (o.B+1.) * max(nrows(o.ID✻), length(o.ID✻_✻⋂), o.N✻) * sizeof(T) / o.maxmatsize / 1073741824) # 1073741824 = giga(byte)
 	end
 
@@ -224,7 +222,7 @@ function Init!(o::StrBootTest{T}) where T  # for efficiency when varying r repea
 	else
 		if o.arubin
 			o.R = hcat(zeros(o.kX₂,o.kX₁), Matrix(I(o.kX₂)))  # attack surface is all endog vars
-			o.R₁ = o.kX₁>0 && nrows(o.R₁)>0 ? hcat(o.R₁[:,1:o.kX₁], zeros(T,nrows(o.R₁),o.kX₂)) : zeros(T,0, o.kX)  # and convert model constraints from referring to X₁, Y₂ to X₁, X₂
+			o.R₁ = o.kX₁>0 && nrows(o.R₁)>0 ? hcat(o.R₁[:,1:o.kX₁], zeros(T,nrows(o.R₁),o.kX₂)) : zeros(T,0,o.kX)  # and convert model constraints from referring to X₁, Y₂ to X₁, X₂
 		end
 		o.dof = nrows(o.R)
 

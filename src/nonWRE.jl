@@ -175,7 +175,7 @@ end
 # compute stuff depending linearly on v, needed to prep for interpolation
 # called to *prepare* interpolation, or when w>1, in which case there is no interpolation
 function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVector=Vector{T}(undef,0)) where T
-	if o.jk && !_jk  # if block  same as else block, but will run 2nd in jk and is specialized to first bs col, in which v is all 1's
+	if o.jk && !_jk  # if block same as else block, but will run 2nd in jk and is specialized to first bs col, in which v is all 1's
 		!o.scorebs && (!o.robust || o.granular || o.purerobust) &&
 			(o.β̈devⱼₖ = rowsum(o.SuwtXA))
 		if o.null
@@ -195,7 +195,11 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 				mul!(o.numerw, o.SuwtXA', o.v)
 			end
 		elseif !o.robust || o.granular || o.purerobust
-			mul!(o.β̈dev, o.SuwtXA, o.v)
+			if iszero(o.B)
+				sum!(o.β̈dev, o.SuwtXA)
+			else
+				mul!(o.β̈dev, o.SuwtXA, o.v)
+			end
 			mul!(o.numerw, o.R, o.β̈dev)
 		else
 			mul!(o.numerw, o.R * o.SuwtXA, o.v)
@@ -204,7 +208,7 @@ function MakeNumerAndJ!(o::StrBootTest{T}, w::Integer, _jk::Bool, r::AbstractVec
 		if isone(w) && !o.null  # if w>1, then numerw is only for that group, and may be needed now to prep interpolation
 			if o.arubin
 				o.numerw[:,1] = o.DGP.β̈[o.kX₁+1:end,1]  # coefficients on excluded instruments in arubin OLS
-			elseif !o.null  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this.
+			else  # Analytical Wald numerator; if imposing null then numer[:,1] already equals this. If not, then it's 0 before this.
 				o.numerw[:,1] = o.R * (o.ml ? o.β̈ : iszero(o.κ) ? o.M.β̈  : o.M.Rpar * o.M.β̈ ) - r  # κ≂̸0  score bootstrap of IV ⇒ using FWL and must factor in R∥ 
 			end
 		end

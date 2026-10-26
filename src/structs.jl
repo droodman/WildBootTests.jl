@@ -258,7 +258,7 @@ mutable struct StrBootTest{T<:AbstractFloat}
 								 β̈, A, sc, willplot, gridmin, gridmax, gridpoints, overwrite, v=T[]) where T<:Real =
 		begin
 			kX₂ = ncols(X₂)
-			scorebs = scorebs || iszero(B) || ml
+			scorebs = scorebs || ml || (iszero(B) & !arubin)
 			WREnonARubin = !(iszero(kX₂) || scorebs) && !arubin
 
 			new(R, r, R₁, r₁, 
